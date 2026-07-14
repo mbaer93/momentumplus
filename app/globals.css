@@ -2588,3 +2588,39 @@
   border: none;
 }
 .sp-link:hover { color: var(--gold-light); }
+
+/* ===== ADMIN PORTAL (Phase 7) ===== */
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+@media (max-width: 900px) {
+  .admin-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.admin-stat-card {
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.admin-stat-val { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+.admin-stat-lbl { font-size: 12px; color: var(--mid-gray); margin-top: 5px; }
+.admin-stat-sub { font-size: 11px; color: var(--purple); font-weight: 500; margin-top: 4px; }
+.admin-nav-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.admin-check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 0; }
+.tier-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  border: 1px solid var(--warm-gray);
+  border-radius: 16px;
+  padding: 5px 12px;
+  cursor: pointer;
+  background: var(--white);
+  color: var(--mid-gray);
+  transition: all 0.12s;
+}
+.tier-chip.selected { border-color: var(--purple); color: var(--purple); background: rgba(92, 61, 122, 0.06); }
