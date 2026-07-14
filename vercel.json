@@ -1,0 +1,24 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/attendance",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/import/tsls",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/summaries",
+      "schedule": "15 * * * *"
+    }
+  ]
+}

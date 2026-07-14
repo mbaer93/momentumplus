@@ -1,0 +1,20 @@
+import Link from "next/link";
+import { SessionForm } from "@/components/admin/SessionForm";
+import { ArrowLeftIcon } from "@/components/icons";
+
+export default function NewSessionPage() {
+  return (
+    <div className="admin-pad">
+      <Link href="/admin/sessions" className="sess-back">
+        <ArrowLeftIcon size={12} /> Back to sessions
+      </Link>
+      <div className="section-header">
+        <div>
+          <h2>New Session</h2>
+          <p>Add a session to the schedule</p>
+        </div>
+      </div>
+      <SessionForm mode="create" />
+    </div>
+  );
+}

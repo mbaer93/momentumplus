@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Momentum+ — Keep the Momentum</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0B1622;--ink:#16232F;--gold:#B8965A;--goldb:#C9A96A;--cream:#F8F6F1;--slate:#5B6570;--line:#E7E1D6}
+*{margin:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;color:#1C2A38;background:#8a8f96}
+.serif{font-family:'Playfair Display',serif}
+.eyebrow{font-weight:600;letter-spacing:.28em;text-transform:uppercase;font-size:11px;color:var(--gold)}
+.page{width:8.5in;min-height:11in;margin:22px auto;background:var(--cream);position:relative;overflow:hidden;
+  box-shadow:0 18px 60px rgba(0,0,0,.28)}
+.plus{display:inline-block;vertical-align:middle}
+
+/* header */
+.top{background:var(--navy);color:var(--cream);padding:44px 52px 40px;position:relative;overflow:hidden}
+.top:before{content:"";position:absolute;inset:0;background:radial-gradient(700px 320px at 88% -20%,rgba(184,150,90,.16),transparent 62%)}
+.top .corner{position:absolute;top:26px;left:26px;width:46px;height:46px;border:2px solid var(--gold);border-right:0;border-bottom:0;opacity:.6}
+.brandline{display:flex;align-items:center;gap:16px;position:relative}
+.brandline .w{font-family:'Playfair Display',serif;font-weight:600;font-size:52px;letter-spacing:-.5px;line-height:1}
+.top .tag{position:relative;margin-top:14px;letter-spacing:.32em;text-transform:uppercase;font-size:11px;color:#9AA3B0;font-weight:600}
+.top .hl{position:relative;margin-top:26px;font-family:'Playfair Display',serif;font-size:30px;font-weight:500;font-style:italic;color:#EEF0F2}
+.top .sub{position:relative;margin-top:14px;max-width:6.1in;font-size:13.5px;line-height:1.65;color:#C7CCD3}
+
+/* body */
+.body{padding:34px 52px 30px}
+.lead{font-size:14px;line-height:1.7;color:#2A3844}
+.lead b{color:var(--navy)}
+.rule{height:2px;background:var(--gold);width:64px;margin:26px 0 22px}
+
+.h{font-family:'Playfair Display',serif;font-weight:600;font-size:20px;color:var(--navy);margin-bottom:14px}
+.benefits{display:grid;grid-template-columns:1fr 1fr;gap:12px 30px}
+.ben{display:flex;gap:12px;align-items:flex-start}
+.ben .bp{color:var(--gold);font-family:'Playfair Display',serif;font-size:20px;line-height:1;margin-top:1px}
+.ben .bt b{display:block;font-size:13.5px;color:var(--navy);font-weight:600}
+.ben .bt span{font-size:12px;color:var(--slate);line-height:1.5}
+
+.tiers{margin-top:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tier{border:1px solid var(--line);border-radius:9px;background:#fff;padding:12px 12px 13px}
+.tier .tn{font-size:12.5px;font-weight:700;color:var(--navy)}
+.tier .td{font-size:10.5px;color:var(--slate);margin-top:3px;line-height:1.4}
+.tier.feat{background:var(--navy);border-color:var(--navy)}
+.tier.feat .tn{color:var(--goldb)}.tier.feat .td{color:#B9C0C9}
+
+.cta{margin-top:26px;background:var(--ink);border-radius:12px;padding:22px 26px;display:flex;justify-content:space-between;align-items:center;color:var(--cream);position:relative;overflow:hidden}
+.cta:before{content:"";position:absolute;right:-30px;bottom:-30px;width:140px;height:140px;border:2px solid var(--gold);opacity:.18;transform:rotate(45deg)}
+.cta .ct{position:relative}
+.cta .ct .e{color:var(--goldb);font-weight:600;letter-spacing:.22em;text-transform:uppercase;font-size:10px}
+.cta .ct .m{font-family:'Playfair Display',serif;font-size:22px;margin-top:5px}
+.cta .btn{position:relative;background:var(--gold);color:var(--navy);font-weight:700;font-size:14px;padding:13px 26px;border-radius:7px}
+
+.foot{padding:16px 52px 30px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);margin-top:6px}
+.foot .fl{font-size:10.5px;color:var(--slate);line-height:1.6}
+.mark-sm{display:flex;align-items:center;gap:9px;font-family:'Playfair Display',serif;font-weight:600;font-size:18px;color:var(--navy)}
+
+@media print{body{background:#fff}.page{margin:0;box-shadow:none;width:100%;min-height:100vh}}
+@page{size:letter;margin:0}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="top">
+    <span class="corner"></span>
+    <div class="brandline">
+      <span class="w">Momentum</span>
+      <svg class="plus" width="40" height="40" viewBox="0 0 200 200"><rect x="85" y="30" width="30" height="140" rx="3.6" fill="#C9A96A"/><rect x="30" y="85" width="140" height="30" rx="3.6" fill="#C9A96A"/></svg>
+    </div>
+    <div class="tag">The Tri&middot;State Leadership Community</div>
+    <div class="hl">Keep the momentum — all year.</div>
+    <div class="sub">The Tri-State Leadership Summit is one powerful day. Momentum+ is the other 364 — a members-only community and learning platform from the organizers of TSLS, built for the leaders of Maryland, Pennsylvania, and West Virginia.</div>
+  </div>
+
+  <div class="body">
+    <p class="lead">Momentum+ keeps Summit-caliber conversations going year-round. <b>Live monthly sessions, an on-demand library with AI-generated takeaways, a private member community, and direct access to the speakers and collaborators who make TSLS what it is</b> — practical leadership, marketing, and technology insight you can use Monday morning. No motivational fluff. No big-city posturing. Just real leaders, real conversations, and a room that stays open all year.</p>
+
+    <div class="rule"></div>
+
+    <div class="h">What members get</div>
+    <div class="benefits">
+      <div class="ben"><span class="bp">+</span><div class="bt"><b>Live monthly sessions</b><span>Expert-led, with enrollment, calendar sync, and attendance tracking.</span></div></div>
+      <div class="ben"><span class="bp">+</span><div class="bt"><b>On-demand library</b><span>Every session recorded, with AI summaries — takeaways, quotes, action items.</span></div></div>
+      <div class="ben"><span class="bp">+</span><div class="bt"><b>Private community</b><span>Tier-gated chat with speaker Q&amp;A and direct messages among peers.</span></div></div>
+      <div class="ben"><span class="bp">+</span><div class="bt"><b>The speakers</b><span>Full profiles sortable by industry — and real access to the people behind them.</span></div></div>
+      <div class="ben"><span class="bp">+</span><div class="bt"><b>Partner resources</b><span>Vetted tools and member-exclusive offers from trusted regional partners.</span></div></div>
+      <div class="ben"><span class="bp">+</span><div class="bt"><b>Your learning record</b><span>Private per-session notes and a personal record of everything you've gained.</span></div></div>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="h">Membership that fits</div>
+    <div class="tiers">
+      <div class="tier feat"><div class="tn">Summit Attendee</div><div class="td">Included with TSLS registration — months of access on us.</div></div>
+      <div class="tier"><div class="tn">Monthly · 3&#8209;Mo · 6&#8209;Mo</div><div class="td">Flexible ongoing plans billed through Go High Level.</div></div>
+      <div class="tier"><div class="tn">Annual</div><div class="td">Best value for leaders who are in it for the long game.</div></div>
+      <div class="tier"><div class="tn">VIP &amp; Speaker</div><div class="td">VIP channels, exclusive sessions, and bonus content.</div></div>
+    </div>
+
+    <div class="cta">
+      <div class="ct">
+        <div class="e">Join the community</div>
+        <div class="m">Attend the Summit. Keep the Momentum+.</div>
+      </div>
+      <div class="btn">thetsls.com</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="fl">A Sierra Learnership Collaborative property · in the TSLS family<br>Title media partner: NewsTalk 103.7 FM — the voice of the Tri-State</div>
+    <div class="mark-sm">Momentum
+      <svg width="20" height="20" viewBox="0 0 200 200"><rect x="85" y="30" width="30" height="140" rx="3.6" fill="#B8965A"/><rect x="30" y="85" width="140" height="30" rx="3.6" fill="#B8965A"/></svg>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

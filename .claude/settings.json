@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "defaultMode": "auto",
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Edit(/app/**)",
+      "Edit(/components/**)",
+      "Edit(/lib/**)",
+      "Edit(/supabase/**)",
+      "Edit(/tests/**)",
+      "Edit(/public/**)",
+      "WebFetch(domain:*.npmjs.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:*.zoom.us)",
+      "WebFetch(domain:getstream.io)",
+      "WebFetch(domain:*.mux.com)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(rm *)",
+      "Edit(/.env*)"
+    ],
+    "deny": [
+      "Bash(curl * | bash)",
+      "Read(./.env.local)"
+    ]
+  }
+}

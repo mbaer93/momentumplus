@@ -22,6 +22,15 @@ External links: TSLS Summit site, Sierra Learnership Collaborative site.
 | speaker | granted by admin | ongoing |
 | admin | internal | ongoing |
 
+**Confirmed pricing (configure as GHL products; display on pricing/renewal pages):**
+Monthly $198/mo ("Flexible monthly access") · 3-Month $534 = $178/mo, save $60
+("Designed for leaders committed to implementation momentum") · 6-Month $948 =
+$158/mo, save $240 ("For leaders serious about sustained growth and accountability")
+· 12-Month $1,668 = $139/mo, save $708 — flag as **Best Value** in UI ("The full
+leadership ecosystem experience"; aligns with annual TSLS cycle). Show per-month
+equivalents and savings exactly as listed. VIP Summit registration embeds 3 months
+($534 value) — reference this on the VIP-sourced welcome screen.
+
 Gating levels used by content: `all_members`, `vip_plus` (vip, annual, speaker, admin),
 `admin_only`. Sessions/resources/videos each carry a `min_access` field.
 
@@ -77,11 +86,24 @@ key used only in server routes (webhooks, imports, admin actions).
   registration type → tier + months, upsert profile + membership, send invite email
   (Supabase magic-link invite). Mark row processed. Idempotent by email + event year.
 
-### Zoom (Server-to-Server OAuth)
-- Admin creates session → API creates Zoom meeting, stores join URL.
-- Join URL revealed to enrolled members from 30 min before start.
+### Zoom (Server-to-Server OAuth + Meeting SDK embed)
+- Admin creates session → API creates Zoom meeting, stores meeting ID + join URL.
+- **Embedded live session room** at `/sessions/[id]/live` (enrolled members only,
+  opens 30 min before start): Zoom Meeting SDK for Web in *component view* renders
+  the meeting inside the page. Layout: video left (~65%), right panel with tabs for
+  My Notes (autosaving `session_notes` textarea), Resources (resources linked to
+  this session), and Community (session chat channel). Member display name is
+  pre-filled from their profile — no name prompt.
+- Requires a Meeting SDK app (marketplace.zoom.us): SDK client ID + secret. The
+  join signature is generated server-side (`/api/zoom/signature`, enrolled-member
+  check) with a short TTL. Never expose the SDK secret client-side.
+- Fallback link "Open in Zoom app instead" (standard join URL) on the same page.
 - After meeting ends: webhook/poll pulls participant report → set `attended=true`
-  by matching registrant email. Store recording reference for Mux ingest.
+  by matching registrant email; members who joined via the embed are also marked
+  attended from the embed join event as a backup signal. Store recording reference
+  for Mux ingest.
+- Future option for large broadcast events: RTMP livestream from Zoom → Mux Live,
+  embed the Mux player instead (view-only, ~15s latency, Q&A via community chat).
 
 ### Mux (video)
 - Zoom cloud recording (or manual upload in admin) → Mux asset → playback ID.
