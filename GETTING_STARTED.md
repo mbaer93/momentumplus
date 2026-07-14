@@ -10,8 +10,10 @@ Code asks for them:
 3. **GitHub** — create an empty repo `momentum-plus`.
 4. **Go High Level** — you have this. Create an API key + note your Location ID.
    (Webhooks get configured in Phase 3.)
-5. **Zoom** — marketplace.zoom.us → Build App → Server-to-Server OAuth →
-   account ID, client ID, client secret. Needs a paid Zoom plan for cloud recording.
+5. **Zoom** — marketplace.zoom.us → build TWO apps: (a) Server-to-Server OAuth →
+   account ID, client ID, client secret (meeting creation + attendance reports);
+   (b) General App with Meeting SDK enabled → SDK client ID + secret (the in-page
+   embed). Needs a paid Zoom plan for cloud recording.
 6. **Stream** (getstream.io) — free tier → app → API key + secret. (Phase 4)
 7. **Mux** (mux.com) — access token + secret. (Phase 5)
 8. **Anthropic** (console.anthropic.com) — API key. (Phase 5)
@@ -41,9 +43,12 @@ stays sharp. Suggested kickoff prompts:
 
 **Phase 2**
 > Read CLAUDE.md and SPEC.md §3–4. Build the sessions feature: admin CRUD, member
-> enrollment, .ics calendar downloads, Zoom meeting creation on publish, join-URL
-> reveal 30 minutes before start, and the attendance sync from Zoom participant
-> reports. Match the session cards and session detail modal in the mockup.
+> enrollment, .ics calendar downloads, Zoom meeting creation on publish, and the
+> attendance sync from Zoom participant reports. Build the embedded live session
+> room at /sessions/[id]/live using the Zoom Meeting SDK for Web (component view)
+> per SPEC.md — video left, tabbed right panel (My Notes / Resources / Chat),
+> server-side join signature endpoint, "Open in Zoom app" fallback. Match the
+> session cards and session detail modal in the mockup.
 
 **Phases 3–8**: same pattern — point it at the relevant SPEC.md sections and the
 mockup, one phase per session. After each phase: review the diff, run the app locally

@@ -77,11 +77,24 @@ key used only in server routes (webhooks, imports, admin actions).
   registration type → tier + months, upsert profile + membership, send invite email
   (Supabase magic-link invite). Mark row processed. Idempotent by email + event year.
 
-### Zoom (Server-to-Server OAuth)
-- Admin creates session → API creates Zoom meeting, stores join URL.
-- Join URL revealed to enrolled members from 30 min before start.
+### Zoom (Server-to-Server OAuth + Meeting SDK embed)
+- Admin creates session → API creates Zoom meeting, stores meeting ID + join URL.
+- **Embedded live session room** at `/sessions/[id]/live` (enrolled members only,
+  opens 30 min before start): Zoom Meeting SDK for Web in *component view* renders
+  the meeting inside the page. Layout: video left (~65%), right panel with tabs for
+  My Notes (autosaving `session_notes` textarea), Resources (resources linked to
+  this session), and Community (session chat channel). Member display name is
+  pre-filled from their profile — no name prompt.
+- Requires a Meeting SDK app (marketplace.zoom.us): SDK client ID + secret. The
+  join signature is generated server-side (`/api/zoom/signature`, enrolled-member
+  check) with a short TTL. Never expose the SDK secret client-side.
+- Fallback link "Open in Zoom app instead" (standard join URL) on the same page.
 - After meeting ends: webhook/poll pulls participant report → set `attended=true`
-  by matching registrant email. Store recording reference for Mux ingest.
+  by matching registrant email; members who joined via the embed are also marked
+  attended from the embed join event as a backup signal. Store recording reference
+  for Mux ingest.
+- Future option for large broadcast events: RTMP livestream from Zoom → Mux Live,
+  embed the Mux player instead (view-only, ~15s latency, Q&A via community chat).
 
 ### Mux (video)
 - Zoom cloud recording (or manual upload in admin) → Mux asset → playback ID.
