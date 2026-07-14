@@ -2114,3 +2114,97 @@
 .pref-toggle:disabled { opacity: 0.55; cursor: not-allowed; }
 .pref-locked-note { font-size: 10.5px; color: var(--mid-gray); }
 .prefs-save-row { display: flex; align-items: center; gap: 12px; padding: 14px; }
+
+/* ===== LIBRARY (Phase 5) ===== */
+.library-pad { padding: 28px; }
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+.recording-card {
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  transition: box-shadow 0.2s, transform 0.2s;
+  cursor: pointer;
+  display: block;
+}
+.recording-card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+.recording-thumb {
+  height: 140px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.recording-play-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.recording-play-btn:hover { background: rgba(255, 255, 255, 0.35); transform: scale(1.08); }
+.recording-duration {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.recording-vip {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  background: rgba(184, 150, 90, 0.9);
+  color: var(--navy);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+.recording-body { padding: 14px 16px; }
+.recording-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.recording-meta { display: flex; gap: 10px; align-items: center; }
+.recording-speaker { font-size: 12px; color: var(--gold); }
+.recording-date { font-size: 11px; color: var(--mid-gray); margin-left: auto; }
+
+/* Video detail */
+.video-detail-wrap { padding: 28px; max-width: 1080px; }
+.video-stage {
+  background: var(--navy);
+  border-radius: 16px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 20px;
+}
+.video-stage mux-player { width: 100%; height: 100%; }
+.video-stage-placeholder { text-align: center; color: var(--mid-gray); padding: 32px; max-width: 460px; }
+.video-stage-placeholder h3 { font-family: var(--font-serif); color: var(--white); font-size: 20px; margin-bottom: 10px; }
+.video-stage-placeholder p { font-size: 13px; line-height: 1.6; }
+.video-detail-title { font-family: var(--font-serif); font-size: 24px; color: var(--text); margin-bottom: 6px; }
+.video-detail-meta { font-size: 13px; color: var(--mid-gray); margin-bottom: 20px; }
+.video-detail-meta strong { color: var(--gold); font-weight: 600; }

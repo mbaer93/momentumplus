@@ -1,14 +1,16 @@
-import { PlaceholderPage } from "@/components/portal/PlaceholderPage";
-import { LibraryIcon } from "@/components/icons";
+import { LibraryBrowser } from "@/components/library/LibraryBrowser";
+import { requireMember } from "@/lib/current-member";
+import { listVideos } from "@/lib/videos/queries";
 
-export default function LibraryPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LibraryPage() {
+  const member = await requireMember();
+  const videos = await listVideos(member.tier);
+
   return (
-    <PlaceholderPage
-      title="Video Library"
-      subtitle="Recorded sessions with AI-generated summaries."
-      description="Mux-hosted recordings with signed playback and Momentum+ AI summaries (takeaways, quotes, action items). Ships in Phase 5."
-      phase="Phase 5"
-      icon={LibraryIcon}
-    />
+    <div className="library-pad">
+      <LibraryBrowser videos={videos} />
+    </div>
   );
 }
