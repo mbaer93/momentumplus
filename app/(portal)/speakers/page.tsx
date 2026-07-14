@@ -1,14 +1,57 @@
-import { PlaceholderPage } from "@/components/portal/PlaceholderPage";
-import { SpeakersIcon } from "@/components/icons";
+import Link from "next/link";
+import { requireMember } from "@/lib/current-member";
+import { listSpeakers } from "@/lib/directory-queries";
 
-export default function SpeakersPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SpeakersPage() {
+  await requireMember();
+  const speakers = await listSpeakers();
+
   return (
-    <PlaceholderPage
-      title="Speakers"
-      subtitle="Speaker profiles, sortable by industry."
-      description="Full-page speaker profiles with bios, industries, and links — sortable and filterable. Built in Phase 6."
-      phase="Phase 6"
-      icon={SpeakersIcon}
-    />
+    <div className="speakers-pad">
+      <div className="section-header">
+        <div>
+          <h2>Our Speakers</h2>
+          <p>World-class coaches and thought leaders</p>
+        </div>
+      </div>
+      <div className="speakers-grid">
+        {speakers.map((s) => (
+          <Link key={s.id} href={`/speakers/${s.id}`} className="speaker-card">
+            <div
+              className="speaker-card-banner"
+              style={{ background: s.bannerGradient }}
+            >
+              <div
+                className="speaker-card-av"
+                style={{ background: s.avatarBg, color: s.avatarColor }}
+              >
+                {s.initials}
+              </div>
+            </div>
+            <div className="speaker-card-body">
+              <div className="speaker-card-name">{s.name}</div>
+              <div className="speaker-card-title">{s.title}</div>
+              <div className="speaker-card-tags">
+                {s.industries.map((tag) => (
+                  <span className="tag-pill" key={tag}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="speaker-card-footer">
+              <div className="speaker-stat">
+                Member since <strong>{s.memberSince}</strong>
+              </div>
+              <div className="speaker-stat">
+                <strong>{s.sessionCount}</strong> sessions
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
