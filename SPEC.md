@@ -22,6 +22,15 @@ External links: TSLS Summit site, Sierra Learnership Collaborative site.
 | speaker | granted by admin | ongoing |
 | admin | internal | ongoing |
 
+**Confirmed pricing (configure as GHL products; display on pricing/renewal pages):**
+Monthly $198/mo ("Flexible monthly access") · 3-Month $534 = $178/mo, save $60
+("Designed for leaders committed to implementation momentum") · 6-Month $948 =
+$158/mo, save $240 ("For leaders serious about sustained growth and accountability")
+· 12-Month $1,668 = $139/mo, save $708 — flag as **Best Value** in UI ("The full
+leadership ecosystem experience"; aligns with annual TSLS cycle). Show per-month
+equivalents and savings exactly as listed. VIP Summit registration embeds 3 months
+($534 value) — reference this on the VIP-sourced welcome screen.
+
 Gating levels used by content: `all_members`, `vip_plus` (vip, annual, speaker, admin),
 `admin_only`. Sessions/resources/videos each carry a `min_access` field.
 
