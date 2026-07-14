@@ -49,15 +49,44 @@ Supabase SQL editor. It creates every table, the `is_admin()` / `can_view()`
 access helpers, RLS policies on all tables, and a trigger that provisions a
 `profiles` row on sign-up.
 
-## What's built (Phase 1)
+## What's built (Phases 1–8: feature-complete, credential-gated)
 
-- Next.js + TypeScript + Tailwind scaffold with the mockup design tokens
-- Supabase auth: email/password + magic link, password reset, auth callback
-- Route-protection middleware (session refresh + tier/route gating hooks)
-- Full database schema with RLS policies as a migration
-- Portal shell (sidebar + topbar) and the member **dashboard**, matching the
-  mockup; other portal destinations are navigable placeholders scoped to their
-  upcoming phase
+Every integration is env-gated: the app runs fully in **preview mode** with
+placeholder data, and each service switches on when its credentials land in
+`.env.local` — no code changes. See [`LAUNCH_CHECKLIST.md`](./LAUNCH_CHECKLIST.md)
+for exactly what remains (accounts, credentials, content, live-data QA).
+
+- **Phase 1** — scaffold, Supabase auth (password + magic link + reset),
+  full schema + RLS (migrations 0001–0003), portal shell + dashboard
+- **Phase 2** — sessions: filters/cards/detail tabs, enroll, autosaving
+  private notes, .ics calendar, Zoom meeting creation on publish, embedded
+  live room (Meeting SDK, 30-min join window), attendance sync cron
+- **Phase 3** — membership tiers with 7-day grace semantics, GHL webhook
+  sync (signature-verified), TSLS Sheets import (idempotent, magic-link
+  invites), nightly reconciliation, /expired renewal page with confirmed
+  pricing
+- **Phase 4** — community chat (tier-gated channels, server-issued Stream
+  tokens), notification prefs (email/SMS opt-in/in-app), session-reminder
+  cron, profile with the learning record
+- **Phase 5** — video library with signed Mux playback + view tracking, and
+  Claude-generated AI session summaries (cron + admin regenerate)
+- **Phase 6** — speakers directory + profiles, resources with usage
+  tracking, sponsors page + right-rail ads with batched impression/click
+  tracking
+- **Phase 7** — admin portal: dashboard stats, session CRUD + publish,
+  member management (grants/extend/expire), announcement composer
+  (tier + channel targeting), sponsor management with performance counts
+- **Phase 8** — Playwright critical-flow suite (20 tests) + 43 unit tests
+
+### Tests
+
+| Command | What it covers |
+| --- | --- |
+| `npm test` | 43 unit tests: GHL membership lifecycle, grace windows, .ics, Zoom/Stream/Mux token signing, TSLS row mapping, AI summary parsing, access gating |
+| `npm run test:e2e` | 20 Playwright tests against the built app: login render, portal shell, sessions + enroll UI, tier gating, notes autosave, .ics endpoint, admin portal |
+
+In constrained environments point Playwright at a preinstalled browser:
+`PLAYWRIGHT_CHROMIUM_PATH=/path/to/chrome npm run test:e2e`.
 
 ## Project layout
 

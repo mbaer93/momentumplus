@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@mux/mux-player-react": "^3.13.0",
@@ -22,6 +23,7 @@
     "stream-chat": "^9.50.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
