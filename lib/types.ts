@@ -59,6 +59,62 @@ export interface SessionSummary {
   status: SessionStatus;
 }
 
+export type SessionCategory =
+  | "Leadership"
+  | "Wellness"
+  | "Business"
+  | "Networking";
+
+export interface SessionSpeaker {
+  id: string;
+  name: string;
+  title: string;
+  initials: string;
+  avatarBg: string;
+  avatarColor: string;
+}
+
+export interface SessionResource {
+  id: string;
+  name: string;
+  type: string; // e.g. "PDF · 12 pages"
+  url: string;
+}
+
+export interface AiSummary {
+  takeaways: string[];
+  quotes: string[];
+  actionItems: string[];
+  highlights: string | null;
+  model: string | null;
+  generatedAt: string | null;
+}
+
+// Full session as consumed by the UI (joined with speaker/resources/enrollment).
+export interface SessionDetail {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  category: SessionCategory;
+  objectives: string[];
+  speaker: SessionSpeaker;
+  startsAt: string; // ISO
+  durationMin: number;
+  capacity: number | null;
+  enrolledCount: number;
+  minAccess: AccessLevel;
+  status: SessionStatus;
+  zoomJoinUrl: string | null;
+  zoomMeetingId: string | null;
+  resources: SessionResource[];
+  aiSummary: AiSummary | null;
+  // Per-viewer state
+  isEnrolled: boolean;
+  attended: boolean;
+  note: string;
+}
+
 export interface CommunityActivity {
   id: string;
   actorInitials: string;

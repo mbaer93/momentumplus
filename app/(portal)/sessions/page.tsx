@@ -1,14 +1,24 @@
-import { PlaceholderPage } from "@/components/portal/PlaceholderPage";
-import { SessionsIcon } from "@/components/icons";
+import Link from "next/link";
+import { listSessions } from "@/lib/sessions/queries";
+import { SessionsBrowser } from "@/components/sessions/SessionsBrowser";
 
-export default function SessionsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SessionsPage() {
+  const sessions = await listSessions();
+
   return (
-    <PlaceholderPage
-      title="Sessions"
-      subtitle="Live and scheduled sessions with enrollment, attendance, and calendar sync."
-      description="Browse and enroll in sessions, download .ics calendar files, and join live via Zoom. Full CRUD and Zoom integration arrive in Phase 2."
-      phase="Phase 2"
-      icon={SessionsIcon}
-    />
+    <div className="sessions-pad">
+      <div className="section-header">
+        <div>
+          <h2>Sessions</h2>
+          <p>Live coaching sessions, masterminds, and workshops</p>
+        </div>
+        <Link href="/calendar" className="btn-primary">
+          View Calendar
+        </Link>
+      </div>
+      <SessionsBrowser sessions={sessions} />
+    </div>
   );
 }

@@ -229,3 +229,78 @@ export function ChannelIcon(p: IconProps) {
     </Svg>
   );
 }
+
+export function ClockIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M8 5v3l2 2" />
+    </Svg>
+  );
+}
+
+// Duration mark (replaces the mockup's ⏱ emoji per the no-emoji rule).
+export function TimerIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="8" cy="9" r="5.5" />
+      <path d="M8 6v3" />
+      <path d="M6 1.5h4" />
+      <path d="M12.5 4l1 1" />
+    </Svg>
+  );
+}
+
+export function UsersIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="6" cy="5" r="2.5" />
+      <path d="M1.5 13a4.5 4.5 0 019 0" />
+      <circle cx="12" cy="5.5" r="2" />
+      <path d="M14.5 13a3 3 0 00-4-2.8" />
+    </Svg>
+  );
+}
+
+export function CheckIcon(p: IconProps) {
+  return (
+    <Svg strokeWidth={2} {...p}>
+      <path d="M3 8.5l3.5 3.5L13 4.5" />
+    </Svg>
+  );
+}
+
+export function ArrowLeftIcon(p: IconProps) {
+  return (
+    <Svg strokeWidth={2} {...p}>
+      <path d="M10 3L5 8l5 5" />
+    </Svg>
+  );
+}
+
+export function DocIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 1.5h5l3 3v10a.5.5 0 01-.5.5h-7A.5.5 0 014 14.5v-13z" />
+      <path d="M9 1.5v3h3" />
+    </Svg>
+  );
+}
+
+export function ExternalIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M6 3H3.5A1.5 1.5 0 002 4.5v8A1.5 1.5 0 003.5 14h8a1.5 1.5 0 001.5-1.5V10" />
+      <path d="M9 2h5v5" />
+      <path d="M14 2L7 9" />
+    </Svg>
+  );
+}
+
+export function SparkleIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M8 1.5l1.6 4.4L14 7.5l-4.4 1.6L8 13.5l-1.6-4.4L2 7.5l4.4-1.6L8 1.5z" />
+    </Svg>
+  );
+}

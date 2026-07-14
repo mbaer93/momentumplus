@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Momentum+ — Brand Guidelines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0B1622; --ink:#16232F; --card:#1B2A38;
+  --gold:#B8965A; --gold-bright:#C9A96A; --gold-soft:#D8C39A;
+  --cream:#F8F6F1; --paper:#FCFBF8; --line:#E7E1D6; --line-navy:rgba(200,169,106,.22);
+  --slate:#5B6570; --slate-light:#8A93A0; --ink-text:#1C2A38;
+  --serif:'Playfair Display',Georgia,serif; --sans:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--sans);color:var(--ink-text);background:var(--paper);
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 40px}
+h1,h2,h3,h4{font-family:var(--serif);font-weight:600;color:var(--navy);line-height:1.12;margin:0}
+p{margin:0 0 1em}
+.mono{font-family:var(--sans)}
+.eyebrow{font-family:var(--sans);font-weight:600;font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold)}
+.kicker-slate{color:var(--slate)}
+a{color:var(--gold)}
+
+/* ---- plus mark ---- */
+.plus{display:inline-block;vertical-align:middle}
+.rule-gold{height:2px;background:var(--gold);border:0;margin:0}
+
+/* ---- HERO ---- */
+.hero{background:var(--navy);color:var(--cream);position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;inset:0;
+  background:
+   linear-gradient(135deg,rgba(184,150,90,.10),transparent 42%),
+   radial-gradient(1200px 500px at 85% -10%,rgba(184,150,90,.10),transparent 60%);}
+.hero .corner{position:absolute;width:64px;height:64px;border:2px solid var(--gold);opacity:.55}
+.hero .c-tl{top:40px;left:40px;border-right:0;border-bottom:0}
+.hero .c-br{bottom:40px;right:40px;border-left:0;border-top:0}
+.hero-inner{position:relative;padding:104px 40px 92px;max-width:1080px;margin:0 auto}
+.lockup-hero{display:flex;align-items:center;gap:26px}
+.lockup-hero .word{font-family:var(--serif);font-weight:600;font-size:88px;letter-spacing:-1px;color:var(--cream);line-height:1}
+.hero .tag{margin-top:26px;font-weight:600;letter-spacing:.34em;text-transform:uppercase;font-size:14px;color:var(--slate-light)}
+.hero .lead{margin-top:38px;max-width:620px;font-size:18px;line-height:1.7;color:#D7DBE0}
+.hero .meta{margin-top:54px;display:flex;gap:44px;flex-wrap:wrap;font-size:13px;letter-spacing:.02em;color:var(--slate-light)}
+.hero .meta b{display:block;color:var(--gold-bright);font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:11px;margin-bottom:6px}
+
+/* ---- sections ---- */
+section{padding:76px 0}
+section.alt{background:var(--cream)}
+.sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:12px}
+.sec-num{font-family:var(--sans);font-weight:700;font-size:13px;color:var(--gold);letter-spacing:.1em}
+h2{font-size:38px}
+.sec-sub{color:var(--slate);max-width:640px;margin:14px 0 42px;font-size:17px}
+h3{font-size:23px;margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+
+/* logo showcase panels */
+.panel{border-radius:14px;padding:46px;display:flex;align-items:center;justify-content:center;min-height:210px;border:1px solid var(--line)}
+.panel.light{background:var(--paper)}
+.panel.cream{background:var(--cream)}
+.panel.navy{background:var(--navy);border-color:transparent}
+.lockmark{display:flex;align-items:center;gap:16px}
+.lockmark .w{font-family:var(--serif);font-weight:600;font-size:46px;letter-spacing:-.5px;line-height:1}
+.stackmark{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.stackmark .w{font-family:var(--serif);font-weight:600;font-size:44px;letter-spacing:-.5px;line-height:1}
+.stackmark .st-tag{font-size:9.5px;letter-spacing:.28em;font-weight:600;text-transform:uppercase}
+.st-rule{width:150px;height:1.5px;background:var(--gold);margin:2px 0}
+.cap{margin-top:12px;font-size:12.5px;color:var(--slate);text-align:center;letter-spacing:.02em}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:26px}
+
+/* do/dont */
+.dd{border-radius:12px;padding:22px;font-size:14px}
+.do{background:#F2F6F1;border:1px solid #D6E4D6}
+.dont{background:#FaF2F1;border:1px solid #EBD6D3}
+.dd b{display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:8px}
+.do b{color:#3C7A47}.dont b{color:#B4534A}
+
+/* color swatches */
+.sw{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#fff}
+.sw .chip{height:132px;position:relative}
+.sw .body{padding:16px 18px 18px}
+.sw .name{font-weight:600;color:var(--navy);font-size:15px}
+.sw .role{font-size:12.5px;color:var(--slate);margin:3px 0 12px}
+.sw .val{display:flex;justify-content:space-between;font-family:var(--sans);font-size:12px;color:var(--slate);border-top:1px solid var(--line);padding-top:7px}
+.sw .val span:first-child{color:var(--slate-light);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
+.sw .val b{color:var(--ink-text);font-weight:600}
+.ratio{display:flex;height:20px;border-radius:6px;overflow:hidden;margin-top:26px;border:1px solid var(--line)}
+
+/* type scale */
+.type-row{display:flex;align-items:baseline;gap:24px;padding:18px 0;border-bottom:1px solid var(--line)}
+.type-row .lbl{width:150px;flex:none;font-size:12px;color:var(--slate);letter-spacing:.04em}
+.spec{font-family:var(--sans);font-size:12px;color:var(--slate-light)}
+
+/* voice cols */
+.voice{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.voice>div{padding:26px}
+.voice .say{background:var(--paper)}
+.voice .avoid{background:var(--cream);border-left:1px solid var(--line)}
+.voice ul{margin:10px 0 0;padding-left:18px}
+.voice li{margin-bottom:9px;font-size:14.5px}
+.voice h4{font-size:16px;margin-bottom:4px}
+
+.msg{background:var(--navy);color:var(--cream);border-radius:16px;padding:40px 44px;position:relative;overflow:hidden}
+.msg:before{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;border:2px solid var(--gold);opacity:.16;transform:rotate(45deg)}
+.msg .eyebrow{color:var(--gold-bright)}
+.msg .statement{font-family:var(--serif);font-size:27px;line-height:1.4;color:#EEF0F2;margin:14px 0 0;max-width:760px}
+.msg .statement em{color:var(--gold-bright);font-style:italic}
+.pill{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+.pillbox{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:20px}
+.pillbox .p-plus{color:var(--gold);font-family:var(--serif);font-size:26px;line-height:1}
+.pillbox h4{font-size:16px;margin:10px 0 6px}
+.pillbox p{font-size:13.5px;color:var(--slate);margin:0}
+
+.approw{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.appshot{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.appshot img{width:100%;display:block}
+.appshot .cap{padding:10px 12px;margin:0;text-align:left}
+
+footer{background:var(--navy);color:var(--slate-light);padding:54px 0}
+footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px}
+footer .fw{font-family:var(--serif);color:var(--cream);font-size:26px;display:flex;align-items:center;gap:12px}
+footer a{color:var(--gold-bright);text-decoration:none}
+.tiny{font-size:12px;color:var(--slate)}
+
+@media(max-width:820px){
+  .grid2,.grid3,.voice,.pill,.approw,.pillbox+.pill{grid-template-columns:1fr}
+  .lockup-hero .word{font-size:60px}.hero-inner{padding:80px 30px 64px}
+  h2{font-size:30px}.wrap{padding:0 24px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <span class="corner c-tl"></span><span class="corner c-br"></span>
+  <div class="hero-inner">
+    <div class="eyebrow" style="color:var(--gold-bright)">Brand Guidelines · v1.0 · July 2026</div>
+    <div class="lockup-hero" style="margin-top:22px">
+      <span class="word">Momentum</span>
+      <svg class="plus" width="66" height="66" viewBox="0 0 200 200" aria-label="plus mark">
+        <rect x="85" y="30" width="30" height="140" rx="3.6" fill="#C9A96A"/>
+        <rect x="30" y="85" width="140" height="30" rx="3.6" fill="#C9A96A"/>
+      </svg>
+    </div>
+    <div class="tag">The Tri&middot;State Leadership Community</div>
+    <p class="lead">The Tri-State Leadership Summit gives leaders momentum for one day a year. <strong style="color:#fff;font-weight:600">Momentum+ is how they keep it the other 364.</strong> This guide defines the logo, color, type, voice, and messaging that make Momentum+ read as its own premium, digital-first home — while staying unmistakably part of the TSLS family.</p>
+    <div class="meta">
+      <div><b>Parent</b>Sierra Learnership Collaborative, LLC</div>
+      <div><b>Flagship</b>Tri-State Leadership Summit</div>
+      <div><b>Media Partner</b>NewsTalk 103.7 FM</div>
+      <div><b>Region</b>MD &middot; PA &middot; WV</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ 01 POSITIONING ============ -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>What Momentum+ is</h2></div>
+    <p class="sec-sub">A subscription, members-only digital community and learning platform from the organizers of TSLS. Premium but grounded — an executive club, not a tech startup.</p>
+    <div class="grid2">
+      <div>
+        <p>Momentum+ extends the Summit into a year-round membership: live expert-led sessions, a searchable library of recorded content with AI-generated takeaways, a private tier-gated community, curated partner resources, and direct access to the speakers and collaborators who make TSLS what it is.</p>
+        <p>The name is the positioning. Attendees leave the Summit with momentum — Momentum+ is how they keep it. The brand must always communicate five things at once:</p>
+      </div>
+      <div class="card">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 26px">
+          <div><div class="eyebrow">Continuity</div><p class="tiny" style="margin:6px 0 0">The Summit continues here — the same energy, all year.</p></div>
+          <div><div class="eyebrow">Belonging</div><p class="tiny" style="margin:6px 0 0">A community of peers, not anonymous content.</p></div>
+          <div><div class="eyebrow">Regional pride</div><p class="tiny" style="margin:6px 0 0">Proudly Tri-State. Rooted in MD, PA &amp; WV.</p></div>
+          <div><div class="eyebrow">Substance</div><p class="tiny" style="margin:6px 0 0">Practical and real — never motivational fluff.</p></div>
+          <div style="grid-column:1/-1"><div class="eyebrow">Premium value</div><p class="tiny" style="margin:6px 0 0">Worth joining. Worth renewing.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 LOGO SYSTEM ============ -->
+<section class="alt">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>The logo system</h2></div>
+    <p class="sec-sub">One family of marks. The gold "+" is the brand's signature — it is Momentum's forward motion made into a shape, and it carries the brand on its own.</p>
+
+    <div class="grid2" style="margin-bottom:20px">
+      <div>
+        <div class="panel light">
+          <div class="lockmark">
+            <span class="w" style="color:var(--navy)">Momentum</span>
+            <svg width="42" height="42" viewBox="0 0 200 200"><rect x="85" y="30" width="30" height="140" rx="3.6" fill="#B8965A"/><rect x="30" y="85" width="140" height="30" rx="3.6" fill="#B8965A"/></svg>
+          </div>
+        </div>
+        <div class="cap">Primary lockup — on light</div>
+      </div>
+      <div>
+        <div class="panel navy">
+          <div class="lockmark">
+            <span class="w" style="color:var(--cream)">Momentum</span>
+            <svg width="42" height="42" viewBox="0 0 200 200"><rect x="85" y="30" width="30" height="140" rx="3.6" fill="#C9A96A"/><rect x="30" y="85" width="140" height="30" rx="3.6" fill="#C9A96A"/></svg>
+          </div>
+        </div>
+        <div class="cap">Primary lockup — reversed on navy</div>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <div>
+        <div class="panel cream">
+          <div class="stackmark">
+            <svg width="40" height="40" viewBox="0 0 200 200"><rect x="85" y="30" width="30" height="140" rx="3.6" fill="#B8965A"/><rect x="30" y="85" width="140" height="30" rx="3.6" fill="#B8965A"/></svg>
+            <span class="w" style="color:var(--navy)">Momentum</span>
+            <span class="st-rule"></span>
+            <span class="st-tag kicker-slate">The Tri&middot;State Leadership Community</span>
+          </div>
+        </div>
+        <div class="cap">Stacked lockup</div>
+      </div>
+      <div>
+        <div class="panel navy">
+          <svg width="96" height="96" viewBox="0 0 200 200"><rect x="80" y="24" width="40" height="152" rx="4.8" fill="#B8965A"/><rect x="24" y="80" width="152" height="40" rx="4.8" fill="#B8965A"/></svg>
+        </div>
+        <div class="cap">"+" monogram</div>
+      </div>
+      <div>
+        <div class="panel light">
+          <svg width="118" height="118" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="#0B1622"/>
+            <path d="M 72 154 L 72 72 L 154 72" fill="none" stroke="#B8965A" stroke-width="6" opacity=".9"/>
+            <path d="M 440 358 L 440 440 L 358 440" fill="none" stroke="#B8965A" stroke-width="6" opacity=".9"/>
+            <rect x="232" y="132" width="48" height="248" rx="6" fill="#B8965A"/>
+            <rect x="132" y="232" width="248" height="48" rx="6" fill="#B8965A"/>
+          </svg>
+        </div>
+        <div class="cap">App icon &amp; favicon</div>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:40px">
+      <div>
+        <h3>Clear space &amp; minimum size</h3>
+        <p class="tiny" style="color:var(--slate)">Keep clear space equal to the height of the "+" mark on all sides of any lockup. Minimum widths: primary lockup 180&nbsp;px / 1.6&nbsp;in; "+" monogram 24&nbsp;px / 0.25&nbsp;in. Below these, legibility and the serif detailing break down.</p>
+      </div>
+      <div>
+        <h3>Construction</h3>
+        <p class="tiny" style="color:var(--slate)">Wordmark set in Playfair Display SemiBold, tracking −1. The "+" mark's height equals the cap height of "Momentum"; it is optically centered on the cap line and never touches the "m". On dark backgrounds the "+" and reversed wordmark use the brighter gold (#C9A96A) for contrast.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:44px">Do &amp; don't</h3>
+    <div class="grid2" style="margin-top:14px">
+      <div class="dd do"><b>Do</b>Use approved lockups at full opacity on navy, cream, white, or an unbusy photo with a dark overlay. Give the mark room to breathe. Let the gold "+" lead on its own where space is tight.</div>
+      <div class="dd dont"><b>Don't</b>Recolor the "+", stretch or condense the wordmark, add drop shadows or gradients, swap the serif for another font, place on a busy background, or set "Momentum+" in a system font as running text.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 COLOR ============ -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Color</h2></div>
+    <p class="sec-sub">Soft-toned and disciplined — never loud. Deep navy carries the brand, muted gold is the accent and the signature, warm cream keeps it human and premium.</p>
+
+    <div class="grid3">
+      <div class="sw">
+        <div class="chip" style="background:#0B1622"></div>
+        <div class="body"><div class="name">Deep Navy</div><div class="role">Primary — backgrounds, wordmark, authority</div>
+          <div class="val"><span>Hex</span><b>#0B1622</b></div>
+          <div class="val"><span>RGB</span><b>11 · 22 · 34</b></div>
+          <div class="val"><span>CMYK*</span><b>88 · 78 · 58 · 78</b></div>
+        </div>
+      </div>
+      <div class="sw">
+        <div class="chip" style="background:#B8965A"></div>
+        <div class="body"><div class="name">Muted Gold</div><div class="role">Accent &amp; signature — the "+", rules, detail</div>
+          <div class="val"><span>Hex</span><b>#B8965A</b></div>
+          <div class="val"><span>RGB</span><b>184 · 150 · 90</b></div>
+          <div class="val"><span>CMYK*</span><b>25 · 33 · 68 · 12</b></div>
+        </div>
+      </div>
+      <div class="sw">
+        <div class="chip" style="background:#F8F6F1;border-bottom:1px solid var(--line)"></div>
+        <div class="body"><div class="name">Warm Cream</div><div class="role">Light backgrounds, reversed text, space</div>
+          <div class="val"><span>Hex</span><b>#F8F6F1</b></div>
+          <div class="val"><span>RGB</span><b>248 · 246 · 241</b></div>
+          <div class="val"><span>CMYK*</span><b>2 · 2 · 5 · 0</b></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:34px;font-size:18px">Support neutrals</h3>
+    <div class="grid3" style="margin-top:14px">
+      <div class="sw"><div class="chip" style="background:#16232F;height:84px"></div><div class="body"><div class="name" style="font-size:14px">Ink Panel</div><div class="val" style="border:0;padding-top:6px"><span>Hex</span><b>#16232F</b></div><div class="role" style="margin:2px 0 0">Cards &amp; layered panels on navy</div></div></div>
+      <div class="sw"><div class="chip" style="background:#5B6570;height:84px"></div><div class="body"><div class="name" style="font-size:14px">Slate</div><div class="val" style="border:0;padding-top:6px"><span>Hex</span><b>#5B6570</b></div><div class="role" style="margin:2px 0 0">Secondary &amp; supporting text</div></div></div>
+      <div class="sw"><div class="chip" style="background:#C9A96A;height:84px"></div><div class="body"><div class="name" style="font-size:14px">Gold (on dark)</div><div class="val" style="border:0;padding-top:6px"><span>Hex</span><b>#C9A96A</b></div><div class="role" style="margin:2px 0 0">Brighter gold for contrast on navy</div></div></div>
+    </div>
+
+    <h3 style="margin-top:38px;font-size:18px">Usage balance</h3>
+    <p class="tiny" style="color:var(--slate);margin-top:6px">Lead with navy and cream; gold is a precious-metal accent — a little goes a long way. As a rule of thumb:</p>
+    <div class="ratio">
+      <div style="flex:60;background:#0B1622"></div>
+      <div style="flex:32;background:#F8F6F1"></div>
+      <div style="flex:8;background:#B8965A"></div>
+    </div>
+    <div style="display:flex;gap:26px;margin-top:10px;font-size:12px;color:var(--slate)">
+      <span><b style="color:var(--navy)">60%</b> Navy</span><span><b style="color:var(--navy)">32%</b> Cream</span><span><b style="color:var(--navy)">8%</b> Gold accent</span>
+    </div>
+    <p class="tiny" style="color:var(--slate-light);margin-top:22px">*CMYK values are practical approximations for coated stock — always soft-proof and convert in your print workflow.</p>
+  </div>
+</section>
+
+<!-- ============ 04 TYPOGRAPHY ============ -->
+<section class="alt">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Typography</h2></div>
+    <p class="sec-sub">An editorial serif for voice and authority; a clean geometric sans for clarity and function. The pairing is the type-level version of "premium but grounded."</p>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="eyebrow">Headings &amp; voice</div>
+        <div style="font-family:var(--serif);font-weight:600;font-size:58px;color:var(--navy);line-height:1;margin:12px 0 6px">Playfair<br>Display</div>
+        <div class="spec">Serif · weights 500–800 · used for headlines, pull quotes, the wordmark. Track −1 at large display sizes.</div>
+        <div style="font-family:var(--serif);font-size:20px;color:var(--slate);margin-top:16px">Aa Bb Cc &middot; 0123456789 &middot; &amp;+</div>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Body &amp; interface</div>
+        <div style="font-family:var(--sans);font-weight:600;font-size:58px;color:var(--navy);line-height:1;margin:12px 0 6px;letter-spacing:-2px">Inter</div>
+        <div class="spec">Sans · weights 400–700 · body copy, UI, labels, sponsor text. Eyebrows use 600, uppercase, .28em tracking.</div>
+        <div style="font-family:var(--sans);font-size:20px;color:var(--slate);margin-top:16px">Aa Bb Cc &middot; 0123456789 &middot; &amp;+</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:38px;font-size:18px">Type scale</h3>
+    <div style="margin-top:8px">
+      <div class="type-row"><span class="lbl">Display / H1</span><span style="font-family:var(--serif);font-weight:600;font-size:44px;color:var(--navy);letter-spacing:-1px;line-height:1">Keep the momentum</span></div>
+      <div class="type-row"><span class="lbl">Section / H2</span><span style="font-family:var(--serif);font-weight:600;font-size:32px;color:var(--navy)">Real conversations, all year</span></div>
+      <div class="type-row"><span class="lbl">Subhead / H3</span><span style="font-family:var(--serif);font-weight:600;font-size:22px;color:var(--navy)">Live sessions &amp; the library</span></div>
+      <div class="type-row"><span class="lbl">Eyebrow / label</span><span class="eyebrow">Members-only · Tri-State</span></div>
+      <div class="type-row"><span class="lbl">Body</span><span style="font-family:var(--sans);font-size:16px;color:var(--ink-text)">Practical insight from leaders you can actually reach — recorded, summarized, and searchable.</span></div>
+      <div class="type-row" style="border:0"><span class="lbl">Caption / fine</span><span style="font-family:var(--sans);font-size:12.5px;color:var(--slate)">Access is provisioned by membership tier and payment status.</span></div>
+    </div>
+    <p class="tiny" style="color:var(--slate);margin-top:18px">Both families are free via Google Fonts. Web fallbacks: Georgia (serif) and system-ui (sans). For Microsoft Office where Playfair isn't installed, use <strong>Georgia</strong> for headings and <strong>Calibri/Arial</strong> for body.</p>
+  </div>
+</section>
+
+<!-- ============ 05 MOTIFS ============ -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Graphic language</h2></div>
+    <p class="sec-sub">Angles and lines — not icons and emoji. The system is built from thin gold rules, diagonal accents, corner brackets, and geometric shapes. Restraint is the point.</p>
+    <div class="grid3">
+      <div class="card" style="text-align:center;padding-top:34px">
+        <svg width="150" height="70"><line x1="10" y1="35" x2="140" y2="35" stroke="#B8965A" stroke-width="2"/></svg>
+        <h4 style="font-size:16px;margin-top:6px">Thin gold rules</h4>
+        <p class="tiny" style="color:var(--slate)">Hairline dividers and underlines that frame headlines and separate content with quiet precision.</p>
+      </div>
+      <div class="card" style="text-align:center;padding-top:26px">
+        <svg width="150" height="78"><path d="M20 60 L130 18" stroke="#B8965A" stroke-width="2"/><path d="M112 18 L130 18 L130 36" fill="none" stroke="#B8965A" stroke-width="2"/></svg>
+        <h4 style="font-size:16px;margin-top:2px">Diagonal accents</h4>
+        <p class="tiny" style="color:var(--slate)">A rising line — momentum as direction. Used sparingly to add motion to covers and section breaks.</p>
+      </div>
+      <div class="card" style="text-align:center;padding-top:22px">
+        <svg width="120" height="82"><path d="M28 30 L28 18 L40 18" fill="none" stroke="#B8965A" stroke-width="2"/><path d="M92 64 L92 76 L80 76" fill="none" stroke="#B8965A" stroke-width="2"/><rect x="52" y="38" width="16" height="6" fill="#B8965A"/><rect x="57" y="33" width="6" height="16" fill="#B8965A"/></svg>
+        <h4 style="font-size:16px;margin-top:2px">Corner brackets</h4>
+        <p class="tiny" style="color:var(--slate)">Opposing corner details frame a space — the "executive club" cue that recurs in the app icon and covers.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 06 VOICE ============ -->
+<section class="alt">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Brand voice</h2></div>
+    <p class="sec-sub">Confident, plain-spoken, and warm. We sound like a respected peer across the table — not a hype-man, not a corporate memo. Politics stay at the door.</p>
+
+    <h3 style="font-size:18px">Member-facing</h3>
+    <div class="voice" style="margin-top:14px">
+      <div class="say"><h4 style="color:#3C7A47">Sound like</h4>
+        <ul>
+          <li>Direct and practical — "here's what you can use Monday morning."</li>
+          <li>Grounded and regional — proud of the Tri-State without being provincial.</li>
+          <li>Inviting and peer-to-peer — a community, not an audience.</li>
+          <li>Quietly premium — the value is obvious, so we don't oversell it.</li>
+        </ul>
+      </div>
+      <div class="avoid"><h4 style="color:#B4534A">Avoid</h4>
+        <ul>
+          <li>Motivational-poster language, hustle-culture, exclamation stacks.</li>
+          <li>Big-city or Silicon-Valley jargon and buzzwords.</li>
+          <li>Emoji and icon-speak in brand copy.</li>
+          <li>Partisan framing of any kind — check politics at the door.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 style="font-size:18px;margin-top:34px">Sponsor-facing</h3>
+    <div class="voice" style="margin-top:14px">
+      <div class="say"><h4 style="color:#3C7A47">Sound like</h4>
+        <ul>
+          <li>Credible and specific — real members, real regional reach, real engagement.</li>
+          <li>Respectful of the member experience — sponsorship is tasteful and integrated.</li>
+          <li>Partnership-minded — aligned with a trusted local institution (TSLS + NewsTalk 103.7).</li>
+        </ul>
+      </div>
+      <div class="avoid"><h4 style="color:#B4534A">Avoid</h4>
+        <ul>
+          <li>Overpromising audience size or "impressions" language.</li>
+          <li>Anything that positions the member as a product to be sold.</li>
+          <li>Interruptive, loud ad framing that breaks the premium tone.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 07 MESSAGING ============ -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Messaging</h2></div>
+    <p class="sec-sub">The words that travel with the mark. Use these verbatim where you can; keep the spirit everywhere else.</p>
+
+    <div class="msg">
+      <div class="eyebrow">Positioning statement</div>
+      <p class="statement">The Tri-State Leadership Summit is one day. <em>Momentum+</em> is the other 364 — a members-only community where regional leaders keep the conversation, the connections, and the momentum going all year long.</p>
+    </div>
+
+    <div class="grid2" style="margin-top:26px">
+      <div class="card">
+        <div class="eyebrow">Primary tagline</div>
+        <p style="font-family:var(--serif);font-size:26px;color:var(--navy);margin:8px 0 0">Keep the momentum.</p>
+        <div class="eyebrow" style="margin-top:22px">Descriptor</div>
+        <p class="tiny" style="color:var(--slate);margin-top:6px">The Tri-State Leadership Community — always paired with the mark in the stacked lockup.</p>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Alternate lines</div>
+        <p class="tiny" style="color:var(--ink-text);margin:8px 0 0;line-height:2">
+          Leadership that doesn't stop at the Summit.<br>
+          The room stays open all year.<br>
+          Real leaders. Real conversations. All year.<br>
+          Where the Tri-State's leaders keep going.
+        </p>
+      </div>
+    </div>
+
+    <div style="margin-top:26px">
+      <div class="eyebrow" style="color:var(--gold)">The pillars</div>
+      <div class="pill" style="margin-top:14px">
+        <div class="pillbox"><div class="p-plus">+</div><h4>Learn</h4><p>Live monthly sessions and a searchable library with AI takeaways, quotes, and action items.</p></div>
+        <div class="pillbox"><div class="p-plus">+</div><h4>Belong</h4><p>A private, tier-gated community with speaker Q&amp;A, DMs, and peers who get it.</p></div>
+        <div class="pillbox"><div class="p-plus">+</div><h4>Access</h4><p>Full speaker profiles, vetted partner resources, and member-exclusive offers.</p></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:26px">
+      <div class="eyebrow">Boilerplate</div>
+      <p class="tiny" style="color:var(--ink-text);margin-top:8px">Momentum+ is the members-only digital community and learning platform from Sierra Learnership Collaborative, LLC — the organizers of the Tri-State Leadership Summit. Built for business owners, executives, and emerging leaders across Maryland, Pennsylvania, and West Virginia, Momentum+ keeps Summit-caliber leadership conversations going year-round through live sessions, an on-demand library, a private member community, and direct access to the region's leading voices.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 08 APPLICATIONS ============ -->
+<section class="alt">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">08</span><h2>In use</h2></div>
+    <p class="sec-sub">Template starting points delivered alongside this guide — session promos, announcements, quote cards, and the in-platform sponsor rail.</p>
+    <div class="approw">
+      <div class="appshot"><img src="templates/session-promo.png" alt="Session promo template"><p class="cap">Session promo — social 1:1</p></div>
+      <div class="appshot"><img src="templates/quote-card.png" alt="Quote card template"><p class="cap">Takeaway / quote card</p></div>
+      <div class="appshot"><img src="templates/announcement.png" alt="Announcement template"><p class="cap">Event announcement — 16:9</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="fw">Momentum
+      <svg width="26" height="26" viewBox="0 0 200 200"><rect x="85" y="30" width="30" height="140" rx="3.6" fill="#C9A96A"/><rect x="30" y="85" width="140" height="30" rx="3.6" fill="#C9A96A"/></svg>
+    </div>
+    <div class="tiny" style="text-align:right">
+      Brand system prepared by Social Drive Media · <a href="mailto:matt@socialdrivemedia.com">matt@socialdrivemedia.com</a><br>
+      A Sierra Learnership Collaborative property · in the TSLS family
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
