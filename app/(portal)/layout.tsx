@@ -1,13 +1,15 @@
 import { Sidebar } from "@/components/portal/Sidebar";
 import { Topbar } from "@/components/portal/Topbar";
-import { getCurrentMember } from "@/lib/current-member";
+import { requireMember } from "@/lib/current-member";
 
 export default async function PortalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const member = await getCurrentMember();
+  // Requires a signed-in member with an active (or in-grace) membership;
+  // lapsed members land on /expired with renewal options (SPEC.md §5).
+  const member = await requireMember();
 
   return (
     <div className="app-shell">

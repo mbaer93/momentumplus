@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSession } from "@/lib/sessions/queries";
-import { getCurrentMember } from "@/lib/current-member";
+import { requireMember } from "@/lib/current-member";
 import { isJoinWindowOpen } from "@/lib/sessions/view";
 import { dateLabel, timeLabel } from "@/lib/sessions/view";
 import { LiveRoom } from "@/components/sessions/LiveRoom";
@@ -15,7 +15,7 @@ export default async function LiveSessionPage({
 }) {
   const [session, member] = await Promise.all([
     getSession(params.id),
-    getCurrentMember(),
+    requireMember(),
   ]);
   if (!session) notFound();
 

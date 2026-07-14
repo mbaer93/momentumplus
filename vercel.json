@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/attendance",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/import/tsls",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile",
+      "schedule": "0 7 * * *"
     }
   ]
 }

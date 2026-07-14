@@ -44,7 +44,18 @@ test("isMembershipActive respects status and expiry", () => {
   });
 
   assert.equal(isMembershipActive(make({})), true);
-  assert.equal(isMembershipActive(make({ status: "canceled" })), false);
+  // Grace semantics: canceled/past_due keep access until the paid period ends.
+  assert.equal(isMembershipActive(make({ status: "canceled" })), true);
+  assert.equal(
+    isMembershipActive(make({ status: "canceled", access_expires_at: past })),
+    false,
+  );
+  assert.equal(isMembershipActive(make({ status: "past_due" })), true);
+  assert.equal(
+    isMembershipActive(make({ status: "past_due", access_expires_at: null })),
+    false,
+  );
+  assert.equal(isMembershipActive(make({ status: "expired" })), false);
   assert.equal(isMembershipActive(make({ access_expires_at: past })), false);
   assert.equal(
     isMembershipActive(make({ tier: "speaker", access_expires_at: null })),

@@ -9,7 +9,8 @@ import {
   StarIcon,
   TargetIcon,
 } from "@/components/icons";
-import { getCurrentMember } from "@/lib/current-member";
+import { requireMember } from "@/lib/current-member";
+import { VIP_INCLUDED_NOTE } from "@/lib/pricing";
 import {
   placeholderActivity,
   placeholderNextSession,
@@ -18,7 +19,7 @@ import {
 } from "@/lib/placeholder-data";
 
 export default async function DashboardPage() {
-  const member = await getCurrentMember();
+  const member = await requireMember();
   const firstName = member.name.split(" ")[0];
   const stats = placeholderStats;
 
@@ -32,6 +33,11 @@ export default async function DashboardPage() {
             You have {stats.upcomingSessions} upcoming sessions this month and{" "}
             {stats.newMessages} new community messages waiting.
           </p>
+          {member.tier === "tsls_vip" && (
+            <p style={{ marginTop: 8, color: "var(--gold-light)" }}>
+              {VIP_INCLUDED_NOTE}
+            </p>
+          )}
           <div className="welcome-meta">
             <div className="welcome-meta-item">
               <strong>Day {stats.memberSinceDays}</strong> as a member

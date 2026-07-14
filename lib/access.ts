@@ -19,11 +19,21 @@ export function isVipPlus(tier: Tier): boolean {
   return VIP_PLUS_TIERS.includes(tier);
 }
 
-export function isMembershipActive(membership: Membership | null): boolean {
+/**
+ * Grace semantics (SPEC.md §4, mirrored in DB membership_grants_access()):
+ * past_due (7-day grace) and canceled (until period end) keep access until
+ * access_expires_at; only `active` may be ongoing with a null expiry.
+ */
+export function isMembershipActive(
+  membership: Membership | null,
+  now: number = Date.now(),
+): boolean {
   if (!membership) return false;
-  if (membership.status !== "active") return false;
-  if (!membership.access_expires_at) return true; // ongoing (speaker/admin)
-  return new Date(membership.access_expires_at).getTime() > Date.now();
+  if (membership.status === "expired") return false;
+  if (membership.access_expires_at === null) {
+    return membership.status === "active";
+  }
+  return new Date(membership.access_expires_at).getTime() > now;
 }
 
 export function canAccess(
