@@ -37,10 +37,17 @@ export async function grantMembership(input: {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Granted (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("members");
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!GRANTABLE.includes(input.tier)) {
     return { ok: false, message: "Unknown tier." };
+  }
+  // Only the Super Admin can mint new admins.
+  if (input.tier === "admin" && auth.access.role !== "super") {
+    return {
+      ok: false,
+      message: "Only the Super Admin can grant admin access.",
+    };
   }
 
   const email = input.email.trim().toLowerCase();
@@ -83,6 +90,73 @@ export async function grantMembership(input: {
   return { ok: true, message: `Granted ${input.tier} to ${email}.` };
 }
 
+/** Admin: edit a member's profile details (name shown across the portal). */
+export async function updateMemberProfile(
+  profileId: string,
+  input: { fullName: string; title: string; company: string; phone: string },
+): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!input.fullName.trim()) {
+    return { ok: false, message: "Name can't be empty." };
+  }
+
+  const { error } = await createServiceClient()
+    .from("profiles")
+    .update({
+      full_name: input.fullName.trim(),
+      title: input.title.trim() || null,
+      company: input.company.trim() || null,
+      phone: input.phone.trim() || null,
+    })
+    .eq("id", profileId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin/members");
+  return { ok: true, message: "Member profile saved." };
+}
+
+/**
+ * Super Admin only: set another admin's role and per-area permissions.
+ * Areas default to allowed — unchecking removes access; enforcement is in
+ * requireAdmin(area) on every admin mutation.
+ */
+export async function setAdminAccess(
+  profileId: string,
+  role: "super" | "standard",
+  perms: Record<string, boolean>,
+): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (auth.access.role !== "super") {
+    return {
+      ok: false,
+      message: "Only the Super Admin can manage admin access.",
+    };
+  }
+  if (profileId === auth.userId && role !== "super") {
+    return {
+      ok: false,
+      message: "You can't remove your own Super Admin role.",
+    };
+  }
+
+  const { error } = await createServiceClient()
+    .from("profiles")
+    .update({ admin_role: role, admin_perms: perms })
+    .eq("id", profileId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin/members");
+  return { ok: true, message: "Admin access updated." };
+}
+
 export interface BulkResult {
   ok: boolean;
   message?: string;
@@ -101,7 +175,7 @@ export async function bulkAddMembers(csv: string): Promise<BulkResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Imported (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("members");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const lines = csv
@@ -161,7 +235,7 @@ export async function extendMembership(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Extended (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("members");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
@@ -195,7 +269,7 @@ export async function expireMembership(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Expired (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("members");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();

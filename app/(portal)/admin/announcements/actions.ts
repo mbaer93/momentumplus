@@ -39,7 +39,7 @@ export async function sendAnnouncement(
       message: "Preview mode — announcement recorded nowhere; connect Supabase to send.",
     };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("announcements");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();

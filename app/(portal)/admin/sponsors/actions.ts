@@ -25,7 +25,7 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Created (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
@@ -50,7 +50,7 @@ export async function toggleRail(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Toggled (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
@@ -67,7 +67,7 @@ export async function deleteSponsor(sponsorId: string): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Deleted (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
@@ -85,7 +85,7 @@ export async function updateSponsor(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Saved (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
@@ -121,7 +121,7 @@ async function uploadSponsorImage(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Uploaded (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const file = formData.get("file");
@@ -203,7 +203,7 @@ export async function uploadPresentedByLogo(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Uploaded (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const file = formData.get("file");
@@ -245,7 +245,7 @@ export async function removePresentedByLogo(): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Removed (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
@@ -263,7 +263,7 @@ export async function removeSponsorAd(sponsorId: string): Promise<SponsorResult>
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Removed (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
