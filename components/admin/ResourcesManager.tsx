@@ -186,6 +186,7 @@ export function ResourcesManager({
       rows={rows}
       emptyValues={EMPTY}
       initialEditId={initialEditId}
+      createHint="Card image: pulled from the link automatically when you add — or click Edit on the row to upload/replace it."
       renderRowExtras={(row) => <ImageControls row={row} />}
       onCreate={(v) => createResource(toInput(v))}
       onUpdate={(id, v) => updateResource(id, toInput(v))}

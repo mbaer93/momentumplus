@@ -166,6 +166,7 @@ export function SpeakersManager({
       rows={rows}
       emptyValues={EMPTY}
       initialEditId={initialEditId}
+      createHint="Headshot upload: after adding the speaker, click Edit on their row — the upload is in the edit panel."
       renderRowExtras={(row) => <HeadshotControls row={row} />}
       onCreate={(v) => createSpeaker(toInput(v))}
       onUpdate={(id, v) => updateSpeaker(id, toInput(v))}
