@@ -82,6 +82,13 @@ const SECTIONS: {
     desc: "Courses and learning tracks built from the library.",
     area: "content",
   },
+  {
+    href: "/admin/analytics",
+    icon: SessionsIcon,
+    title: "Analytics",
+    desc: "Who enrolled and attended, sponsor views and clicks, top content.",
+    area: "sessions",
+  },
 ];
 
 export default async function AdminPage() {

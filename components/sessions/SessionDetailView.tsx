@@ -22,6 +22,7 @@ import {
   TimerIcon,
   UsersIcon,
 } from "@/components/icons";
+import { AddToCalendarButton } from "./AddToCalendarButton";
 import { EnrollButton } from "./EnrollButton";
 import { NotesEditor } from "./NotesEditor";
 
@@ -94,13 +95,14 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
               />
             )}
 
-            <a
-              href={`/api/sessions/${session.slug}/ics`}
-              className="cal-btn"
-              style={{ background: "rgba(255,255,255,0.06)", color: "#fff", borderColor: "rgba(255,255,255,0.2)" }}
-            >
-              <CalendarSmallIcon size={12} /> Add to Calendar
-            </a>
+            <AddToCalendarButton
+              slug={session.slug}
+              title={session.title}
+              description={session.description}
+              startsAt={session.startsAt}
+              durationMin={session.durationMin}
+              joinUrl={session.zoomJoinUrl}
+            />
           </div>
         </div>
 

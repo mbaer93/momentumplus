@@ -3,7 +3,7 @@ import { VideosManager } from "@/components/admin/VideosManager";
 import { VideoUploader } from "@/components/admin/VideoUploader";
 import type { EntityRow } from "@/components/admin/EntityManager";
 import { ArrowLeftIcon } from "@/components/icons";
-import { isMuxConfigured } from "@/lib/mux";
+import { isMuxConfigured, muxThumbnailUrl } from "@/lib/mux";
 import { placeholderVideos } from "@/lib/videos/data";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -34,7 +34,7 @@ export default async function AdminVideosPage({
     const admin = createServiceClient();
     const { data } = await admin
       .from("videos")
-      .select("id, title, category, mux_playback_id, duration_sec, min_access, published_at")
+      .select("id, title, category, mux_playback_id, thumbnail_url, duration_sec, min_access, published_at")
       .order("published_at", { ascending: false, nullsFirst: true });
     rows = (data ?? []).map((v) => ({
       id: v.id,
@@ -56,6 +56,11 @@ export default async function AdminVideosPage({
         title: v.title,
         category: v.category ?? "Leadership",
         muxPlaybackId: v.mux_playback_id ?? "",
+        thumbnailUrl: v.thumbnail_url ?? "",
+        defaultThumbUrl:
+          v.mux_playback_id && isMuxConfigured()
+            ? muxThumbnailUrl(v.mux_playback_id)
+            : "",
         durationMin: v.duration_sec ? Math.round(v.duration_sec / 60) : 0,
         minAccess: v.min_access,
         published: Boolean(v.published_at),

@@ -1,3 +1,4 @@
+import { HelpChat } from "@/components/help/HelpChat";
 import { Sidebar } from "@/components/portal/Sidebar";
 import { Topbar } from "@/components/portal/Topbar";
 import { SponsorRail } from "@/components/sponsors/SponsorRail";
@@ -50,6 +51,7 @@ export default async function PortalLayout({
           </div>
         </div>
       </div>
+      <HelpChat />
     </div>
   );
 }

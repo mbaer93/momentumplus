@@ -3,7 +3,7 @@ import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
 import { SPONSOR_INTEREST_URL } from "@/lib/links";
 import { requireMember } from "@/lib/current-member";
 import { listSponsors } from "@/lib/directory-queries";
-import { ExternalIcon } from "@/components/icons";
+import { SponsorWebsiteLink } from "@/components/sponsors/SponsorWebsiteLink";
 
 export const dynamic = "force-dynamic";
 
@@ -58,14 +58,7 @@ export default async function SponsorsPage() {
                 <div className="sp-title-name">{s.name}</div>
                 <p className="sp-title-desc">{s.tagline}</p>
                 <div className="sp-card-links" style={{ borderTop: "none", paddingTop: 16 }}>
-                  <a
-                    className="sp-link"
-                    href={s.website}
-                    target="_blank"
-                    rel="noopener noreferrer sponsored"
-                  >
-                    Visit website <ExternalIcon size={12} />
-                  </a>
+                  <SponsorWebsiteLink sponsorId={s.id} href={s.website} />
                 </div>
               </div>
             </div>
@@ -102,14 +95,7 @@ export default async function SponsorsPage() {
                     </div>
                   )}
                   <div className="sp-card-links">
-                    <a
-                      className="sp-link"
-                      href={s.website}
-                      target="_blank"
-                      rel="noopener noreferrer sponsored"
-                    >
-                      Visit website <ExternalIcon size={12} />
-                    </a>
+                    <SponsorWebsiteLink sponsorId={s.id} href={s.website} />
                   </div>
                 </div>
               </div>
@@ -147,14 +133,7 @@ export default async function SponsorsPage() {
                     </div>
                   )}
                   <div className="sp-card-links">
-                    <a
-                      className="sp-link"
-                      href={s.website}
-                      target="_blank"
-                      rel="noopener noreferrer sponsored"
-                    >
-                      Visit website <ExternalIcon size={12} />
-                    </a>
+                    <SponsorWebsiteLink sponsorId={s.id} href={s.website} />
                   </div>
                 </div>
               </div>

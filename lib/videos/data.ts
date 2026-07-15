@@ -15,6 +15,8 @@ export interface VideoItem {
   gradient: string;
   minAccess: AccessLevel;
   muxPlaybackId: string | null;
+  /** Card image: uploaded thumbnail, else the Mux screen grab. */
+  thumbnailUrl?: string | null;
   sessionId: string | null;
   aiSummary: AiSummary | null;
 }
