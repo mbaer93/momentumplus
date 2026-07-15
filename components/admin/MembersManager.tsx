@@ -30,6 +30,10 @@ export interface AdminMemberRow {
 }
 
 const TIERS: { value: Tier; label: string }[] = [
+  { value: "basic", label: "Basic" },
+  { value: "gift", label: "Gift (free Basic, 1 mo)" },
+  { value: "vip", label: "VIP (free Basic-level, 3 mo)" },
+  { value: "pro", label: "Pro (everything)" },
   { value: "sub_monthly", label: "Monthly" },
   { value: "sub_3mo", label: "3-Month" },
   { value: "sub_6mo", label: "6-Month" },

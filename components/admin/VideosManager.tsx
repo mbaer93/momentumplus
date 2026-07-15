@@ -39,6 +39,7 @@ const FIELDS: FieldDef[] = [
     options: [
       { value: "all_members", label: "All members" },
       { value: "vip_plus", label: "VIP & annual only" },
+      { value: "pro_only", label: "Pro members only (exclusive)" },
     ],
   },
   { key: "published", label: "Published (visible in the Library)", type: "checkbox" },
@@ -59,7 +60,10 @@ function toInput(v: EntityValues): VideoInput {
     category: String(v.category ?? ""),
     muxPlaybackId: String(v.muxPlaybackId ?? ""),
     durationMin: Number(v.durationMin ?? 0),
-    minAccess: v.minAccess === "vip_plus" ? "vip_plus" : "all_members",
+    minAccess:
+      v.minAccess === "vip_plus" || v.minAccess === "pro_only"
+        ? v.minAccess
+        : "all_members",
     published: Boolean(v.published),
   };
 }

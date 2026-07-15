@@ -41,9 +41,11 @@ export default async function AdminResourcesPage({
       subtitle: [r.category, r.partner_name].filter(Boolean).join(" · "),
       badge: !r.active
         ? "Inactive"
-        : r.min_access === "vip_plus"
-          ? "VIP+"
-          : undefined,
+        : r.min_access === "pro_only"
+          ? "Pro"
+          : r.min_access === "vip_plus"
+            ? "VIP+"
+            : undefined,
       values: {
         title: r.title,
         category: r.category ?? "",

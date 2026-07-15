@@ -88,6 +88,16 @@ export default async function AdminPage() {
   // requireAdmin(area) re-enforces this on every mutation regardless.
   const access = await getAdminAccess();
   const sections = SECTIONS.filter((s) => canAccessArea(access, s.area));
+  // Billing (Stripe) is Super Admin territory — it holds the account keys.
+  if (access?.role === "super") {
+    sections.push({
+      href: "/admin/billing",
+      icon: SponsorsIcon,
+      title: "Billing — Stripe",
+      desc: "Connect Stripe, set plan prices, and go live with self-serve memberships.",
+      area: "members",
+    });
+  }
 
   // Stats: live counts when connected; illustrative numbers in preview.
   let stats = {

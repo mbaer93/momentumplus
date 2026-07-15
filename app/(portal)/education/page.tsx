@@ -48,6 +48,11 @@ export default async function EducationPage() {
                     VIP
                   </span>
                 )}
+                {c.minAccess === "pro_only" && (
+                  <span className="recording-vip" style={{ position: "static" }}>
+                    PRO
+                  </span>
+                )}
               </div>
               <div className="course-title">{c.title}</div>
               <div className="course-desc">{c.description}</div>

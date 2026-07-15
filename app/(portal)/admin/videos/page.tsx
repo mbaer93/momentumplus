@@ -45,9 +45,11 @@ export default async function AdminVideosPage({
         .join(" · "),
       badge: !v.published_at
         ? "Draft"
-        : v.min_access === "vip_plus"
-          ? "VIP+"
-          : undefined,
+        : v.min_access === "pro_only"
+          ? "Pro"
+          : v.min_access === "vip_plus"
+            ? "VIP+"
+            : undefined,
       values: {
         title: v.title,
         category: v.category ?? "Leadership",

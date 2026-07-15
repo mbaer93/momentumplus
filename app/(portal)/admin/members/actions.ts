@@ -21,6 +21,10 @@ const GRANTABLE: Tier[] = [
   "sub_6mo",
   "sub_monthly",
   "sub_annual",
+  "basic",
+  "gift",
+  "vip",
+  "pro",
   "speaker",
   "admin",
 ];
@@ -167,7 +171,8 @@ export interface BulkResult {
 /**
  * Bulk member import: one line per member —
  *   email, Full Name, plan
- * Plans: monthly, 3month, 6month, 12month/annual, attendee, vip, speaker.
+ * Plans: basic, gift, vip, pro, monthly, 3month, 6month, 12month/annual,
+ * attendee, speaker.
  * New emails get an invite (lands on /welcome to set a password); repeats
  * are idempotent.
  */
@@ -205,7 +210,7 @@ export async function bulkAddMembers(csv: string): Promise<BulkResult> {
     const mapping = planToTier(plan);
     if (!mapping) {
       results.push(
-        `${email || line}: unknown plan "${plan}" — use monthly, 3month, 6month, 12month, annual, attendee, vip, or speaker.`,
+        `${email || line}: unknown plan "${plan}" — use basic, gift, vip, pro, monthly, 3month, 6month, 12month, annual, attendee, or speaker.`,
       );
       continue;
     }

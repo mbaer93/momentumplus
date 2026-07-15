@@ -28,19 +28,24 @@ export default async function AdminSponsorsPage({
     railActive: s.railActive,
     impressions: [4820, 3105, 2988, 1450, 1211, 976][i] ?? 0,
     clicks: [212, 148, 131, 64, 51, 38][i] ?? 0,
+    seats: [],
   }));
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
-    const [{ data: sponsors }, { data: events }] = await Promise.all([
-      admin
-        .from("sponsors")
-        .select(
-          "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
-        )
-        .order("tier"),
-      admin.from("sponsor_events").select("sponsor_id, kind"),
-    ]);
+    const [{ data: sponsors }, { data: events }, { data: seatRows }] =
+      await Promise.all([
+        admin
+          .from("sponsors")
+          .select(
+            "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
+          )
+          .order("tier"),
+        admin.from("sponsor_events").select("sponsor_id, kind"),
+        admin
+          .from("sponsor_members")
+          .select("sponsor_id, profile_id, profiles ( full_name, email )"),
+      ]);
     if (sponsors) {
       const counts = new Map<string, { impressions: number; clicks: number }>();
       for (const e of events ?? []) {
@@ -48,6 +53,24 @@ export default async function AdminSponsorsPage({
         if (e.kind === "click") c.clicks++;
         else c.impressions++;
         counts.set(e.sponsor_id, c);
+      }
+      const seatsBySponsor = new Map<
+        string,
+        { profileId: string; name: string; email: string }[]
+      >();
+      for (const seat of seatRows ?? []) {
+        const p = (
+          seat as unknown as {
+            profiles: { full_name: string | null; email: string | null } | null;
+          }
+        ).profiles;
+        const list = seatsBySponsor.get(seat.sponsor_id) ?? [];
+        list.push({
+          profileId: seat.profile_id,
+          name: p?.full_name ?? "",
+          email: p?.email ?? "",
+        });
+        seatsBySponsor.set(seat.sponsor_id, list);
       }
       rows = sponsors.map((s) => ({
         id: s.id,
@@ -61,6 +84,7 @@ export default async function AdminSponsorsPage({
         railActive: Boolean(s.rail_active),
         impressions: counts.get(s.id)?.impressions ?? 0,
         clicks: counts.get(s.id)?.clicks ?? 0,
+        seats: seatsBySponsor.get(s.id) ?? [],
       }));
     }
   }

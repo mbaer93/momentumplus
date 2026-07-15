@@ -22,7 +22,7 @@ export interface CourseItem {
   title: string;
   description: string;
   category: string;
-  minAccess: "all_members" | "vip_plus";
+  minAccess: "all_members" | "vip_plus" | "pro_only";
   published: boolean;
   lessons: CourseLesson[];
   completedCount: number;
@@ -106,7 +106,7 @@ interface CourseRow {
   title: string;
   description: string | null;
   category: string | null;
-  min_access: "all_members" | "vip_plus" | "admin_only";
+  min_access: "all_members" | "vip_plus" | "pro_only" | "admin_only";
   published_at: string | null;
   course_lessons:
     | {
@@ -150,7 +150,10 @@ export async function listCourses(): Promise<CourseItem[]> {
       title: row.title,
       description: row.description ?? "",
       category: row.category ?? "Leadership",
-      minAccess: row.min_access === "vip_plus" ? "vip_plus" : "all_members",
+      minAccess:
+        row.min_access === "vip_plus" || row.min_access === "pro_only"
+          ? row.min_access
+          : "all_members",
       published: Boolean(row.published_at),
       lessons,
       completedCount: lessons.filter((l) => l.completed).length,

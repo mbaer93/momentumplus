@@ -59,6 +59,9 @@ export function LibraryBrowser({
                 {v.minAccess === "vip_plus" && (
                   <span className="recording-vip">VIP</span>
                 )}
+                {v.minAccess === "pro_only" && (
+                  <span className="recording-vip">PRO</span>
+                )}
                 <span className="recording-play-btn">
                   <svg
                     width="18"

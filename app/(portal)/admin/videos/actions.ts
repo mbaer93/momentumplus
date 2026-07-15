@@ -10,7 +10,7 @@ export interface VideoInput {
   category: string;
   muxPlaybackId: string;
   durationMin: number;
-  minAccess: "all_members" | "vip_plus";
+  minAccess: "all_members" | "vip_plus" | "pro_only";
   published: boolean;
 }
 

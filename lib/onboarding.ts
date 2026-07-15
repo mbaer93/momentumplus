@@ -63,9 +63,22 @@ export function planToTier(plan: string): { tier: Tier; months: number } | null 
     case "attendee":
     case "tslsattendee":
       return { tier: "tsls_attendee", months: 12 };
-    case "vip":
     case "tslsvip":
       return { tier: "tsls_vip", months: 12 };
+    // Member levels (July 2026): basic paid; gift = free Basic 1 month;
+    // vip = free Basic-level 3 months; pro = everything.
+    case "basic":
+    case "basicuser":
+      return { tier: "basic", months: 1 };
+    case "gift":
+    case "giftuser":
+      return { tier: "gift", months: 1 };
+    case "vip":
+    case "vipuser":
+      return { tier: "vip", months: 3 };
+    case "pro":
+    case "prouser":
+      return { tier: "pro", months: 1 };
     case "speaker":
       return { tier: "speaker", months: 0 };
     default:

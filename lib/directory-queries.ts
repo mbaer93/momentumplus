@@ -102,7 +102,10 @@ export async function listResources(viewerTier: Tier): Promise<ResourceItem[]> {
     tags: [row.category, row.partner_name].filter(Boolean) as string[],
     actionLabel: "Open",
     url: row.url ?? "#",
-    minAccess: row.min_access === "vip_plus" ? "vip_plus" : "all_members",
+    minAccess:
+      row.min_access === "vip_plus" || row.min_access === "pro_only"
+        ? row.min_access
+        : "all_members",
   }));
 }
 

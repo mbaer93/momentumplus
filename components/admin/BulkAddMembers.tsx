@@ -48,7 +48,8 @@ export function BulkAddMembers() {
       </div>
       <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 8 }}>
         Paste one member per line: <strong>email, Full Name, plan</strong>.
-        Plans: monthly, 3month, 6month, 12month (or annual), attendee, vip,
+        Plans: basic, gift (free Basic, 1 month), vip (free Basic-level, 3
+        months), pro, monthly, 3month, 6month, 12month (or annual), attendee,
         speaker. New members receive an invite email and set their password on
         first login. Re-importing the same person is safe — no double-grants.
         Up to 200 lines per run.

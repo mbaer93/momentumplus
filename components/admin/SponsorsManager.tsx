@@ -7,15 +7,23 @@ import { useRouter } from "next/navigation";
 import {
   createSponsor,
   deleteSponsor,
+  linkSponsorMember,
   removePresentedByLogo,
   removeSponsorAd,
   toggleRail,
+  unlinkSponsorMember,
   updateSponsor,
   uploadPresentedByLogo,
   uploadSponsorAd,
   uploadSponsorLogo,
   type SponsorInput,
 } from "@/app/(portal)/admin/sponsors/actions";
+
+export interface SponsorSeat {
+  profileId: string;
+  name: string;
+  email: string;
+}
 
 export interface AdminSponsorRow {
   id: string;
@@ -29,6 +37,8 @@ export interface AdminSponsorRow {
   railActive: boolean;
   impressions: number;
   clicks: number;
+  /** Members holding a seat (each gets Pro while linked). */
+  seats: SponsorSeat[];
 }
 
 const EMPTY: SponsorInput = {
@@ -146,6 +156,7 @@ export function SponsorsManager({
   );
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [seatEmail, setSeatEmail] = useState("");
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function run(fn: () => Promise<{ ok: boolean; message?: string }>) {
@@ -491,6 +502,100 @@ export function SponsorsManager({
                             />
                           </div>
                         )}
+                        {/* Sponsor team seats — each linked member holds Pro
+                            while they keep a seat with any sponsor. */}
+                        <div style={{ marginTop: 14 }}>
+                          <div className="admin-field" style={{ marginBottom: 6 }}>
+                            <label style={{ fontSize: 13 }}>
+                              Linked members — each gets a Pro membership for
+                              as long as they&apos;re linked (optional; add as
+                              many as the sponsorship includes)
+                            </label>
+                          </div>
+                          {s.seats.length === 0 && (
+                            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                              No members linked yet.
+                            </div>
+                          )}
+                          {s.seats.map((seat) => (
+                            <div
+                              key={seat.profileId}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                padding: "6px 0",
+                                borderBottom: "1px solid var(--warm-gray)",
+                              }}
+                            >
+                              <div style={{ flex: 1, fontSize: 13 }}>
+                                <strong>{seat.name || seat.email}</strong>
+                                {seat.name && (
+                                  <span
+                                    style={{
+                                      color: "var(--mid-gray)",
+                                      marginLeft: 8,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    {seat.email}
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className="admin-status draft"
+                                style={{ fontSize: 10 }}
+                              >
+                                Pro
+                              </span>
+                              <button
+                                type="button"
+                                className="btn-mini danger"
+                                disabled={pending}
+                                onClick={() => {
+                                  if (
+                                    confirm(
+                                      `Unlink ${seat.name || seat.email}? Their sponsor Pro access ends unless another sponsor links them.`,
+                                    )
+                                  ) {
+                                    run(() =>
+                                      unlinkSponsorMember(s.id, seat.profileId),
+                                    );
+                                  }
+                                }}
+                              >
+                                Unlink
+                              </button>
+                            </div>
+                          ))}
+                          <div className="admin-form-actions" style={{ marginTop: 8 }}>
+                            <input
+                              type="email"
+                              placeholder="member@company.com"
+                              value={seatEmail}
+                              onChange={(e) => setSeatEmail(e.target.value)}
+                              style={{ minWidth: 220 }}
+                              aria-label="Email of member to link"
+                            />
+                            <button
+                              type="button"
+                              className="btn-mini"
+                              disabled={pending || !seatEmail.includes("@")}
+                              onClick={() =>
+                                run(async () => {
+                                  const res = await linkSponsorMember(
+                                    s.id,
+                                    seatEmail,
+                                  );
+                                  if (res.ok) setSeatEmail("");
+                                  return res;
+                                })
+                              }
+                            >
+                              Link member
+                            </button>
+                          </div>
+                        </div>
                         {msg && (
                           <div
                             className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}

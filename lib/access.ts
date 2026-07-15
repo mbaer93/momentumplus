@@ -1,7 +1,12 @@
 import type { AccessLevel, Membership, Tier } from "./types";
 
-// Tiers that satisfy the `vip_plus` gate (SPEC.md §2).
-const VIP_PLUS_TIERS: Tier[] = ["tsls_vip", "sub_annual", "speaker", "admin"];
+// Tiers that satisfy the `vip_plus` gate (SPEC.md §2). Pro members get
+// everything, so they clear this gate too. (The new `vip` level is a
+// 3-month comp of Basic-level access — deliberately NOT vip_plus.)
+const VIP_PLUS_TIERS: Tier[] = ["tsls_vip", "sub_annual", "speaker", "admin", "pro"];
+
+// Tiers that satisfy the `pro_only` gate (exclusive content toggle).
+const PRO_TIERS: Tier[] = ["pro", "admin"];
 
 const ADMIN_TIERS: Tier[] = ["admin"];
 
@@ -17,6 +22,10 @@ export function isAdminTier(tier: Tier): boolean {
 
 export function isVipPlus(tier: Tier): boolean {
   return VIP_PLUS_TIERS.includes(tier);
+}
+
+export function isPro(tier: Tier): boolean {
+  return PRO_TIERS.includes(tier);
 }
 
 /**
@@ -45,6 +54,8 @@ export function canAccess(
       return true;
     case "vip_plus":
       return isVipPlus(tier);
+    case "pro_only":
+      return isPro(tier);
     case "admin_only":
       return isAdminTier(tier);
     default:
@@ -61,6 +72,10 @@ export function tierLabel(tier: Tier): string {
     sub_6mo: "6-Month Member",
     sub_monthly: "Monthly Member",
     sub_annual: "Annual Member",
+    basic: "Basic Member",
+    gift: "Gift Member",
+    vip: "VIP Member",
+    pro: "Pro Member",
     speaker: "Speaker",
     admin: "Administrator",
   };

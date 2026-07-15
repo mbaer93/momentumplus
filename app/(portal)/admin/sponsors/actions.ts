@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { provisionMember } from "@/lib/onboarding";
 import { PRESENTED_BY_PATH } from "@/lib/presented-by";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -63,6 +64,29 @@ export async function toggleRail(
   return { ok: true };
 }
 
+/**
+ * Expire sponsor-comped Pro memberships for profiles that no longer hold a
+ * seat with ANY sponsor ("Pro for as long as they are a sponsor").
+ */
+async function expireOrphanedSponsorPro(profileIds: string[]): Promise<void> {
+  if (profileIds.length === 0) return;
+  const admin = createServiceClient();
+  const { data: stillSeated } = await admin
+    .from("sponsor_members")
+    .select("profile_id")
+    .in("profile_id", profileIds);
+  const seated = new Set((stillSeated ?? []).map((r) => r.profile_id));
+  const orphaned = profileIds.filter((id) => !seated.has(id));
+  if (orphaned.length === 0) return;
+  await admin
+    .from("memberships")
+    .update({ status: "expired", access_expires_at: new Date().toISOString() })
+    .in("profile_id", orphaned)
+    .eq("tier", "pro")
+    .eq("source", "sponsor")
+    .eq("status", "active");
+}
+
 export async function deleteSponsor(sponsorId: string): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Deleted (preview mode)." };
@@ -71,11 +95,88 @@ export async function deleteSponsor(sponsorId: string): Promise<SponsorResult> {
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
+  const { data: seats } = await admin
+    .from("sponsor_members")
+    .select("profile_id")
+    .eq("sponsor_id", sponsorId);
   const { error } = await admin.from("sponsors").delete().eq("id", sponsorId);
   if (error) return { ok: false, message: error.message };
+  await expireOrphanedSponsorPro((seats ?? []).map((s) => s.profile_id));
   revalidatePath("/admin/sponsors");
   revalidatePath("/sponsors");
   return { ok: true, message: "Sponsor deleted." };
+}
+
+/**
+ * Attach a member to a sponsor. They get (or keep) an ongoing Pro membership
+ * for as long as they hold a seat with at least one sponsor. New emails are
+ * invited through the normal first-login flow. Seat counts per sponsorship
+ * tier aren't enforced yet — those rules are still being decided.
+ */
+export async function linkSponsorMember(
+  sponsorId: string,
+  email: string,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Linked (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const res = await provisionMember({
+    email,
+    tier: "pro",
+    months: null, // ongoing — revoked when their last sponsor seat is removed
+    source: "sponsor",
+  });
+  if (!res.ok) return { ok: false, message: res.message };
+
+  const admin = createServiceClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .ilike("email", email.trim().toLowerCase())
+    .maybeSingle();
+  if (!profile) return { ok: false, message: "Could not find that member." };
+
+  const { error } = await admin
+    .from("sponsor_members")
+    .upsert(
+      { sponsor_id: sponsorId, profile_id: profile.id },
+      { onConflict: "sponsor_id,profile_id" },
+    );
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin/sponsors");
+  return {
+    ok: true,
+    message: res.invited
+      ? `${email} invited and linked — they hold Pro while sponsoring.`
+      : `${email} linked — they hold Pro while sponsoring.`,
+  };
+}
+
+export async function unlinkSponsorMember(
+  sponsorId: string,
+  profileId: string,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Unlinked (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("sponsor_members")
+    .delete()
+    .eq("sponsor_id", sponsorId)
+    .eq("profile_id", profileId);
+  if (error) return { ok: false, message: error.message };
+  await expireOrphanedSponsorPro([profileId]);
+
+  revalidatePath("/admin/sponsors");
+  return { ok: true, message: "Member unlinked — sponsor Pro access ended." };
 }
 
 export async function updateSponsor(
