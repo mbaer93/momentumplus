@@ -1,14 +1,41 @@
-import { PlaceholderPage } from "@/components/portal/PlaceholderPage";
-import { CalendarIcon } from "@/components/icons";
+import {
+  CalendarView,
+  type CalendarEvent,
+} from "@/components/calendar/CalendarView";
+import { AdminAddChip } from "@/components/admin/AdminChips";
+import { requireMember } from "@/lib/current-member";
+import { listSessions } from "@/lib/sessions/queries";
 
-export default function CalendarPage() {
+export const dynamic = "force-dynamic";
+
+export default async function CalendarPage() {
+  const member = await requireMember();
+  const sessions = await listSessions();
+
+  const events: CalendarEvent[] = sessions
+    .filter((s) => s.startsAt)
+    .map((s) => ({
+      id: s.id,
+      slug: s.slug,
+      title: s.title,
+      startsAt: s.startsAt,
+      category: s.category,
+      speakerName: s.speaker.name,
+      isEnrolled: s.isEnrolled,
+    }));
+
   return (
-    <PlaceholderPage
-      title="Calendar"
-      subtitle="Your enrolled sessions at a glance."
-      description="A month view of enrolled and available sessions with .ics export. Built alongside the sessions feature in Phase 2."
-      phase="Phase 2"
-      icon={CalendarIcon}
-    />
+    <div className="calendar-pad">
+      <div className="section-header" style={{ marginBottom: 0 }}>
+        <div>
+          <h2>Calendar</h2>
+          <p>Your session schedule and upcoming events</p>
+        </div>
+        {member.isAdmin && (
+          <AdminAddChip href="/admin/sessions/new" label="New session" />
+        )}
+      </div>
+      <CalendarView events={events} />
+    </div>
   );
 }
