@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import {
+  createAccountWithoutEmail,
   findAuthUserIdByEmail,
   planToTier,
   provisionMember,
@@ -62,6 +63,7 @@ export async function grantMembership(input: {
   const admin = createServiceClient();
 
   let profileId: string | null = null;
+  let manualLoginLink: string | null = null;
   const { data: profile } = await admin
     .from("profiles")
     .select("id")
@@ -89,12 +91,24 @@ export async function grantMembership(input: {
         await admin
           .from("profiles")
           .upsert({ id: existingId, email }, { onConflict: "id" });
+      }
+    }
+
+    if (!profileId) {
+      // Email system down? Create the login without sending anything and
+      // hand the admin a one-time login link to deliver themselves.
+      const manual = await createAccountWithoutEmail(email);
+      if (manual.profileId) {
+        profileId = manual.profileId;
+        manualLoginLink = manual.loginLink;
       } else {
+        const parts = [
+          inviteErr ? `invite failed (${inviteErr.message})` : null,
+          manual.error ? `direct account creation failed (${manual.error})` : null,
+        ].filter(Boolean);
         return {
           ok: false,
-          message: inviteErr
-            ? `Couldn't invite ${email}: ${inviteErr.message}`
-            : "Could not find or invite that email.",
+          message: `Couldn't add ${email}: ${parts.join("; ") || "unknown error"}. This points at the auth service itself — tell your developer.`,
         };
       }
     }
@@ -132,6 +146,12 @@ export async function grantMembership(input: {
   if (error) return { ok: false, message: error.message };
 
   revalidatePath("/admin/members");
+  if (manualLoginLink) {
+    return {
+      ok: true,
+      message: `Granted ${input.tier} to ${email} — but the invite email couldn't be sent, so copy this one-time login link and send it to them yourself (it signs them in and asks for a password): ${manualLoginLink}`,
+    };
+  }
   return { ok: true, message: `Granted ${input.tier} to ${email}.` };
 }
 

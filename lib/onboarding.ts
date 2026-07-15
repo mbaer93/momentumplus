@@ -111,6 +111,45 @@ export async function findAuthUserIdByEmail(
   return null;
 }
 
+/**
+ * Email-proof account creation: when the invite email can't be sent (SMTP
+ * outage, rate limit, provider hiccup), create the login directly — no
+ * email involved — and mint a one-time login link the admin can hand to
+ * the member themselves. The grant must never fail because email did.
+ */
+export async function createAccountWithoutEmail(
+  email: string,
+  name?: string,
+): Promise<{ profileId: string | null; loginLink: string | null; error: string | null }> {
+  const admin = createServiceClient();
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+    email,
+    email_confirm: true,
+    user_metadata: name?.trim() ? { full_name: name.trim() } : undefined,
+  });
+  if (!created?.user) {
+    return {
+      profileId: null,
+      loginLink: null,
+      error: createErr?.message ?? "Could not create the account.",
+    };
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const { data: linkData } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: {
+      redirectTo: siteUrl ? `${siteUrl}/auth/callback?redirect=/welcome` : undefined,
+    },
+  });
+  return {
+    profileId: created.user.id,
+    loginLink: linkData?.properties?.action_link ?? null,
+    error: null,
+  };
+}
+
 export async function provisionMember(
   input: ProvisionInput,
 ): Promise<ProvisionResult> {
@@ -128,6 +167,7 @@ export async function provisionMember(
   let profileId: string | null = null;
   let invited = false;
   let inviteFailure: string | null = null;
+  let manualLoginLink: string | null = null;
 
   const { data: profile } = await admin
     .from("profiles")
@@ -158,6 +198,18 @@ export async function provisionMember(
       // profiles were wired, or hand-edited emails) — find it and heal below.
       if (!profileId) {
         profileId = await findAuthUserIdByEmail(email);
+      }
+      // Last resort: the email system is down — create the login without
+      // sending anything. The member gets in via a manual link or a later
+      // password reset; the grant itself must not fail.
+      if (!profileId) {
+        const manual = await createAccountWithoutEmail(email, input.name);
+        if (manual.profileId) {
+          profileId = manual.profileId;
+          manualLoginLink = manual.loginLink;
+        } else if (manual.error) {
+          inviteFailure = `${inviteFailure ?? "invite failed"}; account creation also failed: ${manual.error}`;
+        }
       }
     }
   }
@@ -217,6 +269,14 @@ export async function provisionMember(
     return { ...base, ok: false, invited, message: memberError.message };
   }
 
+  if (manualLoginLink) {
+    return {
+      ...base,
+      ok: true,
+      invited,
+      message: `${email}: ${input.tier} granted, but the invite email couldn't be sent — send them this one-time login link yourself: ${manualLoginLink}`,
+    };
+  }
   return {
     ...base,
     ok: true,
