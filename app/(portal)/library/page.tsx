@@ -10,7 +10,7 @@ export default async function LibraryPage() {
 
   return (
     <div className="library-pad">
-      <LibraryBrowser videos={videos} />
+      <LibraryBrowser videos={videos} isAdmin={member.isAdmin} />
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/current-member";
 import { listSpeakers } from "@/lib/directory-queries";
+import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
 
 export const dynamic = "force-dynamic";
 
 export default async function SpeakersPage() {
-  await requireMember();
+  const member = await requireMember();
   const speakers = await listSpeakers();
 
   return (
@@ -15,6 +16,9 @@ export default async function SpeakersPage() {
           <h2>Our Speakers</h2>
           <p>World-class coaches and thought leaders</p>
         </div>
+        {member.isAdmin && (
+          <AdminAddChip href="/admin/speakers" label="Add speaker" />
+        )}
       </div>
       {speakers.length === 0 && (
         <div className="sessions-empty" style={{ marginTop: 20 }}>
@@ -23,7 +27,13 @@ export default async function SpeakersPage() {
       )}
       <div className="speakers-grid">
         {speakers.map((s) => (
-          <Link key={s.id} href={`/speakers/${s.id}`} className="speaker-card">
+          <div key={s.id} style={{ position: "relative" }}>
+            {member.isAdmin && (
+              <span className="admin-chip-overlay">
+                <AdminEditChip href={`/admin/speakers?edit=${s.id}`} />
+              </span>
+            )}
+          <Link href={`/speakers/${s.id}`} className="speaker-card">
             <div
               className="speaker-card-banner"
               style={{ background: s.bannerGradient }}
@@ -55,6 +65,7 @@ export default async function SpeakersPage() {
               </div>
             </div>
           </Link>
+          </div>
         ))}
       </div>
     </div>

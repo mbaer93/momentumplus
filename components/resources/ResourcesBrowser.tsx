@@ -4,15 +4,18 @@ import { useMemo, useState } from "react";
 import type { ResourceItem } from "@/lib/directory-data";
 import { recordResourceUse } from "@/app/(portal)/resources/actions";
 import { DocIcon, ExternalIcon } from "@/components/icons";
+import { AdminEditChip } from "@/components/admin/AdminChips";
 
 const FILTERS = ["All Resources", "Leadership", "Business", "Wellness", "Communication"];
 
 export function ResourcesBrowser({
   resources,
   unlockedIds,
+  isAdmin = false,
 }: {
   resources: ResourceItem[];
   unlockedIds: string[];
+  isAdmin?: boolean;
 }) {
   const [filter, setFilter] = useState(FILTERS[0]);
   const unlocked = useMemo(() => new Set(unlockedIds), [unlockedIds]);
@@ -52,7 +55,16 @@ export function ResourcesBrowser({
         {visible.map((r) => {
           const canOpen = unlocked.has(r.id);
           return (
-            <div className="resource-card" key={r.id}>
+            <div
+              className="resource-card"
+              key={r.id}
+              style={isAdmin ? { position: "relative" } : undefined}
+            >
+              {isAdmin && (
+                <span className="admin-chip-overlay">
+                  <AdminEditChip href={`/admin/resources?edit=${r.id}`} />
+                </span>
+              )}
               <div className="resource-icon" style={{ background: r.iconBg }}>
                 <span style={{ color: r.typeColor }}>
                   <DocIcon size={20} />

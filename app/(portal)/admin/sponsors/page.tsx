@@ -10,12 +10,20 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSponsorsPage() {
+export default async function AdminSponsorsPage({
+  searchParams,
+}: {
+  searchParams?: { edit?: string };
+}) {
   let rows: AdminSponsorRow[] = placeholderSponsors.map((s, i) => ({
     id: s.id,
     name: s.name,
     tier: s.tier,
     tagline: s.tagline,
+    offer: s.offer ?? "",
+    website: s.website,
+    logoUrl: s.logoUrl,
+    sidebarAdUrl: s.sidebarAdUrl,
     railActive: s.railActive,
     impressions: [4820, 3105, 2988, 1450, 1211, 976][i] ?? 0,
     clicks: [212, 148, 131, 64, 51, 38][i] ?? 0,
@@ -26,7 +34,9 @@ export default async function AdminSponsorsPage() {
     const [{ data: sponsors }, { data: events }] = await Promise.all([
       admin
         .from("sponsors")
-        .select("id, name, tier, tagline, rail_active")
+        .select(
+          "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
+        )
         .order("tier"),
       admin.from("sponsor_events").select("sponsor_id, kind"),
     ]);
@@ -43,6 +53,10 @@ export default async function AdminSponsorsPage() {
         name: s.name,
         tier: s.tier,
         tagline: s.tagline ?? "",
+        offer: s.offer ?? "",
+        website: s.website ?? "",
+        logoUrl: s.logo_url ?? null,
+        sidebarAdUrl: s.sidebar_ad_url ?? null,
         railActive: Boolean(s.rail_active),
         impressions: counts.get(s.id)?.impressions ?? 0,
         clicks: counts.get(s.id)?.clicks ?? 0,
@@ -67,7 +81,7 @@ export default async function AdminSponsorsPage() {
           counts. Real counts come from sponsor_events once connected.
         </div>
       )}
-      <SponsorsManager sponsors={rows} />
+      <SponsorsManager sponsors={rows} initialEditId={searchParams?.edit} />
     </div>
   );
 }

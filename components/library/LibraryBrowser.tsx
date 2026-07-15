@@ -3,10 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { VideoItem } from "@/lib/videos/data";
+import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
 
 const FILTERS = ["All", "Leadership", "Wellness", "Business"] as const;
 
-export function LibraryBrowser({ videos }: { videos: VideoItem[] }) {
+export function LibraryBrowser({
+  videos,
+  isAdmin = false,
+}: {
+  videos: VideoItem[];
+  isAdmin?: boolean;
+}) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const visible =
     filter === "All" ? videos : videos.filter((v) => v.category === filter);
@@ -18,7 +25,10 @@ export function LibraryBrowser({ videos }: { videos: VideoItem[] }) {
           <h2>Session Library</h2>
           <p>Access recordings of all past sessions</p>
         </div>
-        <div className="filter-row" style={{ margin: 0 }}>
+        <div
+          className="filter-row"
+          style={{ margin: 0, alignItems: "center", gap: 8 }}
+        >
           {FILTERS.map((f) => (
             <button
               key={f}
@@ -29,6 +39,7 @@ export function LibraryBrowser({ videos }: { videos: VideoItem[] }) {
               {f === "All" ? "All" : f}
             </button>
           ))}
+          {isAdmin && <AdminAddChip href="/admin/videos" label="Add recording" />}
         </div>
       </div>
 
@@ -37,7 +48,13 @@ export function LibraryBrowser({ videos }: { videos: VideoItem[] }) {
           <div className="sessions-empty">No recordings in this category yet.</div>
         ) : (
           visible.map((v) => (
-            <Link key={v.id} href={`/library/${v.id}`} className="recording-card">
+            <div key={v.id} style={{ position: "relative" }}>
+              {isAdmin && (
+                <span className="admin-chip-overlay">
+                  <AdminEditChip href={`/admin/videos?edit=${v.id}`} />
+                </span>
+              )}
+            <Link href={`/library/${v.id}`} className="recording-card">
               <div className="recording-thumb" style={{ background: v.gradient }}>
                 {v.minAccess === "vip_plus" && (
                   <span className="recording-vip">VIP</span>
@@ -68,6 +85,7 @@ export function LibraryBrowser({ videos }: { videos: VideoItem[] }) {
                 </div>
               </div>
             </Link>
+            </div>
           ))
         )}
       </div>

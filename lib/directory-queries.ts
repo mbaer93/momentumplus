@@ -116,7 +116,9 @@ export async function listSponsors(): Promise<SponsorItem[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("sponsors")
-    .select("id, name, tier, tagline, offer, website, rail_active")
+    .select(
+      "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
+    )
     .order("tier");
   if (error || !data) return [];
 
@@ -136,6 +138,8 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     offer: row.offer,
     website: row.website ?? "#",
     wordmark: marks[hashIndex(row.id, marks.length)],
+    logoUrl: row.logo_url ?? null,
+    sidebarAdUrl: row.sidebar_ad_url ?? null,
     railActive: Boolean(row.rail_active),
   }));
 }
