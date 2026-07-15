@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
-import { planToTier, provisionMember } from "@/lib/onboarding";
+import {
+  findAuthUserIdByEmail,
+  planToTier,
+  provisionMember,
+} from "@/lib/onboarding";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { addMonths } from "@/lib/membership";
@@ -67,15 +71,33 @@ export async function grantMembership(input: {
     profileId = profile.id;
   } else {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    const { data: invited } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: siteUrl
-        ? `${siteUrl}/auth/callback?redirect=/welcome`
-        : undefined,
-    });
+    const { data: invited, error: inviteErr } =
+      await admin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: siteUrl
+          ? `${siteUrl}/auth/callback?redirect=/welcome`
+          : undefined,
+      });
     profileId = invited?.user?.id ?? null;
-  }
-  if (!profileId) {
-    return { ok: false, message: "Could not find or invite that email." };
+
+    if (!profileId) {
+      // A login may already exist without a matching profile row (accounts
+      // created before profiles were wired, or a hand-edited email). Find
+      // it and heal the profile so the grant can proceed.
+      const existingId = await findAuthUserIdByEmail(email);
+      if (existingId) {
+        profileId = existingId;
+        await admin
+          .from("profiles")
+          .upsert({ id: existingId, email }, { onConflict: "id" });
+      } else {
+        return {
+          ok: false,
+          message: inviteErr
+            ? `Couldn't invite ${email}: ${inviteErr.message}`
+            : "Could not find or invite that email.",
+        };
+      }
+    }
   }
 
   // Duplicate guard: never stack a second active membership of the same

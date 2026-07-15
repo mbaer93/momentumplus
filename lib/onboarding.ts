@@ -86,6 +86,31 @@ export function planToTier(plan: string): { tier: Tier; months: number } | null 
   }
 }
 
+/**
+ * Find an existing login by email even when its profiles row is missing or
+ * carries a different email (accounts created before profiles were wired,
+ * or edited by hand). Pages through auth users; fine at community scale.
+ */
+export async function findAuthUserIdByEmail(
+  email: string,
+): Promise<string | null> {
+  const admin = createServiceClient();
+  const target = email.trim().toLowerCase();
+  for (let page = 1; page <= 25; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+    if (error || !data?.users?.length) return null;
+    const hit = data.users.find(
+      (u) => (u.email ?? "").toLowerCase() === target,
+    );
+    if (hit) return hit.id;
+    if (data.users.length < 200) return null;
+  }
+  return null;
+}
+
 export async function provisionMember(
   input: ProvisionInput,
 ): Promise<ProvisionResult> {
@@ -102,6 +127,7 @@ export async function provisionMember(
   const admin = createServiceClient();
   let profileId: string | null = null;
   let invited = false;
+  let inviteFailure: string | null = null;
 
   const { data: profile } = await admin
     .from("profiles")
@@ -120,6 +146,7 @@ export async function provisionMember(
       profileId = inv.user.id;
       invited = true;
     } else if (error) {
+      inviteFailure = error.message;
       // Auth user may exist without a profile row yet (invite race) — retry.
       const { data: again } = await admin
         .from("profiles")
@@ -127,10 +154,21 @@ export async function provisionMember(
         .ilike("email", email)
         .maybeSingle();
       profileId = again?.id ?? null;
+      // Login may exist with no profile row at all (accounts created before
+      // profiles were wired, or hand-edited emails) — find it and heal below.
+      if (!profileId) {
+        profileId = await findAuthUserIdByEmail(email);
+      }
     }
   }
   if (!profileId) {
-    return { ...base, ok: false, message: "Could not invite or find this email." };
+    return {
+      ...base,
+      ok: false,
+      message: inviteFailure
+        ? `Couldn't invite ${email}: ${inviteFailure}`
+        : "Could not invite or find this email.",
+    };
   }
 
   // Signup trigger races the invite; upsert keeps the name.
