@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { getGhlContact, isGhlConfigured } from "@/lib/ghl";
+import { getGhlContact } from "@/lib/ghl";
+import { isGhlReady } from "@/lib/service-config";
 
 /*
  * Nightly reconciliation (SPEC.md §4): repair drift between GHL and
@@ -44,7 +45,8 @@ export async function GET(req: NextRequest) {
 
   // 2. Drift check on rows expiring within 14 days (bounded per run).
   const missingContacts: string[] = [];
-  if (isGhlConfigured()) {
+  const ghlReady = await isGhlReady();
+  if (ghlReady) {
     const soon = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     const { data: candidates } = await admin
       .from("memberships")
@@ -64,7 +66,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     expiredCount: expired?.length ?? 0,
-    ghlChecked: isGhlConfigured(),
+    ghlChecked: ghlReady,
     missingContacts,
   });
 }

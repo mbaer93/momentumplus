@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { createZoomMeeting, isZoomConfigured } from "@/lib/zoom";
+import { createZoomMeeting } from "@/lib/zoom";
+import { isZoomReady } from "@/lib/service-config";
 
 /*
  * Admin: publish a session. Creates the Zoom meeting (if not already created),
@@ -38,7 +39,7 @@ export async function POST(
   let update: Record<string, unknown> = { status: "scheduled" };
 
   // Create the Zoom meeting only once, and only if Zoom is configured.
-  if (!session.zoom_meeting_id && isZoomConfigured()) {
+  if (!session.zoom_meeting_id && (await isZoomReady())) {
     try {
       const meeting = await createZoomMeeting({
         topic: session.title,

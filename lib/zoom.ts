@@ -23,12 +23,37 @@ export function isZoomConfigured(): boolean {
   );
 }
 
-export async function getZoomAccessToken(): Promise<string> {
-  if (!isZoomConfigured()) throw new ZoomNotConfiguredError();
+export interface ZoomS2SCreds {
+  accountId: string;
+  clientId: string;
+  clientSecret: string;
+}
 
-  const accountId = process.env.ZOOM_ACCOUNT_ID!;
+/**
+ * Mint an S2S OAuth token. Credentials resolve through the Connections
+ * settings (with env fallback) unless passed explicitly (the connect wizard
+ * passes them to validate before saving).
+ */
+export async function getZoomAccessToken(
+  creds?: ZoomS2SCreds,
+): Promise<string> {
+  let resolved = creds ?? null;
+  if (!resolved) {
+    const { getZoomCreds } = await import("./service-config");
+    const c = await getZoomCreds();
+    if (c.accountId && c.clientId && c.clientSecret) {
+      resolved = {
+        accountId: c.accountId,
+        clientId: c.clientId,
+        clientSecret: c.clientSecret,
+      };
+    }
+  }
+  if (!resolved) throw new ZoomNotConfiguredError();
+
+  const accountId = resolved.accountId;
   const basic = Buffer.from(
-    `${process.env.ZOOM_CLIENT_ID}:${process.env.ZOOM_CLIENT_SECRET}`,
+    `${resolved.clientId}:${resolved.clientSecret}`,
   ).toString("base64");
 
   const res = await fetch(

@@ -2,21 +2,34 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { updateProfile } from "@/app/(portal)/profile/actions";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
-export function WelcomeForm() {
+/*
+ * First-login walkthrough for invited members:
+ *   Step 1 — set a password (they arrived signed-in from the invite email)
+ *   Step 2 — complete their member profile (name, company, role, phone)
+ * then straight into the portal.
+ */
+export function WelcomeForm({ initialName }: { initialName: string }) {
   const router = useRouter();
   const configured = isSupabaseConfigured();
+  const [step, setStep] = useState<1 | 2>(1);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [profile, setProfile] = useState({
+    full_name: initialName,
+    company: "",
+    title: "",
+    phone: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function savePassword(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-
     if (password.length < 8) {
       setError("Use at least 8 characters.");
       return;
@@ -26,37 +39,118 @@ export function WelcomeForm() {
       return;
     }
     if (!configured) {
-      router.replace("/dashboard");
+      setStep(2);
       return;
     }
-
     setLoading(true);
-    const supabase = createClient();
     try {
+      const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      router.replace("/dashboard");
+      setStep(2);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Couldn't save that password — try again.",
+        err instanceof Error ? err.message : "Couldn't save that password — try again.",
       );
     } finally {
       setLoading(false);
     }
   }
 
+  async function saveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!profile.full_name.trim()) {
+      setError("Tell us your name so members know who you are.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await updateProfile({
+        full_name: profile.full_name,
+        phone: profile.phone,
+        company: profile.company,
+        title: profile.title,
+        industry: "",
+        bio: "",
+      });
+      router.replace("/dashboard");
+    } catch {
+      // Profile details can always be finished later in Settings.
+      router.replace("/dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (step === 2) {
+    return (
+      <div className="login-card">
+        <h2>Tell the community who you are</h2>
+        <p>
+          This appears on your member profile — you can change any of it later
+          under Settings.
+        </p>
+        {error && <div className="login-error">{error}</div>}
+        <form onSubmit={saveProfile}>
+          <div className="login-field">
+            <label htmlFor="wf-name">Full name</label>
+            <input
+              id="wf-name"
+              required
+              value={profile.full_name}
+              onChange={(e) =>
+                setProfile({ ...profile, full_name: e.target.value })
+              }
+              placeholder="Jane Rivers"
+            />
+          </div>
+          <div className="login-field">
+            <label htmlFor="wf-company">Company</label>
+            <input
+              id="wf-company"
+              value={profile.company}
+              onChange={(e) =>
+                setProfile({ ...profile, company: e.target.value })
+              }
+              placeholder="Rivers Consulting"
+            />
+          </div>
+          <div className="login-field">
+            <label htmlFor="wf-title">Title / role</label>
+            <input
+              id="wf-title"
+              value={profile.title}
+              onChange={(e) => setProfile({ ...profile, title: e.target.value })}
+              placeholder="Founder & CEO"
+            />
+          </div>
+          <div className="login-field">
+            <label htmlFor="wf-phone">Phone (optional — for SMS reminders)</label>
+            <input
+              id="wf-phone"
+              value={profile.phone}
+              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+              placeholder="+1 (555) 555-5555"
+            />
+          </div>
+          <button type="submit" className="login-btn" disabled={loading}>
+            {loading ? "Saving…" : "Finish — take me inside"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="login-card">
       <h2>Welcome to Momentum+</h2>
       <p>
-        You&apos;re signed in. Set a password so you can log back in anytime
-        with your email.
+        You&apos;re in — two quick steps and you&apos;re set. First, choose a
+        password so you can log back in anytime with your email.
       </p>
-
       {error && <div className="login-error">{error}</div>}
-      <form onSubmit={onSubmit}>
+      <form onSubmit={savePassword}>
         <div className="login-field">
           <label htmlFor="password">Choose a password</label>
           <input
@@ -82,7 +176,7 @@ export function WelcomeForm() {
           />
         </div>
         <button type="submit" className="login-btn" disabled={loading}>
-          {loading ? "Saving…" : "Save & enter the portal"}
+          {loading ? "Saving…" : "Continue"}
         </button>
       </form>
     </div>
