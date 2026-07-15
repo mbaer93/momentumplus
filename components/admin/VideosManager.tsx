@@ -25,12 +25,8 @@ const FIELDS: FieldDef[] = [
       { value: "Business", label: "Business" },
     ],
   },
-  {
-    key: "muxPlaybackId",
-    label: "Mux playback ID",
-    type: "text",
-    placeholder: "From the Mux asset (optional until video is uploaded)",
-  },
+  // The video itself comes from the Upload panel — the Mux playback id rides
+  // along in row values (never shown, never edited) so saves preserve it.
   { key: "durationMin", label: "Duration (minutes)", type: "number" },
   {
     key: "minAccess",
@@ -82,6 +78,7 @@ export function VideosManager({
       rows={rows}
       emptyValues={EMPTY}
       initialEditId={initialEditId}
+      allowCreate={false}
       onCreate={(v) => createVideo(toInput(v))}
       onUpdate={(id, v) => updateVideo(id, toInput(v))}
       onDelete={(id) => deleteVideo(id)}

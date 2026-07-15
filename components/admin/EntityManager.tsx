@@ -42,6 +42,8 @@ interface EntityManagerProps {
   rows: EntityRow[];
   emptyValues: EntityValues;
   initialEditId?: string;
+  /** Hide the create form when creation happens elsewhere (e.g. video upload). */
+  allowCreate?: boolean;
   onCreate: (values: EntityValues) => Promise<ActionResult>;
   onUpdate: (id: string, values: EntityValues) => Promise<ActionResult>;
   onDelete: (id: string) => Promise<ActionResult>;
@@ -137,6 +139,7 @@ export function EntityManager({
   rows,
   emptyValues,
   initialEditId,
+  allowCreate = true,
   onCreate,
   onUpdate,
   onDelete,
@@ -171,34 +174,41 @@ export function EntityManager({
 
   return (
     <div>
-      <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
-        <div className="admin-field" style={{ marginBottom: 4 }}>
-          <label style={{ fontSize: 13 }}>Add {entityLabel}</label>
+      {allowCreate && (
+        <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
+          <div className="admin-field" style={{ marginBottom: 4 }}>
+            <label style={{ fontSize: 13 }}>Add {entityLabel}</label>
+          </div>
+          <Fields
+            fields={fields}
+            values={createValues}
+            onChange={setCreateValues}
+            idPrefix="new"
+          />
+          <div className="admin-form-actions">
+            <button
+              type="button"
+              className="btn-purple"
+              disabled={pending || !requiredOk(createValues)}
+              onClick={() =>
+                run(async () => {
+                  const res = await onCreate(createValues);
+                  if (res.ok) setCreateValues(emptyValues);
+                  return res;
+                })
+              }
+            >
+              Add {entityLabel}
+            </button>
+            {msg && <span className="admin-form-msg ok">{msg}</span>}
+          </div>
         </div>
-        <Fields
-          fields={fields}
-          values={createValues}
-          onChange={setCreateValues}
-          idPrefix="new"
-        />
-        <div className="admin-form-actions">
-          <button
-            type="button"
-            className="btn-purple"
-            disabled={pending || !requiredOk(createValues)}
-            onClick={() =>
-              run(async () => {
-                const res = await onCreate(createValues);
-                if (res.ok) setCreateValues(emptyValues);
-                return res;
-              })
-            }
-          >
-            Add {entityLabel}
-          </button>
-          {msg && <span className="admin-form-msg ok">{msg}</span>}
+      )}
+      {!allowCreate && msg && (
+        <div className="admin-form-msg ok" style={{ marginBottom: 10 }}>
+          {msg}
         </div>
-      </div>
+      )}
 
       <div className="admin-table-wrap">
         <table className="admin-table">
