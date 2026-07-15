@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    serverActions: {
+      // Sponsor logo/ad uploads go through a server action as FormData; the
+      // default 1 MB body limit rejected anything bigger before our own
+      // 2 MB validation could run.
+      bodySizeLimit: "4mb",
+    },
+  },
   webpack: (config) => {
     // The Zoom Meeting SDK references an optional runtime module
     // (@zoom/download-manager) that isn't published to npm — it is only used
