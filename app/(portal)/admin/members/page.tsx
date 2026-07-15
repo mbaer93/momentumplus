@@ -6,15 +6,25 @@ import {
 import { BulkAddMembers } from "@/components/admin/BulkAddMembers";
 import { ArrowLeftIcon } from "@/components/icons";
 import { tierLabel } from "@/lib/access";
+import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { Tier } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+const PREVIEW_PROFILE_DEFAULTS = {
+  profileTitle: "",
+  profileCompany: "",
+  profilePhone: "",
+  adminRole: null,
+  adminPerms: {},
+} as const;
+
 const PREVIEW_MEMBERS: AdminMemberRow[] = [
   {
     membershipId: "m1",
+    profileId: "p1",
     name: "Sarah Johnson",
     email: "sarah@example.com",
     tier: "sub_annual",
@@ -22,9 +32,11 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
     status: "active",
     expiresLabel: "Mar 14, 2027",
     source: "ghl",
+    ...PREVIEW_PROFILE_DEFAULTS,
   },
   {
     membershipId: "m2",
+    profileId: "p2",
     name: "Marcus Chen",
     email: "marcus@example.com",
     tier: "tsls_vip",
@@ -32,9 +44,11 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
     status: "active",
     expiresLabel: "Oct 2, 2026",
     source: "tsls_import",
+    ...PREVIEW_PROFILE_DEFAULTS,
   },
   {
     membershipId: "m3",
+    profileId: "p3",
     name: "Priya Nair",
     email: "priya@example.com",
     tier: "sub_monthly",
@@ -42,6 +56,7 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
     status: "past_due",
     expiresLabel: "Jul 20, 2026",
     source: "ghl",
+    ...PREVIEW_PROFILE_DEFAULTS,
   },
 ];
 
@@ -53,7 +68,7 @@ export default async function AdminMembersPage() {
     const { data } = await admin
       .from("memberships")
       .select(
-        "id, tier, status, access_expires_at, source, profiles ( full_name, email )",
+        "id, profile_id, tier, status, access_expires_at, source, profiles ( full_name, email, title, company, phone, admin_role, admin_perms )",
       )
       .order("created_at", { ascending: false })
       .limit(200);
@@ -61,11 +76,20 @@ export default async function AdminMembersPage() {
       members = data.map((row) => {
         const p = (
           row as unknown as {
-            profiles: { full_name: string; email: string } | null;
+            profiles: {
+              full_name: string;
+              email: string;
+              title: string | null;
+              company: string | null;
+              phone: string | null;
+              admin_role: "super" | "standard" | null;
+              admin_perms: Record<string, boolean> | null;
+            } | null;
           }
         ).profiles;
         return {
           membershipId: row.id,
+          profileId: row.profile_id,
           name: p?.full_name || "—",
           email: p?.email ?? "",
           tier: row.tier,
@@ -79,6 +103,11 @@ export default async function AdminMembersPage() {
               })
             : "Ongoing",
           source: row.source,
+          profileTitle: p?.title ?? "",
+          profileCompany: p?.company ?? "",
+          profilePhone: p?.phone ?? "",
+          adminRole: p?.admin_role ?? null,
+          adminPerms: p?.admin_perms ?? {},
         } satisfies AdminMemberRow;
       });
     }
@@ -103,7 +132,10 @@ export default async function AdminMembersPage() {
         </div>
       )}
       <BulkAddMembers />
-      <MembersManager members={members} />
+      <MembersManager
+        members={members}
+        viewerIsSuper={(await getAdminAccess())?.role === "super"}
+      />
     </div>
   );
 }

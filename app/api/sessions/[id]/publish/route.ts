@@ -12,7 +12,7 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sessions");
   if (!auth.ok) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

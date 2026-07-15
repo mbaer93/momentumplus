@@ -34,7 +34,7 @@ async function guard(): Promise<AdminResult | null> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Saved (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("content");
   if (!auth.ok) return { ok: false, message: auth.message };
   return null;
 }

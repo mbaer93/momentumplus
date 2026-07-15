@@ -10,64 +10,85 @@ import {
   SpeakersIcon,
   SponsorsIcon,
 } from "@/components/icons";
+import { canAccessArea, type AdminArea } from "@/lib/admin-perms";
+import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { listSessions } from "@/lib/sessions/queries";
 
 export const dynamic = "force-dynamic";
 
-const SECTIONS = [
+const SECTIONS: {
+  href: string;
+  icon: typeof SessionsIcon;
+  title: string;
+  desc: string;
+  area: AdminArea;
+}[] = [
   {
     href: "/admin/sessions",
     icon: SessionsIcon,
     title: "Sessions",
     desc: "Create, publish (creates the Zoom meeting), and manage sessions.",
+    area: "sessions",
   },
   {
     href: "/admin/members",
     icon: SpeakersIcon,
     title: "Members",
-    desc: "Memberships, manual grants, extensions, and access.",
+    desc: "Memberships, grants, bulk import, and (Super Admin) admin access.",
+    area: "members",
   },
   {
     href: "/admin/announcements",
     icon: CommunityIcon,
     title: "Announcements",
     desc: "Compose and send to members by tier and channel.",
+    area: "announcements",
   },
   {
     href: "/admin/sponsors",
     icon: SponsorsIcon,
     title: "Sponsors",
     desc: "Partners, rail placement, logos, sidebar ad, impressions and clicks.",
+    area: "sponsors",
   },
   {
     href: "/admin/videos",
     icon: LibraryIcon,
     title: "Library",
     desc: "Recordings in the Session Library — add, edit, publish.",
+    area: "content",
   },
   {
     href: "/admin/speakers",
     icon: SpeakersIcon,
     title: "Speakers",
     desc: "Speaker directory profiles, topics, and bios.",
+    area: "content",
   },
   {
     href: "/admin/resources",
     icon: ResourcesIcon,
     title: "Resources",
     desc: "Member tools, guides, and partner materials.",
+    area: "content",
   },
   {
     href: "/admin/education",
     icon: EducationIcon,
     title: "Education",
     desc: "Courses and learning tracks built from the library.",
+    area: "content",
   },
 ];
 
 export default async function AdminPage() {
+  // Standard admins only see cards for areas the Super Admin left enabled;
+  // requireAdmin(area) re-enforces this on every mutation regardless.
+  const access = await getAdminAccess();
+  const sections = SECTIONS.filter((s) => canAccessArea(access, s.area));
+
   // Stats: live counts when connected; illustrative numbers in preview.
   let stats = {
     members: 142,
@@ -146,7 +167,7 @@ export default async function AdminPage() {
       )}
 
       <div className="admin-nav-cards">
-        {SECTIONS.map((s) => {
+        {sections.map((s) => {
           const Icon = s.icon;
           return (
             <Link key={s.href} href={s.href} className="card" style={{ padding: 20 }}>

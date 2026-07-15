@@ -47,7 +47,7 @@ export async function createSession(
       message: "Session would be created (preview mode — no database).",
     };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sessions");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
@@ -70,7 +70,7 @@ export async function updateSession(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Saved (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sessions");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
@@ -86,7 +86,7 @@ export async function deleteSession(id: string): Promise<AdminResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Deleted (preview mode)." };
   }
-  const auth = await requireAdmin();
+  const auth = await requireAdmin("sessions");
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
