@@ -55,11 +55,13 @@ export interface GhlContact {
 export async function getGhlContact(
   contactId: string,
 ): Promise<GhlContact | null> {
-  if (!isGhlConfigured()) return null;
+  const { getGhlCreds } = await import("./service-config");
+  const creds = await getGhlCreds();
+  if (!creds.apiKey || !creds.locationId) return null;
 
   const res = await fetch(`${GHL_API_BASE}/contacts/${contactId}`, {
     headers: {
-      Authorization: `Bearer ${process.env.GHL_API_KEY}`,
+      Authorization: `Bearer ${creds.apiKey}`,
       Version: "2021-07-28",
     },
     cache: "no-store",

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyGhlWebhook } from "@/lib/ghl";
+import { getGhlCreds } from "@/lib/service-config";
 import {
   applyGhlEvent,
   normalizeGhlEvent,
@@ -26,10 +27,15 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
 
-  const verified = verifyGhlWebhook(rawBody, {
-    signature: req.headers.get("x-ghl-signature"),
-    sharedSecret: req.headers.get("x-webhook-secret"),
-  });
+  const { webhookSecret } = await getGhlCreds();
+  const verified = verifyGhlWebhook(
+    rawBody,
+    {
+      signature: req.headers.get("x-ghl-signature"),
+      sharedSecret: req.headers.get("x-webhook-secret"),
+    },
+    webhookSecret ?? undefined,
+  );
   if (!verified) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }

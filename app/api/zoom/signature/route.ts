@@ -1,10 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/lib/sessions/queries";
 import { isJoinWindowOpen } from "@/lib/sessions/view";
-import {
-  generateZoomSignature,
-  isZoomSdkConfigured,
-} from "@/lib/zoom-signature";
+import { generateZoomSignature } from "@/lib/zoom-signature";
+import { getZoomCreds } from "@/lib/service-config";
 
 /*
  * Issues a short-lived Zoom Meeting SDK join signature for the embedded live
@@ -46,7 +44,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!isZoomSdkConfigured() || !session.zoomMeetingId) {
+  const zoom = await getZoomCreds();
+  if (!zoom.sdkClientId || !zoom.sdkClientSecret || !session.zoomMeetingId) {
     return NextResponse.json(
       { error: "Live video isn't configured for this session yet." },
       { status: 503 },
@@ -54,8 +53,8 @@ export async function POST(req: NextRequest) {
   }
 
   const signature = generateZoomSignature({
-    sdkKey: process.env.ZOOM_SDK_CLIENT_ID!,
-    sdkSecret: process.env.ZOOM_SDK_CLIENT_SECRET!,
+    sdkKey: zoom.sdkClientId,
+    sdkSecret: zoom.sdkClientSecret,
     meetingNumber: session.zoomMeetingId,
     role: 0, // attendee
   });
@@ -63,7 +62,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(
     {
       signature,
-      sdkKey: process.env.ZOOM_SDK_CLIENT_ID,
+      sdkKey: zoom.sdkClientId,
       meetingNumber: session.zoomMeetingId,
     },
     { headers: { "Cache-Control": "no-store" } },

@@ -3,9 +3,9 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
   generateSummary,
-  isAnthropicConfigured,
   SUMMARY_MODEL,
 } from "@/lib/ai-summary";
+import { isAnthropicReady } from "@/lib/service-config";
 
 /*
  * AI summaries cron (SPEC.md §4, /api/cron/summaries). For completed sessions
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    anthropicConfigured: isAnthropicConfigured(),
+    anthropicConfigured: await isAnthropicReady(),
     awaitingTranscript: waiting.map((s) => ({ id: s.id, title: s.title })),
   });
 }
@@ -60,9 +60,9 @@ export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
-  if (!isAnthropicConfigured()) {
+  if (!(await isAnthropicReady())) {
     return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY not configured" },
+      { error: "Anthropic is not connected (Admin → Connections)" },
       { status: 503 },
     );
   }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { getMeetingParticipants, isZoomConfigured } from "@/lib/zoom";
+import { getMeetingParticipants } from "@/lib/zoom";
+import { isZoomReady } from "@/lib/service-config";
 
 /*
  * Attendance sync (SPEC.md §4). Vercel cron hits this after sessions end: for
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (!secret || auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!isZoomConfigured()) {
+  if (!(await isZoomReady())) {
     return NextResponse.json({ error: "Zoom not configured" }, { status: 503 });
   }
 
