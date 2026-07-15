@@ -195,6 +195,9 @@ export interface SponsorItem {
   website: string;
   /** Which wordmark stand-in to render until real logos are uploaded. */
   wordmark: "newstalk" | "bank" | "summit" | "clarity" | "wellness" | "photo";
+  logoUrl: string | null;
+  /** Uploaded ad creative for the left-panel sponsor slot (distinct from the logo). */
+  sidebarAdUrl: string | null;
   railActive: boolean;
 }
 
@@ -207,6 +210,8 @@ export const sponsors: SponsorItem[] = [
     offer: null,
     website: "https://example.com",
     wordmark: "newstalk",
+    logoUrl: null,
+    sidebarAdUrl: null,
     railActive: true,
   },
   {
@@ -217,6 +222,8 @@ export const sponsors: SponsorItem[] = [
     offer: "Complimentary business banking review for Momentum+ members.",
     website: "https://example.com",
     wordmark: "bank",
+    logoUrl: null,
+    sidebarAdUrl: null,
     railActive: true,
   },
   {
@@ -227,6 +234,8 @@ export const sponsors: SponsorItem[] = [
     offer: "Free 60-minute growth diagnostic for members.",
     website: "https://example.com",
     wordmark: "summit",
+    logoUrl: null,
+    sidebarAdUrl: null,
     railActive: true,
   },
   {
@@ -237,6 +246,8 @@ export const sponsors: SponsorItem[] = [
     offer: "15% off the first engagement for Momentum+ members.",
     website: "https://example.com",
     wordmark: "clarity",
+    logoUrl: null,
+    sidebarAdUrl: null,
     railActive: false,
   },
   {
@@ -247,6 +258,8 @@ export const sponsors: SponsorItem[] = [
     offer: null,
     website: "https://example.com",
     wordmark: "wellness",
+    logoUrl: null,
+    sidebarAdUrl: null,
     railActive: false,
   },
   {
@@ -257,6 +270,8 @@ export const sponsors: SponsorItem[] = [
     offer: "Member headshot sessions at summit rates.",
     website: "https://example.com",
     wordmark: "photo",
+    logoUrl: null,
+    sidebarAdUrl: null,
     railActive: false,
   },
 ];

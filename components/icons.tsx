@@ -304,3 +304,21 @@ export function SparkleIcon(p: IconProps) {
     </Svg>
   );
 }
+
+export function EditIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M11.3 2.2l2.5 2.5L5.5 13H3v-2.5l8.3-8.3z" />
+      <path d="M9.8 3.7l2.5 2.5" />
+    </Svg>
+  );
+}
+
+export function PlusIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M8 3v10" />
+      <path d="M3 8h10" />
+    </Svg>
+  );
+}

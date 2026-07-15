@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Wordmark } from "./Wordmark";
+import { SponsorMark } from "./SponsorMark";
+import { SPONSOR_INTEREST_URL } from "@/lib/links";
 import type { SponsorItem } from "@/lib/directory-data";
 
 /*
@@ -76,7 +77,7 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
         >
           <span className="sponsor-ad-tag">Sponsored</span>
           <div className="sponsor-ad-logo">
-            <Wordmark kind={s.wordmark} />
+            <SponsorMark name={s.name} logoUrl={s.logoUrl} wordmark={s.wordmark} />
           </div>
           <div className="sponsor-ad-body">
             <div className="sponsor-ad-name">{s.name}</div>
@@ -91,8 +92,17 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
         <div className="rail-become-sub">
           Put your brand in front of the Tri-State&apos;s most engaged leaders.
         </div>
+        <a
+          className="btn-gold"
+          style={{ display: "block", textAlign: "center", marginTop: 12, padding: "9px 12px", fontSize: 12 }}
+          href={SPONSOR_INTEREST_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Become a Partner
+        </a>
         <Link href="/sponsors" className="rail-become-link">
-          Sponsorship info
+          Meet our sponsors
         </Link>
       </div>
     </aside>

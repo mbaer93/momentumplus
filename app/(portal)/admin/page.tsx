@@ -3,6 +3,8 @@ import {
   AdminIcon,
   ChevronRightIcon,
   CommunityIcon,
+  LibraryIcon,
+  ResourcesIcon,
   SessionsIcon,
   SpeakersIcon,
   SponsorsIcon,
@@ -36,7 +38,25 @@ const SECTIONS = [
     href: "/admin/sponsors",
     icon: SponsorsIcon,
     title: "Sponsors",
-    desc: "Partners, rail placement, impressions and clicks.",
+    desc: "Partners, rail placement, logos, sidebar ad, impressions and clicks.",
+  },
+  {
+    href: "/admin/videos",
+    icon: LibraryIcon,
+    title: "Library",
+    desc: "Recordings in the Session Library — add, edit, publish.",
+  },
+  {
+    href: "/admin/speakers",
+    icon: SpeakersIcon,
+    title: "Speakers",
+    desc: "Speaker directory profiles, topics, and bios.",
+  },
+  {
+    href: "/admin/resources",
+    icon: ResourcesIcon,
+    title: "Resources",
+    desc: "Member tools, guides, and partner materials.",
   },
 ];
 

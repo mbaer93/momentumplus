@@ -1,4 +1,5 @@
 import { ResourcesBrowser } from "@/components/resources/ResourcesBrowser";
+import { AdminAddChip } from "@/components/admin/AdminChips";
 import { requireMember } from "@/lib/current-member";
 import { listResources, resourceUnlocked } from "@/lib/directory-queries";
 
@@ -18,8 +19,15 @@ export default async function ResourcesPage() {
           <h2>Resources</h2>
           <p>Exclusive tools, guides, and materials for members</p>
         </div>
+        {member.isAdmin && (
+          <AdminAddChip href="/admin/resources" label="Add resource" />
+        )}
       </div>
-      <ResourcesBrowser resources={resources} unlockedIds={unlockedIds} />
+      <ResourcesBrowser
+        resources={resources}
+        unlockedIds={unlockedIds}
+        isAdmin={member.isAdmin}
+      />
     </div>
   );
 }

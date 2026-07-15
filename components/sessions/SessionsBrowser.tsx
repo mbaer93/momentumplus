@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { SessionDetail } from "@/lib/types";
 import { displayStatus } from "@/lib/sessions/view";
 import { SessionCard } from "./SessionCard";
+import { AdminEditChip } from "@/components/admin/AdminChips";
 
 type Filter =
   | "all"
@@ -26,7 +27,13 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "Networking", label: "Networking" },
 ];
 
-export function SessionsBrowser({ sessions }: { sessions: SessionDetail[] }) {
+export function SessionsBrowser({
+  sessions,
+  isAdmin = false,
+}: {
+  sessions: SessionDetail[];
+  isAdmin?: boolean;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
   // Compute once on the client so the time-derived status is consistent.
   const now = useMemo(() => Date.now(), []);
@@ -73,7 +80,18 @@ export function SessionsBrowser({ sessions }: { sessions: SessionDetail[] }) {
         {visible.length === 0 ? (
           <div className="sessions-empty">No sessions match this filter yet.</div>
         ) : (
-          visible.map((s) => <SessionCard key={s.id} session={s} now={now} />)
+          visible.map((s) =>
+            isAdmin ? (
+              <div key={s.id} style={{ position: "relative" }}>
+                <span className="admin-chip-overlay">
+                  <AdminEditChip href={`/admin/sessions/${s.id}/edit`} />
+                </span>
+                <SessionCard session={s} now={now} />
+              </div>
+            ) : (
+              <SessionCard key={s.id} session={s} now={now} />
+            ),
+          )
         )}
       </div>
     </>

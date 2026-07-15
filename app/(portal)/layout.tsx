@@ -2,7 +2,7 @@ import { Sidebar } from "@/components/portal/Sidebar";
 import { Topbar } from "@/components/portal/Topbar";
 import { SponsorRail } from "@/components/sponsors/SponsorRail";
 import { requireMember } from "@/lib/current-member";
-import { railSponsors } from "@/lib/directory-queries";
+import { listSponsors, railSponsors } from "@/lib/directory-queries";
 
 export default async function PortalLayout({
   children,
@@ -12,7 +12,16 @@ export default async function PortalLayout({
   // Requires a signed-in member with an active (or in-grace) membership;
   // lapsed members land on /expired with renewal options (SPEC.md §5).
   const member = await requireMember();
-  const rail = await railSponsors();
+  const [rail, allSponsors] = await Promise.all([railSponsors(), listSponsors()]);
+  // Left-panel ad slot: prefer a sponsor with an uploaded sidebar ad creative
+  // (title tier first), then fall back to the title sponsor's logo mark.
+  const withAd = allSponsors.filter((s) => s.sidebarAdUrl);
+  const presentedBy =
+    withAd.find((s) => s.tier === "title") ??
+    withAd[0] ??
+    allSponsors.find((s) => s.tier === "title" && s.railActive) ??
+    allSponsors.find((s) => s.tier === "title") ??
+    null;
 
   return (
     <div className="app-shell">
@@ -21,6 +30,7 @@ export default async function PortalLayout({
         userInitials={member.initials}
         tierLabel={member.tierLabel}
         isAdmin={member.isAdmin}
+        presentedBy={presentedBy}
       />
       <div className="main-area">
         <Topbar userInitials={member.initials} />
