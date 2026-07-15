@@ -38,6 +38,29 @@ test.describe("auth + portal shell", () => {
     await expect(page.locator(".sponsor-rail")).toHaveCount(0);
   });
 
+  test("calendar renders the month grid with session events and upcoming list", async ({
+    page,
+  }) => {
+    await page.goto("/calendar");
+    // 6 fixed weeks of cells + day-name header
+    await expect(page.locator(".cal-cell")).toHaveCount(42);
+    await expect(page.locator(".cal-day-name")).toHaveCount(7);
+    await expect(page.locator(".cal-month-title")).toBeVisible();
+    // Placeholder sessions appear as events and in the upcoming sidebar
+    await expect(page.locator(".cal-event").first()).toBeVisible();
+    await expect(page.locator(".cal-event-item").first()).toBeVisible();
+    await expect(page.locator(".cal-upcoming-title").first()).toHaveText(
+      "Upcoming Events",
+    );
+    // Month navigation works
+    const title = await page.locator(".cal-month-title").textContent();
+    await page.locator(".cal-nav-btn").last().click();
+    await expect(page.locator(".cal-month-title")).not.toHaveText(title ?? "");
+    // Clicking an event opens its session page
+    await page.locator(".cal-event-item").first().click();
+    await expect(page).toHaveURL(/\/sessions\//);
+  });
+
   test("expired page shows the four confirmed pricing plans", async ({
     page,
   }) => {
