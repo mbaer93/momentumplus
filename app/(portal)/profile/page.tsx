@@ -21,15 +21,26 @@ export const dynamic = "force-dynamic";
 export default async function ProfilePage() {
   const member = await requireMember();
 
-  // Profile details + saved prefs (preview mode uses defaults).
-  let profileRow = {
-    phone: "",
-    company: "Momentum Advisory",
-    title: "Executive Coach",
-    industry: "Leadership Development",
-    bio: "",
-    created_at: "2024-11-12T00:00:00.000Z",
-  };
+  // Profile details + saved prefs. The illustrative defaults are for
+  // preview mode only — configured mode always reads the real row.
+  const preview = !isSupabaseConfigured();
+  let profileRow = preview
+    ? {
+        phone: "",
+        company: "Momentum Advisory",
+        title: "Executive Coach",
+        industry: "Leadership Development",
+        bio: "",
+        created_at: "2024-11-12T00:00:00.000Z",
+      }
+    : {
+        phone: "",
+        company: "",
+        title: "",
+        industry: "",
+        bio: "",
+        created_at: new Date().toISOString(),
+      };
   let savedPrefs: Partial<PrefRow>[] = [];
 
   if (isSupabaseConfigured()) {
@@ -128,10 +139,8 @@ export default async function ProfilePage() {
         memberSince,
       }}
       stats={{
-        sessions: attendedCount || placeholderStats.sessionsAttended,
-        daysActive: isSupabaseConfigured()
-          ? daysActive
-          : placeholderStats.memberSinceDays,
+        sessions: preview ? placeholderStats.sessionsAttended : attendedCount,
+        daysActive: preview ? placeholderStats.memberSinceDays : daysActive,
       }}
       sessions={sessionRows}
       activity={activity}

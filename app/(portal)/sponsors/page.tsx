@@ -22,6 +22,12 @@ export default async function SponsorsPage() {
         </div>
       </div>
 
+      {sponsors.length === 0 && (
+        <div className="sessions-empty" style={{ marginTop: 20 }}>
+          Sponsor partners will appear here as they come aboard.
+        </div>
+      )}
+
       {title.length > 0 && (
         <>
           <div className="sp-tier-label">Title Sponsor</div>

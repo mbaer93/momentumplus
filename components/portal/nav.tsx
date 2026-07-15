@@ -32,12 +32,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Main",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: DashboardIcon },
-      {
-        label: "Community",
-        href: "/community",
-        icon: CommunityIcon,
-        badge: { text: "12" },
-      },
+      { label: "Community", href: "/community", icon: CommunityIcon },
       { label: "Sessions", href: "/sessions", icon: SessionsIcon },
       { label: "Library", href: "/library", icon: LibraryIcon },
     ],
@@ -45,12 +40,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Content",
     items: [
-      {
-        label: "Education",
-        href: "/education",
-        icon: EducationIcon,
-        badge: { text: "6" },
-      },
+      { label: "Education", href: "/education", icon: EducationIcon },
     ],
   },
   {
@@ -59,12 +49,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Speakers", href: "/speakers", icon: SpeakersIcon },
       { label: "Resources", href: "/resources", icon: ResourcesIcon },
       { label: "Sponsors", href: "/sponsors", icon: SponsorsIcon },
-      {
-        label: "Calendar",
-        href: "/calendar",
-        icon: CalendarIcon,
-        badge: { text: "3", variant: "blue" },
-      },
+      { label: "Calendar", href: "/calendar", icon: CalendarIcon },
     ],
   },
   {

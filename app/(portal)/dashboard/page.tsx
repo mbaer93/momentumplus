@@ -17,11 +17,134 @@ import {
   placeholderStats,
   placeholderUpcoming,
 } from "@/lib/placeholder-data";
+import { listSessions } from "@/lib/sessions/queries";
+import {
+  dateLabel,
+  dayOfMonth,
+  displayStatus,
+  durationLabel,
+  monthShort,
+  timeLabel,
+} from "@/lib/sessions/view";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+
+export const dynamic = "force-dynamic";
+
+interface UpcomingRow {
+  id: string;
+  title: string;
+  speakerName: string;
+  month: string;
+  day: string;
+  timeLabel: string;
+  pill: string;
+  pillLabel: string;
+}
 
 export default async function DashboardPage() {
   const member = await requireMember();
   const firstName = member.name.split(" ")[0];
-  const stats = placeholderStats;
+  const preview = !isSupabaseConfigured();
+  const now = Date.now();
+
+  // --- Assemble dashboard data: real queries when configured, mockup
+  // fixtures in preview mode (no credentials) only. --------------------------
+  let stats = placeholderStats;
+  let upcoming: UpcomingRow[] = [];
+  let nextUp: {
+    id: string;
+    title: string;
+    speakerName: string;
+    dateLabel: string;
+    timeLabel: string;
+    durationLabel: string;
+  } | null = null;
+  let memberSinceDays = placeholderStats.memberSinceDays;
+
+  if (preview) {
+    nextUp = placeholderNextSession;
+    upcoming = placeholderUpcoming.map((s) => ({
+      id: s.id,
+      title: s.title,
+      speakerName: s.speakerName,
+      month: s.month,
+      day: s.day,
+      timeLabel: s.timeLabel,
+      pill: "upcoming",
+      pillLabel: "Upcoming",
+    }));
+  } else {
+    const sessions = await listSessions();
+    const future = sessions
+      .filter(
+        (s) =>
+          new Date(s.startsAt).getTime() > now &&
+          (s.status === "scheduled" || s.status === "live"),
+      )
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+    const attended = sessions.filter((s) => s.attended).length;
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("created_at")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (p?.created_at) {
+        memberSinceDays = Math.max(
+          1,
+          Math.floor(
+            (now - new Date(p.created_at).getTime()) / (24 * 3600 * 1000),
+          ),
+        );
+      }
+    }
+
+    stats = {
+      upcomingSessions: future.length,
+      sessionsAttended: attended,
+      newMessages: 0, // becomes live with Stream chat
+      memberSinceDays,
+    };
+
+    const next = future.find((s) => s.isEnrolled) ?? future[0];
+    if (next) {
+      nextUp = {
+        id: next.slug,
+        title: next.title,
+        speakerName: next.speaker.name,
+        dateLabel: dateLabel(next.startsAt),
+        timeLabel: timeLabel(next.startsAt),
+        durationLabel: durationLabel(next.durationMin),
+      };
+    }
+
+    upcoming = future.slice(0, 3).map((s) => {
+      const status = displayStatus(s, now);
+      return {
+        id: s.slug,
+        title: s.title,
+        speakerName: s.speaker.name,
+        month: monthShort(s.startsAt),
+        day: dayOfMonth(s.startsAt),
+        timeLabel: timeLabel(s.startsAt),
+        pill: status === "live" ? "live" : status === "enrolled" ? "enrolled" : "upcoming",
+        pillLabel: status === "live" ? "Live" : status === "enrolled" ? "Enrolled" : "Upcoming",
+      };
+    });
+  }
+
+  const renewsLabel = member.accessExpiresAt
+    ? new Date(member.accessExpiresAt).toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      })
+    : null;
 
   return (
     <div className="dash-pad">
@@ -30,8 +153,9 @@ export default async function DashboardPage() {
         <div className="welcome-text">
           <h1>Good morning, {firstName}</h1>
           <p>
-            You have {stats.upcomingSessions} upcoming sessions this month and{" "}
-            {stats.newMessages} new community messages waiting.
+            {stats.upcomingSessions > 0
+              ? `You have ${stats.upcomingSessions} upcoming session${stats.upcomingSessions === 1 ? "" : "s"} on the calendar.`
+              : "Welcome to your leadership home base."}
           </p>
           {member.tier === "tsls_vip" && (
             <p style={{ marginTop: 8, color: "var(--gold-light)" }}>
@@ -46,7 +170,8 @@ export default async function DashboardPage() {
               <strong>{stats.sessionsAttended}</strong> sessions attended
             </div>
             <div className="welcome-meta-item">
-              <strong>{member.tierLabel}</strong> — renews Mar 2027
+              <strong>{member.tierLabel}</strong>
+              {renewsLabel ? <> — access through {renewsLabel}</> : null}
             </div>
           </div>
         </div>
@@ -61,31 +186,47 @@ export default async function DashboardPage() {
       </div>
 
       {/* Next Up Banner */}
-      <div className="next-up-banner">
-        <div className="next-up-dot" />
-        <div>
-          <div className="next-up-label">Next Session</div>
-          <div className="next-up-title">{placeholderNextSession.title}</div>
-          <div className="next-up-meta">
-            <span>{placeholderNextSession.dateLabel}</span> &bull;{" "}
-            {placeholderNextSession.timeLabel} &bull;{" "}
-            {placeholderNextSession.durationLabel} &bull; with{" "}
-            <span>{placeholderNextSession.speakerName}</span>
+      {nextUp ? (
+        <div className="next-up-banner">
+          <div className="next-up-dot" />
+          <div>
+            <div className="next-up-label">Next Session</div>
+            <div className="next-up-title">{nextUp.title}</div>
+            <div className="next-up-meta">
+              <span>{nextUp.dateLabel}</span> &bull; {nextUp.timeLabel} &bull;{" "}
+              {nextUp.durationLabel} &bull; with <span>{nextUp.speakerName}</span>
+            </div>
+          </div>
+          <div className="next-up-actions">
+            <Link href={`/sessions/${nextUp.id}`} className="btn-primary">
+              View Details
+            </Link>
+            <a href={`/api/sessions/${nextUp.id}/ics`} className="cal-btn">
+              <CalendarSmallIcon size={12} />
+              Add to Calendar
+            </a>
           </div>
         </div>
-        <div className="next-up-actions">
-          <Link
-            href={`/sessions/${placeholderNextSession.id}`}
-            className="btn-primary"
-          >
-            View Details
-          </Link>
-          <button className="cal-btn" type="button">
-            <CalendarSmallIcon size={12} />
-            Add to Calendar
-          </button>
+      ) : (
+        <div className="next-up-banner">
+          <div>
+            <div className="next-up-label" style={{ color: "var(--mid-gray)" }}>
+              Next Session
+            </div>
+            <div className="next-up-title">Nothing scheduled yet</div>
+            <div className="next-up-meta">
+              New sessions will appear here the moment they&apos;re published.
+            </div>
+          </div>
+          {member.isAdmin && (
+            <div className="next-up-actions">
+              <Link href="/admin/sessions/new" className="btn-primary">
+                Create the first session
+              </Link>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Stat Grid */}
       <div className="stat-grid">
@@ -96,7 +237,7 @@ export default async function DashboardPage() {
           <div>
             <div className="stat-val">{stats.upcomingSessions}</div>
             <div className="stat-lbl">Upcoming Sessions</div>
-            <div className="stat-sub">This month</div>
+            <div className="stat-sub">On the calendar</div>
           </div>
         </div>
         <div className="stat-card">
@@ -106,7 +247,7 @@ export default async function DashboardPage() {
           <div>
             <div className="stat-val">{stats.sessionsAttended}</div>
             <div className="stat-lbl">Sessions Attended</div>
-            <div className="stat-sub">+4 this quarter</div>
+            <div className="stat-sub">Your learning record</div>
           </div>
         </div>
         <div className="stat-card">
@@ -116,7 +257,7 @@ export default async function DashboardPage() {
           <div>
             <div className="stat-val">{stats.newMessages}</div>
             <div className="stat-lbl">New Messages</div>
-            <div className="stat-sub">3 mentions</div>
+            <div className="stat-sub">Community chat</div>
           </div>
         </div>
         <div className="stat-card">
@@ -142,28 +283,36 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="upcoming-list">
-            {placeholderUpcoming.map((session) => (
-              <Link
-                key={session.id}
-                href={`/sessions/${session.id}`}
-                className="upcoming-item"
-              >
-                <div className="date-box">
-                  <div className="date-box-month">{session.month}</div>
-                  <div className="date-box-day">{session.day}</div>
-                </div>
-                <div className="upcoming-info">
-                  <div className="upcoming-title">{session.title}</div>
-                  <div className="upcoming-speaker">{session.speakerName}</div>
-                </div>
-                <div>
-                  <div className="upcoming-time">{session.timeLabel}</div>
-                  <div style={{ marginTop: 4 }}>
-                    <span className="status-pill upcoming">Upcoming</span>
+            {upcoming.length === 0 ? (
+              <div style={{ padding: 16, fontSize: 13, color: "var(--mid-gray)" }}>
+                No sessions on the calendar yet.
+              </div>
+            ) : (
+              upcoming.map((session) => (
+                <Link
+                  key={session.id}
+                  href={`/sessions/${session.id}`}
+                  className="upcoming-item"
+                >
+                  <div className="date-box">
+                    <div className="date-box-month">{session.month}</div>
+                    <div className="date-box-day">{session.day}</div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                  <div className="upcoming-info">
+                    <div className="upcoming-title">{session.title}</div>
+                    <div className="upcoming-speaker">{session.speakerName}</div>
+                  </div>
+                  <div>
+                    <div className="upcoming-time">{session.timeLabel}</div>
+                    <div style={{ marginTop: 4 }}>
+                      <span className={`status-pill ${session.pill}`}>
+                        {session.pillLabel}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
           </div>
         </div>
 
@@ -176,25 +325,31 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="activity-list">
-            {placeholderActivity.map((item) => (
-              <div key={item.id} className="activity-item">
-                <div
-                  className="activity-avatar"
-                  style={{ background: item.avatarBg, color: item.avatarColor }}
-                >
-                  {item.actorInitials}
-                </div>
-                <div className="activity-body">
-                  <div className="activity-text">
-                    <strong>{item.actorName}</strong> {item.text}{" "}
-                    <span className="activity-tag">
-                      <ChannelIcon size={10} /> {item.channel}
-                    </span>
+            {preview ? (
+              placeholderActivity.map((item) => (
+                <div key={item.id} className="activity-item">
+                  <div
+                    className="activity-avatar"
+                    style={{ background: item.avatarBg, color: item.avatarColor }}
+                  >
+                    {item.actorInitials}
                   </div>
-                  <div className="activity-time">{item.time}</div>
+                  <div className="activity-body">
+                    <div className="activity-text">
+                      <strong>{item.actorName}</strong> {item.text}{" "}
+                      <span className="activity-tag">
+                        <ChannelIcon size={10} /> {item.channel}
+                      </span>
+                    </div>
+                    <div className="activity-time">{item.time}</div>
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div style={{ padding: 16, fontSize: 13, color: "var(--mid-gray)" }}>
+                Community activity appears here once chat goes live.
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -216,9 +371,9 @@ export default async function DashboardPage() {
             <Link href="/admin" className="btn-sm-gold">
               Open Admin
             </Link>
-            <button className="btn-sm-ghost" type="button">
-              View Reports
-            </button>
+            <Link href="/admin/sessions" className="btn-sm-ghost">
+              Manage Sessions
+            </Link>
           </div>
         </div>
       )}

@@ -50,7 +50,8 @@ export async function listSpeakers(): Promise<SpeakerProfile[]> {
     .from("speakers")
     .select("id, name, title, bio, industries, created_at")
     .order("featured", { ascending: false });
-  if (error || !data || data.length === 0) return placeholderSpeakers;
+  // Configured mode: empty table = empty directory (demo data is preview-only).
+  if (error || !data) return [];
 
   return data.map((row) => {
     const i = hashIndex(row.id, BANNERS.length);
@@ -89,7 +90,7 @@ export async function listResources(viewerTier: Tier): Promise<ResourceItem[]> {
     .from("resources")
     .select("id, title, category, description, url, partner_name, min_access")
     .eq("active", true);
-  if (error || !data || data.length === 0) return placeholderResources;
+  if (error || !data) return [];
 
   return data.map((row) => ({
     id: row.id,
@@ -117,7 +118,7 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     .from("sponsors")
     .select("id, name, tier, tagline, offer, website, rail_active")
     .order("tier");
-  if (error || !data || data.length === 0) return placeholderSponsors;
+  if (error || !data) return [];
 
   const marks: SponsorItem["wordmark"][] = [
     "newstalk",

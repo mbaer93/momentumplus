@@ -25,6 +25,8 @@ interface CommunityViewProps {
   memberInitials: string;
   isAdmin: boolean;
   streamConfigured: boolean;
+  /** True only when no Supabase env exists (demo fixtures allowed). */
+  preview: boolean;
   nextSession: { dateLabel: string; title: string; meta: string };
 }
 
@@ -49,6 +51,7 @@ export function CommunityView({
   memberInitials,
   isAdmin,
   streamConfigured,
+  preview,
   nextSession,
 }: CommunityViewProps) {
   const [activeId, setActiveId] = useState(
@@ -56,7 +59,7 @@ export function CommunityView({
   );
   const [messagesByChannel, setMessagesByChannel] = useState<
     Record<string, ChatMessage[]>
-  >(() => ({ ...placeholderMessages }));
+  >(() => (preview ? { ...placeholderMessages } : {}));
   const [draft, setDraft] = useState("");
   const [live, setLive] = useState(false); // true once Stream is connected
   const streamRef = useRef<StreamHandle | null>(null);
@@ -215,7 +218,12 @@ export function CommunityView({
         <div className="chat-channels-header" style={{ marginTop: 12 }}>
           Direct Messages
         </div>
-        {directMessages.map((dm) => (
+        {!preview && !live && (
+          <div style={{ padding: "4px 16px", fontSize: 12, color: "var(--mid-gray)" }}>
+            Available when chat goes live
+          </div>
+        )}
+        {(preview ? directMessages : []).map((dm) => (
           <button key={dm.name} type="button" className="channel-item">
             <span
               style={{
@@ -287,8 +295,9 @@ export function CommunityView({
 
         {!live && (
           <div className="chat-preview-note">
-            Preview mode — messages aren&apos;t saved. Community goes live once
-            Stream Chat is connected.
+            {preview
+              ? "Preview mode — messages aren't saved. Community goes live once Stream Chat is connected."
+              : "Community chat goes live once Stream Chat is connected — messages aren't saved yet."}
           </div>
         )}
         <div className="chat-input-area">
@@ -342,9 +351,14 @@ export function CommunityView({
       <div className="chat-sidebar-right">
         <div className="chat-sidebar-section">
           <div className="chat-sidebar-title">
-            Online Now ({onlineMembers.filter((m) => m.online).length})
+            Online Now{preview ? ` (${onlineMembers.filter((m) => m.online).length})` : ""}
           </div>
-          {onlineMembers.map((m) => (
+          {!preview && (
+            <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+              Presence appears when chat goes live.
+            </div>
+          )}
+          {(preview ? onlineMembers : []).map((m) => (
             <div className="online-member" key={m.name}>
               <div
                 className="online-dot"

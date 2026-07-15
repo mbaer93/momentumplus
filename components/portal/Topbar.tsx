@@ -19,7 +19,7 @@ export function Topbar({ userInitials }: TopbarProps) {
         <input type="text" placeholder="Search sessions, speakers..." />
       </div>
       <button
-        className="topbar-icon-btn topbar-notif-dot"
+        className="topbar-icon-btn"
         aria-label="Notifications"
         type="button"
       >
