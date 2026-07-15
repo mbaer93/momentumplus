@@ -1,4 +1,5 @@
 import { addMonths } from "@/lib/membership";
+import { requestSiteUrl } from "@/lib/site-url";
 import { createServiceClient } from "@/lib/supabase/admin";
 import type { Tier } from "@/lib/types";
 
@@ -135,7 +136,7 @@ export async function createAccountWithoutEmail(
     };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const siteUrl = requestSiteUrl();
   const { data: linkData } = await admin.auth.admin.generateLink({
     type: "recovery",
     email,
@@ -177,7 +178,7 @@ export async function provisionMember(
   if (profile) {
     profileId = profile.id;
   } else {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const siteUrl = requestSiteUrl();
     const { data: inv, error } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: input.name ?? "" },
       redirectTo: siteUrl ? `${siteUrl}/auth/callback?redirect=/welcome` : undefined,

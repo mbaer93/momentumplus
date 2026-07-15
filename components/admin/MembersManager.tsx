@@ -10,6 +10,7 @@ import {
   expireMembership,
   extendMembership,
   grantMembership,
+  getLoginLink,
   sendPasswordReset,
   setAdminAccess,
   updateMemberProfile,
@@ -353,6 +354,14 @@ export function MembersManager({
                           }}
                         >
                           Send password reset
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-mini"
+                          disabled={pending || !m.email}
+                          onClick={() => run(() => getLoginLink(m.email))}
+                        >
+                          Get login link (no email)
                         </button>
                         {viewerIsSuper && (
                           <button
