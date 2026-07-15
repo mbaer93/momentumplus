@@ -7,6 +7,7 @@ import {
   getMuxAsset,
   getMuxUpload,
   isMuxConfigured,
+  requestMuxAutoCaptions,
 } from "@/lib/mux";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -162,10 +163,23 @@ export async function finalizeVideoUpload(
         ? Math.round(input.durationMin * 60)
         : null;
 
+    // Kick off auto-captions now when the audio track is already visible;
+    // otherwise the summaries cron requests them once the asset is ready.
+    const audioTrack = asset.tracks?.find((t) => t.type === "audio");
+    const hasText = asset.tracks?.some((t) => t.type === "text");
+    if (audioTrack && !hasText) {
+      try {
+        await requestMuxAutoCaptions(assetId, audioTrack.id);
+      } catch {
+        // non-fatal — cron retries
+      }
+    }
+
     const { error } = await createServiceClient().from("videos").insert({
       title: input.title.trim(),
       category: input.category.trim() || null,
       mux_playback_id: playbackId,
+      mux_asset_id: assetId,
       duration_sec: durationSec,
       min_access: input.minAccess,
       published_at: input.published ? new Date().toISOString() : null,

@@ -4,8 +4,10 @@ import { VideoPlayer } from "@/components/library/VideoPlayer";
 import { ArrowLeftIcon, SparkleIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
 import { generateMuxPlaybackToken, isMuxSigningConfigured } from "@/lib/mux";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getVideo } from "@/lib/videos/queries";
-import { NotesEditor } from "@/components/sessions/NotesEditor";
+import { VideoNotesEditor } from "@/components/library/VideoNotesEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,18 @@ export default async function VideoDetailPage({
   const member = await requireMember();
   const video = await getVideo(params.id, member.tier);
   if (!video) notFound();
+
+  // The viewer's private note on this recording (owner-only via RLS).
+  let initialNote = "";
+  if (isSupabaseConfigured()) {
+    const supabase = createClient();
+    const { data: note } = await supabase
+      .from("video_notes")
+      .select("body")
+      .eq("video_id", video.id)
+      .maybeSingle();
+    initialNote = note?.body ?? "";
+  }
 
   // Signed playback token so recording URLs can't leave the portal.
   const playbackToken =
@@ -109,14 +123,7 @@ export default async function VideoDetailPage({
             <h3>My Notes</h3>
           </div>
           <div style={{ padding: 18 }}>
-            {video.sessionId ? (
-              <NotesEditor sessionId={video.sessionId} initialNote="" />
-            ) : (
-              <div className="sess-empty-note">
-                Notes attach to live sessions. Recordings from live sessions
-                show your private session notes here.
-              </div>
-            )}
+            <VideoNotesEditor videoId={video.id} initialNote={initialNote} />
           </div>
         </div>
       </div>

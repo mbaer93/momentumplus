@@ -24,3 +24,39 @@ export async function recordVideoView(
     seconds_watched: Math.max(0, Math.round(secondsWatched)),
   });
 }
+
+export interface NoteResult {
+  ok: boolean;
+  preview?: boolean;
+  message?: string;
+}
+
+/**
+ * Save the signed-in member's private note on a Library video. RLS is
+ * owner-only — nobody else (admins included) can read these.
+ */
+export async function saveVideoNote(
+  videoId: string,
+  body: string,
+): Promise<NoteResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true };
+  }
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Not signed in." };
+
+  const { error } = await supabase.from("video_notes").upsert(
+    {
+      profile_id: user.id,
+      video_id: videoId,
+      body,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "profile_id,video_id" },
+  );
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
