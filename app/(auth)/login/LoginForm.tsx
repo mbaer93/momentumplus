@@ -57,7 +57,15 @@ export function LoginForm() {
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      // Auth service errors occasionally surface with empty/JSON-blob messages
+      // (e.g. "{}" on a 5xx) — show something a member can act on instead.
+      const raw = err instanceof Error ? err.message.trim() : "";
+      const usable = raw && raw !== "{}" && !raw.startsWith("{\"");
+      setError(
+        usable
+          ? raw
+          : "We couldn't sign you in. Please try again in a moment, or use the password reset link below.",
+      );
     } finally {
       setLoading(false);
     }
