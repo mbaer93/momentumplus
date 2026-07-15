@@ -10,12 +10,14 @@ const PROTECTED_PREFIXES = [
   "/community",
   "/sessions",
   "/library",
+  "/education",
   "/speakers",
   "/resources",
   "/sponsors",
   "/calendar",
   "/profile",
   "/admin",
+  "/welcome",
 ];
 
 const AUTH_PATHS = ["/login", "/reset"];
