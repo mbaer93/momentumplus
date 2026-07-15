@@ -38,12 +38,22 @@ export default async function SpeakersPage() {
               className="speaker-card-banner"
               style={{ background: s.bannerGradient }}
             >
-              <div
-                className="speaker-card-av"
-                style={{ background: s.avatarBg, color: s.avatarColor }}
-              >
-                {s.initials}
-              </div>
+              {s.headshotUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  className="speaker-card-av"
+                  src={s.headshotUrl}
+                  alt={`${s.name} headshot`}
+                  style={{ objectFit: "cover" }}
+                />
+              ) : (
+                <div
+                  className="speaker-card-av"
+                  style={{ background: s.avatarBg, color: s.avatarColor }}
+                >
+                  {s.initials}
+                </div>
+              )}
             </div>
             <div className="speaker-card-body">
               <div className="speaker-card-name">{s.name}</div>

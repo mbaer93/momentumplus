@@ -48,7 +48,7 @@ export async function listSpeakers(): Promise<SpeakerProfile[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("speakers")
-    .select("id, name, title, bio, industries, created_at")
+    .select("id, name, title, bio, industries, headshot_url, website, created_at")
     .order("featured", { ascending: false });
   // Configured mode: empty table = empty directory (demo data is preview-only).
   if (error || !data) return [];
@@ -71,6 +71,8 @@ export async function listSpeakers(): Promise<SpeakerProfile[]> {
       }),
       sessionCount: 0,
       sessionSlugs: [],
+      headshotUrl: row.headshot_url ?? null,
+      website: row.website ?? null,
     } satisfies SpeakerProfile;
   });
 }
@@ -88,7 +90,7 @@ export async function listResources(viewerTier: Tier): Promise<ResourceItem[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("resources")
-    .select("id, title, category, description, url, partner_name, min_access")
+    .select("id, title, category, description, url, partner_name, min_access, image_url")
     .eq("active", true);
   if (error || !data) return [];
 
@@ -102,6 +104,7 @@ export async function listResources(viewerTier: Tier): Promise<ResourceItem[]> {
     tags: [row.category, row.partner_name].filter(Boolean) as string[],
     actionLabel: "Open",
     url: row.url ?? "#",
+    imageUrl: row.image_url ?? null,
     minAccess:
       row.min_access === "vip_plus" || row.min_access === "pro_only"
         ? row.min_access

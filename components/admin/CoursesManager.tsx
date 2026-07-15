@@ -8,15 +8,28 @@ import {
   deleteCourse,
   moveLesson,
   removeLesson,
+  removeLessonDocument,
+  removeLessonImage,
+  saveLessonQuiz,
   updateCourse,
+  updateLessonDetails,
+  uploadLessonDocument,
+  uploadLessonImage,
   type CourseInput,
+  type QuizQuestionInput,
 } from "@/app/(portal)/admin/education/actions";
+import { useRef } from "react";
 
 export interface AdminLessonRow {
   id: string;
   title: string;
   summary: string;
   videoId: string | null;
+  content: string;
+  imageUrl: string | null;
+  documents: { name: string; url: string }[];
+  /** Full quiz including answers — admin-only view. */
+  quiz: QuizQuestionInput[];
 }
 
 export interface AdminCourseRow {
@@ -26,6 +39,7 @@ export interface AdminCourseRow {
   description: string;
   minAccess: "all_members" | "vip_plus" | "pro_only";
   published: boolean;
+  ceHours: number | null;
   lessons: AdminLessonRow[];
 }
 
@@ -40,6 +54,7 @@ const EMPTY: CourseInput = {
   description: "",
   minAccess: "all_members",
   published: false,
+  ceHours: null,
 };
 
 function CourseFields({
@@ -92,6 +107,25 @@ function CourseFields({
           </select>
         </div>
       </div>
+      <div className="admin-field" style={{ maxWidth: 340 }}>
+        <label htmlFor={`${idPrefix}-ce`}>
+          Estimated hours to complete (CE hours on the certificate)
+        </label>
+        <input
+          id={`${idPrefix}-ce`}
+          type="number"
+          min={0}
+          step={0.5}
+          value={value.ceHours ?? ""}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              ceHours: e.target.value === "" ? null : Number(e.target.value),
+            })
+          }
+          placeholder="e.g. 2"
+        />
+      </div>
       <div className="admin-field">
         <label htmlFor={`${idPrefix}-desc`}>Description</label>
         <textarea
@@ -110,6 +144,275 @@ function CourseFields({
         Published (visible on the Education page)
       </label>
     </>
+  );
+}
+
+/* eslint-disable @next/next/no-img-element */
+/** Full lesson editor: reading content, image, documents, and the optional test. */
+function LessonEditor({ lesson }: { lesson: AdminLessonRow }) {
+  const router = useRouter();
+  const imageRef = useRef<HTMLInputElement | null>(null);
+  const docRef = useRef<HTMLInputElement | null>(null);
+  const [details, setDetails] = useState({
+    title: lesson.title,
+    summary: lesson.summary,
+    content: lesson.content,
+  });
+  const [questions, setQuestions] = useState<QuizQuestionInput[]>(lesson.quiz);
+  const [pending, startTransition] = useTransition();
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  function run(fn: () => Promise<{ ok: boolean; message?: string }>) {
+    setMsg(null);
+    startTransition(async () => {
+      try {
+        const res = await fn();
+        setMsg(res.message ? { text: res.message, ok: res.ok } : null);
+        if (res.ok) router.refresh();
+      } catch {
+        setMsg({ text: "That didn't save — please try again.", ok: false });
+      }
+    });
+  }
+
+  function setQuestion(i: number, patch: Partial<QuizQuestionInput>) {
+    setQuestions((prev) => prev.map((q, qi) => (qi === i ? { ...q, ...patch } : q)));
+  }
+
+  return (
+    <div
+      style={{
+        margin: "8px 0 14px 28px",
+        padding: "12px 14px",
+        border: "1px solid var(--warm-gray)",
+        borderRadius: 4,
+        background: "var(--white)",
+      }}
+    >
+      {/* Details */}
+      <div className="admin-field-row">
+        <div className="admin-field">
+          <label htmlFor={`ld-title-${lesson.id}`}>Lesson title</label>
+          <input
+            id={`ld-title-${lesson.id}`}
+            value={details.title}
+            onChange={(e) => setDetails({ ...details, title: e.target.value })}
+          />
+        </div>
+        <div className="admin-field">
+          <label htmlFor={`ld-sum-${lesson.id}`}>One-line summary</label>
+          <input
+            id={`ld-sum-${lesson.id}`}
+            value={details.summary}
+            onChange={(e) => setDetails({ ...details, summary: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="admin-field">
+        <label htmlFor={`ld-content-${lesson.id}`}>
+          Reading / information (shown on the lesson page; blank line = new paragraph)
+        </label>
+        <textarea
+          id={`ld-content-${lesson.id}`}
+          rows={5}
+          value={details.content}
+          onChange={(e) => setDetails({ ...details, content: e.target.value })}
+        />
+      </div>
+      <div className="admin-form-actions" style={{ marginTop: 0 }}>
+        <button
+          type="button"
+          className="btn-purple"
+          disabled={pending || !details.title.trim()}
+          onClick={() => run(() => updateLessonDetails(lesson.id, details))}
+        >
+          Save lesson
+        </button>
+      </div>
+
+      {/* Image */}
+      <div className="admin-form-actions" style={{ marginTop: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          Lesson image (PNG/JPG/WebP/GIF, &lt;4 MB):
+        </span>
+        {lesson.imageUrl && (
+          <img
+            src={lesson.imageUrl}
+            alt="Lesson"
+            style={{ maxHeight: 44, borderRadius: 4, border: "1px solid var(--warm-gray)" }}
+          />
+        )}
+        <input type="file" accept="image/*" ref={imageRef} style={{ fontSize: 12 }} />
+        <button
+          type="button"
+          className="btn-mini"
+          disabled={pending}
+          onClick={() => {
+            const file = imageRef.current?.files?.[0];
+            if (!file) {
+              setMsg({ text: "Choose an image file first.", ok: false });
+              return;
+            }
+            const fd = new FormData();
+            fd.append("file", file);
+            run(() => uploadLessonImage(lesson.id, fd));
+          }}
+        >
+          Upload image
+        </button>
+        {lesson.imageUrl && (
+          <button
+            type="button"
+            className="btn-mini danger"
+            disabled={pending}
+            onClick={() => run(() => removeLessonImage(lesson.id))}
+          >
+            Remove image
+          </button>
+        )}
+      </div>
+
+      {/* Documents */}
+      <div style={{ marginTop: 12 }}>
+        <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          Documents &amp; resources (PDFs, worksheets — &lt;20 MB each):
+        </span>
+        {lesson.documents.map((d) => (
+          <div
+            key={d.url}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}
+          >
+            <span style={{ fontSize: 12.5, flex: 1 }}>{d.name}</span>
+            <button
+              type="button"
+              className="btn-mini danger"
+              disabled={pending}
+              onClick={() => run(() => removeLessonDocument(lesson.id, d.url))}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <div className="admin-form-actions" style={{ marginTop: 6 }}>
+          <input type="file" ref={docRef} style={{ fontSize: 12 }} />
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => {
+              const file = docRef.current?.files?.[0];
+              if (!file) {
+                setMsg({ text: "Choose a document first.", ok: false });
+                return;
+              }
+              const fd = new FormData();
+              fd.append("file", file);
+              run(() => uploadLessonDocument(lesson.id, fd));
+            }}
+          >
+            Attach document
+          </button>
+        </div>
+      </div>
+
+      {/* Test */}
+      <div style={{ marginTop: 14 }}>
+        <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          Optional test — with questions saved, members must pass (70%) to
+          complete this lesson. With no test, opening the lesson completes it
+          automatically.
+        </span>
+        {questions.map((q, qi) => (
+          <div
+            key={qi}
+            style={{
+              border: "1px solid var(--warm-gray)",
+              borderRadius: 4,
+              padding: 10,
+              marginTop: 8,
+            }}
+          >
+            <div className="admin-field" style={{ marginBottom: 8 }}>
+              <label htmlFor={`q-${lesson.id}-${qi}`}>Question {qi + 1}</label>
+              <input
+                id={`q-${lesson.id}-${qi}`}
+                value={q.q}
+                onChange={(e) => setQuestion(qi, { q: e.target.value })}
+                placeholder="What is…?"
+              />
+            </div>
+            <div className="admin-field" style={{ marginBottom: 8 }}>
+              <label htmlFor={`opts-${lesson.id}-${qi}`}>
+                Answer options (one per line)
+              </label>
+              <textarea
+                id={`opts-${lesson.id}-${qi}`}
+                rows={3}
+                value={q.options.join("\n")}
+                onChange={(e) =>
+                  setQuestion(qi, { options: e.target.value.split("\n") })
+                }
+              />
+            </div>
+            <div className="admin-form-actions" style={{ marginTop: 0 }}>
+              <label style={{ fontSize: 12.5 }}>
+                Correct answer{" "}
+                <select
+                  value={q.answer}
+                  onChange={(e) => setQuestion(qi, { answer: Number(e.target.value) })}
+                >
+                  {q.options.map((opt, oi) => (
+                    <option key={oi} value={oi}>
+                      {oi + 1}. {opt.slice(0, 40) || "(empty)"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="btn-mini danger"
+                onClick={() =>
+                  setQuestions((prev) => prev.filter((_, i) => i !== qi))
+                }
+              >
+                Remove question
+              </button>
+            </div>
+          </div>
+        ))}
+        <div className="admin-form-actions" style={{ marginTop: 8 }}>
+          <button
+            type="button"
+            className="btn-mini"
+            onClick={() =>
+              setQuestions((prev) => [
+                ...prev,
+                { q: "", options: ["", ""], answer: 0 },
+              ])
+            }
+          >
+            Add question
+          </button>
+          <button
+            type="button"
+            className="btn-purple"
+            disabled={pending}
+            onClick={() => run(() => saveLessonQuiz(lesson.id, questions))}
+          >
+            Save test
+          </button>
+        </div>
+      </div>
+
+      {msg && (
+        <div
+          className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+          style={{ marginTop: 8 }}
+        >
+          {msg.text}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -134,10 +437,12 @@ export function CoursesManager({
           description: seed.description,
           minAccess: seed.minAccess,
           published: seed.published,
+          ceHours: seed.ceHours,
         }
       : EMPTY,
   );
   const [newLesson, setNewLesson] = useState({ videoId: "", title: "", summary: "" });
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -162,6 +467,7 @@ export function CoursesManager({
       description: c.description,
       minAccess: c.minAccess,
       published: c.published,
+      ceHours: c.ceHours,
     });
     setNewLesson({ videoId: "", title: "", summary: "" });
   }
@@ -297,8 +603,8 @@ export function CoursesManager({
                           </div>
                         )}
                         {c.lessons.map((l, i) => (
+                          <Fragment key={l.id}>
                           <div
-                            key={l.id}
                             style={{
                               display: "flex",
                               alignItems: "center",
@@ -348,6 +654,17 @@ export function CoursesManager({
                             </button>
                             <button
                               type="button"
+                              className="btn-mini"
+                              onClick={() =>
+                                setEditingLessonId(
+                                  editingLessonId === l.id ? null : l.id,
+                                )
+                              }
+                            >
+                              {editingLessonId === l.id ? "Close" : "Edit"}
+                            </button>
+                            <button
+                              type="button"
                               className="btn-mini danger"
                               disabled={pending}
                               onClick={() => run(() => removeLesson(l.id))}
@@ -355,6 +672,8 @@ export function CoursesManager({
                               Remove
                             </button>
                           </div>
+                          {editingLessonId === l.id && <LessonEditor lesson={l} />}
+                          </Fragment>
                         ))}
 
                         {/* Add lesson */}

@@ -17,6 +17,8 @@ export interface SpeakerProfile {
   memberSince: string;
   sessionCount: number;
   sessionSlugs: string[];
+  headshotUrl: string | null;
+  website: string | null;
 }
 
 export const speakers: SpeakerProfile[] = [
@@ -33,6 +35,8 @@ export const speakers: SpeakerProfile[] = [
     memberSince: "Mar 2024",
     sessionCount: 6,
     sessionSlugs: ["resilience-rituals", "leading-intention"],
+    headshotUrl: null,
+    website: null,
   },
   {
     id: "rob",
@@ -47,6 +51,8 @@ export const speakers: SpeakerProfile[] = [
     memberSince: "Jan 2024",
     sessionCount: 8,
     sessionSlugs: ["high-perf-teams", "strategic-goal"],
+    headshotUrl: null,
+    website: null,
   },
   {
     id: "allison",
@@ -61,6 +67,8 @@ export const speakers: SpeakerProfile[] = [
     memberSince: "Feb 2024",
     sessionCount: 5,
     sessionSlugs: [],
+    headshotUrl: null,
+    website: null,
   },
   {
     id: "lisa",
@@ -75,6 +83,8 @@ export const speakers: SpeakerProfile[] = [
     memberSince: "Apr 2024",
     sessionCount: 4,
     sessionSlugs: ["strategic-networking"],
+    headshotUrl: null,
+    website: null,
   },
   {
     id: "katie",
@@ -89,6 +99,8 @@ export const speakers: SpeakerProfile[] = [
     memberSince: "Jan 2024",
     sessionCount: 7,
     sessionSlugs: ["mastermind-q3"],
+    headshotUrl: null,
+    website: null,
   },
 ];
 
@@ -102,6 +114,7 @@ export interface ResourceItem {
   tags: string[];
   actionLabel: string;
   url: string;
+  imageUrl: string | null;
   minAccess: "all_members" | "vip_plus" | "pro_only";
 }
 
@@ -117,6 +130,7 @@ export const resources: ResourceItem[] = [
     tags: ["Leadership", "Holly Bertone"],
     actionLabel: "Download",
     url: "#",
+    imageUrl: null,
     minAccess: "all_members",
   },
   {
@@ -130,6 +144,7 @@ export const resources: ResourceItem[] = [
     tags: ["Business", "Rob Wentz"],
     actionLabel: "Open",
     url: "#",
+    imageUrl: null,
     minAccess: "all_members",
   },
   {
@@ -143,6 +158,7 @@ export const resources: ResourceItem[] = [
     tags: ["Communication", "Lisa Herndon"],
     actionLabel: "Download",
     url: "#",
+    imageUrl: null,
     minAccess: "vip_plus",
   },
   {
@@ -156,6 +172,7 @@ export const resources: ResourceItem[] = [
     tags: ["Leadership", "Rob Wentz"],
     actionLabel: "Download",
     url: "#",
+    imageUrl: null,
     minAccess: "all_members",
   },
   {
@@ -169,6 +186,7 @@ export const resources: ResourceItem[] = [
     tags: ["Business", "Katie Nelson"],
     actionLabel: "Download",
     url: "#",
+    imageUrl: null,
     minAccess: "vip_plus",
   },
   {
@@ -182,6 +200,7 @@ export const resources: ResourceItem[] = [
     tags: ["Wellness", "Holly Bertone"],
     actionLabel: "Download",
     url: "#",
+    imageUrl: null,
     minAccess: "all_members",
   },
 ];

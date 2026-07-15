@@ -11,10 +11,27 @@ test.describe("auth + portal shell", () => {
     await expect(page.locator(".login-success")).toContainText("Preview mode");
   });
 
-  test("root redirects into the dashboard", async ({ page }) => {
+  test("public home page shows perks, pricing, and login", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.locator(".welcome-text h1")).toContainText("Good morning");
+    await expect(page.locator(".land-wordmark").first()).toContainText(
+      "Momentum",
+    );
+    await expect(page.locator(".land-perk")).toHaveCount(6);
+    await expect(page.locator(".land-price-card")).toHaveCount(2);
+    await expect(
+      page.locator(".land-nav-links .land-login-btn"),
+    ).toContainText("Member Login");
+    // Pricing CTA leads to the join form
+    await page.locator('a[href="/join?plan=pro"]').click();
+    await expect(page).toHaveURL(/\/join\?plan=pro/);
+    await expect(page.locator(".join-plan.active")).toContainText("Pro");
+  });
+
+  test("dashboard greets by time of day", async ({ page }) => {
+    await page.goto("/dashboard");
+    await expect(page.locator(".welcome-text h1")).toContainText(
+      /Good (morning|afternoon|evening)|Welcome back/,
+    );
   });
 
   test("dashboard shows stats, upcoming sessions, and community activity", async ({

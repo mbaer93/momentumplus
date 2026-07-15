@@ -78,6 +78,25 @@ export async function grantMembership(input: {
     return { ok: false, message: "Could not find or invite that email." };
   }
 
+  // Duplicate guard: never stack a second active membership of the same
+  // tier on an existing account.
+  const { data: existingRows } = await admin
+    .from("memberships")
+    .select("id, tier, status, access_expires_at")
+    .eq("profile_id", profileId)
+    .eq("status", "active");
+  const duplicate = (existingRows ?? []).some(
+    (m) =>
+      m.tier === input.tier &&
+      (!m.access_expires_at || new Date(m.access_expires_at) > new Date()),
+  );
+  if (duplicate) {
+    return {
+      ok: false,
+      message: `${email} already has an active ${input.tier} membership — nothing added. Use +1 mo on their existing row to extend it.`,
+    };
+  }
+
   const now = new Date();
   const { error } = await admin.from("memberships").insert({
     profile_id: profileId,
@@ -294,6 +313,54 @@ export async function extendMembership(
 
   revalidatePath("/admin/members");
   return { ok: true, message: `Extended ${months} month(s).` };
+}
+
+/**
+ * Delete a single membership ROW (e.g. an accidental duplicate). The member
+ * account, profile, and other memberships are untouched — this is not
+ * member deletion.
+ */
+export async function deleteMembership(
+  membershipId: string,
+): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Removed (preview mode)." };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { error } = await createServiceClient()
+    .from("memberships")
+    .delete()
+    .eq("id", membershipId);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/members");
+  return { ok: true, message: "Membership row removed." };
+}
+
+/**
+ * Email the member a password-reset link (for members who can't log in).
+ * The link signs them in and lands on the set-password step.
+ */
+export async function sendPasswordReset(email: string): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Sent (preview mode)." };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!email.includes("@")) return { ok: false, message: "No email on this member." };
+
+  const admin = createServiceClient();
+  const { error } = await admin.auth.resetPasswordForEmail(email, {
+    redirectTo: process.env.NEXT_PUBLIC_SITE_URL
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?redirect=/welcome`
+      : undefined,
+  });
+  if (error) return { ok: false, message: `Send failed: ${error.message}` };
+  return {
+    ok: true,
+    message: `Password-reset email sent to ${email} — the link signs them in and asks for a new password.`,
+  };
 }
 
 export async function expireMembership(

@@ -56,6 +56,14 @@ export function LibraryBrowser({
               )}
             <Link href={`/library/${v.id}`} className="recording-card">
               <div className="recording-thumb" style={{ background: v.gradient }}>
+                {v.thumbnailUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={v.thumbnailUrl}
+                    alt=""
+                    className="recording-thumb-img"
+                  />
+                )}
                 {v.minAccess === "vip_plus" && (
                   <span className="recording-vip">VIP</span>
                 )}

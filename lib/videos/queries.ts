@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canAccess } from "@/lib/access";
+import { isMuxConfigured, muxThumbnailUrl } from "@/lib/mux";
 import type { Tier } from "@/lib/types";
 import { gradientFor, placeholderVideos, type VideoItem } from "./data";
 
@@ -29,6 +30,7 @@ interface VideoRow {
   title: string;
   category: string | null;
   mux_playback_id: string | null;
+  thumbnail_url: string | null;
   duration_sec: number | null;
   min_access: VideoItem["minAccess"];
   published_at: string | null;
@@ -62,6 +64,12 @@ function mapRow(row: VideoRow): VideoItem {
     gradient: gradientFor(row.id),
     minAccess: row.min_access,
     muxPlaybackId: row.mux_playback_id,
+    // Uploaded thumbnail wins; otherwise Mux's screen grab from the video.
+    thumbnailUrl:
+      row.thumbnail_url ??
+      (row.mux_playback_id && isMuxConfigured()
+        ? muxThumbnailUrl(row.mux_playback_id)
+        : null),
     sessionId: row.session_id,
     aiSummary: ai
       ? {
@@ -77,7 +85,7 @@ function mapRow(row: VideoRow): VideoItem {
 }
 
 const VIDEO_SELECT =
-  "id, title, category, mux_playback_id, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ), ai_summaries ( takeaways, quotes, action_items, highlights, model, generated_at ) ), ai_summaries!video_id ( takeaways, quotes, action_items, highlights, model, generated_at )";
+  "id, title, category, mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ), ai_summaries ( takeaways, quotes, action_items, highlights, model, generated_at ) ), ai_summaries!video_id ( takeaways, quotes, action_items, highlights, model, generated_at )";
 
 export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
   if (!isSupabaseConfigured()) {

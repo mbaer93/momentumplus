@@ -198,6 +198,79 @@ export async function finalizeVideoUpload(
   }
 }
 
+const THUMB_BUCKET = "video-thumbnails";
+const THUMB_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+/**
+ * Upload a custom card thumbnail (PNG/JPG/WebP, under 4 MB). It overrides
+ * the default screen grab Mux pulls from the video.
+ */
+export async function uploadVideoThumbnail(
+  id: string,
+  formData: FormData,
+): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "No file received — choose an image and try again." };
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    return {
+      ok: false,
+      message: `That image is ${mb} MB — the limit is 4 MB. Compress or resize it and try again.`,
+    };
+  }
+  const ext = THUMB_TYPES[file.type];
+  if (!ext) {
+    return {
+      ok: false,
+      message: `That file type (${file.type || "unknown"}) isn't supported — use PNG, JPG, or WebP.`,
+    };
+  }
+
+  const admin = createServiceClient();
+  await admin.storage
+    .createBucket(THUMB_BUCKET, { public: true })
+    .catch(() => undefined);
+  const path = `${id}.${ext}`;
+  const { error: upErr } = await admin.storage
+    .from(THUMB_BUCKET)
+    .upload(path, Buffer.from(await file.arrayBuffer()), {
+      contentType: file.type,
+      upsert: true,
+    });
+  if (upErr) return { ok: false, message: `Upload failed: ${upErr.message}` };
+  const { data: pub } = admin.storage.from(THUMB_BUCKET).getPublicUrl(path);
+  const thumbnailUrl = `${pub.publicUrl}?v=${Date.now()}`;
+  const { error } = await admin
+    .from("videos")
+    .update({ thumbnail_url: thumbnailUrl })
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  refresh();
+  return { ok: true, message: "Thumbnail uploaded — it now replaces the screen grab." };
+}
+
+/** Back to the default: the screen grab Mux pulls from the video itself. */
+export async function removeVideoThumbnail(id: string): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+  const { error } = await createServiceClient()
+    .from("videos")
+    .update({ thumbnail_url: null })
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  refresh();
+  return { ok: true, message: "Custom thumbnail removed — the card uses the video screen grab again." };
+}
+
 export async function deleteVideo(id: string): Promise<AdminResult> {
   const early = await guard();
   if (early) return early;

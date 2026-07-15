@@ -6,9 +6,11 @@ import type { Tier } from "@/lib/types";
 import { ADMIN_AREAS } from "@/lib/admin-perms";
 import {
   deleteMember,
+  deleteMembership,
   expireMembership,
   extendMembership,
   grantMembership,
+  sendPasswordReset,
   setAdminAccess,
   updateMemberProfile,
 } from "@/app/(portal)/admin/members/actions";
@@ -237,6 +239,22 @@ export function MembersManager({
                     >
                       Expire
                     </button>
+                    <button
+                      type="button"
+                      className="btn-mini danger"
+                      disabled={pending}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Remove this membership row for ${m.name}? Use this for duplicates — the member account and their other memberships stay.`,
+                          )
+                        ) {
+                          run(() => deleteMembership(m.membershipId));
+                        }
+                      }}
+                    >
+                      Delete row
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -319,6 +337,22 @@ export function MembersManager({
                           }
                         >
                           Save member
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-mini"
+                          disabled={pending || !m.email}
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Email ${m.email} a password-reset link?`,
+                              )
+                            ) {
+                              run(() => sendPasswordReset(m.email));
+                            }
+                          }}
+                        >
+                          Send password reset
                         </button>
                         {viewerIsSuper && (
                           <button

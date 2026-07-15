@@ -7,10 +7,20 @@ import { setLessonComplete } from "@/app/(portal)/education/actions";
 import type { CourseLesson } from "@/lib/education";
 
 /*
- * Interactive lesson list: watch links into the library plus per-lesson
- * completion toggles (lesson_progress rows; local state in preview mode).
+ * Course lesson list: each lesson opens its own page (video, image,
+ * reading, documents, optional test). Lessons without a test can also be
+ * toggled complete here; test lessons complete only by passing. When every
+ * lesson is done, the printable certificate unlocks.
  */
-export function LessonList({ lessons }: { lessons: CourseLesson[] }) {
+export function LessonList({
+  courseId,
+  lessons,
+  ceHours,
+}: {
+  courseId: string;
+  lessons: CourseLesson[];
+  ceHours: number | null;
+}) {
   const router = useRouter();
   const [done, setDone] = useState<Set<string>>(
     () => new Set(lessons.filter((l) => l.completed).map((l) => l.id)),
@@ -19,6 +29,7 @@ export function LessonList({ lessons }: { lessons: CourseLesson[] }) {
 
   const pct =
     lessons.length > 0 ? Math.round((done.size / lessons.length) * 100) : 0;
+  const allDone = lessons.length > 0 && done.size === lessons.length;
 
   function toggle(lesson: CourseLesson) {
     const completed = !done.has(lesson.id);
@@ -31,7 +42,6 @@ export function LessonList({ lessons }: { lessons: CourseLesson[] }) {
     startTransition(async () => {
       const res = await setLessonComplete(lesson.id, completed);
       if (!res.ok) {
-        // Roll back the optimistic flip.
         setDone((prev) => {
           const next = new Set(prev);
           if (completed) next.delete(lesson.id);
@@ -51,19 +61,30 @@ export function LessonList({ lessons }: { lessons: CourseLesson[] }) {
           style={{
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "center",
             fontSize: 12,
             color: "var(--mid-gray)",
             marginBottom: 6,
+            gap: 10,
+            flexWrap: "wrap",
           }}
         >
           <span>
             {done.size} of {lessons.length} lessons completed
+            {ceHours ? ` · ${ceHours} CE hour${ceHours === 1 ? "" : "s"} on completion` : ""}
           </span>
           <span>{pct}%</span>
         </div>
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${pct}%` }} />
         </div>
+        {allDone && (
+          <div style={{ marginTop: 12 }}>
+            <Link href={`/education/${courseId}/certificate`} className="btn-sm-gold">
+              Course complete — view your certificate
+            </Link>
+          </div>
+        )}
       </div>
       {lessons.map((lesson, i) => {
         const isDone = done.has(lesson.id);
@@ -73,29 +94,56 @@ export function LessonList({ lessons }: { lessons: CourseLesson[] }) {
               {isDone ? "✓" : i + 1}
             </div>
             <div style={{ flex: 1 }}>
-              <div className="lesson-title">{lesson.title}</div>
+              <Link
+                href={`/education/${courseId}/${lesson.id}`}
+                className="lesson-title"
+                style={{ display: "inline-block", color: "inherit" }}
+              >
+                {lesson.title}
+              </Link>
+              {lesson.quiz && (
+                <span
+                  className="admin-status draft"
+                  style={{ marginLeft: 8, fontSize: 10 }}
+                >
+                  Test
+                </span>
+              )}
               {lesson.summary && (
                 <div className="lesson-summary">{lesson.summary}</div>
               )}
               <div className="lesson-actions">
-                {lesson.videoId && (
-                  <Link href={`/library/${lesson.videoId}`} className="btn-mini">
-                    Watch lesson
-                  </Link>
-                )}
-                <button
-                  type="button"
+                <Link
+                  href={`/education/${courseId}/${lesson.id}`}
                   className="btn-mini"
-                  disabled={pending}
-                  onClick={() => toggle(lesson)}
-                  style={
-                    isDone
-                      ? { color: "var(--accent-green)", borderColor: "var(--accent-green)" }
-                      : undefined
-                  }
                 >
-                  {isDone ? "Completed" : "Mark complete"}
-                </button>
+                  Open lesson
+                </Link>
+                {!lesson.quiz && (
+                  <button
+                    type="button"
+                    className="btn-mini"
+                    disabled={pending}
+                    onClick={() => toggle(lesson)}
+                    style={
+                      isDone
+                        ? {
+                            color: "var(--accent-green)",
+                            borderColor: "var(--accent-green)",
+                          }
+                        : undefined
+                    }
+                  >
+                    {isDone ? "Completed" : "Mark complete"}
+                  </button>
+                )}
+                {lesson.quiz && isDone && (
+                  <span
+                    style={{ fontSize: 12, color: "var(--accent-green)", fontWeight: 600 }}
+                  >
+                    Test passed
+                  </span>
+                )}
               </div>
             </div>
           </div>

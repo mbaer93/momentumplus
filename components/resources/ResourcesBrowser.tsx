@@ -65,11 +65,21 @@ export function ResourcesBrowser({
                   <AdminEditChip href={`/admin/resources?edit=${r.id}`} />
                 </span>
               )}
-              <div className="resource-icon" style={{ background: r.iconBg }}>
-                <span style={{ color: r.typeColor }}>
-                  <DocIcon size={20} />
-                </span>
-              </div>
+              {r.imageUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  className="resource-thumb"
+                  src={r.imageUrl}
+                  alt=""
+                  aria-hidden="true"
+                />
+              ) : (
+                <div className="resource-icon" style={{ background: r.iconBg }}>
+                  <span style={{ color: r.typeColor }}>
+                    <DocIcon size={20} />
+                  </span>
+                </div>
+              )}
               <div className="resource-body">
                 <div className="resource-type" style={{ color: r.typeColor }}>
                   {r.type}

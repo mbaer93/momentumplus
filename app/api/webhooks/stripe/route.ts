@@ -72,11 +72,47 @@ export async function POST(req: NextRequest) {
           metadata?: Record<string, string>;
           subscription?: string;
           customer?: string;
+          customer_details?: { email?: string };
         };
-        const profileId = s.metadata?.profile_id;
+        let profileId = s.metadata?.profile_id;
         const plan = s.metadata?.plan === "pro" ? "pro" : "basic";
         const subId = s.subscription;
-        if (!profileId || !subId) break;
+        if (!subId) break;
+
+        // Public signup (momentumplus.co home page): no account yet — find
+        // or invite one by the checkout email. The invite email lands them
+        // on /welcome to set a password.
+        if (!profileId) {
+          const email = (
+            s.metadata?.signup_email ??
+            s.customer_details?.email ??
+            ""
+          )
+            .trim()
+            .toLowerCase();
+          if (!email) break;
+          const { data: profile } = await admin
+            .from("profiles")
+            .select("id")
+            .ilike("email", email)
+            .maybeSingle();
+          if (profile) {
+            profileId = profile.id;
+          } else {
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+            const { data: invited } =
+              await admin.auth.admin.inviteUserByEmail(email, {
+                data: s.metadata?.signup_name
+                  ? { full_name: s.metadata.signup_name }
+                  : undefined,
+                redirectTo: siteUrl
+                  ? `${siteUrl}/auth/callback?redirect=/welcome`
+                  : undefined,
+              });
+            profileId = invited?.user?.id;
+          }
+        }
+        if (!profileId) break;
 
         // Idempotency: Stripe retries deliveries.
         const { data: existing } = await admin

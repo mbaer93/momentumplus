@@ -36,6 +36,10 @@ export function generateMuxPlaybackToken(
     privateKey?: string;
     expSeconds?: number;
     nowSeconds?: number;
+    /** "v" = video playback (default), "t" = thumbnail image. */
+    aud?: "v" | "t";
+    /** Extra claims — signed URLs carry params here, not in the query string. */
+    params?: Record<string, string | number>;
   } = {},
 ): string {
   const keyId = opts.keyId ?? process.env.MUX_SIGNING_KEY_ID!;
@@ -53,13 +57,30 @@ export function generateMuxPlaybackToken(
   const payload = base64url(
     JSON.stringify({
       sub: playbackId,
-      aud: "v",
+      aud: opts.aud ?? "v",
       exp: now + (opts.expSeconds ?? 60 * 60 * 6),
+      ...opts.params,
     }),
   );
   const signer = createSign("RSA-SHA256");
   signer.update(`${header}.${payload}`);
   return `${header}.${payload}.${base64url(signer.sign(privateKey))}`;
+}
+
+/**
+ * Default card image for a recording: a screen grab Mux extracts from the
+ * video itself. Signed when playback is signed (params live in the token).
+ */
+export function muxThumbnailUrl(playbackId: string): string {
+  if (!isMuxSigningConfigured()) {
+    return `https://image.mux.com/${playbackId}/thumbnail.jpg?width=640&fit_mode=smartcrop`;
+  }
+  const token = generateMuxPlaybackToken(playbackId, {
+    aud: "t",
+    expSeconds: 60 * 60 * 24,
+    params: { width: 640, fit_mode: "smartcrop" },
+  });
+  return `https://image.mux.com/${playbackId}/thumbnail.jpg?token=${token}`;
 }
 
 // ---------------------------------------------------------------------------

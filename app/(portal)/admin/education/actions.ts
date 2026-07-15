@@ -11,6 +11,8 @@ export interface CourseInput {
   description: string;
   minAccess: "all_members" | "vip_plus" | "pro_only";
   published: boolean;
+  /** Estimated hours to complete — printed as CE hours on the certificate. */
+  ceHours: number | null;
 }
 
 export interface AdminResult {
@@ -39,6 +41,7 @@ function toRow(input: CourseInput) {
     category: input.category.trim() || null,
     description: input.description.trim() || null,
     min_access: input.minAccess,
+    ce_hours: input.ceHours && input.ceHours > 0 ? input.ceHours : null,
   };
 }
 
@@ -123,6 +126,202 @@ export async function addLesson(
   if (error) return { ok: false, message: error.message };
   refresh();
   return { ok: true, message: "Lesson added." };
+}
+
+/** Edit a lesson's title, summary, and reading content. */
+export async function updateLessonDetails(
+  lessonId: string,
+  input: { title: string; summary: string; content: string },
+): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+  if (!input.title.trim()) {
+    return { ok: false, message: "Give the lesson a title." };
+  }
+  const { error } = await createServiceClient()
+    .from("course_lessons")
+    .update({
+      title: input.title.trim(),
+      summary: input.summary.trim() || null,
+      content: input.content.trim() || null,
+    })
+    .eq("id", lessonId);
+  if (error) return { ok: false, message: error.message };
+  refresh();
+  return { ok: true, message: "Lesson saved." };
+}
+
+const MEDIA_BUCKET = "education-media";
+const LESSON_IMAGE_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+async function ensureMediaBucket(): Promise<void> {
+  await createServiceClient()
+    .storage.createBucket(MEDIA_BUCKET, { public: true })
+    .catch(() => undefined);
+}
+
+/** Upload the lesson's image (PNG/JPG/WebP/GIF, <4 MB). */
+export async function uploadLessonImage(
+  lessonId: string,
+  formData: FormData,
+): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "No file received — choose an image and try again." };
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    return { ok: false, message: "Images must be under 4 MB — compress or resize it." };
+  }
+  const ext = LESSON_IMAGE_TYPES[file.type];
+  if (!ext) {
+    return {
+      ok: false,
+      message: `That file type (${file.type || "unknown"}) isn't supported — use PNG, JPG, WebP, or GIF.`,
+    };
+  }
+  await ensureMediaBucket();
+  const admin = createServiceClient();
+  const path = `lesson-${lessonId}.${ext}`;
+  const { error: upErr } = await admin.storage
+    .from(MEDIA_BUCKET)
+    .upload(path, Buffer.from(await file.arrayBuffer()), {
+      contentType: file.type,
+      upsert: true,
+    });
+  if (upErr) return { ok: false, message: upErr.message };
+  const { data: pub } = admin.storage.from(MEDIA_BUCKET).getPublicUrl(path);
+  const { error } = await admin
+    .from("course_lessons")
+    .update({ image_url: `${pub.publicUrl}?v=${Date.now()}` })
+    .eq("id", lessonId);
+  if (error) return { ok: false, message: error.message };
+  refresh();
+  return { ok: true, message: "Lesson image uploaded." };
+}
+
+export async function removeLessonImage(lessonId: string): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+  const { error } = await createServiceClient()
+    .from("course_lessons")
+    .update({ image_url: null })
+    .eq("id", lessonId);
+  if (error) return { ok: false, message: error.message };
+  refresh();
+  return { ok: true, message: "Lesson image removed." };
+}
+
+/** Attach a document (PDF, slides, worksheets — any file up to 20 MB). */
+export async function uploadLessonDocument(
+  lessonId: string,
+  formData: FormData,
+): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "No file received — choose a document and try again." };
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    return { ok: false, message: "Documents must be under 20 MB." };
+  }
+
+  await ensureMediaBucket();
+  const admin = createServiceClient();
+  const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
+  const path = `lesson-${lessonId}/${Date.now()}-${safeName}`;
+  const { error: upErr } = await admin.storage
+    .from(MEDIA_BUCKET)
+    .upload(path, Buffer.from(await file.arrayBuffer()), {
+      contentType: file.type || "application/octet-stream",
+      upsert: true,
+    });
+  if (upErr) return { ok: false, message: upErr.message };
+  const { data: pub } = admin.storage.from(MEDIA_BUCKET).getPublicUrl(path);
+
+  const { data: lesson } = await admin
+    .from("course_lessons")
+    .select("documents")
+    .eq("id", lessonId)
+    .maybeSingle();
+  const docs = Array.isArray(lesson?.documents) ? lesson.documents : [];
+  const { error } = await admin
+    .from("course_lessons")
+    .update({ documents: [...docs, { name: file.name, url: pub.publicUrl }] })
+    .eq("id", lessonId);
+  if (error) return { ok: false, message: error.message };
+  refresh();
+  return { ok: true, message: `"${file.name}" attached.` };
+}
+
+export async function removeLessonDocument(
+  lessonId: string,
+  url: string,
+): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+  const admin = createServiceClient();
+  const { data: lesson } = await admin
+    .from("course_lessons")
+    .select("documents")
+    .eq("id", lessonId)
+    .maybeSingle();
+  const docs = (Array.isArray(lesson?.documents) ? lesson.documents : []).filter(
+    (d: { url?: string }) => d?.url !== url,
+  );
+  const { error } = await admin
+    .from("course_lessons")
+    .update({ documents: docs })
+    .eq("id", lessonId);
+  if (error) return { ok: false, message: error.message };
+  refresh();
+  return { ok: true, message: "Document removed." };
+}
+
+export interface QuizQuestionInput {
+  q: string;
+  options: string[];
+  answer: number;
+}
+
+/** Save (or clear) a lesson's test. Empty question list = no test. */
+export async function saveLessonQuiz(
+  lessonId: string,
+  questions: QuizQuestionInput[],
+): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+
+  const cleaned = questions
+    .map((q) => ({
+      q: q.q.trim(),
+      options: q.options.map((o) => o.trim()).filter(Boolean),
+      answer: q.answer,
+    }))
+    .filter((q) => q.q && q.options.length >= 2 && q.answer >= 0 && q.answer < q.options.length);
+
+  const { error } = await createServiceClient()
+    .from("course_lessons")
+    .update({
+      quiz: cleaned.length > 0 ? { questions: cleaned, passPct: 70 } : null,
+    })
+    .eq("id", lessonId);
+  if (error) return { ok: false, message: error.message };
+  refresh();
+  return {
+    ok: true,
+    message:
+      cleaned.length > 0
+        ? `Test saved (${cleaned.length} question${cleaned.length === 1 ? "" : "s"}, 70% to pass).`
+        : "Test removed — the lesson completes automatically when opened.",
+  };
 }
 
 export async function removeLesson(lessonId: string): Promise<AdminResult> {

@@ -71,6 +71,7 @@ export function CommunityView({
   >(() => (preview ? { ...placeholderMessages } : {}));
   const [draft, setDraft] = useState("");
   const [live, setLive] = useState(false); // true once Stream is connected
+  const [connectError, setConnectError] = useState<string | null>(null);
   const streamRef = useRef<StreamHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +87,13 @@ export function CommunityView({
     async function connect() {
       try {
         const res = await fetch("/api/stream/token", { method: "POST" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          setConnectError(body.error ?? `Token request failed (${res.status})`);
+          return;
+        }
         const cfg = (await res.json()) as {
           apiKey: string;
           token: string;
@@ -166,8 +173,9 @@ export function CommunityView({
         streamRef.current = { client, channels: chans };
         setMessagesByChannel((prev) => ({ ...prev, ...byChannel }));
         setLive(true);
-      } catch {
-        // stay in preview mode
+      } catch (e) {
+        // Stay in the local fallback, but surface why for admins.
+        setConnectError((e as Error).message || "Connection failed");
       }
     }
 
@@ -359,6 +367,16 @@ export function CommunityView({
             {preview
               ? "Preview mode — messages aren't saved. Community goes live once Stream Chat is connected."
               : "Community chat goes live once Stream Chat is connected — messages aren't saved yet."}
+            {!preview && isAdmin && (
+              <>
+                {" "}
+                {connectError
+                  ? `Admin detail: ${connectError}`
+                  : !streamConfigured
+                    ? "Admin detail: add NEXT_PUBLIC_STREAM_API_KEY and STREAM_API_SECRET in Vercel, then redeploy."
+                    : null}
+              </>
+            )}
           </div>
         )}
         <div className="chat-input-area">

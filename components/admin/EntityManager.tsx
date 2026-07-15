@@ -44,6 +44,8 @@ interface EntityManagerProps {
   initialEditId?: string;
   /** Hide the create form when creation happens elsewhere (e.g. video upload). */
   allowCreate?: boolean;
+  /** Extra controls rendered inside a row's edit panel (e.g. image upload). */
+  renderRowExtras?: (row: EntityRow) => React.ReactNode;
   onCreate: (values: EntityValues) => Promise<ActionResult>;
   onUpdate: (id: string, values: EntityValues) => Promise<ActionResult>;
   onDelete: (id: string) => Promise<ActionResult>;
@@ -140,6 +142,7 @@ export function EntityManager({
   emptyValues,
   initialEditId,
   allowCreate = true,
+  renderRowExtras,
   onCreate,
   onUpdate,
   onDelete,
@@ -307,6 +310,7 @@ export function EntityManager({
                             Save changes
                           </button>
                         </div>
+                        {renderRowExtras?.(r)}
                       </div>
                     </td>
                   </tr>
