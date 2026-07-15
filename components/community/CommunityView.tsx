@@ -24,6 +24,8 @@ interface CommunityViewProps {
   memberName: string;
   memberInitials: string;
   isAdmin: boolean;
+  /** The viewer's admin title (shown on their own messages when admin). */
+  adminTitle: string | null;
   streamConfigured: boolean;
   /** True only when no Supabase env exists (demo fixtures allowed). */
   preview: boolean;
@@ -34,6 +36,12 @@ type StreamHandle = {
   client: import("stream-chat").StreamChat;
   channels: Map<string, import("stream-chat").Channel>;
 };
+
+/** Stream user with our custom adminTitle field (set server-side on upsert). */
+function adminTitleOf(user: unknown): string | null {
+  const t = (user as { adminTitle?: unknown } | undefined)?.adminTitle;
+  return typeof t === "string" && t.length > 0 ? t : null;
+}
 
 function nowLabel(): string {
   return (
@@ -50,6 +58,7 @@ export function CommunityView({
   memberName,
   memberInitials,
   isAdmin,
+  adminTitle,
   streamConfigured,
   preview,
   nextSession,
@@ -111,6 +120,8 @@ export function CommunityView({
             avatarBg: "#1C3050",
             avatarColor: "#D4AE75",
             isYou: m.user?.id === cfg.userId,
+            authorIsAdmin: m.user?.role === "admin",
+            adminTitle: adminTitleOf(m.user),
             timeLabel: m.created_at
               ? new Date(m.created_at).toLocaleTimeString("en-US", {
                   hour: "numeric",
@@ -134,11 +145,21 @@ export function CommunityView({
                   avatarBg: "#1C3050",
                   avatarColor: "#D4AE75",
                   isYou: m.user?.id === cfg.userId,
+                  authorIsAdmin: m.user?.role === "admin",
+                  adminTitle: adminTitleOf(m.user),
                   timeLabel: nowLabel(),
                   paragraphs: [m.text ?? ""],
                   reactions: [],
                 },
               ],
+            }));
+          });
+          channel.on("message.deleted", (event) => {
+            const deletedId = event.message?.id;
+            if (!deletedId) return;
+            setMessagesByChannel((prev) => ({
+              ...prev,
+              [ch.id]: (prev[ch.id] ?? []).filter((x) => x.id !== deletedId),
             }));
           });
         }
@@ -187,13 +208,37 @@ export function CommunityView({
           avatarBg: "linear-gradient(135deg,var(--gold),var(--gold-light))",
           avatarColor: "var(--navy)",
           isYou: true,
+          authorIsAdmin: isAdmin,
+          adminTitle,
           timeLabel: nowLabel(),
           paragraphs: [text],
           reactions: [],
         },
       ],
     }));
-  }, [draft, canPost, live, activeId, memberName, memberInitials]);
+  }, [draft, canPost, live, activeId, memberName, memberInitials, isAdmin, adminTitle]);
+
+  // Admin moderation: remove a message everywhere (Stream when live, local
+  // state otherwise — the message.deleted event also syncs other viewers).
+  const deleteMessage = useCallback(
+    async (id: string) => {
+      if (!isAdmin) return;
+      if (!confirm("Delete this message for everyone?")) return;
+      const handle = streamRef.current;
+      if (live && handle) {
+        try {
+          await handle.client.deleteMessage(id, true);
+        } catch {
+          return; // leave the message if Stream refused the delete
+        }
+      }
+      setMessagesByChannel((prev) => ({
+        ...prev,
+        [activeId]: (prev[activeId] ?? []).filter((m) => m.id !== id),
+      }));
+    },
+    [isAdmin, live, activeId],
+  );
 
   return (
     <div className="chat-wrap">
@@ -266,8 +311,24 @@ export function CommunityView({
                 <div className="msg-content">
                   <div className="msg-meta">
                     <span className="msg-name">{m.authorName}</span>
+                    {m.authorIsAdmin && (
+                      <span className="msg-admin-tag">
+                        Admin{m.adminTitle ? ` · ${m.adminTitle}` : ""}
+                      </span>
+                    )}
                     {m.isYou && <span className="msg-you-tag">You</span>}
                     <span className="msg-time">{m.timeLabel}</span>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className="msg-delete-btn"
+                        onClick={() => void deleteMessage(m.id)}
+                        title="Delete message (admin)"
+                        aria-label="Delete message"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                   {m.paragraphs.map((p, i) => (
                     <div className="msg-bubble" key={i}>

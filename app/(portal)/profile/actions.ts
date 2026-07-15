@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getCurrentMember } from "@/lib/current-member";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { PREF_KEYS, type PrefRow } from "@/lib/notifications";
@@ -18,6 +19,8 @@ export async function updateProfile(input: {
   title: string;
   industry: string;
   bio: string;
+  /** Only persisted when the caller is an admin (chat badge title). */
+  admin_title?: string;
 }): Promise<ProfileResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Saved (preview mode)" };
@@ -28,21 +31,27 @@ export async function updateProfile(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
 
+  const update: Record<string, string | null> = {
+    full_name: input.full_name.trim(),
+    phone: input.phone.trim() || null,
+    company: input.company.trim() || null,
+    title: input.title.trim() || null,
+    industry: input.industry.trim() || null,
+    bio: input.bio.trim() || null,
+  };
+  if (input.admin_title !== undefined) {
+    const member = await getCurrentMember();
+    if (member?.isAdmin) {
+      update.admin_title = input.admin_title.trim() || null;
+    }
+  }
+
   // RLS: members can only update their own profile row.
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      full_name: input.full_name.trim(),
-      phone: input.phone.trim() || null,
-      company: input.company.trim() || null,
-      title: input.title.trim() || null,
-      industry: input.industry.trim() || null,
-      bio: input.bio.trim() || null,
-    })
-    .eq("id", user.id);
+  const { error } = await supabase.from("profiles").update(update).eq("id", user.id);
 
   if (error) return { ok: false, message: error.message };
   revalidatePath("/profile");
+  revalidatePath("/community");
   return { ok: true, message: "Profile saved" };
 }
 

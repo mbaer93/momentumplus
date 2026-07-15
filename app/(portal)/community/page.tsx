@@ -34,6 +34,7 @@ export default async function CommunityPage() {
       memberName={member.name}
       memberInitials={member.initials}
       isAdmin={member.isAdmin}
+      adminTitle={member.adminTitle}
       streamConfigured={isStreamConfigured()}
       preview={!isSupabaseConfigured()}
       nextSession={

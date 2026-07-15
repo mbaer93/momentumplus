@@ -35,6 +35,7 @@ interface ProfileViewProps {
     tierLabel: string;
     accessExpiresAt: string | null;
     membershipStatusLabel: string;
+    isAdmin: boolean;
   };
   profile: {
     phone: string;
@@ -43,6 +44,8 @@ interface ProfileViewProps {
     industry: string;
     bio: string;
     memberSince: string;
+    /** Admin-only: title shown next to the Admin badge in community chat. */
+    adminTitle: string;
   };
   stats: { sessions: number; daysActive: number };
   sessions: ProfileSessionRow[];
@@ -71,6 +74,7 @@ export function ProfileView({
     title: profile.title,
     industry: profile.industry,
     bio: profile.bio,
+    admin_title: profile.adminTitle,
   });
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -331,6 +335,22 @@ export function ProfileView({
                       onChange={(e) => setForm({ ...form, bio: e.target.value })}
                     />
                   </div>
+                  {member.isAdmin && (
+                    <div className="admin-field">
+                      <label htmlFor="pf-admin-title">
+                        Admin title — shown with your Admin badge in Community
+                        (e.g. &ldquo;Co-Founder, TSLS&rdquo;)
+                      </label>
+                      <input
+                        id="pf-admin-title"
+                        value={form.admin_title}
+                        onChange={(e) =>
+                          setForm({ ...form, admin_title: e.target.value })
+                        }
+                        placeholder="Momentum+ Team"
+                      />
+                    </div>
+                  )}
                   <button type="submit" className="btn-primary" disabled={pending}>
                     {pending ? "Saving…" : "Save profile"}
                   </button>

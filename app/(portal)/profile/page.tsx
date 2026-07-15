@@ -31,6 +31,7 @@ export default async function ProfilePage() {
         title: "Executive Coach",
         industry: "Leadership Development",
         bio: "",
+        admin_title: "",
         created_at: "2024-11-12T00:00:00.000Z",
       }
     : {
@@ -39,6 +40,7 @@ export default async function ProfilePage() {
         title: "",
         industry: "",
         bio: "",
+        admin_title: "",
         created_at: new Date().toISOString(),
       };
   let savedPrefs: Partial<PrefRow>[] = [];
@@ -52,7 +54,7 @@ export default async function ProfilePage() {
       const [{ data: p }, { data: prefRows }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("phone, company, title, industry, bio, created_at")
+          .select("phone, company, title, industry, bio, admin_title, created_at")
           .eq("id", user.id)
           .maybeSingle(),
         supabase
@@ -67,6 +69,7 @@ export default async function ProfilePage() {
           title: p.title ?? "",
           industry: p.industry ?? "",
           bio: p.bio ?? "",
+          admin_title: p.admin_title ?? "",
           created_at: p.created_at,
         };
       }
@@ -129,6 +132,7 @@ export default async function ProfilePage() {
         tierLabel: member.tierLabel,
         accessExpiresAt: member.accessExpiresAt,
         membershipStatusLabel: "● Active",
+        isAdmin: member.isAdmin,
       }}
       profile={{
         phone: profileRow.phone,
@@ -136,6 +140,7 @@ export default async function ProfilePage() {
         title: profileRow.title,
         industry: profileRow.industry,
         bio: profileRow.bio,
+        adminTitle: profileRow.admin_title,
         memberSince,
       }}
       stats={{
