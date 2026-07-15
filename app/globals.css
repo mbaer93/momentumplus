@@ -1858,6 +1858,27 @@
   border-radius: 8px;
   font-weight: 500;
 }
+.msg-admin-tag {
+  font-size: 11px;
+  background: var(--navy);
+  color: var(--gold-light);
+  padding: 1px 7px;
+  border-radius: 8px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.msg-delete-btn {
+  border: none;
+  background: none;
+  color: var(--mid-gray);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+}
+.msg-group:hover .msg-delete-btn { opacity: 1; }
+.msg-delete-btn:hover { color: var(--accent-red); }
 .msg-bubble {
   font-size: 14px;
   color: var(--text);

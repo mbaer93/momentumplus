@@ -13,6 +13,8 @@ export interface CurrentMember {
   tier: Tier;
   tierLabel: string;
   isAdmin: boolean;
+  /** Admin-set title (relative to Momentum+/TSLS) shown on their chat messages. */
+  adminTitle: string | null;
   /** False when every membership has lapsed → portal layout sends to /expired. */
   membershipActive: boolean;
   accessExpiresAt: string | null;
@@ -47,6 +49,7 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
       tier,
       tierLabel: tierLabel(tier),
       isAdmin: tier === "admin",
+      adminTitle: tier === "admin" ? "Momentum+ Team" : null,
       membershipActive: true,
       accessExpiresAt: null,
     };
@@ -61,7 +64,7 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
   const [{ data: profile }, { data: memberships }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("full_name, email")
+      .select("full_name, email, admin_title")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -84,6 +87,8 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
     tier: effective?.tier ?? "tsls_attendee",
     tierLabel: effective ? tierLabel(effective.tier) : "Membership lapsed",
     isAdmin: effective?.tier === "admin",
+    adminTitle:
+      effective?.tier === "admin" ? (profile?.admin_title ?? null) : null,
     membershipActive: effective !== null,
     accessExpiresAt: effective?.access_expires_at ?? null,
   };

@@ -10,6 +10,10 @@ export interface ChatMessage {
   avatarBg: string;
   avatarColor: string;
   isYou?: boolean;
+  /** Author is a Momentum+/TSLS admin — renders the Admin badge. */
+  authorIsAdmin?: boolean;
+  /** Admin's title shown with the badge (e.g. "Co-Founder, TSLS"). */
+  adminTitle?: string | null;
   timeLabel: string;
   paragraphs: string[];
   reactions: { color: string; count: number }[];
