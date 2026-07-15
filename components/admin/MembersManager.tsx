@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Tier } from "@/lib/types";
 import { ADMIN_AREAS } from "@/lib/admin-perms";
 import {
+  deleteMember,
   expireMembership,
   extendMembership,
   grantMembership,
@@ -319,6 +320,31 @@ export function MembersManager({
                         >
                           Save member
                         </button>
+                        {viewerIsSuper && (
+                          <button
+                            type="button"
+                            className="btn-mini danger"
+                            disabled={pending}
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Permanently delete ${m.name || m.email}? Their login, memberships, notes, and history are all erased. This cannot be undone.`,
+                                ) &&
+                                confirm(
+                                  "Absolutely sure? There is no way to recover a deleted member.",
+                                )
+                              ) {
+                                run(async () => {
+                                  const res = await deleteMember(m.profileId);
+                                  if (res.ok) setEditingId(null);
+                                  return res;
+                                });
+                              }
+                            }}
+                          >
+                            Delete member permanently
+                          </button>
+                        )}
                       </div>
 
                       {viewerIsSuper && m.tier === "admin" && (

@@ -161,6 +161,34 @@ export async function setAdminAccess(
   return { ok: true, message: "Admin access updated." };
 }
 
+/**
+ * Super Admin only: permanently delete a member — their login, profile,
+ * memberships, enrollments, notes, and progress all go (FK cascades from
+ * the auth user). Irreversible.
+ */
+export async function deleteMember(profileId: string): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Deleted (preview mode)." };
+  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (auth.access.role !== "super") {
+    return { ok: false, message: "Only the Super Admin can delete members." };
+  }
+  if (profileId === auth.userId) {
+    return { ok: false, message: "You can't delete your own account." };
+  }
+
+  const admin = createServiceClient();
+  const { error } = await admin.auth.admin.deleteUser(profileId);
+  if (error) return { ok: false, message: error.message };
+  // Belt-and-braces: remove the profile row if any remnant survived.
+  await admin.from("profiles").delete().eq("id", profileId);
+
+  revalidatePath("/admin/members");
+  return { ok: true, message: "Member deleted permanently." };
+}
+
 export interface BulkResult {
   ok: boolean;
   message?: string;

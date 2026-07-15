@@ -5,6 +5,14 @@ import {
   generateSummary,
   SUMMARY_MODEL,
 } from "@/lib/ai-summary";
+import {
+  fetchMuxTranscript,
+  generateMuxPlaybackToken,
+  getMuxAsset,
+  isMuxConfigured,
+  isMuxSigningConfigured,
+  requestMuxAutoCaptions,
+} from "@/lib/mux";
 import { isAnthropicReady } from "@/lib/service-config";
 
 /*
@@ -38,10 +46,106 @@ export async function GET(req: NextRequest) {
     (s) => !(s as unknown as { ai_summaries: unknown }).ai_summaries,
   );
 
+  // Uploaded Library videos: request Mux auto-captions, and once the
+  // transcript is ready run it through Claude (max a few per run).
+  const videoResults: { id: string; title: string; status: string }[] = [];
+  const anthropicReady = await isAnthropicReady();
+  if (isMuxConfigured()) {
+    const { data: videos } = await admin
+      .from("videos")
+      .select("id, title, mux_asset_id, mux_playback_id, ai_summaries!video_id ( id )")
+      .not("mux_asset_id", "is", null)
+      .limit(50);
+
+    const candidates = (videos ?? [])
+      .filter((v) => {
+        const s = (v as unknown as { ai_summaries: unknown }).ai_summaries;
+        return !s || (Array.isArray(s) && s.length === 0);
+      })
+      .slice(0, 3);
+
+    for (const video of candidates) {
+      try {
+        const asset = await getMuxAsset(video.mux_asset_id as string);
+        const tracks = asset.tracks ?? [];
+        const textTrack = tracks.find(
+          (t) => t.type === "text" && t.status === "ready",
+        );
+
+        if (!textTrack) {
+          const audio = tracks.find((t) => t.type === "audio");
+          const hasText = tracks.some((t) => t.type === "text");
+          if (audio && !hasText) {
+            await requestMuxAutoCaptions(asset.id, audio.id);
+            videoResults.push({ id: video.id, title: video.title, status: "captions requested" });
+          } else {
+            videoResults.push({ id: video.id, title: video.title, status: "captions processing" });
+          }
+          continue;
+        }
+
+        if (!anthropicReady) {
+          videoResults.push({ id: video.id, title: video.title, status: "transcript ready — connect Anthropic" });
+          continue;
+        }
+
+        const token =
+          video.mux_playback_id && isMuxSigningConfigured()
+            ? generateMuxPlaybackToken(video.mux_playback_id as string)
+            : null;
+        const transcript = video.mux_playback_id
+          ? await fetchMuxTranscript(
+              video.mux_playback_id as string,
+              textTrack.id,
+              token,
+            )
+          : null;
+        if (!transcript) {
+          videoResults.push({ id: video.id, title: video.title, status: "transcript unavailable" });
+          continue;
+        }
+
+        const summary = await generateSummary(
+          transcript,
+          video.title,
+          "the speaker",
+        );
+        if (!summary) {
+          videoResults.push({ id: video.id, title: video.title, status: "model returned no summary" });
+          continue;
+        }
+        const { error: upsertError } = await admin.from("ai_summaries").upsert(
+          {
+            video_id: video.id,
+            takeaways: summary.takeaways,
+            quotes: summary.quotes,
+            action_items: summary.action_items,
+            highlights: summary.highlights,
+            model: SUMMARY_MODEL,
+            generated_at: new Date().toISOString(),
+          },
+          { onConflict: "video_id" },
+        );
+        videoResults.push({
+          id: video.id,
+          title: video.title,
+          status: upsertError ? upsertError.message : "summary generated",
+        });
+      } catch (e) {
+        videoResults.push({
+          id: video.id,
+          title: video.title,
+          status: `error: ${(e as Error).message}`,
+        });
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
-    anthropicConfigured: await isAnthropicReady(),
+    anthropicConfigured: anthropicReady,
     awaitingTranscript: waiting.map((s) => ({ id: s.id, title: s.title })),
+    videos: videoResults,
   });
 }
 

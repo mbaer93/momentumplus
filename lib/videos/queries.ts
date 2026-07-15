@@ -15,6 +15,15 @@ function durationLabel(sec: number | null): string {
   return `${Math.round(sec / 60)} min`;
 }
 
+interface SummaryRow {
+  takeaways: unknown;
+  quotes: unknown;
+  action_items: unknown;
+  highlights: string | null;
+  model: string | null;
+  generated_at: string | null;
+}
+
 interface VideoRow {
   id: string;
   title: string;
@@ -26,19 +35,17 @@ interface VideoRow {
   session_id: string | null;
   sessions: {
     speakers: { name: string } | null;
-    ai_summaries: {
-      takeaways: unknown;
-      quotes: unknown;
-      action_items: unknown;
-      highlights: string | null;
-      model: string | null;
-      generated_at: string | null;
-    } | null;
+    ai_summaries: SummaryRow | null;
   } | null;
+  /** Summaries attached directly to the video (uploaded recordings). */
+  ai_summaries: SummaryRow | SummaryRow[] | null;
 }
 
 function mapRow(row: VideoRow): VideoItem {
-  const ai = row.sessions?.ai_summaries;
+  const direct = Array.isArray(row.ai_summaries)
+    ? (row.ai_summaries[0] ?? null)
+    : row.ai_summaries;
+  const ai = row.sessions?.ai_summaries ?? direct;
   const arr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
   return {
     id: row.id,
@@ -70,7 +77,7 @@ function mapRow(row: VideoRow): VideoItem {
 }
 
 const VIDEO_SELECT =
-  "id, title, category, mux_playback_id, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ), ai_summaries ( takeaways, quotes, action_items, highlights, model, generated_at ) )";
+  "id, title, category, mux_playback_id, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ), ai_summaries ( takeaways, quotes, action_items, highlights, model, generated_at ) ), ai_summaries!video_id ( takeaways, quotes, action_items, highlights, model, generated_at )";
 
 export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
   if (!isSupabaseConfigured()) {

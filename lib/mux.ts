@@ -120,13 +120,53 @@ export async function getMuxUpload(id: string): Promise<MuxUploadStatus> {
   return muxRequest<MuxUploadStatus>("GET", `/video/v1/uploads/${id}`);
 }
 
+export interface MuxTrack {
+  id: string;
+  type: string; // video | audio | text
+  status?: string; // preparing | ready | errored
+  text_type?: string; // subtitles
+}
+
 export interface MuxAsset {
   id: string;
   status: string; // preparing | ready | errored
   duration?: number; // seconds (present once ready)
   playback_ids?: { id: string; policy: string }[];
+  tracks?: MuxTrack[];
 }
 
 export async function getMuxAsset(assetId: string): Promise<MuxAsset> {
   return muxRequest<MuxAsset>("GET", `/video/v1/assets/${assetId}`);
+}
+
+/**
+ * Ask Mux to auto-generate English captions for an asset's audio track.
+ * The transcript these produce feeds the AI summary for uploaded videos.
+ */
+export async function requestMuxAutoCaptions(
+  assetId: string,
+  audioTrackId: string,
+): Promise<void> {
+  await muxRequest(
+    "POST",
+    `/video/v1/assets/${assetId}/tracks/${audioTrackId}/generate-subtitles`,
+    {
+      generated_subtitles: [{ language_code: "en", name: "English (auto)" }],
+    },
+  );
+}
+
+/** Plain-text transcript of a ready text track (token needed when signed). */
+export async function fetchMuxTranscript(
+  playbackId: string,
+  trackId: string,
+  token?: string | null,
+): Promise<string | null> {
+  const url = `https://stream.mux.com/${playbackId}/text/${trackId}.txt${
+    token ? `?token=${token}` : ""
+  }`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) return null;
+  const text = await res.text();
+  return text.trim().length > 0 ? text : null;
 }
