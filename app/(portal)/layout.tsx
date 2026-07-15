@@ -3,6 +3,7 @@ import { Topbar } from "@/components/portal/Topbar";
 import { SponsorRail } from "@/components/sponsors/SponsorRail";
 import { requireMember } from "@/lib/current-member";
 import { listSponsors, railSponsors } from "@/lib/directory-queries";
+import { getPresentedByLogoUrl } from "@/lib/presented-by";
 
 export default async function PortalLayout({
   children,
@@ -12,9 +13,10 @@ export default async function PortalLayout({
   // Requires a signed-in member with an active (or in-grace) membership;
   // lapsed members land on /expired with renewal options (SPEC.md §5).
   const member = await requireMember();
-  const [railList, allSponsors] = await Promise.all([
+  const [railList, allSponsors, presentedByLogoUrl] = await Promise.all([
     railSponsors(),
     listSponsors(),
+    getPresentedByLogoUrl(),
   ]);
   // The Momentum+ Sponsor (title tier) is "Presented by" on the left (logo)
   // and always leads the right-hand rail, where its ad creative renders.
@@ -35,6 +37,7 @@ export default async function PortalLayout({
         tierLabel={member.tierLabel}
         isAdmin={member.isAdmin}
         presentedBy={presentedBy}
+        presentedByLogoUrl={presentedByLogoUrl}
       />
       <div className="main-area">
         <Topbar userInitials={member.initials} />

@@ -7,9 +7,11 @@ import { useRouter } from "next/navigation";
 import {
   createSponsor,
   deleteSponsor,
+  removePresentedByLogo,
   removeSponsorAd,
   toggleRail,
   updateSponsor,
+  uploadPresentedByLogo,
   uploadSponsorAd,
   uploadSponsorLogo,
   type SponsorInput,
@@ -116,9 +118,12 @@ function SponsorFields({
 
 export function SponsorsManager({
   sponsors,
+  presentedByLogoUrl,
   initialEditId,
 }: {
   sponsors: AdminSponsorRow[];
+  /** Current site-wide "Presented by" logo (left panel), if uploaded. */
+  presentedByLogoUrl?: string | null;
   initialEditId?: string;
 }) {
   const router = useRouter();
@@ -175,43 +180,107 @@ export function SponsorsManager({
   // Validate before uploading so problems get a specific reason and fix.
   const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
 
-  function uploadImage(id: string, kind: "logo" | "ad") {
-    const input = fileRefs.current[`${id}-${kind}`];
-    const file = input?.files?.[0];
+  function fileProblem(file: File | undefined): string | null {
     if (!file) {
-      setMsg({
-        text: "No file selected — click Choose File, pick your image, then hit Upload.",
-        ok: false,
-      });
-      return;
+      return "No file selected — click Choose File, pick your image, then hit Upload.";
     }
     if (!ALLOWED_TYPES.includes(file.type)) {
       const ext = file.name.includes(".")
         ? `.${file.name.split(".").pop()}`
         : "that format";
-      setMsg({
-        text: `"${file.name}" won't work — ${ext} isn't supported. Upload a PNG, JPG, SVG, or WebP instead (in most tools: File → Export As → PNG).`,
-        ok: false,
-      });
-      return;
+      return `"${file.name}" won't work — ${ext} isn't supported. Upload a PNG, JPG, SVG, or WebP instead (in most tools: File → Export As → PNG).`;
     }
     if (file.size > 2 * 1024 * 1024) {
       const mb = (file.size / (1024 * 1024)).toFixed(1);
-      setMsg({
-        text: `"${file.name}" is ${mb} MB — the limit is 2 MB. Compress it (e.g. tinypng.com) or export it at a smaller size, then try again.`,
-        ok: false,
-      });
+      return `"${file.name}" is ${mb} MB — the limit is 2 MB. Compress it (e.g. tinypng.com) or export it at a smaller size, then try again.`;
+    }
+    return null;
+  }
+
+  function uploadImage(id: string, kind: "logo" | "ad" | "presented") {
+    const input = fileRefs.current[`${id}-${kind}`];
+    const file = input?.files?.[0];
+    const problem = fileProblem(file);
+    if (problem || !file) {
+      setMsg({ text: problem ?? "Choose an image file first.", ok: false });
       return;
     }
     const fd = new FormData();
     fd.append("file", file);
     run(() =>
-      kind === "logo" ? uploadSponsorLogo(id, fd) : uploadSponsorAd(id, fd),
+      kind === "logo"
+        ? uploadSponsorLogo(id, fd)
+        : kind === "ad"
+          ? uploadSponsorAd(id, fd)
+          : uploadPresentedByLogo(fd),
     );
   }
 
   return (
     <div>
+      {/* Presented-by logo: one site-wide slot for the Momentum+ Sponsor. */}
+      <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
+        <div className="admin-field" style={{ marginBottom: 4 }}>
+          <label style={{ fontSize: 13 }}>
+            &ldquo;Presented by&rdquo; logo — left panel
+          </label>
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+          A separate logo sized for the slot under &ldquo;Presented by&rdquo; in
+          the left navigation. It belongs to the current Momentum+ Sponsor (one
+          at a time) and replaces whatever is there. It displays{" "}
+          <strong>184&nbsp;px wide</strong> at full slot width — upload a wide
+          version about <strong>368&nbsp;×&nbsp;110&nbsp;px</strong> (2× for
+          sharp screens), PNG with a transparent background looks best. Without
+          one, the slot falls back to the sponsor&rsquo;s regular logo.
+        </div>
+        <div className="admin-form-actions" style={{ marginTop: 0 }}>
+          {presentedByLogoUrl && (
+            <span
+              style={{
+                background: "var(--navy)",
+                borderRadius: 4,
+                padding: "8px 10px",
+                display: "inline-block",
+                maxWidth: 200,
+              }}
+            >
+              <img
+                src={presentedByLogoUrl}
+                alt="Current presented-by logo"
+                style={{ display: "block", width: "100%", height: "auto" }}
+              />
+            </span>
+          )}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+            ref={(el) => {
+              fileRefs.current["site-presented"] = el;
+            }}
+            style={{ fontSize: 12 }}
+          />
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => uploadImage("site", "presented")}
+          >
+            Upload presented-by logo
+          </button>
+          {presentedByLogoUrl && (
+            <button
+              type="button"
+              className="btn-mini danger"
+              disabled={pending}
+              onClick={() => run(() => removePresentedByLogo())}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Create */}
       <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
         <div className="admin-field" style={{ marginBottom: 4 }}>
@@ -356,9 +425,9 @@ export function SponsorsManager({
                             left-panel sidebar ad creative. */}
                         <div className="admin-form-actions" style={{ marginTop: 10 }}>
                           <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-                            Logo — sponsor profile, cards, and the left-panel
-                            &ldquo;Presented by&rdquo; slot (PNG/JPG/SVG/WebP,
-                            &lt;2 MB):
+                            Logo — sponsor profile and cards; also the
+                            left-panel fallback when no dedicated presented-by
+                            logo is uploaded (PNG/JPG/SVG/WebP, &lt;2 MB):
                           </span>
                           <input
                             type="file"
