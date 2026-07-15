@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { VideosManager } from "@/components/admin/VideosManager";
+import { VideoUploader } from "@/components/admin/VideoUploader";
 import type { EntityRow } from "@/components/admin/EntityManager";
 import { ArrowLeftIcon } from "@/components/icons";
+import { isMuxConfigured } from "@/lib/mux";
 import { placeholderVideos } from "@/lib/videos/data";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -78,6 +80,7 @@ export default async function AdminVideosPage({
           connected.
         </div>
       )}
+      <VideoUploader muxConnected={isMuxConfigured()} />
       <VideosManager rows={rows} initialEditId={searchParams?.edit} />
     </div>
   );
