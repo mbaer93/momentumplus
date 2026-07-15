@@ -8,6 +8,7 @@ import {
   planToTier,
   provisionMember,
 } from "@/lib/onboarding";
+import { requestSiteUrl } from "@/lib/site-url";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { addMonths } from "@/lib/membership";
@@ -72,7 +73,7 @@ export async function grantMembership(input: {
   if (profile) {
     profileId = profile.id;
   } else {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const siteUrl = requestSiteUrl();
     const { data: invited, error: inviteErr } =
       await admin.auth.admin.inviteUserByEmail(email, {
         redirectTo: siteUrl
@@ -393,15 +394,53 @@ export async function sendPasswordReset(email: string): Promise<AdminMemberResul
   if (!email.includes("@")) return { ok: false, message: "No email on this member." };
 
   const admin = createServiceClient();
+  const siteUrl = requestSiteUrl();
   const { error } = await admin.auth.resetPasswordForEmail(email, {
-    redirectTo: process.env.NEXT_PUBLIC_SITE_URL
-      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?redirect=/welcome`
+    redirectTo: siteUrl
+      ? `${siteUrl}/auth/callback?redirect=/welcome`
       : undefined,
   });
   if (error) return { ok: false, message: `Send failed: ${error.message}` };
   return {
     ok: true,
     message: `Password-reset email sent to ${email} — the link signs them in and asks for a new password.`,
+  };
+}
+
+/**
+ * Mint a one-time login link for a member — no email involved. For when
+ * their invite never arrived or email delivery is down: copy the link and
+ * send it to them any way you like. It signs them in and asks for a
+ * password. Each link replaces the previous one.
+ */
+export async function getLoginLink(email: string): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Link created (preview mode)." };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!email.includes("@")) return { ok: false, message: "No email on this member." };
+
+  const siteUrl = requestSiteUrl();
+  const { data, error } = await createServiceClient().auth.admin.generateLink({
+    type: "recovery",
+    email: email.trim().toLowerCase(),
+    options: {
+      redirectTo: siteUrl
+        ? `${siteUrl}/auth/callback?redirect=/welcome`
+        : undefined,
+    },
+  });
+  const link = data?.properties?.action_link;
+  if (!link) {
+    return {
+      ok: false,
+      message: `Couldn't create a login link: ${error?.message ?? "unknown error"}`,
+    };
+  }
+  return {
+    ok: true,
+    message: `One-time login link for ${email} — copy and send it to them (signs them in, then asks for a password): ${link}`,
   };
 }
 
