@@ -76,12 +76,24 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
           onClick={() => trackClick(s.id)}
         >
           <span className="sponsor-ad-tag">Sponsored</span>
-          <div className="sponsor-ad-logo">
-            <SponsorMark name={s.name} logoUrl={s.logoUrl} wordmark={s.wordmark} />
-          </div>
+          {s.sidebarAdUrl ? (
+            /* Uploaded ad creative replaces the logo/tagline block. */
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              className="sponsor-ad-creative"
+              src={s.sidebarAdUrl}
+              alt={`${s.name} — sponsor ad`}
+            />
+          ) : (
+            <div className="sponsor-ad-logo">
+              <SponsorMark name={s.name} logoUrl={s.logoUrl} wordmark={s.wordmark} />
+            </div>
+          )}
           <div className="sponsor-ad-body">
             <div className="sponsor-ad-name">{s.name}</div>
-            <div className="sponsor-ad-tagline">{s.tagline}</div>
+            {!s.sidebarAdUrl && (
+              <div className="sponsor-ad-tagline">{s.tagline}</div>
+            )}
             {s.offer && <div className="sponsor-ad-offer">{s.offer}</div>}
             <div className="sponsor-ad-link">Learn more</div>
           </div>

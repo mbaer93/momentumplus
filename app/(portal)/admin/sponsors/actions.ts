@@ -116,7 +116,7 @@ async function uploadSponsorImage(
   formData: FormData,
   kind: "logo" | "sidebar_ad",
 ): Promise<SponsorResult> {
-  const label = kind === "logo" ? "Logo" : "Sidebar ad";
+  const label = kind === "logo" ? "Logo" : "Ad graphic";
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Uploaded (preview mode)." };
   }
@@ -181,7 +181,7 @@ export async function uploadSponsorAd(
   return uploadSponsorImage(sponsorId, formData, "sidebar_ad");
 }
 
-/** Remove the sidebar ad creative (the slot falls back to the logo/wordmark). */
+/** Remove the ad creative (the rail card falls back to the logo layout). */
 export async function removeSponsorAd(sponsorId: string): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Removed (preview mode)." };
@@ -197,5 +197,5 @@ export async function removeSponsorAd(sponsorId: string): Promise<SponsorResult>
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/sponsors");
   revalidatePath("/", "layout");
-  return { ok: true, message: "Sidebar ad removed." };
+  return { ok: true, message: "Ad graphic removed." };
 }

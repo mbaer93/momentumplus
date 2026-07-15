@@ -4,7 +4,11 @@ import type { SponsorItem } from "@/lib/directory-data";
  * Styled text stand-ins for sponsor logos (per the mockup) until real logo
  * files are uploaded to storage. Stroke/typography only — no images needed.
  */
-export function Wordmark({ kind }: { kind: SponsorItem["wordmark"] }) {
+export function Wordmark({
+  kind,
+}: {
+  kind: NonNullable<SponsorItem["wordmark"]>;
+}) {
   switch (kind) {
     case "newstalk":
       return (

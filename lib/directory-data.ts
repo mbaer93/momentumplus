@@ -193,10 +193,10 @@ export interface SponsorItem {
   tagline: string;
   offer: string | null;
   website: string;
-  /** Which wordmark stand-in to render until real logos are uploaded. */
-  wordmark: "newstalk" | "bank" | "summit" | "clarity" | "wellness" | "photo";
+  /** Mockup wordmark stand-in — preview placeholders only; null for real rows. */
+  wordmark: "newstalk" | "bank" | "summit" | "clarity" | "wellness" | "photo" | null;
   logoUrl: string | null;
-  /** Uploaded ad creative for the left-panel sponsor slot (distinct from the logo). */
+  /** Uploaded ad creative shown in the right-hand sponsor rail (distinct from the logo). */
   sidebarAdUrl: string | null;
   railActive: boolean;
 }

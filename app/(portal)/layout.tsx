@@ -12,16 +12,20 @@ export default async function PortalLayout({
   // Requires a signed-in member with an active (or in-grace) membership;
   // lapsed members land on /expired with renewal options (SPEC.md §5).
   const member = await requireMember();
-  const [rail, allSponsors] = await Promise.all([railSponsors(), listSponsors()]);
-  // Left-panel ad slot: prefer a sponsor with an uploaded sidebar ad creative
-  // (title tier first), then fall back to the title sponsor's logo mark.
-  const withAd = allSponsors.filter((s) => s.sidebarAdUrl);
+  const [railList, allSponsors] = await Promise.all([
+    railSponsors(),
+    listSponsors(),
+  ]);
+  // The Momentum+ Sponsor (title tier) is "Presented by" on the left (logo)
+  // and always leads the right-hand rail, where its ad creative renders.
   const presentedBy =
-    withAd.find((s) => s.tier === "title") ??
-    withAd[0] ??
     allSponsors.find((s) => s.tier === "title" && s.railActive) ??
     allSponsors.find((s) => s.tier === "title") ??
     null;
+  const rail =
+    presentedBy && !railList.some((s) => s.id === presentedBy.id)
+      ? [presentedBy, ...railList].slice(0, 3)
+      : railList;
 
   return (
     <div className="app-shell">

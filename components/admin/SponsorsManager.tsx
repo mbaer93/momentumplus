@@ -68,7 +68,7 @@ function SponsorFields({
               onChange({ ...value, tier: e.target.value as SponsorInput["tier"] })
             }
           >
-            <option value="title">Title</option>
+            <option value="title">Momentum+ Sponsor</option>
             <option value="partner">Partner</option>
             <option value="community">Community</option>
           </select>
@@ -243,11 +243,13 @@ export function SponsorsManager({
                     )}
                     {s.sidebarAdUrl && (
                       <div style={{ fontSize: 10, color: "var(--mid-gray)" }}>
-                        + sidebar ad
+                        + ad graphic
                       </div>
                     )}
                   </td>
-                  <td style={{ textTransform: "capitalize" }}>{s.tier}</td>
+                  <td style={{ textTransform: "capitalize" }}>
+                    {s.tier === "title" ? "Momentum+" : s.tier}
+                  </td>
                   <td>
                     <input
                       type="checkbox"
@@ -318,8 +320,9 @@ export function SponsorsManager({
                             left-panel sidebar ad creative. */}
                         <div className="admin-form-actions" style={{ marginTop: 10 }}>
                           <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-                            Logo — shown on the sponsor profile and cards
-                            (PNG/JPG/SVG/WebP, &lt;2 MB):
+                            Logo — sponsor profile, cards, and the left-panel
+                            &ldquo;Presented by&rdquo; slot (PNG/JPG/SVG/WebP,
+                            &lt;2 MB):
                           </span>
                           <input
                             type="file"
@@ -340,8 +343,8 @@ export function SponsorsManager({
                         </div>
                         <div className="admin-form-actions" style={{ marginTop: 6 }}>
                           <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-                            Sidebar ad — small ad graphic for the left panel
-                            (roughly 400×300, &lt;2 MB):
+                            Ad graphic — shown on the sponsor&rsquo;s card in
+                            the right-hand rail (roughly 400×300, &lt;2 MB):
                           </span>
                           <input
                             type="file"
@@ -357,7 +360,7 @@ export function SponsorsManager({
                             disabled={pending}
                             onClick={() => uploadImage(s.id, "ad")}
                           >
-                            Upload sidebar ad
+                            Upload ad graphic
                           </button>
                           {s.sidebarAdUrl && (
                             <button
