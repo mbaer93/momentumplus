@@ -39,6 +39,7 @@ export default async function SponsorsPage() {
             <div
               className="sp-title-card"
               key={s.id}
+              id={s.id}
               style={{ position: "relative" }}
             >
               {isAdmin && (
@@ -80,6 +81,7 @@ export default async function SponsorsPage() {
               <div
                 className="sp-card"
                 key={s.id}
+                id={s.id}
                 style={{ position: "relative" }}
               >
                 {isAdmin && (
@@ -124,6 +126,7 @@ export default async function SponsorsPage() {
               <div
                 className="sp-card"
                 key={s.id}
+                id={s.id}
                 style={{ position: "relative" }}
               >
                 {isAdmin && (

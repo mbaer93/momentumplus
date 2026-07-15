@@ -2536,6 +2536,11 @@
   flex-direction: column;
   transition: box-shadow 0.2s;
 }
+/* Rail "Learn more" deep-links land with breathing room above the card. */
+.sp-card,
+.sp-title-card {
+  scroll-margin-top: 24px;
+}
 .sp-card:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
 .sp-card-logo {
   height: 84px;

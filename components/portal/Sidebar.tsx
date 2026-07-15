@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { NAV_SECTIONS } from "./nav";
 import { SettingsIcon } from "@/components/icons";
 import { SponsorMark } from "@/components/sponsors/SponsorMark";
-import { SPONSOR_INTEREST_URL } from "@/lib/links";
 import type { SponsorItem } from "@/lib/directory-data";
 
 interface SidebarProps {
@@ -14,10 +13,11 @@ interface SidebarProps {
   tierLabel: string;
   isAdmin: boolean;
   /** Sponsor shown in the left-panel ad slot. Uses the uploaded sidebar ad
-      creative when present; falls back to the logo/wordmark. */
+      creative when present; falls back to the logo/wordmark. Clicks lead to
+      the sponsor's profile on /sponsors, where the website link lives. */
   presentedBy?: Pick<
     SponsorItem,
-    "name" | "logoUrl" | "sidebarAdUrl" | "wordmark" | "website"
+    "id" | "name" | "logoUrl" | "sidebarAdUrl" | "wordmark"
   > | null;
 }
 
@@ -87,11 +87,9 @@ export function Sidebar({
       </nav>
 
       {presentedBy ? (
-        <a
+        <Link
           className="sidebar-sponsor"
-          href={presentedBy.website || SPONSOR_INTEREST_URL}
-          target="_blank"
-          rel="noopener noreferrer sponsored"
+          href={`/sponsors#${presentedBy.id}`}
           title={presentedBy.name}
         >
           <span className="sidebar-sponsor-label">Presented by</span>
@@ -112,7 +110,7 @@ export function Sidebar({
               />
             </span>
           )}
-        </a>
+        </Link>
       ) : null}
       <div className="sidebar-footer">
         <Link href="/profile" className="nav-item">
