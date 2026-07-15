@@ -80,7 +80,9 @@ export async function listSessions(): Promise<SessionDetail[]> {
     .select(SESSION_SELECT)
     .order("starts_at", { ascending: true });
 
-  if (error || !data) return getPlaceholderSessions();
+  // Configured mode never shows demo fixtures: an empty or failed query
+  // renders honest empty states. Placeholders are preview-mode only.
+  if (error || !data) return [];
 
   const {
     data: { user },
@@ -118,7 +120,7 @@ export async function getSession(id: string): Promise<SessionDetail | null> {
     .eq("id", id)
     .maybeSingle();
 
-  if (error || !data) return getPlaceholderSession(id);
+  if (error || !data) return null;
 
   const session = mapRow(data as unknown as SessionRow);
 

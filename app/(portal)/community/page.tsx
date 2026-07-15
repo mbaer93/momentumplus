@@ -2,6 +2,7 @@ import { CommunityView } from "@/components/community/CommunityView";
 import { requireMember } from "@/lib/current-member";
 import { listSessions } from "@/lib/sessions/queries";
 import { COMMUNITY_CHANNELS, channelsForTier, isStreamConfigured } from "@/lib/stream";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { dayOfMonth, monthShort, timeLabel } from "@/lib/sessions/view";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export default async function CommunityPage() {
       memberInitials={member.initials}
       isAdmin={member.isAdmin}
       streamConfigured={isStreamConfigured()}
+      preview={!isSupabaseConfigured()}
       nextSession={
         next
           ? {

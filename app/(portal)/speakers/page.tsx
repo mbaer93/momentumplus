@@ -16,6 +16,11 @@ export default async function SpeakersPage() {
           <p>World-class coaches and thought leaders</p>
         </div>
       </div>
+      {speakers.length === 0 && (
+        <div className="sessions-empty" style={{ marginTop: 20 }}>
+          Speaker profiles will appear here as they&apos;re added.
+        </div>
+      )}
       <div className="speakers-grid">
         {speakers.map((s) => (
           <Link key={s.id} href={`/speakers/${s.id}`} className="speaker-card">

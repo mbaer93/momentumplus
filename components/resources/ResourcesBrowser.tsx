@@ -43,6 +43,11 @@ export function ResourcesBrowser({
         ))}
       </div>
 
+      {resources.length === 0 && (
+        <div className="sessions-empty" style={{ marginTop: 20 }}>
+          Member resources will appear here as they&apos;re published.
+        </div>
+      )}
       <div className="resources-grid">
         {visible.map((r) => {
           const canOpen = unlocked.has(r.id);
