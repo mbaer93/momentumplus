@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { SessionForm } from "@/components/admin/SessionForm";
 import { ArrowLeftIcon } from "@/components/icons";
+import { listSpeakers } from "@/lib/directory-queries";
 
-export default function NewSessionPage() {
+export const dynamic = "force-dynamic";
+
+export default async function NewSessionPage() {
+  const speakers = (await listSpeakers()).map((s) => ({
+    id: s.id,
+    name: s.name,
+  }));
+
   return (
     <div className="admin-pad">
       <Link href="/admin/sessions" className="sess-back">
@@ -14,7 +22,7 @@ export default function NewSessionPage() {
           <p>Add a session to the schedule</p>
         </div>
       </div>
-      <SessionForm mode="create" />
+      <SessionForm mode="create" speakers={speakers} />
     </div>
   );
 }

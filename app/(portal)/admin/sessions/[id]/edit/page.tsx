@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getSession } from "@/lib/sessions/queries";
 import { SessionForm } from "@/components/admin/SessionForm";
 import { ArrowLeftIcon } from "@/components/icons";
+import { listSpeakers } from "@/lib/directory-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,10 @@ export default async function EditSessionPage({
 }) {
   const session = await getSession(params.id);
   if (!session) notFound();
+  const speakers = (await listSpeakers()).map((s) => ({
+    id: s.id,
+    name: s.name,
+  }));
 
   return (
     <div className="admin-pad">
@@ -28,6 +33,7 @@ export default async function EditSessionPage({
       <SessionForm
         mode="edit"
         sessionId={session.id}
+        speakers={speakers}
         initial={{
           title: session.title,
           description: session.description,
@@ -37,6 +43,9 @@ export default async function EditSessionPage({
           capacity: session.capacity,
           minAccess: session.minAccess,
           status: session.status,
+          speakerId: speakers.some((s) => s.id === session.speaker.id)
+            ? session.speaker.id
+            : "",
         }}
       />
     </div>

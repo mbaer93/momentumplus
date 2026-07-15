@@ -26,6 +26,7 @@ export default async function AdminResourcesPage({
       description: r.description,
       minAccess: r.minAccess,
       active: true,
+      imageUrl: r.imageUrl ?? "",
     },
   }));
 
@@ -33,7 +34,7 @@ export default async function AdminResourcesPage({
     const admin = createServiceClient();
     const { data } = await admin
       .from("resources")
-      .select("id, title, category, description, url, partner_name, min_access, active")
+      .select("id, title, category, description, url, partner_name, min_access, active, image_url")
       .order("title");
     rows = (data ?? []).map((r) => ({
       id: r.id,
@@ -54,6 +55,7 @@ export default async function AdminResourcesPage({
         description: r.description ?? "",
         minAccess: r.min_access,
         active: Boolean(r.active),
+        imageUrl: r.image_url ?? "",
       },
     }));
   }

@@ -15,6 +15,8 @@ export interface SessionFormValues {
   capacity: number | null;
   minAccess: AccessLevel;
   status: SessionStatus;
+  /** Speaker record this session links to ("" = none yet). */
+  speakerId: string;
 }
 
 export interface AdminResult {
@@ -34,6 +36,7 @@ function toRow(values: SessionFormValues) {
     capacity: values.capacity,
     min_access: values.minAccess,
     status: values.status,
+    speaker_id: values.speakerId || null,
   };
 }
 

@@ -21,8 +21,10 @@ export default async function AdminSpeakersPage({
       name: s.name,
       title: s.title,
       industries: s.industries.join(", "),
+      website: s.website ?? "",
       bio: s.bio,
       featured: false,
+      headshotUrl: s.headshotUrl ?? "",
     },
   }));
 
@@ -30,7 +32,7 @@ export default async function AdminSpeakersPage({
     const admin = createServiceClient();
     const { data } = await admin
       .from("speakers")
-      .select("id, name, title, bio, industries, featured")
+      .select("id, name, title, bio, industries, website, headshot_url, featured")
       .order("featured", { ascending: false })
       .order("name");
     rows = (data ?? []).map((s) => ({
@@ -42,8 +44,10 @@ export default async function AdminSpeakersPage({
         name: s.name,
         title: s.title ?? "",
         industries: (s.industries ?? []).join(", "),
+        website: s.website ?? "",
         bio: s.bio ?? "",
         featured: Boolean(s.featured),
+        headshotUrl: s.headshot_url ?? "",
       },
     }));
   }

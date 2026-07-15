@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon } from "@/components/icons";
+import { ArrowLeftIcon, ExternalIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
 import { getSpeaker } from "@/lib/directory-queries";
 import { listSessions } from "@/lib/sessions/queries";
@@ -32,12 +32,22 @@ export default async function SpeakerDetailPage({
       </Link>
 
       <div className="spk-hero">
-        <div
-          className="spk-hero-av"
-          style={{ background: speaker.avatarBg, color: speaker.avatarColor }}
-        >
-          {speaker.initials}
-        </div>
+        {speaker.headshotUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            className="spk-hero-av"
+            src={speaker.headshotUrl}
+            alt={`${speaker.name} headshot`}
+            style={{ objectFit: "cover" }}
+          />
+        ) : (
+          <div
+            className="spk-hero-av"
+            style={{ background: speaker.avatarBg, color: speaker.avatarColor }}
+          >
+            {speaker.initials}
+          </div>
+        )}
         <div>
           <div className="spk-hero-name">{speaker.name}</div>
           <div className="spk-hero-title">{speaker.title}</div>
@@ -48,6 +58,17 @@ export default async function SpeakerDetailPage({
               </span>
             ))}
           </div>
+          {speaker.website && (
+            <a
+              className="sp-link"
+              href={speaker.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ marginTop: 10, display: "inline-flex" }}
+            >
+              Visit website <ExternalIcon size={12} />
+            </a>
+          )}
         </div>
       </div>
 

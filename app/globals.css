@@ -2355,6 +2355,15 @@
   flex-shrink: 0;
 }
 .resource-body { flex: 1; min-width: 0; }
+/* Card image (uploaded or pulled from the link's preview). */
+.resource-thumb {
+  width: 84px;
+  height: 84px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--warm-gray);
+}
 .resource-type {
   font-size: 10px;
   font-weight: 600;

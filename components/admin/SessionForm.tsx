@@ -38,10 +38,13 @@ export function SessionForm({
   mode,
   sessionId,
   initial,
+  speakers = [],
 }: {
   mode: "create" | "edit";
   sessionId?: string;
   initial?: Partial<SessionFormValues> & { startsAtIso?: string | null };
+  /** Speakers already in the system — the session links to one of them. */
+  speakers?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -56,6 +59,7 @@ export function SessionForm({
     capacity: initial?.capacity ?? null,
     minAccess: initial?.minAccess ?? "all_members",
     status: initial?.status ?? "draft",
+    speakerId: initial?.speakerId ?? "",
   });
 
   function set<K extends keyof SessionFormValues>(
@@ -102,6 +106,26 @@ export function SessionForm({
           onChange={(e) => set("description", e.target.value)}
           placeholder="What this session covers…"
         />
+      </div>
+
+      <div className="admin-field">
+        <label htmlFor="speaker">Speaker</label>
+        <select
+          id="speaker"
+          value={values.speakerId}
+          onChange={(e) => set("speakerId", e.target.value)}
+        >
+          <option value="">— No speaker yet —</option>
+          {speakers.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+          Speakers are managed in Admin → Speakers; linking one shows the
+          session on their profile.
+        </div>
       </div>
 
       <div className="admin-field-row">
