@@ -146,9 +146,14 @@ export function SponsorsManager({
   function run(fn: () => Promise<{ ok: boolean; message?: string }>) {
     setMsg(null);
     startTransition(async () => {
-      const res = await fn();
-      setMsg(res.message ?? null);
-      if (res.ok) router.refresh();
+      try {
+        const res = await fn();
+        setMsg(res.message ?? null);
+        if (res.ok) router.refresh();
+      } catch {
+        // e.g. the upload request itself was rejected (file too large).
+        setMsg("That didn't save — if you were uploading an image, try one under 2 MB.");
+      }
     });
   }
 

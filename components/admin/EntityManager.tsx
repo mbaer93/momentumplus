@@ -159,9 +159,13 @@ export function EntityManager({
   function run(fn: () => Promise<ActionResult>) {
     setMsg(null);
     startTransition(async () => {
-      const res = await fn();
-      setMsg(res.message ?? null);
-      if (res.ok) router.refresh();
+      try {
+        const res = await fn();
+        setMsg(res.message ?? null);
+        if (res.ok) router.refresh();
+      } catch {
+        setMsg("That didn't save — please try again.");
+      }
     });
   }
 
