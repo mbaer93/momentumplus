@@ -140,7 +140,7 @@ export function SponsorsManager({
       : EMPTY,
   );
   const [pending, startTransition] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function run(fn: () => Promise<{ ok: boolean; message?: string }>) {
@@ -148,11 +148,14 @@ export function SponsorsManager({
     startTransition(async () => {
       try {
         const res = await fn();
-        setMsg(res.message ?? null);
+        setMsg(res.message ? { text: res.message, ok: res.ok } : null);
         if (res.ok) router.refresh();
       } catch {
-        // e.g. the upload request itself was rejected (file too large).
-        setMsg("That didn't save — if you were uploading an image, try one under 2 MB.");
+        // e.g. the upload request itself was rejected before reaching us.
+        setMsg({
+          text: "That didn't save — check your connection and try again. If you were uploading an image, use one under 2 MB.",
+          ok: false,
+        });
       }
     });
   }
@@ -169,11 +172,35 @@ export function SponsorsManager({
     });
   }
 
+  // Validate before uploading so problems get a specific reason and fix.
+  const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+
   function uploadImage(id: string, kind: "logo" | "ad") {
     const input = fileRefs.current[`${id}-${kind}`];
     const file = input?.files?.[0];
     if (!file) {
-      setMsg("Choose an image file first.");
+      setMsg({
+        text: "No file selected — click Choose File, pick your image, then hit Upload.",
+        ok: false,
+      });
+      return;
+    }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      const ext = file.name.includes(".")
+        ? `.${file.name.split(".").pop()}`
+        : "that format";
+      setMsg({
+        text: `"${file.name}" won't work — ${ext} isn't supported. Upload a PNG, JPG, SVG, or WebP instead (in most tools: File → Export As → PNG).`,
+        ok: false,
+      });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      setMsg({
+        text: `"${file.name}" is ${mb} MB — the limit is 2 MB. Compress it (e.g. tinypng.com) or export it at a smaller size, then try again.`,
+        ok: false,
+      });
       return;
     }
     const fd = new FormData();
@@ -206,7 +233,11 @@ export function SponsorsManager({
           >
             Add sponsor
           </button>
-          {msg && <span className="admin-form-msg ok">{msg}</span>}
+          {msg && (
+            <span className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}>
+              {msg.text}
+            </span>
+          )}
         </div>
       </div>
 
@@ -382,13 +413,21 @@ export function SponsorsManager({
                           <div style={{ marginTop: 8 }}>
                             <img
                               src={s.sidebarAdUrl}
-                              alt={`${s.name} sidebar ad`}
+                              alt={`${s.name} ad graphic`}
                               style={{
                                 maxWidth: 180,
                                 borderRadius: 4,
                                 border: "1px solid var(--border)",
                               }}
                             />
+                          </div>
+                        )}
+                        {msg && (
+                          <div
+                            className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+                            style={{ marginTop: 8 }}
+                          >
+                            {msg.text}
                           </div>
                         )}
                       </div>
