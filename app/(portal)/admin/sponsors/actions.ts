@@ -125,10 +125,17 @@ async function uploadSponsorImage(
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, message: "Choose an image file first." };
+    return {
+      ok: false,
+      message: "No file received — choose an image and try the upload again.",
+    };
   }
   if (file.size > 2 * 1024 * 1024) {
-    return { ok: false, message: `${label} must be under 2 MB.` };
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    return {
+      ok: false,
+      message: `${label} is ${mb} MB — the limit is 2 MB. Compress or resize the image and try again.`,
+    };
   }
   const allowed: Record<string, string> = {
     "image/png": "png",
@@ -138,7 +145,10 @@ async function uploadSponsorImage(
   };
   const ext = allowed[file.type];
   if (!ext) {
-    return { ok: false, message: "Use a PNG, JPG, SVG, or WebP image." };
+    return {
+      ok: false,
+      message: `That file type (${file.type || "unknown"}) isn't supported — upload a PNG, JPG, SVG, or WebP instead.`,
+    };
   }
 
   const admin = createServiceClient();
