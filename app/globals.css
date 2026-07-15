@@ -2659,10 +2659,9 @@
   border-radius: 3px;
   padding: 7px 8px;
 }
-.sidebar-sponsor-ad {
+.sponsor-ad-creative {
   display: block;
   width: 100%;
-  border-radius: 3px;
 }
 
 /* Inline admin edit chips on member-facing pages */

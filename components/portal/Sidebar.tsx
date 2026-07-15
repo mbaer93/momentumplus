@@ -12,13 +12,10 @@ interface SidebarProps {
   userInitials: string;
   tierLabel: string;
   isAdmin: boolean;
-  /** Sponsor shown in the left-panel ad slot. Uses the uploaded sidebar ad
-      creative when present; falls back to the logo/wordmark. Clicks lead to
-      the sponsor's profile on /sponsors, where the website link lives. */
-  presentedBy?: Pick<
-    SponsorItem,
-    "id" | "name" | "logoUrl" | "sidebarAdUrl" | "wordmark"
-  > | null;
+  /** Momentum+ Sponsor shown in the left-panel "Presented by" slot (logo
+      mark; the ad creative lives in the right-hand rail). Clicks lead to the
+      sponsor's profile on /sponsors, where the website link lives. */
+  presentedBy?: Pick<SponsorItem, "id" | "name" | "logoUrl" | "wordmark"> | null;
 }
 
 export function Sidebar({
@@ -93,23 +90,14 @@ export function Sidebar({
           title={presentedBy.name}
         >
           <span className="sidebar-sponsor-label">Presented by</span>
-          {presentedBy.sidebarAdUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              className="sidebar-sponsor-ad"
-              src={presentedBy.sidebarAdUrl}
-              alt={`${presentedBy.name} — sponsor`}
+          <span className="sidebar-sponsor-mark">
+            <SponsorMark
+              name={presentedBy.name}
+              logoUrl={presentedBy.logoUrl}
+              wordmark={presentedBy.wordmark}
+              maxHeight={34}
             />
-          ) : (
-            <span className="sidebar-sponsor-mark">
-              <SponsorMark
-                name={presentedBy.name}
-                logoUrl={presentedBy.logoUrl}
-                wordmark={presentedBy.wordmark}
-                maxHeight={34}
-              />
-            </span>
-          )}
+          </span>
         </Link>
       ) : null}
       <div className="sidebar-footer">

@@ -122,14 +122,6 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     .order("tier");
   if (error || !data) return [];
 
-  const marks: SponsorItem["wordmark"][] = [
-    "newstalk",
-    "bank",
-    "summit",
-    "clarity",
-    "wellness",
-    "photo",
-  ];
   return data.map((row) => ({
     id: row.id,
     name: row.name,
@@ -137,7 +129,9 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     tagline: row.tagline ?? "",
     offer: row.offer,
     website: row.website ?? "#",
-    wordmark: marks[hashIndex(row.id, marks.length)],
+    // Real sponsors never get mockup wordmark stand-ins; without a logo the
+    // mark renders as the sponsor's name.
+    wordmark: null,
     logoUrl: row.logo_url ?? null,
     sidebarAdUrl: row.sidebar_ad_url ?? null,
     railActive: Boolean(row.rail_active),

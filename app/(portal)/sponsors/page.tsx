@@ -34,7 +34,7 @@ export default async function SponsorsPage() {
 
       {title.length > 0 && (
         <>
-          <div className="sp-tier-label">Title Sponsor</div>
+          <div className="sp-tier-label">Momentum+ Sponsor</div>
           {title.map((s) => (
             <div
               className="sp-title-card"
@@ -50,7 +50,7 @@ export default async function SponsorsPage() {
                   <AdminEditChip href={`/admin/sponsors?edit=${s.id}`} />
                 </span>
               )}
-              <div className="sp-ribbon">Title Sponsor</div>
+              <div className="sp-ribbon">Momentum+ Sponsor</div>
               <div className="sp-logo-lg">
                 <SponsorMark name={s.name} logoUrl={s.logoUrl} wordmark={s.wordmark} maxHeight={80} />
               </div>
