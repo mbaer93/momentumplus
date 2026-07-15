@@ -3,6 +3,7 @@ import {
   AdminIcon,
   ChevronRightIcon,
   CommunityIcon,
+  EducationIcon,
   LibraryIcon,
   ResourcesIcon,
   SessionsIcon,
@@ -57,6 +58,12 @@ const SECTIONS = [
     icon: ResourcesIcon,
     title: "Resources",
     desc: "Member tools, guides, and partner materials.",
+  },
+  {
+    href: "/admin/education",
+    icon: EducationIcon,
+    title: "Education",
+    desc: "Courses and learning tracks built from the library.",
   },
 ];
 
