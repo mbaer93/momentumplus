@@ -61,3 +61,72 @@ export function generateMuxPlaybackToken(
   signer.update(`${header}.${payload}`);
   return `${header}.${payload}.${base64url(signer.sign(privateKey))}`;
 }
+
+// ---------------------------------------------------------------------------
+// Mux REST API (direct uploads: the browser sends the file straight to Mux;
+// our server only creates the upload slot and reads back the asset).
+// ---------------------------------------------------------------------------
+
+const MUX_API = "https://api.mux.com";
+
+async function muxRequest<T>(
+  method: "GET" | "POST",
+  path: string,
+  body?: Record<string, unknown>,
+): Promise<T> {
+  const basic = Buffer.from(
+    `${process.env.MUX_TOKEN_ID}:${process.env.MUX_TOKEN_SECRET}`,
+  ).toString("base64");
+  const res = await fetch(`${MUX_API}${path}`, {
+    method,
+    headers: {
+      Authorization: `Basic ${basic}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+    cache: "no-store",
+  });
+  const json = (await res.json()) as { data?: T; error?: { messages?: string[] } };
+  if (!res.ok) {
+    throw new Error(json.error?.messages?.join("; ") ?? `Mux error ${res.status}`);
+  }
+  return json.data as T;
+}
+
+export interface MuxDirectUpload {
+  id: string;
+  url: string;
+}
+
+/** Create a direct-upload slot; the browser PUTs the file to `url`. */
+export async function createMuxDirectUpload(
+  corsOrigin: string,
+): Promise<MuxDirectUpload> {
+  return muxRequest<MuxDirectUpload>("POST", "/video/v1/uploads", {
+    cors_origin: corsOrigin,
+    new_asset_settings: {
+      playback_policy: [isMuxSigningConfigured() ? "signed" : "public"],
+    },
+  });
+}
+
+export interface MuxUploadStatus {
+  id: string;
+  status: string; // waiting | asset_created | errored | cancelled | timed_out
+  asset_id?: string;
+}
+
+export async function getMuxUpload(id: string): Promise<MuxUploadStatus> {
+  return muxRequest<MuxUploadStatus>("GET", `/video/v1/uploads/${id}`);
+}
+
+export interface MuxAsset {
+  id: string;
+  status: string; // preparing | ready | errored
+  duration?: number; // seconds (present once ready)
+  playback_ids?: { id: string; policy: string }[];
+}
+
+export async function getMuxAsset(assetId: string): Promise<MuxAsset> {
+  return muxRequest<MuxAsset>("GET", `/video/v1/assets/${assetId}`);
+}

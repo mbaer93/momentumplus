@@ -6,22 +6,18 @@ import {
 import {
   AnthropicWizard,
   GhlWizard,
-  SmtpWizard,
   ZoomWizard,
 } from "@/components/admin/ConnectWizards";
 import { ArrowLeftIcon } from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
-import { isMuxConfigured } from "@/lib/mux";
 import {
   isAnthropicReady,
   isGhlReady,
-  isSmtpMarkedDone,
   isZoomReady,
   isZoomSdkReady,
 } from "@/lib/service-config";
 import { isSheetsConfigured } from "@/lib/sheets";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
-import { isStreamConfigured } from "@/lib/stream";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -100,15 +96,13 @@ export default async function AdminConnectionsPage() {
   const access = await getAdminAccess();
   const isSuper = access?.role === "super";
 
-  const [stripe, zoomOk, zoomSdkOk, anthropicOk, ghlOk, smtpDone] =
-    await Promise.all([
-      getStripeSettings(),
-      isZoomReady(),
-      isZoomSdkReady(),
-      isAnthropicReady(),
-      isGhlReady(),
-      isSmtpMarkedDone(),
-    ]);
+  const [stripe, zoomOk, zoomSdkOk, anthropicOk, ghlOk] = await Promise.all([
+    getStripeSettings(),
+    isZoomReady(),
+    isZoomSdkReady(),
+    isAnthropicReady(),
+    isGhlReady(),
+  ]);
   const stripeDone = stripeReady(stripe);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
@@ -176,52 +170,12 @@ export default async function AdminConnectionsPage() {
           </ConnectionCard>
 
           <ConnectionCard
-            title="Email — invites & passwords"
-            powers="Welcome/invite emails for new members (built-in sender is rate-limited)"
-            connected={smtpDone}
-          >
-            <SmtpWizard markedDone={smtpDone} />
-          </ConnectionCard>
-
-          <ConnectionCard
             title="Go High Level — legacy payments"
             powers="Optional now that Stripe is live; keeps legacy GHL plans syncing"
             connected={ghlOk}
             optional
           >
             <GhlWizard webhookUrl={`${siteUrl}/api/webhooks/ghl`} />
-          </ConnectionCard>
-
-          <ConnectionCard
-            title="Stream — community chat"
-            powers="Channels, admin badges, moderation"
-            connected={isStreamConfigured()}
-            optional={false}
-          >
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)", lineHeight: 1.7 }}>
-              Connected via Vercel keys (already done). To change accounts:
-              getstream.io → create app → copy Key + Secret → Vercel →
-              Settings → Environment Variables → update{" "}
-              <code>NEXT_PUBLIC_STREAM_API_KEY</code> and{" "}
-              <code>STREAM_API_SECRET</code> → Redeploy.
-            </div>
-          </ConnectionCard>
-
-          <ConnectionCard
-            title="Mux — video hosting"
-            powers="Streams the Library recordings with real access control"
-            connected={isMuxConfigured()}
-          >
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)", lineHeight: 1.7 }}>
-              1. Create an account at <strong>mux.com</strong>. &nbsp;2.
-              Settings → Access Tokens → Generate new token (environment:
-              Production, permission: Mux Video full access). &nbsp;3. In
-              Vercel → momentumplus → Settings → Environment Variables add{" "}
-              <code>MUX_TOKEN_ID</code> and <code>MUX_TOKEN_SECRET</code>{" "}
-              (Production). &nbsp;4. Deployments → latest → Redeploy. Upload
-              videos in Mux, then paste each recording&apos;s Playback ID in
-              Admin → Library.
-            </div>
           </ConnectionCard>
 
           <ConnectionCard
