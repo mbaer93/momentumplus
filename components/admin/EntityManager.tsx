@@ -44,6 +44,8 @@ interface EntityManagerProps {
   initialEditId?: string;
   /** Hide the create form when creation happens elsewhere (e.g. video upload). */
   allowCreate?: boolean;
+  /** Note under the Add form, e.g. where uploads live (they need a saved row). */
+  createHint?: string;
   /** Extra controls rendered inside a row's edit panel (e.g. image upload). */
   renderRowExtras?: (row: EntityRow) => React.ReactNode;
   onCreate: (values: EntityValues) => Promise<ActionResult>;
@@ -142,6 +144,7 @@ export function EntityManager({
   emptyValues,
   initialEditId,
   allowCreate = true,
+  createHint,
   renderRowExtras,
   onCreate,
   onUpdate,
@@ -205,6 +208,13 @@ export function EntityManager({
             </button>
             {msg && <span className="admin-form-msg ok">{msg}</span>}
           </div>
+          {createHint && (
+            <div
+              style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 8 }}
+            >
+              {createHint}
+            </div>
+          )}
         </div>
       )}
       {!allowCreate && msg && (
