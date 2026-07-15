@@ -67,12 +67,12 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
     <aside className="sponsor-rail">
       <div className="rail-label">Member Partners</div>
       {sponsors.map((s) => (
-        <a
+        /* Rail cards lead to the sponsor's profile on /sponsors (anchored),
+           where the website link lives. */
+        <Link
           key={s.id}
           className="sponsor-ad-card"
-          href={s.website}
-          target="_blank"
-          rel="noopener noreferrer sponsored"
+          href={`/sponsors#${s.id}`}
           onClick={() => trackClick(s.id)}
         >
           <span className="sponsor-ad-tag">Sponsored</span>
@@ -85,7 +85,7 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
             {s.offer && <div className="sponsor-ad-offer">{s.offer}</div>}
             <div className="sponsor-ad-link">Learn more</div>
           </div>
-        </a>
+        </Link>
       ))}
       <div className="rail-become">
         <div className="rail-become-title">Become a partner</div>
