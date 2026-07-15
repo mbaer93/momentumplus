@@ -12,12 +12,16 @@ export const GRACE_DAYS = 7;
 // member holds several rows (e.g. TSLS import + later subscription).
 export const TIER_PRECEDENCE: Tier[] = [
   "admin",
+  "pro",
   "speaker",
   "sub_annual",
   "tsls_vip",
   "sub_6mo",
   "sub_3mo",
   "sub_monthly",
+  "basic",
+  "vip",
+  "gift",
   "tsls_attendee",
 ];
 
@@ -27,9 +31,13 @@ export const TIER_PRECEDENCE: Tier[] = [
 export function tierDurationMonths(tier: Tier): number | null {
   switch (tier) {
     case "sub_monthly":
+    case "basic": // Stripe-billed monthly; the webhook extends per period
+    case "pro": // Stripe-billed monthly; the webhook extends per period
+    case "gift": // free Basic-level access for 1 month
       return 1;
     case "sub_3mo":
     case "tsls_vip":
+    case "vip": // free Basic-level access for 3 months
       return 3;
     case "sub_6mo":
       return 6;

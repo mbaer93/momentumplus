@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { RenewButtons } from "@/components/billing/RenewButtons";
 import { PRICING_PLANS } from "@/lib/pricing";
+import { getStripeSettings, stripeReady } from "@/lib/stripe";
 
 export const metadata = {
   title: "Renew your membership | Momentum+",
@@ -7,12 +9,14 @@ export const metadata = {
 
 /*
  * Shown when a member's access has lapsed (expired / past-due beyond grace /
- * canceled period ended). Payment happens in GHL — the portal never takes
- * payment directly — so the CTA links out to the GHL checkout/renewal page.
- * Pricing copy comes from SPEC.md §2, displayed exactly as listed.
+ * canceled period ended). Once Stripe is connected (Admin → Billing wizard),
+ * renewal happens right here via Checkout; otherwise the CTA links out to
+ * the GHL renewal page. Pricing copy comes from SPEC.md §2 as listed.
  */
-export default function ExpiredPage() {
+export default async function ExpiredPage() {
   const renewUrl = process.env.NEXT_PUBLIC_GHL_RENEW_URL || "#";
+  const stripe = await getStripeSettings();
+  const stripeLive = stripeReady(stripe);
 
   return (
     <div className="renew-screen">
@@ -50,14 +54,21 @@ export default function ExpiredPage() {
         </div>
 
         <div className="renew-actions">
-          <a
-            className="btn-gold"
-            href={renewUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Renew Membership
-          </a>
+          {stripeLive ? (
+            <RenewButtons
+              basicPrice={stripe.displayPrices?.basic ?? null}
+              proPrice={stripe.displayPrices?.pro ?? null}
+            />
+          ) : (
+            <a
+              className="btn-gold"
+              href={renewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Renew Membership
+            </a>
+          )}
           <Link className="btn-ghost" href="/login">
             Sign in with a different account
           </Link>

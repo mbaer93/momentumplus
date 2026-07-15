@@ -11,7 +11,7 @@ export interface ResourceInput {
   description: string;
   url: string;
   partnerName: string;
-  minAccess: "all_members" | "vip_plus";
+  minAccess: "all_members" | "vip_plus" | "pro_only";
   active: boolean;
 }
 

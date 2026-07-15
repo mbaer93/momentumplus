@@ -36,6 +36,7 @@ const FIELDS: FieldDef[] = [
     options: [
       { value: "all_members", label: "All members" },
       { value: "vip_plus", label: "VIP & annual only" },
+      { value: "pro_only", label: "Pro members only (exclusive)" },
     ],
   },
   { key: "active", label: "Active (visible to members)", type: "checkbox" },
@@ -58,7 +59,10 @@ function toInput(v: EntityValues): ResourceInput {
     description: String(v.description ?? ""),
     url: String(v.url ?? ""),
     partnerName: String(v.partnerName ?? ""),
-    minAccess: v.minAccess === "vip_plus" ? "vip_plus" : "all_members",
+    minAccess:
+      v.minAccess === "vip_plus" || v.minAccess === "pro_only"
+        ? v.minAccess
+        : "all_members",
     active: Boolean(v.active),
   };
 }

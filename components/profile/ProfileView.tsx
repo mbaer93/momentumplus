@@ -4,6 +4,10 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { PrefDefinition, PrefRow } from "@/lib/notifications";
 import {
+  BillingControls,
+  type BillingInfo,
+} from "@/components/profile/BillingControls";
+import {
   saveNotificationPrefs,
   updateProfile,
 } from "@/app/(portal)/profile/actions";
@@ -52,6 +56,7 @@ interface ProfileViewProps {
   activity: ProfileActivityRow[];
   prefDefinitions: PrefDefinition[];
   initialPrefs: PrefRow[];
+  billing: BillingInfo;
 }
 
 type Tab = "activity" | "sessions" | "preferences";
@@ -64,6 +69,7 @@ export function ProfileView({
   activity,
   prefDefinitions,
   initialPrefs,
+  billing,
 }: ProfileViewProps) {
   const [tab, setTab] = useState<Tab>("activity");
   const [prefs, setPrefs] = useState<PrefRow[]>(initialPrefs);
@@ -165,6 +171,7 @@ export function ProfileView({
                 {member.membershipStatusLabel}
               </span>
             </div>
+            <BillingControls billing={billing} />
           </div>
         </div>
 

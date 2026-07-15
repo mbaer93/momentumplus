@@ -13,6 +13,8 @@ import {
   monthShort,
   timeLabel,
 } from "@/lib/sessions/view";
+import { isPro } from "@/lib/access";
+import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -44,6 +46,7 @@ export default async function ProfilePage() {
         created_at: new Date().toISOString(),
       };
   let savedPrefs: Partial<PrefRow>[] = [];
+  let hasStripeCustomer = false;
 
   if (isSupabaseConfigured()) {
     const supabase = createClient();
@@ -54,7 +57,9 @@ export default async function ProfilePage() {
       const [{ data: p }, { data: prefRows }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("phone, company, title, industry, bio, admin_title, created_at")
+          .select(
+            "phone, company, title, industry, bio, admin_title, stripe_customer_id, created_at",
+          )
           .eq("id", user.id)
           .maybeSingle(),
         supabase
@@ -72,10 +77,15 @@ export default async function ProfilePage() {
           admin_title: p.admin_title ?? "",
           created_at: p.created_at,
         };
+        hasStripeCustomer = Boolean(p.stripe_customer_id);
       }
       savedPrefs = (prefRows ?? []) as Partial<PrefRow>[];
     }
   }
+
+  // Self-serve billing appears once the Super Admin's Stripe wizard is done.
+  const stripeSettings = await getStripeSettings();
+  const billingEnabled = stripeReady(stripeSettings);
 
   // Learning record: the member's enrolled sessions (CLAUDE.md rule #4 —
   // enrollments, attendance, and notes feed the member profile stats).
@@ -151,6 +161,14 @@ export default async function ProfilePage() {
       activity={activity}
       prefDefinitions={PREF_DEFINITIONS}
       initialPrefs={mergePrefs(savedPrefs)}
+      billing={{
+        enabled: billingEnabled,
+        basicPrice: stripeSettings?.displayPrices?.basic ?? null,
+        proPrice: stripeSettings?.displayPrices?.pro ?? null,
+        hasCustomer: hasStripeCustomer,
+        isPro: isPro(member.tier),
+        hasActiveMembership: member.membershipActive,
+      }}
     />
   );
 }

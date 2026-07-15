@@ -102,7 +102,7 @@ export interface ResourceItem {
   tags: string[];
   actionLabel: string;
   url: string;
-  minAccess: "all_members" | "vip_plus";
+  minAccess: "all_members" | "vip_plus" | "pro_only";
 }
 
 export const resources: ResourceItem[] = [

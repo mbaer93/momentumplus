@@ -9,7 +9,7 @@ export interface CourseInput {
   title: string;
   category: string;
   description: string;
-  minAccess: "all_members" | "vip_plus";
+  minAccess: "all_members" | "vip_plus" | "pro_only";
   published: boolean;
 }
 

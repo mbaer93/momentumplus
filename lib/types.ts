@@ -7,15 +7,28 @@ export type Tier =
   | "sub_6mo"
   | "sub_monthly"
   | "sub_annual"
+  // Member levels (July 2026): basic = paid Basic access; gift = free Basic
+  // for 1 month; vip = free Basic-level for 3 months; pro = everything,
+  // including pro_only content.
+  | "basic"
+  | "gift"
+  | "vip"
+  | "pro"
   | "speaker"
   | "admin";
 
 export type MembershipStatus = "active" | "past_due" | "canceled" | "expired";
 
-export type MembershipSource = "ghl" | "tsls_import" | "admin";
+export type MembershipSource =
+  | "ghl"
+  | "tsls_import"
+  | "admin"
+  | "zapier"
+  | "stripe"
+  | "sponsor";
 
 // Content gating levels used by sessions / resources / videos (SPEC.md §2).
-export type AccessLevel = "all_members" | "vip_plus" | "admin_only";
+export type AccessLevel = "all_members" | "vip_plus" | "pro_only" | "admin_only";
 
 export type SessionStatus =
   | "draft"

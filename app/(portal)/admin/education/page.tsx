@@ -36,7 +36,10 @@ export default async function AdminEducationPage({
       title: c.title,
       category: c.category ?? "",
       description: c.description ?? "",
-      minAccess: c.min_access === "vip_plus" ? "vip_plus" : "all_members",
+      minAccess:
+        c.min_access === "vip_plus" || c.min_access === "pro_only"
+          ? c.min_access
+          : "all_members",
       published: Boolean(c.published_at),
       lessons: [...(c.course_lessons ?? [])]
         .sort((a, b) => a.position - b.position)

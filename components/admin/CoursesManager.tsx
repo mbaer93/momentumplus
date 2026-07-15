@@ -24,7 +24,7 @@ export interface AdminCourseRow {
   title: string;
   category: string;
   description: string;
-  minAccess: "all_members" | "vip_plus";
+  minAccess: "all_members" | "vip_plus" | "pro_only";
   published: boolean;
   lessons: AdminLessonRow[];
 }
@@ -79,12 +79,16 @@ function CourseFields({
             onChange={(e) =>
               onChange({
                 ...value,
-                minAccess: e.target.value === "vip_plus" ? "vip_plus" : "all_members",
+                minAccess:
+                  e.target.value === "vip_plus" || e.target.value === "pro_only"
+                    ? e.target.value
+                    : "all_members",
               })
             }
           >
             <option value="all_members">All members</option>
             <option value="vip_plus">VIP &amp; annual only</option>
+            <option value="pro_only">Pro members only (exclusive)</option>
           </select>
         </div>
       </div>
@@ -220,6 +224,7 @@ export function CoursesManager({
                     <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
                       {c.category}
                       {c.minAccess === "vip_plus" ? " · VIP & annual" : ""}
+                      {c.minAccess === "pro_only" ? " · Pro only" : ""}
                     </div>
                   </td>
                   <td>{c.lessons.length}</td>

@@ -15,7 +15,10 @@ describe("planToTier", () => {
     assert.deepEqual(planToTier("3 Month"), { tier: "sub_3mo", months: 3 });
     assert.deepEqual(planToTier("sub_6mo"), { tier: "sub_6mo", months: 6 });
     assert.deepEqual(planToTier("YEARLY"), { tier: "sub_annual", months: 12 });
-    assert.deepEqual(planToTier("VIP"), { tier: "tsls_vip", months: 12 });
+    // "vip" now means the July 2026 member level (free Basic-level, 3 months);
+    // the old TSLS VIP tier is reachable as "tslsvip".
+    assert.deepEqual(planToTier("VIP"), { tier: "vip", months: 3 });
+    assert.deepEqual(planToTier("tslsvip"), { tier: "tsls_vip", months: 12 });
     assert.deepEqual(planToTier("attendee"), {
       tier: "tsls_attendee",
       months: 12,

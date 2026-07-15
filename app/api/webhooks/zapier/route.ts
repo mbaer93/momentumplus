@@ -13,8 +13,8 @@ import type { Tier } from "@/lib/types";
  *   Header:  x-api-key: <ZAPIER_WEBHOOK_SECRET>
  *   Body:    { "email": "...", "name": "...", "plan": "monthly" }
  *
- * plan accepts: monthly, 3month, 6month, 12month/annual, attendee, vip,
- * speaker. New members get a Supabase invite email that lands on /welcome
+ * plan accepts: basic, gift, vip, pro, monthly, 3month, 6month,
+ * 12month/annual, attendee, tslsvip, speaker. New members get a Supabase invite email that lands on /welcome
  * to set their password; repeats are idempotent (no double-grants).
  */
 
@@ -25,6 +25,10 @@ const ALLOWED_TIERS: Tier[] = [
   "sub_3mo",
   "sub_6mo",
   "sub_annual",
+  "basic",
+  "gift",
+  "vip",
+  "pro",
   "speaker",
 ];
 
@@ -64,7 +68,7 @@ export async function POST(req: NextRequest) {
   if (!mapping || !ALLOWED_TIERS.includes(mapping.tier)) {
     return NextResponse.json(
       {
-        error: `Unknown plan "${plan}". Use one of: monthly, 3month, 6month, 12month, annual, attendee, vip, speaker.`,
+        error: `Unknown plan "${plan}". Use one of: basic, gift, vip, pro, monthly, 3month, 6month, 12month, annual, attendee, speaker.`,
       },
       { status: 400 },
     );
@@ -89,6 +93,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     usage:
-      'POST JSON {"email","name","plan"} with header x-api-key. Plans: monthly, 3month, 6month, 12month, annual, attendee, vip, speaker.',
+      'POST JSON {"email","name","plan"} with header x-api-key. Plans: basic, gift, vip, pro, monthly, 3month, 6month, 12month, annual, attendee, speaker.',
   });
 }
