@@ -89,6 +89,9 @@ export async function GET(req: NextRequest) {
       const { data: invited, error: inviteError } =
         await admin.auth.admin.inviteUserByEmail(row.email, {
           data: { full_name: row.name },
+          redirectTo: process.env.NEXT_PUBLIC_SITE_URL
+            ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?redirect=/welcome`
+            : undefined,
         });
       if (invited?.user) {
         profileId = invited.user.id;

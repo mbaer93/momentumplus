@@ -3,6 +3,7 @@ import {
   MembersManager,
   type AdminMemberRow,
 } from "@/components/admin/MembersManager";
+import { BulkAddMembers } from "@/components/admin/BulkAddMembers";
 import { ArrowLeftIcon } from "@/components/icons";
 import { tierLabel } from "@/lib/access";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -101,6 +102,7 @@ export default async function AdminMembersPage() {
           and comps (source=admin).
         </div>
       )}
+      <BulkAddMembers />
       <MembersManager members={members} />
     </div>
   );
