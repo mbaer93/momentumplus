@@ -5,6 +5,7 @@ import {
 } from "@/components/admin/SponsorsManager";
 import { ArrowLeftIcon } from "@/components/icons";
 import { sponsors as placeholderSponsors } from "@/lib/directory-data";
+import { getPresentedByLogoUrl } from "@/lib/presented-by";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -81,7 +82,11 @@ export default async function AdminSponsorsPage({
           counts. Real counts come from sponsor_events once connected.
         </div>
       )}
-      <SponsorsManager sponsors={rows} initialEditId={searchParams?.edit} />
+      <SponsorsManager
+        sponsors={rows}
+        presentedByLogoUrl={await getPresentedByLogoUrl()}
+        initialEditId={searchParams?.edit}
+      />
     </div>
   );
 }

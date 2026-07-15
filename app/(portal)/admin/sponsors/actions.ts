@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { PRESENTED_BY_PATH } from "@/lib/presented-by";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -189,6 +190,72 @@ export async function uploadSponsorAd(
   formData: FormData,
 ): Promise<SponsorResult> {
   return uploadSponsorImage(sponsorId, formData, "sidebar_ad");
+}
+
+/**
+ * Upload the site-wide "Presented by" logo (left panel). One slot — it
+ * belongs to the current Momentum+ Sponsor and is replaced when a new
+ * sponsor takes over. Stored at a fixed bucket path, no sponsor row needed.
+ */
+export async function uploadPresentedByLogo(
+  formData: FormData,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Uploaded (preview mode)." };
+  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return {
+      ok: false,
+      message: "No file received — choose an image and try the upload again.",
+    };
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    return {
+      ok: false,
+      message: `Presented-by logo is ${mb} MB — the limit is 2 MB. Compress or resize the image and try again.`,
+    };
+  }
+  const allowedTypes = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+  if (!allowedTypes.includes(file.type)) {
+    return {
+      ok: false,
+      message: `That file type (${file.type || "unknown"}) isn't supported — upload a PNG, JPG, SVG, or WebP instead.`,
+    };
+  }
+
+  const admin = createServiceClient();
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const { error } = await admin.storage
+    .from("sponsor-logos")
+    .upload(PRESENTED_BY_PATH, bytes, { contentType: file.type, upsert: true });
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Presented-by logo uploaded." };
+}
+
+/** Remove the presented-by logo (the slot falls back to the sponsor's regular logo/name). */
+export async function removePresentedByLogo(): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Removed (preview mode)." };
+  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { error } = await admin.storage
+    .from("sponsor-logos")
+    .remove([PRESENTED_BY_PATH]);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Presented-by logo removed." };
 }
 
 /** Remove the ad creative (the rail card falls back to the logo layout). */

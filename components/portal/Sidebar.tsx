@@ -16,6 +16,9 @@ interface SidebarProps {
       mark; the ad creative lives in the right-hand rail). Clicks lead to the
       sponsor's profile on /sponsors, where the website link lives. */
   presentedBy?: Pick<SponsorItem, "id" | "name" | "logoUrl" | "wordmark"> | null;
+  /** Dedicated logo uploaded specifically for this slot (fills it exactly);
+      falls back to the sponsor's regular logo/name mark when absent. */
+  presentedByLogoUrl?: string | null;
 }
 
 export function Sidebar({
@@ -24,6 +27,7 @@ export function Sidebar({
   tierLabel,
   isAdmin,
   presentedBy,
+  presentedByLogoUrl,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -83,21 +87,30 @@ export function Sidebar({
         })}
       </nav>
 
-      {presentedBy ? (
+      {presentedBy || presentedByLogoUrl ? (
         <Link
           className="sidebar-sponsor"
-          href={`/sponsors#${presentedBy.id}`}
-          title={presentedBy.name}
+          href={presentedBy ? `/sponsors#${presentedBy.id}` : "/sponsors"}
+          title={presentedBy?.name ?? "Momentum+ Sponsor"}
         >
           <span className="sidebar-sponsor-label">Presented by</span>
-          <span className="sidebar-sponsor-mark">
-            <SponsorMark
-              name={presentedBy.name}
-              logoUrl={presentedBy.logoUrl}
-              wordmark={presentedBy.wordmark}
-              maxHeight={34}
+          {presentedByLogoUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              className="sidebar-presented-logo"
+              src={presentedByLogoUrl}
+              alt={`${presentedBy?.name ?? "Momentum+ Sponsor"} logo`}
             />
-          </span>
+          ) : presentedBy ? (
+            <span className="sidebar-sponsor-mark">
+              <SponsorMark
+                name={presentedBy.name}
+                logoUrl={presentedBy.logoUrl}
+                wordmark={presentedBy.wordmark}
+                maxHeight={34}
+              />
+            </span>
+          ) : null}
         </Link>
       ) : null}
       <div className="sidebar-footer">

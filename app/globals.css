@@ -2684,6 +2684,13 @@
   display: block;
   width: 100%;
 }
+/* Dedicated presented-by logo: fills the slot's 184px content width exactly. */
+.sidebar-presented-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
 
 /* Education: course cards + lesson lists */
 .course-grid {
