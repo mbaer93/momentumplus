@@ -1,3 +1,4 @@
+import { Greeting } from "@/components/portal/Greeting";
 import Link from "next/link";
 import {
   CalendarIcon,
@@ -151,7 +152,7 @@ export default async function DashboardPage() {
       {/* Welcome Banner */}
       <div className="welcome-banner">
         <div className="welcome-text">
-          <h1>Good morning, {firstName}</h1>
+          <Greeting name={firstName} />
           <p>
             {stats.upcomingSessions > 0
               ? `You have ${stats.upcomingSessions} upcoming session${stats.upcomingSessions === 1 ? "" : "s"} on the calendar.`

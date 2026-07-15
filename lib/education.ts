@@ -9,11 +9,28 @@ import type { Tier } from "@/lib/types";
  * unpublished/gated courses); placeholder tracks in preview mode.
  */
 
+export interface LessonDocument {
+  name: string;
+  url: string;
+}
+
+/** Quiz question as shown to members — correct answers never leave the server. */
+export interface QuizQuestionPublic {
+  q: string;
+  options: string[];
+}
+
 export interface CourseLesson {
   id: string;
   title: string;
   summary: string;
   videoId: string | null;
+  /** Reading/information body (plain text, paragraphs split on blank lines). */
+  content: string;
+  imageUrl: string | null;
+  documents: LessonDocument[];
+  /** Present when the lesson has a test; completion requires passing it. */
+  quiz: QuizQuestionPublic[] | null;
   completed: boolean;
 }
 
@@ -24,6 +41,8 @@ export interface CourseItem {
   category: string;
   minAccess: "all_members" | "vip_plus" | "pro_only";
   published: boolean;
+  /** Continuing-education hours printed on the completion certificate. */
+  ceHours: number | null;
   lessons: CourseLesson[];
   completedCount: number;
 }
@@ -41,6 +60,7 @@ const PLACEHOLDER_COURSES: CourseItem[] = [
     category: "Leadership",
     minAccess: "all_members",
     published: true,
+    ceHours: 2,
     completedCount: 1,
     lessons: [
       {
@@ -48,6 +68,10 @@ const PLACEHOLDER_COURSES: CourseItem[] = [
         title: "The Burnout Blueprint",
         summary: "Spot the early physiological signals before they cost you a quarter.",
         videoId: "burnout-blueprint",
+        content: "",
+        imageUrl: null,
+        documents: [],
+        quiz: null,
         completed: true,
       },
       {
@@ -55,6 +79,10 @@ const PLACEHOLDER_COURSES: CourseItem[] = [
         title: "The Vitality Blueprint",
         summary: "Design your energy like a system: sleep, fuel, and recovery blocks.",
         videoId: "vitality-blueprint",
+        content: "",
+        imageUrl: null,
+        documents: [],
+        quiz: null,
         completed: false,
       },
       {
@@ -62,6 +90,10 @@ const PLACEHOLDER_COURSES: CourseItem[] = [
         title: "The Trust Architecture",
         summary: "The team foundations that keep performance from depending on heroics.",
         videoId: "trust-architecture",
+        content: "",
+        imageUrl: null,
+        documents: [],
+        quiz: null,
         completed: false,
       },
       {
@@ -69,6 +101,10 @@ const PLACEHOLDER_COURSES: CourseItem[] = [
         title: "Culture by Design",
         summary: "Turn personal resilience into a team operating rhythm.",
         videoId: "culture-by-design",
+        content: "",
+        imageUrl: null,
+        documents: [],
+        quiz: null,
         completed: false,
       },
     ],
@@ -81,6 +117,7 @@ const PLACEHOLDER_COURSES: CourseItem[] = [
     category: "Business",
     minAccess: "vip_plus",
     published: true,
+    ceHours: 1.5,
     completedCount: 0,
     lessons: [
       {
@@ -88,6 +125,10 @@ const PLACEHOLDER_COURSES: CourseItem[] = [
         title: "The Revenue Architecture",
         summary: "Design a business that scales beyond its founder.",
         videoId: "revenue-architecture",
+        content: "",
+        imageUrl: null,
+        documents: [],
+        quiz: null,
         completed: false,
       },
       {
@@ -95,6 +136,10 @@ const PLACEHOLDER_COURSES: CourseItem[] = [
         title: "Pricing for Premium",
         summary: "Charge what you're worth — positioning, anchors, and offers.",
         videoId: "pricing-premium",
+        content: "",
+        imageUrl: null,
+        documents: [],
+        quiz: null,
         completed: false,
       },
     ],
@@ -108,6 +153,7 @@ interface CourseRow {
   category: string | null;
   min_access: "all_members" | "vip_plus" | "pro_only" | "admin_only";
   published_at: string | null;
+  ce_hours: number | null;
   course_lessons:
     | {
         id: string;
@@ -115,8 +161,45 @@ interface CourseRow {
         summary: string | null;
         video_id: string | null;
         position: number;
+        content: string | null;
+        image_url: string | null;
+        documents: unknown;
+        quiz: unknown;
       }[]
     | null;
+}
+
+export function parseDocuments(raw: unknown): LessonDocument[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (d): d is { name?: unknown; url?: unknown } =>
+        typeof d === "object" && d !== null,
+    )
+    .map((d) => ({
+      name: typeof d.name === "string" ? d.name : "Document",
+      url: typeof d.url === "string" ? d.url : "",
+    }))
+    .filter((d) => d.url);
+}
+
+/** Strip correct answers before quiz questions go to the browser. */
+export function publicQuiz(raw: unknown): QuizQuestionPublic[] | null {
+  const questions = (raw as { questions?: unknown } | null)?.questions;
+  if (!Array.isArray(questions) || questions.length === 0) return null;
+  const cleaned = questions
+    .filter(
+      (q): q is { q?: unknown; options?: unknown } =>
+        typeof q === "object" && q !== null,
+    )
+    .map((q) => ({
+      q: typeof q.q === "string" ? q.q : "",
+      options: Array.isArray(q.options)
+        ? q.options.filter((o): o is string => typeof o === "string")
+        : [],
+    }))
+    .filter((q) => q.q && q.options.length >= 2);
+  return cleaned.length > 0 ? cleaned : null;
 }
 
 export async function listCourses(): Promise<CourseItem[]> {
@@ -127,7 +210,7 @@ export async function listCourses(): Promise<CourseItem[]> {
     supabase
       .from("courses")
       .select(
-        "id, title, description, category, min_access, published_at, course_lessons ( id, title, summary, video_id, position )",
+        "id, title, description, category, min_access, published_at, ce_hours, course_lessons ( id, title, summary, video_id, position, content, image_url, documents, quiz )",
       )
       .order("position"),
     supabase.from("lesson_progress").select("lesson_id"),
@@ -143,6 +226,10 @@ export async function listCourses(): Promise<CourseItem[]> {
         title: l.title,
         summary: l.summary ?? "",
         videoId: l.video_id,
+        content: l.content ?? "",
+        imageUrl: l.image_url ?? null,
+        documents: parseDocuments(l.documents),
+        quiz: publicQuiz(l.quiz),
         completed: done.has(l.id),
       }));
     return {
@@ -155,6 +242,7 @@ export async function listCourses(): Promise<CourseItem[]> {
           ? row.min_access
           : "all_members",
       published: Boolean(row.published_at),
+      ceHours: row.ce_hours === null ? null : Number(row.ce_hours),
       lessons,
       completedCount: lessons.filter((l) => l.completed).length,
     } satisfies CourseItem;

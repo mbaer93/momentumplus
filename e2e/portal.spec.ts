@@ -14,7 +14,7 @@ test.describe("auth + portal shell", () => {
   test("root redirects into the dashboard", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.locator(".welcome-text h1")).toContainText("Good morning");
+    await expect(page.locator(".welcome-text h1")).toContainText(/Good (morning|afternoon|evening)|Welcome back/);
   });
 
   test("dashboard shows stats, upcoming sessions, and community activity", async ({

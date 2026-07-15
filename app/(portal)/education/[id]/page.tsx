@@ -39,7 +39,11 @@ export default async function CoursePage({
       </div>
 
       {unlocked ? (
-        <LessonList lessons={course.lessons} />
+        <LessonList
+          courseId={course.id}
+          lessons={course.lessons}
+          ceHours={course.ceHours}
+        />
       ) : (
         <div className="admin-banner" style={{ marginTop: 8 }}>
           <div>

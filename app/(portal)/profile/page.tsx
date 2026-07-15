@@ -14,6 +14,7 @@ import {
   timeLabel,
 } from "@/lib/sessions/view";
 import { isPro } from "@/lib/access";
+import { listCourses } from "@/lib/education";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -82,6 +83,41 @@ export default async function ProfilePage() {
       savedPrefs = (prefRows ?? []) as Partial<PrefRow>[];
     }
   }
+
+  // Earned certificates: courses with every lesson complete (viewer-scoped
+  // via RLS); completion date = the last lesson's completed_at.
+  const courses = await listCourses();
+  const earnedCourses = courses.filter(
+    (c) => c.published && c.lessons.length > 0 && c.lessons.every((l) => l.completed),
+  );
+  const completionDates = new Map<string, string>();
+  if (isSupabaseConfigured() && earnedCourses.length > 0) {
+    const supabase = createClient();
+    const lessonToCourse = new Map<string, string>();
+    for (const c of earnedCourses) {
+      for (const l of c.lessons) lessonToCourse.set(l.id, c.id);
+    }
+    const { data: progress } = await supabase
+      .from("lesson_progress")
+      .select("lesson_id, completed_at")
+      .in("lesson_id", [...lessonToCourse.keys()]);
+    for (const row of progress ?? []) {
+      const courseId = lessonToCourse.get(row.lesson_id);
+      if (!courseId || !row.completed_at) continue;
+      const prev = completionDates.get(courseId);
+      if (!prev || row.completed_at > prev) {
+        completionDates.set(courseId, row.completed_at);
+      }
+    }
+  }
+  const certificates = earnedCourses.map((c) => ({
+    courseId: c.id,
+    title: c.title,
+    ceHours: c.ceHours,
+    dateLabel: new Date(
+      completionDates.get(c.id) ?? Date.now(),
+    ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+  }));
 
   // Self-serve billing appears once the Super Admin's Stripe wizard is done.
   const stripeSettings = await getStripeSettings();
@@ -161,6 +197,7 @@ export default async function ProfilePage() {
       activity={activity}
       prefDefinitions={PREF_DEFINITIONS}
       initialPrefs={mergePrefs(savedPrefs)}
+      certificates={certificates}
       billing={{
         enabled: billingEnabled,
         basicPrice: stripeSettings?.displayPrices?.basic ?? null,

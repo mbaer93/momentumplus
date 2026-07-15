@@ -57,9 +57,16 @@ interface ProfileViewProps {
   prefDefinitions: PrefDefinition[];
   initialPrefs: PrefRow[];
   billing: BillingInfo;
+  /** Earned course certificates (every lesson complete). */
+  certificates: {
+    courseId: string;
+    title: string;
+    ceHours: number | null;
+    dateLabel: string;
+  }[];
 }
 
-type Tab = "activity" | "sessions" | "preferences";
+type Tab = "activity" | "sessions" | "certificates" | "preferences";
 
 export function ProfileView({
   member,
@@ -70,6 +77,7 @@ export function ProfileView({
   prefDefinitions,
   initialPrefs,
   billing,
+  certificates,
 }: ProfileViewProps) {
   const [tab, setTab] = useState<Tab>("activity");
   const [prefs, setPrefs] = useState<PrefRow[]>(initialPrefs);
@@ -173,6 +181,7 @@ export function ProfileView({
             </div>
             <BillingControls billing={billing} />
           </div>
+
         </div>
 
         {/* Main */}
@@ -182,6 +191,7 @@ export function ProfileView({
               [
                 ["activity", "Activity"],
                 ["sessions", "My Sessions"],
+                ["certificates", "My Certificates"],
                 ["preferences", "Preferences"],
               ] as [Tab, string][]
             ).map(([key, label]) => (

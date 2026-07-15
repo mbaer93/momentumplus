@@ -2906,3 +2906,95 @@ a.course-card:hover {
 .cal-legend-swatch {
   width: 12px; height: 12px; border-radius: 3px; display: inline-block;
 }
+
+/* ===== EDUCATION: certificate ===== */
+.certificate {
+  background: var(--navy);
+  border-radius: 4px;
+  padding: 14px;
+}
+.certificate-inner {
+  border: 2px solid var(--gold);
+  border-radius: 2px;
+  padding: 48px 40px;
+  text-align: center;
+  color: #fff;
+}
+.certificate-brand {
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 30px;
+  letter-spacing: 0.5px;
+}
+.certificate-sub {
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--mid-gray);
+  margin-top: 6px;
+}
+.certificate-label {
+  margin-top: 30px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.certificate-name {
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 34px;
+  margin-top: 14px;
+}
+.certificate-body { font-size: 13px; color: #cfd4d9; margin-top: 14px; }
+.certificate-course {
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 22px;
+  margin-top: 8px;
+  color: var(--gold-light, #D4AE75);
+}
+.certificate-hours {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 5px 14px;
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--gold-light, #D4AE75);
+}
+.certificate-date { font-size: 12.5px; color: #cfd4d9; margin-top: 16px; }
+.certificate-footer {
+  display: flex;
+  justify-content: space-around;
+  gap: 30px;
+  margin-top: 44px;
+  font-size: 11px;
+  color: #cfd4d9;
+}
+.certificate-line { flex: 1; max-width: 220px; }
+.certificate-rule {
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+  margin-bottom: 6px;
+}
+
+@media print {
+  .no-print,
+  .sidebar,
+  .topbar,
+  .sponsor-rail,
+  .sess-back,
+  .admin-edit-chip { display: none !important; }
+  .app-shell, .main-area, .content-area, .with-rail, .rail-content {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .certificate {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body { background: #fff; }
+}
