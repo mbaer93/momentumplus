@@ -109,13 +109,14 @@ function CourseFields({
       </div>
       <div className="admin-field" style={{ maxWidth: 340 }}>
         <label htmlFor={`${idPrefix}-ce`}>
-          Estimated hours to complete (CE hours on the certificate)
+          Duration in hours — whole numbers or decimals (CE hours on the
+          certificate)
         </label>
         <input
           id={`${idPrefix}-ce`}
           type="number"
           min={0}
-          step={0.5}
+          step="any"
           value={value.ceHours ?? ""}
           onChange={(e) =>
             onChange({
@@ -123,7 +124,7 @@ function CourseFields({
               ceHours: e.target.value === "" ? null : Number(e.target.value),
             })
           }
-          placeholder="e.g. 2"
+          placeholder="e.g. 2 or 1.5"
         />
       </div>
       <div className="admin-field">
