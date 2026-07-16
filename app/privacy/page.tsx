@@ -75,10 +75,10 @@ export default function PrivacyPage() {
         </div>
 
         <p style={pStyle}>
-          <strong>Effective date:</strong> [EFFECTIVE DATE]
+          <strong>Effective date:</strong> July 16, 2026
         </p>
         <p style={pStyle}>
-          Momentum+ is operated by [SIERRA LEARNERSHIP COLLABORATIVE, LLC] (“we,”
+          Momentum+ is operated by Sierra Learnership Collaborative, LLC (“we,”
           “us”) as the members-only community and learning platform for the
           Tri-State Leadership Summit. This policy explains what personal
           information we collect, how we use it, and who we share it with.
@@ -208,9 +208,14 @@ export default function PrivacyPage() {
 
         <h2 style={sectionStyle}>Contact</h2>
         <p style={pStyle}>
-          Questions or requests: [CONTACT EMAIL].
+          Questions or requests:{" "}
+          <a href="mailto:hello@momentumplus.co" style={{ color: "#0B1622" }}>
+            hello@momentumplus.co
+          </a>
+          .
           <br />
-          [SIERRA LEARNERSHIP COLLABORATIVE, LLC], [MAILING ADDRESS].
+          Sierra Learnership Collaborative, LLC, 117 Creekside Lane, Winchester,
+          VA 22602.
         </p>
 
         <div style={{ marginTop: 24, textAlign: "center" }}>
