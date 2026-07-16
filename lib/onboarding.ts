@@ -144,9 +144,12 @@ export async function createAccountWithoutEmail(
       redirectTo: siteUrl ? `${siteUrl}/auth/callback?redirect=/welcome` : undefined,
     },
   });
+  const hashed = linkData?.properties?.hashed_token;
   return {
     profileId: created.user.id,
-    loginLink: linkData?.properties?.action_link ?? null,
+    loginLink: hashed
+      ? `${siteUrl ?? ""}/auth/confirm?token_hash=${hashed}&type=recovery&redirect=/welcome`
+      : (linkData?.properties?.action_link ?? null),
     error: null,
   };
 }

@@ -82,6 +82,24 @@ export async function startCheckout(
 
   try {
     const customerId = await ensureCustomer(ctx);
+    // One live subscription per member: switching plans happens in the
+    // billing portal (prorated) — a second checkout would double-bill.
+    const { data: liveSub } = await createServiceClient()
+      .from("memberships")
+      .select("id")
+      .eq("profile_id", ctx.userId)
+      .eq("source", "stripe")
+      .in("status", ["active", "past_due"])
+      .not("stripe_subscription_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    if (liveSub) {
+      return {
+        ok: false,
+        message:
+          "You already have a subscription — use Manage billing below to switch plans (it prorates automatically) instead of buying a second one.",
+      };
+    }
     const session = await stripeRequest<{ url: string }>(
       ctx.settings.secretKey,
       "POST",

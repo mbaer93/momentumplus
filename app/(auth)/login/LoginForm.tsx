@@ -18,7 +18,10 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Surface errors handed back by the auth callback (expired/used links).
+  const [error, setError] = useState<string | null>(
+    searchParams.get("error"),
+  );
   const [notice, setNotice] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {

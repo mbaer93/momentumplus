@@ -25,6 +25,21 @@ export async function setLessonComplete(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
 
+  // Quiz lessons only complete through submitLessonQuiz (server-graded) —
+  // this manual toggle must never mint certificate progress for them.
+  if (completed) {
+    const { createServiceClient } = await import("@/lib/supabase/admin");
+    const { data: lesson } = await createServiceClient()
+      .from("course_lessons")
+      .select("quiz")
+      .eq("id", lessonId)
+      .maybeSingle();
+    if (!lesson) return { ok: false, message: "Lesson not found." };
+    if (lesson.quiz) {
+      return { ok: false, message: "This lesson has a test — pass it to complete." };
+    }
+  }
+
   const { error } = completed
     ? await supabase
         .from("lesson_progress")

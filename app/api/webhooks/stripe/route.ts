@@ -110,9 +110,27 @@ export async function POST(req: NextRequest) {
                   : undefined,
               });
             profileId = invited?.user?.id;
+            if (!profileId) {
+              // Same healing ladder as admin grants: existing login without
+              // a profile row, then account-without-email. A paying customer
+              // must never end up with no account.
+              const { findAuthUserIdByEmail, createAccountWithoutEmail } =
+                await import("@/lib/onboarding");
+              profileId =
+                (await findAuthUserIdByEmail(email)) ??
+                (await createAccountWithoutEmail(email, s.metadata?.signup_name))
+                  .profileId ??
+                undefined;
+            }
           }
         }
-        if (!profileId) break;
+        if (!profileId) {
+          // 500 → Stripe retries; a paid checkout must not be silently lost.
+          return NextResponse.json(
+            { error: "could not provision account for paid checkout" },
+            { status: 500 },
+          );
+        }
 
         // Idempotency: Stripe retries deliveries.
         const { data: existing } = await admin
@@ -148,11 +166,21 @@ export async function POST(req: NextRequest) {
 
       case "customer.subscription.updated": {
         const sub = event.data.object as unknown as StripeSubscription;
-        const patch: Record<string, unknown> = {
-          status: mapStatus(sub.status),
-        };
+        const status = mapStatus(sub.status);
+        const patch: Record<string, unknown> = { status };
+        // Only a paid period extends access — a declined renewal advances
+        // Stripe's period but must not hand out a free month.
         const end = periodEndIso(sub);
-        if (end) patch.access_expires_at = end;
+        if (end && status === "active") patch.access_expires_at = end;
+        // Portal plan switches change the price on the subscription; keep
+        // the tier in lockstep so access always matches what they pay for.
+        const priceId = (
+          sub as unknown as { items?: { data?: { price?: { id?: string } }[] } }
+        ).items?.data?.[0]?.price?.id;
+        if (priceId && settings.prices.basic && settings.prices.pro) {
+          if (priceId === settings.prices.pro) patch.tier = "pro";
+          else if (priceId === settings.prices.basic) patch.tier = "basic";
+        }
 
         const { data: row } = await admin
           .from("memberships")

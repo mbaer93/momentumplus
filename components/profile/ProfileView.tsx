@@ -238,10 +238,7 @@ export function ProfileView({
                       {a.icon}
                     </div>
                     <div className="activity-body">
-                      <div
-                        className="activity-text"
-                        dangerouslySetInnerHTML={{ __html: a.text }}
-                      />
+                      <div className="activity-text">{a.text}</div>
                       <div className="activity-time">{a.time}</div>
                     </div>
                   </div>

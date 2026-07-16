@@ -75,15 +75,22 @@ export async function POST() {
       typeof server.upsertUsers
     >[0]);
 
+    const allowedIds = new Set(channels.map((c) => c.id));
+    const { COMMUNITY_CHANNELS } = await import("@/lib/stream");
     await Promise.all(
-      channels.map(async (c) => {
+      COMMUNITY_CHANNELS.map(async (c) => {
         try {
           const channel = server.channel("messaging", c.id, {
             created_by_id: "momentum-team",
-            ...( { name: c.name } as object),
+            ...({ name: c.name } as object),
           });
           await channel.create();
-          await channel.addMembers([userId]);
+          if (allowedIds.has(c.id)) {
+            await channel.addMembers([userId]);
+          } else if (!member.isAdmin) {
+            // Downgraded tier: revoke gated rooms, don't just hide them.
+            await channel.removeMembers([userId]);
+          }
         } catch {
           // per-channel best-effort
         }

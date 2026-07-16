@@ -101,7 +101,7 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
               description={session.description}
               startsAt={session.startsAt}
               durationMin={session.durationMin}
-              joinUrl={session.zoomJoinUrl}
+              joinUrl={session.isEnrolled ? session.zoomJoinUrl : null}
             />
           </div>
         </div>

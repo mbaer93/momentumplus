@@ -10,6 +10,20 @@ import { getAnthropicApiKey } from "@/lib/service-config";
 
 export const dynamic = "force-dynamic";
 
+// Best-effort per-user throttle (per server instance): 20 requests/hour.
+const usage = new Map<string, number[]>();
+function overLimit(key: string): boolean {
+  const now = Date.now();
+  const recent = (usage.get(key) ?? []).filter((t) => now - t < 3600_000);
+  if (recent.length >= 20) {
+    usage.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  usage.set(key, recent);
+  return false;
+}
+
 const HELP_MODEL = "claude-haiku-4-5-20251001";
 
 const SYSTEM_PROMPT = `You are the Momentum+ help assistant. Momentum+ is the members-only community and learning platform of the Tri-State Leadership Summit (TSLS), for business leaders in Maryland, Pennsylvania, and West Virginia.
@@ -43,6 +57,12 @@ export async function POST(req: Request) {
   const member = await getCurrentMember();
   if (!member || !member.membershipActive) {
     return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  }
+  if (overLimit(member.email || member.name)) {
+    return NextResponse.json({
+      reply:
+        "You've reached the helper's hourly limit — give it a little while and ask again, or post in the Community chat.",
+    });
   }
 
   let body: { messages?: ChatMessage[] };

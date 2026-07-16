@@ -1,6 +1,7 @@
 "use server";
 
 import { getStripeSettings, stripeReady, stripeRequest } from "@/lib/stripe";
+import { requestSiteUrl } from "@/lib/site-url";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -56,7 +57,7 @@ export async function startPublicCheckout(input: {
     };
   }
 
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = requestSiteUrl() ?? "";
   try {
     const session = await stripeRequest<{ url: string }>(
       settings.secretKey,

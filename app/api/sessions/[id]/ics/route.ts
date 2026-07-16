@@ -13,12 +13,15 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
+  // The Zoom link is for enrolled members only — everyone else gets a
+  // calendar entry pointing back at the session page.
+  const joinUrl = session.isEnrolled ? session.zoomJoinUrl : null;
   const ics = buildIcs({
     uid: `session-${session.id}@momentumplus`,
     title: `Momentum+ · ${session.title}`,
     description: `${session.description}\n\nSpeaker: ${session.speaker.name}`,
-    location: session.zoomJoinUrl ?? "Momentum+ (online)",
-    url: session.zoomJoinUrl ?? undefined,
+    location: joinUrl ?? "Momentum+ (online)",
+    url: joinUrl ?? undefined,
     start: new Date(session.startsAt),
     durationMin: session.durationMin,
     organizerName: "Momentum+",
