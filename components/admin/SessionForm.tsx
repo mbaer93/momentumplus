@@ -2,6 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+// Session times are entered and displayed as Eastern Time — the same wall
+// time the server stores, so a no-op save can never shift the schedule.
+import { isoToEasternInput } from "@/lib/eastern-time";
 import type { AccessLevel, SessionStatus } from "@/lib/types";
 import {
   createSession,
@@ -24,16 +27,6 @@ const STATUSES: SessionStatus[] = [
   "archived",
 ];
 
-// Convert an ISO string to a value for <input type="datetime-local">.
-function toLocalInput(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
-}
-
 export function SessionForm({
   mode,
   sessionId,
@@ -54,7 +47,7 @@ export function SessionForm({
     title: initial?.title ?? "",
     description: initial?.description ?? "",
     category: initial?.category ?? "Leadership",
-    startsAt: toLocalInput(initial?.startsAtIso ?? null),
+    startsAt: isoToEasternInput(initial?.startsAtIso ?? null),
     durationMin: initial?.durationMin ?? 60,
     capacity: initial?.capacity ?? null,
     minAccess: initial?.minAccess ?? "all_members",
@@ -161,7 +154,7 @@ export function SessionForm({
 
       <div className="admin-field-row">
         <div className="admin-field">
-          <label htmlFor="startsAt">Starts at</label>
+          <label htmlFor="startsAt">Starts at (Eastern Time)</label>
           <input
             id="startsAt"
             type="datetime-local"

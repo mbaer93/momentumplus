@@ -22,7 +22,9 @@ export async function POST(
 
   const { data: session, error } = await admin
     .from("sessions")
-    .select("id, title, description, starts_at, duration_min, zoom_meeting_id")
+    .select(
+      "id, title, description, starts_at, duration_min, zoom_meeting_id, status",
+    )
     .eq("id", params.id)
     .maybeSingle();
 
@@ -36,7 +38,11 @@ export async function POST(
     );
   }
 
-  let update: Record<string, unknown> = { status: "scheduled" };
+  // Publishing a draft schedules it; re-publishing a live/completed/archived
+  // session must NOT drag it back to "scheduled" (that hides its AI summary
+  // and re-arms reminders). Re-publish still backfills a missing Zoom meeting.
+  let update: Record<string, unknown> =
+    session.status === "draft" ? { status: "scheduled" } : {};
 
   // Create the Zoom meeting only once, and only if Zoom is configured.
   if (!session.zoom_meeting_id && (await isZoomReady())) {
@@ -51,6 +57,8 @@ export async function POST(
         ...update,
         zoom_meeting_id: meeting.id,
         zoom_join_url: meeting.joinUrl,
+        // The SDK join needs the passcode explicitly; the join URL embeds it.
+        zoom_passcode: meeting.password ?? null,
       };
     } catch (e) {
       return NextResponse.json(
@@ -58,6 +66,10 @@ export async function POST(
         { status: 502 },
       );
     }
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ ok: true, unchanged: true });
   }
 
   const { error: updateError } = await admin

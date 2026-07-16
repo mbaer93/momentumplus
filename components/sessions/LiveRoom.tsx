@@ -12,9 +12,11 @@ type Phase = "loading" | "joined" | "unavailable";
 export function LiveRoom({
   session,
   displayName,
+  memberEmail = "",
 }: {
   session: SessionDetail;
   displayName: string;
+  memberEmail?: string;
 }) {
   const [tab, setTab] = useState<Tab>("notes");
   const [phase, setPhase] = useState<Phase>("loading");
@@ -50,11 +52,13 @@ export function LiveRoom({
           return;
         }
 
-        const { signature, sdkKey, meetingNumber } = (await res.json()) as {
-          signature: string;
-          sdkKey: string;
-          meetingNumber: string;
-        };
+        const { signature, sdkKey, meetingNumber, passcode } =
+          (await res.json()) as {
+            signature: string;
+            sdkKey: string;
+            meetingNumber: string;
+            passcode?: string | null;
+          };
 
         // Zoom Meeting SDK (component view) — loaded client-side only.
         const { default: ZoomMtgEmbedded } = await import(
@@ -73,6 +77,10 @@ export function LiveRoom({
           signature,
           meetingNumber,
           userName: displayName,
+          // Zoom accounts require passcodes by default; join fails without it.
+          password: passcode ?? "",
+          // Helps the attendance report match this participant to a member.
+          userEmail: memberEmail || undefined,
         });
 
         if (!cancelled) setPhase("joined");
@@ -92,7 +100,7 @@ export function LiveRoom({
     return () => {
       cancelled = true;
     };
-  }, [session.id, displayName]);
+  }, [session.id, displayName, memberEmail]);
 
   return (
     <div className="live-wrap">

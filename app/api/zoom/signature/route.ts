@@ -3,6 +3,8 @@ import { getSession } from "@/lib/sessions/queries";
 import { isJoinWindowOpen } from "@/lib/sessions/view";
 import { generateZoomSignature } from "@/lib/zoom-signature";
 import { getZoomCreds } from "@/lib/service-config";
+import { createServiceClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /*
  * Issues a short-lived Zoom Meeting SDK join signature for the embedded live
@@ -59,11 +61,24 @@ export async function POST(req: NextRequest) {
     role: 0, // attendee
   });
 
+  // Most Zoom accounts force meeting passcodes; the SDK join fails without
+  // one. Only handed out here — after the enrollment + join-window checks.
+  let passcode: string | null = null;
+  if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { data } = await createServiceClient()
+      .from("sessions")
+      .select("zoom_passcode")
+      .eq("id", session.id)
+      .maybeSingle();
+    passcode = (data?.zoom_passcode as string | null) ?? null;
+  }
+
   return NextResponse.json(
     {
       signature,
       sdkKey: zoom.sdkClientId,
       meetingNumber: session.zoomMeetingId,
+      passcode,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

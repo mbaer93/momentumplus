@@ -230,6 +230,8 @@ export async function setupStripeWebhook(): Promise<BillingResult> {
         "enabled_events[1]": "customer.subscription.updated",
         "enabled_events[2]": "customer.subscription.deleted",
         "enabled_events[3]": "invoice.payment_failed",
+        "enabled_events[4]": "invoice.paid",
+        "enabled_events[5]": "checkout.session.async_payment_succeeded",
         description: "Momentum+ membership sync",
       },
     );
