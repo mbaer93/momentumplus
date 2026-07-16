@@ -38,7 +38,16 @@ export async function enrollInSession(sessionId: string): Promise<ActionResult> 
       { onConflict: "session_id,profile_id", ignoreDuplicates: true },
     );
 
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    // The capacity trigger raises "Session is full" — say it like a human.
+    if (error.message.includes("Session is full")) {
+      return {
+        ok: false,
+        message: "This session is at capacity — no seats left.",
+      };
+    }
+    return { ok: false, message: error.message };
+  }
 
   revalidatePath(`/sessions/${sessionId}`);
   revalidatePath("/sessions");

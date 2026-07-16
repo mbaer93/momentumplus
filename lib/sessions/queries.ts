@@ -93,6 +93,24 @@ export async function listSessions(): Promise<SessionDetail[]> {
 
   const sessions = (data as unknown as SessionRow[]).map(mapRow);
 
+  // Real enrollment counts (members can only read their own enrollment rows,
+  // so counting requires the service role — aggregate only, nothing personal).
+  if (sessions.length > 0 && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { createServiceClient } = await import("@/lib/supabase/admin");
+    const { data: allEnrollments } = await createServiceClient()
+      .from("enrollments")
+      .select("session_id")
+      .in(
+        "session_id",
+        sessions.map((s) => s.id),
+      );
+    const counts = new Map<string, number>();
+    for (const e of allEnrollments ?? []) {
+      counts.set(e.session_id, (counts.get(e.session_id) ?? 0) + 1);
+    }
+    for (const s of sessions) s.enrolledCount = counts.get(s.id) ?? 0;
+  }
+
   // Mark the viewer's enrollments.
   if (user) {
     const { data: enrollments } = await supabase
@@ -153,18 +171,30 @@ export async function getSession(id: string): Promise<SessionDetail | null> {
     if (note?.body) session.note = note.body;
   }
 
-  // Join credentials only exist for enrolled viewers — the columns are not
-  // member-selectable (migration 0020), so this is the single hand-out point.
-  if (session.isEnrolled && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const { createServiceClient } = await import("@/lib/supabase/admin");
-    const { data: joinInfo } = await createServiceClient()
-      .from("sessions")
-      .select("zoom_join_url, zoom_meeting_id")
-      .eq("id", id)
-      .maybeSingle();
-    session.zoomJoinUrl = (joinInfo?.zoom_join_url as string | null) ?? null;
-    session.zoomMeetingId =
-      (joinInfo?.zoom_meeting_id as string | null) ?? null;
+    const service = createServiceClient();
+
+    // Real enrollment count (aggregate only — members can't read others'
+    // enrollment rows themselves).
+    const { count } = await service
+      .from("enrollments")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", id);
+    session.enrolledCount = count ?? 0;
+
+    // Join credentials only exist for enrolled viewers — the columns are not
+    // member-selectable (migration 0020), so this is the single hand-out point.
+    if (session.isEnrolled) {
+      const { data: joinInfo } = await service
+        .from("sessions")
+        .select("zoom_join_url, zoom_meeting_id")
+        .eq("id", id)
+        .maybeSingle();
+      session.zoomJoinUrl = (joinInfo?.zoom_join_url as string | null) ?? null;
+      session.zoomMeetingId =
+        (joinInfo?.zoom_meeting_id as string | null) ?? null;
+    }
   }
 
   return session;

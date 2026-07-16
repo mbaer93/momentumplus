@@ -1,5 +1,6 @@
 "use server";
 
+import { emailPattern } from "@/lib/db-utils";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import {
@@ -60,7 +61,7 @@ export async function grantMembership(input: {
   const { data: profile } = await admin
     .from("profiles")
     .select("id")
-    .ilike("email", email)
+    .ilike("email", emailPattern(email))
     .maybeSingle();
   if (profile) {
     profileId = profile.id;

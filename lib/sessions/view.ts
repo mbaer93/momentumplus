@@ -61,13 +61,14 @@ export function dateLabel(startsAt: string): string {
 }
 
 export function timeLabel(startsAt: string): string {
-  return (
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: TZ,
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(startsAt)) + " EST"
-  );
+  // timeZoneName gives the seasonally correct EST/EDT instead of a
+  // hardcoded "EST" that mislabels eight months of the year.
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ,
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(startsAt));
 }
 
 export function monthShort(startsAt: string): string {

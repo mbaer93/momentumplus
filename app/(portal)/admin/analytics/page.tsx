@@ -56,7 +56,6 @@ export default async function AdminAnalyticsPage() {
 
     const [
       { data: sessionRows },
-      { data: enrollmentRows },
       { data: sponsorRows },
       { data: sponsorEvents },
       { data: resourceRows },
@@ -67,11 +66,9 @@ export default async function AdminAnalyticsPage() {
       admin
         .from("sessions")
         .select("id, title, starts_at")
+        .not("starts_at", "is", null) // drafts with no date aren't reportable
         .order("starts_at", { ascending: false })
         .limit(24),
-      admin
-        .from("enrollments")
-        .select("session_id, attended, profiles ( full_name, email )"),
       admin.from("sponsors").select("id, name").order("name"),
       admin.from("sponsor_events").select("sponsor_id, kind, at"),
       admin.from("resources").select("id, title"),
@@ -79,6 +76,15 @@ export default async function AdminAnalyticsPage() {
       admin.from("videos").select("id, title"),
       admin.from("video_views").select("video_id, profile_id, watched_at"),
     ]);
+
+    // Rosters only for the sessions on the page — not every enrollment ever.
+    const { data: enrollmentRows } = await admin
+      .from("enrollments")
+      .select("session_id, attended, profiles ( full_name, email )")
+      .in(
+        "session_id",
+        (sessionRows ?? []).map((s) => s.id),
+      );
 
     type EnrollRow = {
       session_id: string;

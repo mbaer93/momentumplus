@@ -1,3 +1,4 @@
+import { emailPattern } from "@/lib/db-utils";
 import { addMonths } from "@/lib/membership";
 import { requestSiteUrl } from "@/lib/site-url";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -176,7 +177,7 @@ export async function provisionMember(
   const { data: profile } = await admin
     .from("profiles")
     .select("id")
-    .ilike("email", email)
+    .ilike("email", emailPattern(email))
     .maybeSingle();
   if (profile) {
     profileId = profile.id;
@@ -195,7 +196,7 @@ export async function provisionMember(
       const { data: again } = await admin
         .from("profiles")
         .select("id")
-        .ilike("email", email)
+        .ilike("email", emailPattern(email))
         .maybeSingle();
       profileId = again?.id ?? null;
       // Login may exist with no profile row at all (accounts created before

@@ -74,13 +74,23 @@ export async function sendAnnouncement(
     if (!profile) continue;
 
     if (input.channels.includes("in_app")) {
-      await admin.from("notifications").insert({
-        profile_id: m.profile_id,
-        kind: "announcement",
-        title: input.title.trim(),
-        body: input.body.trim() || null,
-        link: "/dashboard",
-      });
+      // Respect the member's "platform" notification preference — an
+      // opted-out member doesn't get the in-app row.
+      const { data: pref } = await admin
+        .from("notification_prefs")
+        .select("in_app")
+        .eq("profile_id", m.profile_id)
+        .eq("key", "platform")
+        .maybeSingle();
+      if (pref?.in_app !== false) {
+        await admin.from("notifications").insert({
+          profile_id: m.profile_id,
+          kind: "announcement",
+          title: input.title.trim(),
+          body: input.body.trim() || null,
+          link: "/dashboard",
+        });
+      }
     }
     if (input.channels.includes("email")) {
       await sendEmailViaGhl({

@@ -11,6 +11,8 @@ export interface IcsEvent {
   durationMin: number;
   organizerName?: string;
   organizerEmail?: string;
+  /** DTSTAMP override — tests pin it for deterministic output. */
+  stamp?: Date;
 }
 
 // ICS date-time in UTC: 20260218T160000Z
@@ -44,7 +46,9 @@ function foldLine(line: string): string {
 
 export function buildIcs(event: IcsEvent): string {
   const end = new Date(event.start.getTime() + event.durationMin * 60 * 1000);
-  const stamp = toIcsUtc(new Date(0)); // deterministic DTSTAMP for testability
+  // Real DTSTAMP: calendar clients reconcile re-imports by it, and a 1970
+  // stamp makes some refuse to update a changed event.
+  const stamp = toIcsUtc(event.stamp ?? new Date());
 
   const lines: string[] = [
     "BEGIN:VCALENDAR",

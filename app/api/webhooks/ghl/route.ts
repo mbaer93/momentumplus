@@ -1,3 +1,4 @@
+import { emailPattern } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyGhlWebhook } from "@/lib/ghl";
 import { getGhlCreds } from "@/lib/service-config";
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
   const { data: profile } = await admin
     .from("profiles")
     .select("id")
-    .ilike("email", event.email)
+    .ilike("email", emailPattern(event.email))
     .maybeSingle();
 
   if (!profile) {
@@ -100,6 +101,16 @@ export async function POST(req: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // A failed or canceled payment for someone with NO membership row must
+  // not create one — inserting the past_due patch would hand a declined
+  // first payment 7 days of free access on a guessed tier.
+  if (!existing && event.kind !== "payment_success") {
+    return NextResponse.json({
+      ok: true,
+      skipped: `${event.kind} for ${event.email} with no existing membership`,
+    });
+  }
 
   const patch = applyGhlEvent(event, tier ?? existing?.tier ?? "sub_monthly", existing ?? null);
 

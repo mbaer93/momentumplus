@@ -138,6 +138,36 @@ export async function createZoomMeeting(
   };
 }
 
+/**
+ * Sync schedule changes to an existing Zoom meeting — editing a published
+ * session must move the Zoom meeting too, or members join a meeting whose
+ * clock disagrees with the portal.
+ */
+export async function updateZoomMeeting(
+  meetingId: string,
+  input: { topic?: string; startTime?: string; durationMin?: number; agenda?: string },
+): Promise<void> {
+  const token = await getZoomAccessToken();
+  const res = await fetch(`${ZOOM_API_BASE}/meetings/${meetingId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ...(input.topic !== undefined && { topic: input.topic }),
+      ...(input.startTime !== undefined && { start_time: input.startTime }),
+      ...(input.durationMin !== undefined && { duration: input.durationMin }),
+      ...(input.agenda !== undefined && { agenda: input.agenda }),
+    }),
+    cache: "no-store",
+  });
+  // Zoom returns 204 on success.
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`Zoom update meeting failed: ${res.status} ${await res.text()}`);
+  }
+}
+
 export interface ZoomParticipant {
   name: string;
   email: string;

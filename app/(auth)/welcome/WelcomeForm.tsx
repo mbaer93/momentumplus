@@ -12,11 +12,20 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  *   Step 2 — complete their member profile (name, company, role, phone)
  * then straight into the portal.
  */
+export interface WelcomeInitialProfile {
+  full_name: string;
+  company: string;
+  title: string;
+  phone: string;
+  industry: string;
+  bio: string;
+}
+
 export function WelcomeForm({
-  initialName,
+  initialProfile,
   email,
 }: {
-  initialName: string;
+  initialProfile: WelcomeInitialProfile;
   email: string;
 }) {
   const router = useRouter();
@@ -24,11 +33,13 @@ export function WelcomeForm({
   const [step, setStep] = useState<1 | 2>(1);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  // Start from the EXISTING profile — recovery-link visitors are members
+  // with real data, and this form must never blank it out.
   const [profile, setProfile] = useState({
-    full_name: initialName,
-    company: "",
-    title: "",
-    phone: "",
+    full_name: initialProfile.full_name,
+    company: initialProfile.company,
+    title: initialProfile.title,
+    phone: initialProfile.phone,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,8 +88,10 @@ export function WelcomeForm({
         phone: profile.phone,
         company: profile.company,
         title: profile.title,
-        industry: "",
-        bio: "",
+        // Not shown in this quick walkthrough — pass through untouched so
+        // finishing the wizard never erases what a member wrote before.
+        industry: initialProfile.industry,
+        bio: initialProfile.bio,
       });
       router.replace("/dashboard");
     } catch {

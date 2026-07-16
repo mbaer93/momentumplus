@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getCurrentMember } from "@/lib/current-member";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -9,6 +10,12 @@ export interface ProgressResult {
   ok: boolean;
   message?: string;
   preview?: boolean;
+}
+
+/** Progress writes require a live membership, not just a login. */
+async function membershipActive(): Promise<boolean> {
+  const member = await getCurrentMember();
+  return Boolean(member?.membershipActive);
 }
 
 /** Mark a lesson complete/incomplete for the signed-in member (RLS: own rows). */
@@ -24,6 +31,9 @@ export async function setLessonComplete(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
+  if (!(await membershipActive())) {
+    return { ok: false, message: "Your membership has lapsed — renew to continue learning." };
+  }
 
   // Quiz lessons only complete through submitLessonQuiz (server-graded) —
   // this manual toggle must never mint certificate progress for them.
@@ -71,6 +81,7 @@ export async function markLessonOpened(lessonId: string): Promise<ProgressResult
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
+  if (!(await membershipActive())) return { ok: true };
 
   // Quiz presence is checked server-side so the client can't skip a test.
   const { data: lesson } = await createServiceClient()
@@ -121,6 +132,14 @@ export async function submitLessonQuiz(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, passed: false, scorePct: 0, message: "Not signed in." };
+  if (!(await membershipActive())) {
+    return {
+      ok: false,
+      passed: false,
+      scorePct: 0,
+      message: "Your membership has lapsed — renew to take tests.",
+    };
+  }
 
   const { data: lesson } = await createServiceClient()
     .from("course_lessons")

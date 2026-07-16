@@ -53,9 +53,35 @@ export async function GET(req: NextRequest) {
   if (isMuxConfigured()) {
     const { data: videos } = await admin
       .from("videos")
-      .select("id, title, mux_asset_id, mux_playback_id, ai_summaries!video_id ( id )")
+      .select(
+        "id, title, mux_asset_id, mux_playback_id, duration_sec, ai_summaries!video_id ( id )",
+      )
       .not("mux_asset_id", "is", null)
       .limit(50);
+
+    // Backfill: an upload finalized while Mux was still "preparing" gets a
+    // row with no playback id/duration and would otherwise show "Recording
+    // processing" forever. Heal those here once the asset is ready.
+    for (const v of (videos ?? []).filter(
+      (v) => !v.mux_playback_id || !v.duration_sec,
+    )) {
+      try {
+        const asset = await getMuxAsset(v.mux_asset_id as string);
+        const playbackId = asset.playback_ids?.[0]?.id ?? null;
+        const patch: Record<string, unknown> = {};
+        if (!v.mux_playback_id && playbackId) patch.mux_playback_id = playbackId;
+        if (!v.duration_sec && asset.duration) {
+          patch.duration_sec = Math.round(asset.duration);
+        }
+        if (Object.keys(patch).length > 0) {
+          await admin.from("videos").update(patch).eq("id", v.id);
+          if (patch.mux_playback_id) v.mux_playback_id = patch.mux_playback_id;
+          videoResults.push({ id: v.id, title: v.title, status: "playback backfilled" });
+        }
+      } catch {
+        // asset may still be processing; next run retries
+      }
+    }
 
     const candidates = (videos ?? [])
       .filter((v) => {

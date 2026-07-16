@@ -35,12 +35,24 @@ test("buildIcs escapes special characters in text fields", () => {
   assert.ok(ics.includes("DESCRIPTION:Line one\\nLine two"));
 });
 
-test("buildIcs is deterministic (stable DTSTAMP)", () => {
+test("buildIcs is deterministic with a pinned DTSTAMP", () => {
   const args = {
     uid: "same",
     title: "Same",
     start: new Date("2026-03-01T12:00:00.000Z"),
     durationMin: 30,
+    stamp: new Date("2026-03-01T00:00:00.000Z"),
   };
   assert.equal(buildIcs(args), buildIcs(args));
+  assert.ok(buildIcs(args).includes("DTSTAMP:20260301T000000Z"));
+});
+
+test("buildIcs stamps the current time by default (not 1970)", () => {
+  const ics = buildIcs({
+    uid: "now",
+    title: "Now",
+    start: new Date("2026-03-01T12:00:00.000Z"),
+    durationMin: 30,
+  });
+  assert.ok(!ics.includes("DTSTAMP:19700101T000000Z"));
 });
