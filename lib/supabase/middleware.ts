@@ -32,8 +32,16 @@ export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   // Phase 1 dev convenience: without Supabase env configured, skip auth so the
-  // shell is viewable. Real deployments MUST set the Supabase env vars.
+  // shell is viewable — LOCAL DEV ONLY. On any deployed environment, missing
+  // Supabase env vars are a misconfiguration; failing open would serve the
+  // entire members-only portal (and admin) to the public with no login.
   if (!isSupabaseConfigured()) {
+    if (process.env.VERCEL) {
+      return new NextResponse(
+        "Momentum+ is misconfigured: Supabase environment variables are not set for this deployment.",
+        { status: 503 },
+      );
+    }
     return response;
   }
 

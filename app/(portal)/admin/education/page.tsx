@@ -49,6 +49,18 @@ export default async function AdminEducationPage({
         .order("position"),
       admin.from("videos").select("id, title").order("title"),
     ]);
+    // education-media is private (migration 0020) — sign preview URLs.
+    const { signEducationUrls } = await import("@/lib/education-media");
+    const signed = await signEducationUrls(
+      (courses ?? []).flatMap((c) =>
+        (c.course_lessons ?? []).flatMap((l) => [
+          l.image_url,
+          ...parseDocuments(l.documents).map((d) => d.url),
+        ]),
+      ),
+    );
+    const usable = (url: string | null) =>
+      url ? (signed.get(url) ?? url) : null;
     rows = (courses ?? []).map((c) => ({
       id: c.id,
       title: c.title,
@@ -68,8 +80,11 @@ export default async function AdminEducationPage({
           summary: l.summary ?? "",
           videoId: l.video_id,
           content: l.content ?? "",
-          imageUrl: l.image_url ?? null,
-          documents: parseDocuments(l.documents),
+          imageUrl: usable(l.image_url ?? null),
+          documents: parseDocuments(l.documents).map((d) => ({
+            ...d,
+            url: usable(d.url) ?? d.url,
+          })),
           quiz: adminQuiz(l.quiz),
         })),
     }));

@@ -85,6 +85,14 @@ export async function POST() {
             ...({ name: c.name } as object),
           });
           await channel.create();
+          // Admin-post-only is enforced BY STREAM, not just our UI: frozen
+          // channels reject client-side sends, so a member connecting with
+          // the SDK directly still can't post. Team posts go through the
+          // server (announcement composer + scheduled-posts cron), which
+          // frozen doesn't block.
+          if (c.adminPostOnly) {
+            await channel.updatePartial({ set: { frozen: true } });
+          }
           if (allowedIds.has(c.id)) {
             await channel.addMembers([userId]);
           } else if (!member.isAdmin) {

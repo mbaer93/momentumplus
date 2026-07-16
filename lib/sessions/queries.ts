@@ -30,8 +30,6 @@ interface SessionRow {
   capacity: number | null;
   min_access: AccessLevel;
   status: SessionDetail["status"];
-  zoom_meeting_id: string | null;
-  zoom_join_url: string | null;
   speakers: { id: string; name: string; title: string | null } | null;
 }
 
@@ -58,8 +56,9 @@ function mapRow(row: SessionRow): SessionDetail {
     enrolledCount: 0,
     minAccess: row.min_access,
     status: row.status,
-    zoomJoinUrl: row.zoom_join_url,
-    zoomMeetingId: row.zoom_meeting_id,
+    // Filled by getSession via the service role for enrolled viewers only.
+    zoomJoinUrl: null,
+    zoomMeetingId: null,
     resources: [],
     aiSummary: null,
     isEnrolled: false,
@@ -68,8 +67,12 @@ function mapRow(row: SessionRow): SessionDetail {
   };
 }
 
+// Join credentials (zoom_join_url / zoom_meeting_id / zoom_passcode) are
+// intentionally NOT selectable by members — column grants in migration 0020
+// hide them, and getSession attaches them via the service role only after
+// confirming the viewer is enrolled.
 const SESSION_SELECT =
-  "id, title, description, category, starts_at, duration_min, capacity, min_access, status, zoom_meeting_id, zoom_join_url, speakers ( id, name, title )";
+  "id, title, description, category, starts_at, duration_min, capacity, min_access, status, speakers ( id, name, title )";
 
 export async function listSessions(): Promise<SessionDetail[]> {
   if (!isSupabaseConfigured()) return getPlaceholderSessions();
@@ -148,6 +151,20 @@ export async function getSession(id: string): Promise<SessionDetail | null> {
       session.attended = Boolean(enrollment.attended);
     }
     if (note?.body) session.note = note.body;
+  }
+
+  // Join credentials only exist for enrolled viewers — the columns are not
+  // member-selectable (migration 0020), so this is the single hand-out point.
+  if (session.isEnrolled && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { createServiceClient } = await import("@/lib/supabase/admin");
+    const { data: joinInfo } = await createServiceClient()
+      .from("sessions")
+      .select("zoom_join_url, zoom_meeting_id")
+      .eq("id", id)
+      .maybeSingle();
+    session.zoomJoinUrl = (joinInfo?.zoom_join_url as string | null) ?? null;
+    session.zoomMeetingId =
+      (joinInfo?.zoom_meeting_id as string | null) ?? null;
   }
 
   return session;

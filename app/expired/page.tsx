@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { RenewButtons } from "@/components/billing/RenewButtons";
 import { PRICING_PLANS } from "@/lib/pricing";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
@@ -69,9 +68,13 @@ export default async function ExpiredPage() {
               Renew Membership
             </a>
           )}
-          <Link className="btn-ghost" href="/login">
-            Sign in with a different account
-          </Link>
+          {/* Must sign out first — a plain /login link bounces a lapsed
+              (but authenticated) member straight back here. */}
+          <form action="/auth/signout" method="post" style={{ display: "inline" }}>
+            <button type="submit" className="btn-ghost">
+              Sign in with a different account
+            </button>
+          </form>
         </div>
 
         <p className="renew-note">

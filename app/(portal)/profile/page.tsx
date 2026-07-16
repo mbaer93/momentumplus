@@ -97,10 +97,18 @@ export default async function ProfilePage() {
     for (const c of earnedCourses) {
       for (const l of c.lessons) lessonToCourse.set(l.id, c.id);
     }
-    const { data: progress } = await supabase
-      .from("lesson_progress")
-      .select("lesson_id, completed_at")
-      .in("lesson_id", [...lessonToCourse.keys()]);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    // Own rows only — admins can read everyone's progress via RLS, and
+    // another member's dates must not stamp this member's certificates.
+    const { data: progress } = user
+      ? await supabase
+          .from("lesson_progress")
+          .select("lesson_id, completed_at")
+          .eq("profile_id", user.id)
+          .in("lesson_id", [...lessonToCourse.keys()])
+      : { data: [] };
     for (const row of progress ?? []) {
       const courseId = lessonToCourse.get(row.lesson_id);
       if (!courseId || !row.completed_at) continue;

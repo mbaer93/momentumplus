@@ -206,19 +206,60 @@ export async function listCourses(): Promise<CourseItem[]> {
   if (!isSupabaseConfigured()) return PLACEHOLDER_COURSES;
 
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // The quiz column is not member-selectable (migration 0020 hides the
+  // answers at the DB boundary), and progress is filtered to the viewer —
+  // the read-own-or-admin policy would otherwise count OTHER members'
+  // completions for admins, minting certificates in the admin's name.
   const [{ data, error }, { data: progress }] = await Promise.all([
     supabase
       .from("courses")
       .select(
-        "id, title, description, category, min_access, published_at, ce_hours, course_lessons ( id, title, summary, video_id, position, content, image_url, documents, quiz )",
+        "id, title, description, category, min_access, published_at, ce_hours, course_lessons ( id, title, summary, video_id, position, content, image_url, documents )",
       )
       .order("position"),
-    supabase.from("lesson_progress").select("lesson_id"),
+    user
+      ? supabase
+          .from("lesson_progress")
+          .select("lesson_id")
+          .eq("profile_id", user.id)
+      : Promise.resolve({ data: [] as { lesson_id: string }[] }),
   ]);
   if (error || !data) return [];
 
+  // Server-side enrichment: quiz questions (answers stripped before they
+  // reach the browser) and signed URLs for the private media bucket.
+  const rows = data as unknown as CourseRow[];
+  const lessonIds = rows.flatMap((r) => (r.course_lessons ?? []).map((l) => l.id));
+  const quizById = new Map<string, unknown>();
+  let signedUrls = new Map<string, string>();
+  if (lessonIds.length > 0 && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { createServiceClient } = await import("@/lib/supabase/admin");
+    const { signEducationUrls } = await import("@/lib/education-media");
+    const [{ data: quizRows }, signed] = await Promise.all([
+      createServiceClient()
+        .from("course_lessons")
+        .select("id, quiz")
+        .in("id", lessonIds),
+      signEducationUrls(
+        rows.flatMap((r) =>
+          (r.course_lessons ?? []).flatMap((l) => [
+            l.image_url,
+            ...parseDocuments(l.documents).map((d) => d.url),
+          ]),
+        ),
+      ),
+    ]);
+    for (const q of quizRows ?? []) quizById.set(q.id as string, q.quiz);
+    signedUrls = signed;
+  }
+  const usable = (url: string | null) =>
+    url ? (signedUrls.get(url) ?? url) : null;
+
   const done = new Set((progress ?? []).map((p) => p.lesson_id as string));
-  return (data as unknown as CourseRow[]).map((row) => {
+  return rows.map((row) => {
     const lessons = [...(row.course_lessons ?? [])]
       .sort((a, b) => a.position - b.position)
       .map((l) => ({
@@ -227,9 +268,12 @@ export async function listCourses(): Promise<CourseItem[]> {
         summary: l.summary ?? "",
         videoId: l.video_id,
         content: l.content ?? "",
-        imageUrl: l.image_url ?? null,
-        documents: parseDocuments(l.documents),
-        quiz: publicQuiz(l.quiz),
+        imageUrl: usable(l.image_url ?? null),
+        documents: parseDocuments(l.documents).map((d) => ({
+          ...d,
+          url: usable(d.url) ?? d.url,
+        })),
+        quiz: publicQuiz(quizById.get(l.id) ?? null),
         completed: done.has(l.id),
       }));
     return {
