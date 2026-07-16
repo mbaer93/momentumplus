@@ -8,6 +8,7 @@ import {
   type BillingInfo,
 } from "@/components/profile/BillingControls";
 import {
+  changePassword,
   saveNotificationPrefs,
   updateProfile,
 } from "@/app/(portal)/profile/actions";
@@ -115,6 +116,22 @@ export function ProfileView({
     startTransition(async () => {
       const res = await updateProfile(form);
       setMsg(res.message ?? (res.ok ? "Saved" : "Error"));
+    });
+  }
+
+  const [pw, setPw] = useState({ next: "", confirm: "" });
+  const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  function savePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwMsg(null);
+    if (pw.next !== pw.confirm) {
+      setPwMsg({ text: "The two passwords don't match.", ok: false });
+      return;
+    }
+    startTransition(async () => {
+      const res = await changePassword(pw.next);
+      setPwMsg({ text: res.message ?? (res.ok ? "Changed." : "Error"), ok: res.ok });
+      if (res.ok) setPw({ next: "", confirm: "" });
     });
   }
 
@@ -371,6 +388,54 @@ export function ProfileView({
                   <button type="submit" className="btn-primary" disabled={pending}>
                     {pending ? "Saving…" : "Save profile"}
                   </button>
+                </form>
+              </div>
+
+              <div className="card" style={{ marginBottom: 18 }}>
+                <div className="card-header">
+                  <h3>Password</h3>
+                </div>
+                <form onSubmit={savePassword} style={{ padding: 18 }}>
+                  <div className="admin-field-row">
+                    <div className="admin-field">
+                      <label htmlFor="pw-next">New password</label>
+                      <input
+                        id="pw-next"
+                        type="password"
+                        autoComplete="new-password"
+                        minLength={8}
+                        value={pw.next}
+                        onChange={(e) => setPw({ ...pw, next: e.target.value })}
+                        placeholder="At least 8 characters"
+                      />
+                    </div>
+                    <div className="admin-field">
+                      <label htmlFor="pw-confirm">Confirm new password</label>
+                      <input
+                        id="pw-confirm"
+                        type="password"
+                        autoComplete="new-password"
+                        minLength={8}
+                        value={pw.confirm}
+                        onChange={(e) => setPw({ ...pw, confirm: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={pending || pw.next.length < 8}
+                  >
+                    {pending ? "Saving…" : "Change password"}
+                  </button>
+                  {pwMsg && (
+                    <span
+                      className={`admin-form-msg ${pwMsg.ok ? "ok" : "err"}`}
+                      style={{ marginLeft: 10 }}
+                    >
+                      {pwMsg.text}
+                    </span>
+                  )}
                 </form>
               </div>
 

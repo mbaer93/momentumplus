@@ -3464,3 +3464,59 @@ a.course-card:hover {
   background: var(--gold-pale);
 }
 .join-fine { font-size: 11.5px; color: var(--mid-gray); margin: 4px 0 0; }
+
+/* ---- Topbar menus (bell + account) ---- */
+.topbar-dot {
+  position: absolute;
+  top: 6px;
+  right: auto;
+  margin-left: -8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+.topbar-icon-btn { position: relative; }
+.topbar-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 40;
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  box-shadow: 0 10px 26px rgba(11, 22, 34, 0.18);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+.topbar-menu-title {
+  padding: 8px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mid-gray);
+}
+.topbar-menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--ink);
+  border-radius: 4px;
+  text-decoration: none;
+  text-align: left;
+}
+.topbar-menu-item:hover { background: var(--cream); color: var(--navy); }
+.topbar-menu-item-title { font-weight: 600; font-size: 12.5px; }
+.topbar-menu-item-sub { font-size: 11px; color: var(--mid-gray); }
+.topbar-menu-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
