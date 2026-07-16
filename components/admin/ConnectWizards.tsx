@@ -287,6 +287,12 @@ export function SmtpWizard({ markedDone }: { markedDone: boolean }) {
         <strong>Authentication → Emails → SMTP Settings</strong>. &nbsp;3. Toggle{" "}
         <strong>Enable Custom SMTP</strong>, paste the credentials, set the
         sender name to &ldquo;Momentum+&rdquo;, and <strong>Save</strong>.
+        &nbsp;<strong>Careful with the Host field:</strong> it takes a mail
+        server name like <code>smtp.sendgrid.net</code> — never a website
+        address (anything starting with <code>https://</code> breaks every
+        email with a blank error). For SendGrid: host{" "}
+        <code>smtp.sendgrid.net</code>, port <code>465</code>, username
+        literally <code>apikey</code>, password = your SendGrid API key.
         &nbsp;4. While you&apos;re there: <strong>Authentication → Emails →
         Templates → Invite user</strong> — paste in the branded Momentum+
         welcome email (the team has it as{" "}
