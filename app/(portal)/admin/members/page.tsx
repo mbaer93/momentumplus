@@ -32,6 +32,10 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
     status: "active",
     expiresLabel: "Mar 14, 2027",
     source: "ghl",
+    invitedLabel: "Invited Jun 2, 2026",
+    firstLoginLabel: "Jun 3, 2026",
+    lastLoginLabel: "Jul 10, 2026",
+    neverLoggedIn: false,
     ...PREVIEW_PROFILE_DEFAULTS,
   },
   {
@@ -44,6 +48,10 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
     status: "active",
     expiresLabel: "Oct 2, 2026",
     source: "tsls_import",
+    invitedLabel: "Invited Jul 12, 2026",
+    firstLoginLabel: null,
+    lastLoginLabel: null,
+    neverLoggedIn: true,
     ...PREVIEW_PROFILE_DEFAULTS,
   },
   {
@@ -56,22 +64,72 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
     status: "past_due",
     expiresLabel: "Jul 20, 2026",
     source: "ghl",
+    invitedLabel: "Joined May 18, 2026",
+    firstLoginLabel: "May 18, 2026",
+    lastLoginLabel: "Jul 14, 2026",
+    neverLoggedIn: false,
     ...PREVIEW_PROFILE_DEFAULTS,
   },
 ];
+
+function shortDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+interface AuthActivity {
+  invitedAt: string | null;
+  confirmedAt: string | null;
+  lastSignInAt: string | null;
+  createdAt: string | null;
+}
+
+/**
+ * Pull invite/login timestamps from the Supabase auth layer, keyed by user
+ * id (= profile id). This is what tells us whether an "active" membership
+ * belongs to someone who has actually signed in.
+ */
+async function fetchAuthActivity(): Promise<Map<string, AuthActivity>> {
+  const admin = createServiceClient();
+  const byId = new Map<string, AuthActivity>();
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+    if (error || !data?.users?.length) break;
+    for (const u of data.users) {
+      byId.set(u.id, {
+        invitedAt: u.invited_at ?? null,
+        confirmedAt: u.email_confirmed_at ?? u.confirmed_at ?? null,
+        lastSignInAt: u.last_sign_in_at ?? null,
+        createdAt: u.created_at ?? null,
+      });
+    }
+    if (data.users.length < 1000) break;
+  }
+  return byId;
+}
 
 export default async function AdminMembersPage() {
   let members = PREVIEW_MEMBERS;
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
-    const { data } = await admin
-      .from("memberships")
-      .select(
-        "id, profile_id, tier, status, access_expires_at, source, profiles ( full_name, email, title, company, phone, admin_role, admin_perms )",
-      )
-      .order("created_at", { ascending: false })
-      .limit(200);
+    const [{ data }, authActivity] = await Promise.all([
+      admin
+        .from("memberships")
+        .select(
+          "id, profile_id, tier, status, access_expires_at, source, profiles ( full_name, email, title, company, phone, admin_role, admin_perms )",
+        )
+        .order("created_at", { ascending: false })
+        .limit(200),
+      fetchAuthActivity(),
+    ]);
     if (data) {
       members = data.map((row) => {
         const p = (
@@ -87,6 +145,12 @@ export default async function AdminMembersPage() {
             } | null;
           }
         ).profiles;
+        const activity = authActivity.get(row.profile_id);
+        const invitedDate = shortDate(activity?.invitedAt);
+        const joinedDate = shortDate(activity?.createdAt);
+        const neverLoggedIn = Boolean(
+          activity && !activity.lastSignInAt && !activity.confirmedAt,
+        );
         return {
           membershipId: row.id,
           profileId: row.profile_id,
@@ -103,6 +167,14 @@ export default async function AdminMembersPage() {
               })
             : "Ongoing",
           source: row.source,
+          invitedLabel: invitedDate
+            ? `Invited ${invitedDate}`
+            : joinedDate
+              ? `Joined ${joinedDate}`
+              : null,
+          firstLoginLabel: shortDate(activity?.confirmedAt),
+          lastLoginLabel: shortDate(activity?.lastSignInAt),
+          neverLoggedIn,
           profileTitle: p?.title ?? "",
           profileCompany: p?.company ?? "",
           profilePhone: p?.phone ?? "",

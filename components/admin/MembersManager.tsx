@@ -12,6 +12,7 @@ import {
   extendMembership,
   grantMembership,
   getLoginLink,
+  resendInvite,
   sendPasswordReset,
   setAdminAccess,
   updateMemberProfile,
@@ -27,6 +28,14 @@ export interface AdminMemberRow {
   status: string;
   expiresLabel: string;
   source: string;
+  /** "Invited Jul 16, 2026" or "Joined Jul 16, 2026" from the auth layer. */
+  invitedLabel: string | null;
+  /** Date they accepted the invite / confirmed their email. */
+  firstLoginLabel: string | null;
+  /** Date of their most recent sign-in. */
+  lastLoginLabel: string | null;
+  /** True when the account has never signed in — invite not yet accepted. */
+  neverLoggedIn: boolean;
   profileTitle: string;
   profileCompany: string;
   profilePhone: string;
@@ -195,6 +204,7 @@ export function MembersManager({
               <th>Tier</th>
               <th>Status</th>
               <th>Access through</th>
+              <th>Activity</th>
               <th>Source</th>
               <th style={{ textAlign: "right" }}>Actions</th>
             </tr>
@@ -221,19 +231,39 @@ export function MembersManager({
                 </td>
                 <td>{m.tierLabel}</td>
                 <td>
+                  {/* A paid-up membership whose owner has never signed in is
+                      an invite still in flight — say so instead of "active". */}
                   <span
                     className={`admin-status ${
-                      m.status === "active"
-                        ? "completed"
-                        : m.status === "past_due"
-                          ? "live"
-                          : "draft"
+                      m.status === "active" && m.neverLoggedIn
+                        ? "draft"
+                        : m.status === "active"
+                          ? "completed"
+                          : m.status === "past_due"
+                            ? "live"
+                            : "draft"
                     }`}
                   >
-                    {m.status}
+                    {m.status === "active" && m.neverLoggedIn
+                      ? "invited"
+                      : m.status}
                   </span>
                 </td>
                 <td>{m.expiresLabel}</td>
+                <td style={{ color: "var(--mid-gray)", fontSize: 12 }}>
+                  {m.invitedLabel && <div>{m.invitedLabel}</div>}
+                  {m.neverLoggedIn ? (
+                    <div style={{ color: "var(--gold, #B8965A)", fontWeight: 600 }}>
+                      Never logged in
+                    </div>
+                  ) : (
+                    <div>
+                      {m.firstLoginLabel && `First login ${m.firstLoginLabel}`}
+                      {m.firstLoginLabel && m.lastLoginLabel && <br />}
+                      {m.lastLoginLabel && `Last seen ${m.lastLoginLabel}`}
+                    </div>
+                  )}
+                </td>
                 <td style={{ color: "var(--mid-gray)", fontSize: 12 }}>{m.source}</td>
                 <td>
                   <div className="admin-actions-cell" style={{ justifyContent: "flex-end" }}>
@@ -289,7 +319,7 @@ export function MembersManager({
               </tr>
               {editingId === m.membershipId && (
                 <tr>
-                  <td colSpan={6} style={{ background: "#fbfaf8" }}>
+                  <td colSpan={7} style={{ background: "#fbfaf8" }}>
                     <div style={{ padding: "6px 4px" }}>
                       <div
                         className="admin-field-row"
@@ -417,6 +447,24 @@ export function MembersManager({
                         >
                           Save member
                         </button>
+                        {m.neverLoggedIn && (
+                          <button
+                            type="button"
+                            className="btn-mini"
+                            disabled={pending || !m.email}
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Re-send the invite email to ${m.email}?`,
+                                )
+                              ) {
+                                run(() => resendInvite(m.email));
+                              }
+                            }}
+                          >
+                            Resend invite
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="btn-mini"

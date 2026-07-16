@@ -407,6 +407,42 @@ export async function sendPasswordReset(email: string): Promise<AdminMemberResul
 }
 
 /**
+ * Re-send the branded invite email to a member who has never logged in.
+ * Supabase re-invites unconfirmed accounts; if the account somehow can't be
+ * re-invited (e.g. it was confirmed between page load and click), fall back
+ * to the password-reset email so the member still gets a working link.
+ */
+export async function resendInvite(email: string): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Invite re-sent (preview mode)." };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!email.includes("@")) return { ok: false, message: "No email on this member." };
+
+  const admin = createServiceClient();
+  const siteUrl = requestSiteUrl();
+  const redirectTo = siteUrl ? `${siteUrl}/auth/callback?redirect=/welcome` : undefined;
+  const { error } = await admin.auth.admin.inviteUserByEmail(
+    email.trim().toLowerCase(),
+    { redirectTo },
+  );
+  if (!error) {
+    return { ok: true, message: `Invite email re-sent to ${email}.` };
+  }
+  const { error: resetError } = await admin.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+  if (resetError) {
+    return { ok: false, message: `Couldn't re-send: ${error.message}` };
+  }
+  return {
+    ok: true,
+    message: `${email} already accepted their invite, so we sent a sign-in (password reset) email instead.`,
+  };
+}
+
+/**
  * Mint a one-time login link for a member — no email involved. For when
  * their invite never arrived or email delivery is down: copy the link and
  * send it to them any way you like. It signs them in and asks for a

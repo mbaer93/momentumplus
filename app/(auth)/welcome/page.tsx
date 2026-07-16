@@ -14,12 +14,14 @@ export const metadata = {
  */
 export default async function WelcomePage() {
   let initialName = "";
+  let email = "";
   if (isSupabaseConfigured()) {
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
+      email = user.email ?? "";
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name")
@@ -34,7 +36,7 @@ export default async function WelcomePage() {
       <div className="login-logo">Momentum+</div>
       <div className="login-tagline">Premium Member Portal</div>
       <Suspense fallback={<div className="login-card">Loading…</div>}>
-        <WelcomeForm initialName={initialName} />
+        <WelcomeForm initialName={initialName} email={email} />
       </Suspense>
     </div>
   );

@@ -3610,6 +3610,15 @@ a.course-card:hover {
   justify-content: center;
   margin-bottom: 6px;
 }
+.certificate-seal img {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--gold, #b8965a);
+  box-shadow: 0 0 0 3px rgba(184, 150, 90, 0.25);
+  object-fit: cover;
+}
 .certificate-line { display: flex; flex-direction: column; justify-content: flex-end; }
 @media print {
   @page { size: letter landscape; margin: 0.4in; }

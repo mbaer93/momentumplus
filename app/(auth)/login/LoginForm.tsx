@@ -96,7 +96,7 @@ export function LoginForm() {
 
       <form onSubmit={onSubmit}>
         <div className="login-field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">Email (this is your username)</label>
           <input
             id="email"
             type="email"

@@ -12,7 +12,13 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  *   Step 2 — complete their member profile (name, company, role, phone)
  * then straight into the portal.
  */
-export function WelcomeForm({ initialName }: { initialName: string }) {
+export function WelcomeForm({
+  initialName,
+  email,
+}: {
+  initialName: string;
+  email: string;
+}) {
   const router = useRouter();
   const configured = isSupabaseConfigured();
   const [step, setStep] = useState<1 | 2>(1);
@@ -147,7 +153,14 @@ export function WelcomeForm({ initialName }: { initialName: string }) {
       <h2>Welcome to Momentum+</h2>
       <p>
         You&apos;re in — two quick steps and you&apos;re set. First, choose a
-        password so you can log back in anytime with your email.
+        password. Your username is your email address
+        {email ? (
+          <>
+            {" "}
+            (<strong>{email}</strong>)
+          </>
+        ) : null}
+        — you&apos;ll sign in with it and this password from now on.
       </p>
       {error && <div className="login-error">{error}</div>}
       <form onSubmit={savePassword}>
