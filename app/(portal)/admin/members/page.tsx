@@ -195,6 +195,9 @@ export default async function AdminMembersPage() {
           <h2>Members</h2>
           <p>Memberships, access, and manual grants</p>
         </div>
+        <Link href="/admin/activity" className="btn-primary">
+          View Activity Log
+        </Link>
       </div>
       {!isSupabaseConfigured() && (
         <div className="admin-hint">

@@ -32,7 +32,7 @@ create trigger enrollments_capacity
 --    exit with no uniqueness. Dedupe (keep the earliest view) and constrain.
 with ranked as (
   select id, row_number() over (
-    partition by profile_id, video_id order by created_at asc
+    partition by profile_id, video_id order by watched_at asc
   ) as rn
   from public.video_views
 )
