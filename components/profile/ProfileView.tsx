@@ -294,6 +294,56 @@ export function ProfileView({
             </div>
           )}
 
+          {tab === "certificates" && (
+            <div className="card">
+              <div className="card-header">
+                <h3>My Certificates</h3>
+              </div>
+              <div style={{ padding: 18 }}>
+                {certificates.length === 0 ? (
+                  <div style={{ color: "var(--mid-gray)", fontSize: 13 }}>
+                    Complete a course in{" "}
+                    <Link href="/education" style={{ color: "var(--gold)" }}>
+                      Education
+                    </Link>{" "}
+                    to earn your first certificate.
+                  </div>
+                ) : (
+                  certificates.map((c) => (
+                    <div
+                      key={c.courseId}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                        padding: "12px 0",
+                        borderBottom: "1px solid var(--warm-gray)",
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{c.title}</div>
+                        <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                          Completed {c.dateLabel}
+                          {c.ceHours
+                            ? ` · ${c.ceHours} CE hour${c.ceHours === 1 ? "" : "s"}`
+                            : ""}
+                        </div>
+                      </div>
+                      <Link
+                        href={`/education/${c.courseId}/certificate`}
+                        className="btn-mini"
+                      >
+                        View / print certificate
+                      </Link>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
           {tab === "preferences" && (
             <div>
               <div className="card" style={{ marginBottom: 18 }}>
