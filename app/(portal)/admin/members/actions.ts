@@ -207,11 +207,27 @@ export async function setAdminAccess(
     };
   }
 
-  const { error } = await createServiceClient()
+  const service = createServiceClient();
+  const { error } = await service
     .from("profiles")
     .update({ admin_role: role, admin_perms: perms })
     .eq("id", profileId);
   if (error) return { ok: false, message: error.message };
+
+  const { data: tgt } = await service
+    .from("profiles")
+    .select("email")
+    .eq("id", profileId)
+    .maybeSingle();
+  const { logAdminAction } = await import("@/lib/admin-audit");
+  await logAdminAction({
+    actorId: auth.userId,
+    actorEmail: auth.userEmail,
+    action: "set_admin_access",
+    targetProfileId: profileId,
+    targetEmail: (tgt?.email as string | null) ?? null,
+    detail: `role=${role}`,
+  });
 
   revalidatePath("/admin/members");
   return { ok: true, message: "Admin access updated." };
@@ -301,6 +317,16 @@ export async function deleteMember(profileId: string): Promise<AdminMemberResult
   const { error } = await admin.auth.admin.deleteUser(profileId);
   if (error) return { ok: false, message: error.message };
   await admin.from("profiles").delete().eq("id", profileId);
+
+  const { logAdminAction } = await import("@/lib/admin-audit");
+  await logAdminAction({
+    actorId: auth.userId,
+    actorEmail: auth.userEmail,
+    action: "delete_member",
+    targetProfileId: profileId,
+    targetEmail: profile?.email ?? null,
+    detail: notes.length > 0 ? notes.join("; ") : "Full deletion",
+  });
 
   revalidatePath("/admin/members");
   return {
@@ -550,14 +576,47 @@ export async function getLoginLink(email: string): Promise<AdminMemberResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Link created (preview mode)." };
   }
+  // This mints a token that signs the operator in AS the member (and can
+  // reach their private notes), so it is Super-Admin-only, never targets
+  // another admin, and every use is recorded in the audit log.
   const auth = await requireAdmin("members");
   if (!auth.ok) return { ok: false, message: auth.message };
+  if (auth.access.role !== "super") {
+    return {
+      ok: false,
+      message:
+        "Only the Super Admin can mint a one-time login link. Use “Send password reset” instead — it emails the link to the member.",
+    };
+  }
   if (!email.includes("@")) return { ok: false, message: "No email on this member." };
 
+  const normalized = email.trim().toLowerCase();
+  const admin = createServiceClient();
+
+  // Never mint a login link that would impersonate another admin.
+  const { data: target } = await admin
+    .from("profiles")
+    .select("id, admin_role, memberships ( tier, status )")
+    .ilike("email", emailPattern(normalized))
+    .maybeSingle();
+  const targetIsAdmin =
+    target?.admin_role != null ||
+    (
+      target as unknown as {
+        memberships?: { tier: string; status: string }[];
+      } | null
+    )?.memberships?.some((m) => m.tier === "admin" && m.status === "active");
+  if (targetIsAdmin) {
+    return {
+      ok: false,
+      message: "Login links can't be minted for admin accounts.",
+    };
+  }
+
   const siteUrl = requestSiteUrl();
-  const { data, error } = await createServiceClient().auth.admin.generateLink({
+  const { data, error } = await admin.auth.admin.generateLink({
     type: "recovery",
-    email: email.trim().toLowerCase(),
+    email: normalized,
     options: {
       redirectTo: siteUrl
         ? `${siteUrl}/auth/callback?redirect=/welcome`
@@ -574,6 +633,17 @@ export async function getLoginLink(email: string): Promise<AdminMemberResult> {
       message: `Couldn't create a login link: ${error?.message ?? "unknown error"}`,
     };
   }
+
+  const { logAdminAction } = await import("@/lib/admin-audit");
+  await logAdminAction({
+    actorId: auth.userId,
+    actorEmail: auth.userEmail,
+    action: "login_link",
+    targetProfileId: target?.id ?? null,
+    targetEmail: normalized,
+    detail: "One-time sign-in link minted",
+  });
+
   return {
     ok: true,
     message: `One-time login link for ${email} — copy and send it to them (signs them in, then asks for a password): ${link}`,

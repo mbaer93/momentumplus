@@ -179,9 +179,14 @@ export default async function HomePage() {
           A Tri-State Leadership Summit community · Sierra Learnership
           Collaborative
         </div>
-        <Link href="/login" className="land-footer-login">
-          Member Login
-        </Link>
+        <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+          <Link href="/privacy" className="land-footer-login">
+            Privacy
+          </Link>
+          <Link href="/login" className="land-footer-login">
+            Member Login
+          </Link>
+        </div>
       </footer>
     </div>
   );

@@ -120,6 +120,13 @@ export default async function AdminPage() {
         desc: "Every integration (Stripe, Zoom, chat, video, AI) — status and setup.",
         area: "members",
       },
+      {
+        href: "/admin/audit",
+        icon: AdminIcon,
+        title: "Audit Log",
+        desc: "Sensitive admin actions — login links minted, members deleted, admin access changed.",
+        area: "members",
+      },
     );
   }
 
