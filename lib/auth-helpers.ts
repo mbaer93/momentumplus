@@ -68,7 +68,11 @@ export async function requireAdmin(area?: AdminArea): Promise<
  * the real enforcement stays in requireAdmin(area) on every mutation.
  */
 export async function getAdminAccess(): Promise<AdminAccess | null> {
-  if (!isSupabaseConfigured()) return { role: "super", perms: {} };
+  // Preview-mode "everyone is super admin" is a local-dev convenience only;
+  // on a deployed environment an unconfigured Supabase must not mint admin.
+  if (!isSupabaseConfigured()) {
+    return process.env.VERCEL ? null : { role: "super", perms: {} };
+  }
   const res = await requireAdmin();
   return res.ok ? res.access : null;
 }

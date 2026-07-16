@@ -8,10 +8,20 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 type Mode = "password" | "magic";
 
+/**
+ * Same-site redirects only — a crafted ?redirect=https://evil.example on a
+ * phishing link must never bounce a freshly signed-in member off-site.
+ * Mirrors the validation in /auth/callback and /auth/confirm.
+ */
+function safeRedirect(raw: string | null): string {
+  if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
+  return "/dashboard";
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const redirectTo = safeRedirect(searchParams.get("redirect"));
   const configured = isSupabaseConfigured();
 
   const [mode, setMode] = useState<Mode>("password");
@@ -43,6 +53,9 @@ export function LoginForm() {
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
+            // The members-only login page must not double as a signup form —
+            // strangers (and typos) don't get accounts minted here.
+            shouldCreateUser: false,
             emailRedirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(
               redirectTo,
             )}`,

@@ -31,16 +31,24 @@ export default async function CertificatePage({
   let completedOn = new Date();
   if (isSupabaseConfigured()) {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("lesson_progress")
-      .select("completed_at")
-      .in(
-        "lesson_id",
-        course.lessons.map((l) => l.id),
-      )
-      .order("completed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    // Own rows only — the read policy also shows admins OTHER members'
+    // progress, which must never set this member's completion date.
+    const { data } = user
+      ? await supabase
+          .from("lesson_progress")
+          .select("completed_at")
+          .eq("profile_id", user.id)
+          .in(
+            "lesson_id",
+            course.lessons.map((l) => l.id),
+          )
+          .order("completed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
     if (data?.completed_at) completedOn = new Date(data.completed_at);
   }
 

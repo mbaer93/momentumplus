@@ -134,7 +134,8 @@ export async function submitLessonQuiz(
   }
 
   const correct = questions.reduce(
-    (n, q, i) => n + (answers[i] === q.answer ? 1 : 0),
+    (n, q, i) =>
+      n + (typeof q.answer === "number" && answers[i] === q.answer ? 1 : 0),
     0,
   );
   const scorePct = Math.round((correct / questions.length) * 100);
@@ -142,7 +143,10 @@ export async function submitLessonQuiz(
   const passed = scorePct >= passPct;
 
   if (passed) {
-    const { error } = await supabase.from("lesson_progress").upsert(
+    // Service role on purpose: RLS blocks members from inserting progress
+    // for quiz lessons (migration 0020) — passing the server-graded test is
+    // the only way to complete one, and this is that path.
+    const { error } = await createServiceClient().from("lesson_progress").upsert(
       { profile_id: user.id, lesson_id: lessonId },
       { onConflict: "profile_id,lesson_id" },
     );

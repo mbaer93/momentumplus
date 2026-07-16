@@ -371,13 +371,43 @@ export async function deleteMembership(
   const auth = await requireAdmin("members");
   if (!auth.ok) return { ok: false, message: auth.message };
 
-  const { error } = await createServiceClient()
+  const admin = createServiceClient();
+  const guardMsg = await guardAdminRow(admin, membershipId, auth);
+  if (guardMsg) return { ok: false, message: guardMsg };
+
+  const { error } = await admin
     .from("memberships")
     .delete()
     .eq("id", membershipId);
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/members");
   return { ok: true, message: "Membership row removed." };
+}
+
+/**
+ * Admin-tier rows are Super Admin territory in BOTH directions — a standard
+ * admin must not be able to expire or delete another admin's (or the Super
+ * Admin's) access, and nobody removes their own admin row by accident.
+ */
+async function guardAdminRow(
+  admin: ReturnType<typeof createServiceClient>,
+  membershipId: string,
+  auth: { userId: string; access: { role: string } },
+): Promise<string | null> {
+  const { data: row } = await admin
+    .from("memberships")
+    .select("tier, profile_id")
+    .eq("id", membershipId)
+    .maybeSingle();
+  if (!row) return "Membership not found.";
+  if (row.tier !== "admin") return null;
+  if (auth.access.role !== "super") {
+    return "Only the Super Admin can remove admin access.";
+  }
+  if (row.profile_id === auth.userId) {
+    return "You can't remove your own admin access — ask another Super Admin.";
+  }
+  return null;
 }
 
 /**
@@ -554,6 +584,9 @@ export async function expireMembership(
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
+  const guardMsg = await guardAdminRow(admin, membershipId, auth);
+  if (guardMsg) return { ok: false, message: guardMsg };
+
   const { error } = await admin
     .from("memberships")
     .update({ status: "expired", access_expires_at: new Date().toISOString() })
