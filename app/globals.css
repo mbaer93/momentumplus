@@ -3599,10 +3599,10 @@ a.course-card:hover {
 /* ---- Certificate: signature, seal, and full-page print ---- */
 .certificate-signature {
   font-family: "Snell Roundhand", "Segoe Script", "Brush Script MT", cursive;
-  font-size: 30px;
-  color: var(--navy);
+  font-size: 32px;
+  color: #f8f6f1;
   line-height: 1;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   transform: rotate(-2deg);
 }
 .certificate-seal {
