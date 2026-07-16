@@ -33,12 +33,17 @@ export async function POST(req: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // Members only: anonymous inserts would let anyone inflate the sponsor
+  // stats we report (and bloat the table).
+  if (!user) {
+    return NextResponse.json({ ok: true, ignored: true });
+  }
 
   const admin = createServiceClient();
   const { error } = await admin.from("sponsor_events").insert(
     ids.map((sponsor_id) => ({
       sponsor_id,
-      profile_id: user?.id ?? null,
+      profile_id: user.id,
       kind,
     })),
   );

@@ -333,6 +333,12 @@ export async function extendMembership(
     .eq("id", membershipId)
     .maybeSingle();
   if (!row) return { ok: false, message: "Membership not found." };
+  if (!row.access_expires_at) {
+    return {
+      ok: false,
+      message: "This membership is ongoing (no end date) — nothing to extend.",
+    };
+  }
 
   const base =
     row.access_expires_at && new Date(row.access_expires_at) > new Date()
@@ -424,7 +430,10 @@ export async function getLoginLink(email: string): Promise<AdminMemberResult> {
         : undefined,
     },
   });
-  const link = data?.properties?.action_link;
+  const hashed = data?.properties?.hashed_token;
+  const link = hashed
+    ? `${siteUrl ?? ""}/auth/confirm?token_hash=${hashed}&type=recovery&redirect=/welcome`
+    : data?.properties?.action_link;
   if (!link) {
     return {
       ok: false,
@@ -458,10 +467,17 @@ export async function changeMembershipTier(
   const admin = createServiceClient();
   const { data: row } = await admin
     .from("memberships")
-    .select("tier, profile_id")
+    .select("tier, profile_id, source, access_expires_at")
     .eq("id", membershipId)
     .maybeSingle();
   if (!row) return { ok: false, message: "Membership not found." };
+  if (row.source === "stripe") {
+    return {
+      ok: false,
+      message:
+        "This membership is billed through Stripe — the member changes plans from Profile → Manage billing so the price and access stay in sync.",
+    };
+  }
 
   if ((tier === "admin" || row.tier === "admin") && auth.access.role !== "super") {
     return {
@@ -476,9 +492,15 @@ export async function changeMembershipTier(
     };
   }
 
+  // Gift/VIP are fixed-length comps — never leave one open-ended.
+  const patch: Record<string, unknown> = { tier };
+  const fixed = FIXED_MONTHS[tier];
+  if (fixed && !row.access_expires_at) {
+    patch.access_expires_at = addMonths(new Date(), fixed).toISOString();
+  }
   const { error } = await admin
     .from("memberships")
-    .update({ tier })
+    .update(patch)
     .eq("id", membershipId);
   if (error) return { ok: false, message: error.message };
 

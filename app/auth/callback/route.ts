@@ -7,7 +7,13 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const redirectRaw = searchParams.get("redirect") || "/dashboard";
+  // Same-origin paths only — "@evil.com" / "//evil.com" style values must
+  // never turn this trusted endpoint into an open redirect.
+  const redirectTo =
+    redirectRaw.startsWith("/") && !redirectRaw.startsWith("//")
+      ? redirectRaw
+      : "/dashboard";
 
   if (code && isSupabaseConfigured()) {
     const supabase = createClient();

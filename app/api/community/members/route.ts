@@ -25,7 +25,7 @@ export async function GET() {
 
   const { data } = await createServiceClient()
     .from("profiles")
-    .select("id, full_name, email, title, company")
+    .select("id, full_name, title, company")
     .neq("id", user.id)
     .order("full_name")
     .limit(500);
@@ -33,7 +33,7 @@ export async function GET() {
   return NextResponse.json({
     members: (data ?? []).map((p) => ({
       id: p.id,
-      name: p.full_name || p.email || "Member",
+      name: p.full_name || "Member",
       detail: [p.title, p.company].filter(Boolean).join(" · "),
     })),
   });

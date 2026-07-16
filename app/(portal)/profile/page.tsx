@@ -149,8 +149,8 @@ export default async function ProfilePage() {
     iconBg: s.attended ? "rgba(58,112,85,0.1)" : "var(--gold-pale)",
     iconColor: s.attended ? "var(--accent-green)" : "var(--gold)",
     text: s.attended
-      ? `You attended <strong>${s.title}</strong> with ${s.speaker.name}`
-      : `You enrolled in <strong>${s.title}</strong> with ${s.speaker.name}`,
+      ? `You attended ${s.title} with ${s.speaker.name}`
+      : `You enrolled in ${s.title} with ${s.speaker.name}`,
     time: new Date(s.startsAt).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",

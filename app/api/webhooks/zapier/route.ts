@@ -39,7 +39,10 @@ function authorized(req: NextRequest): boolean {
     req.headers.get("x-api-key") ??
     req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
     "";
-  return key === secret;
+  const { timingSafeEqual, createHash } = require("crypto") as typeof import("crypto");
+  const a = createHash("sha256").update(key).digest();
+  const b = createHash("sha256").update(secret).digest();
+  return timingSafeEqual(a, b);
 }
 
 export async function POST(req: NextRequest) {
