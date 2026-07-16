@@ -1,6 +1,6 @@
 "use server";
 
-import { getStripeSettings, stripeReady, stripeRequest } from "@/lib/stripe";
+import { getStripeSettings, priceForTerm, stripeReady, stripeRequest } from "@/lib/stripe";
 import { requestSiteUrl } from "@/lib/site-url";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -23,6 +23,8 @@ export async function startPublicCheckout(input: {
   plan: "basic" | "pro";
   email: string;
   name: string;
+  /** Billing term in months: 1 (default), 3, 6, or 12 when configured. */
+  months?: number;
 }): Promise<JoinResult> {
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
@@ -33,8 +35,10 @@ export async function startPublicCheckout(input: {
   if (!isSupabaseConfigured()) {
     return { ok: false, message: "Signup opens once the site is fully connected." };
   }
+  const months = [1, 3, 6, 12].includes(input.months ?? 1) ? (input.months ?? 1) : 1;
   const settings = await getStripeSettings();
-  if (!stripeReady(settings) || !settings.prices[plan]) {
+  const priceId = settings ? priceForTerm(settings, plan, months) : null;
+  if (!stripeReady(settings) || !priceId) {
     return {
       ok: false,
       message:
@@ -66,7 +70,7 @@ export async function startPublicCheckout(input: {
       {
         mode: "subscription",
         customer_email: email,
-        "line_items[0][price]": settings.prices[plan]!,
+        "line_items[0][price]": priceId,
         "line_items[0][quantity]": 1,
         success_url: `${site}/join?success=1`,
         cancel_url: `${site}/join?plan=${plan}&canceled=1`,

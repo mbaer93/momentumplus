@@ -142,6 +142,67 @@ export async function createStripeProducts(
   }
 }
 
+/**
+ * Optional longer terms: creates 3/6/12-month prices (total charged per
+ * term) on the existing products. Members then pick their term at checkout
+ * and access always runs to the end of the paid term.
+ */
+export async function createTermPrices(input: {
+  plan: "basic" | "pro";
+  months: 3 | 6 | 12;
+  totalUsd: number;
+}): Promise<BillingResult> {
+  const early = await guardSuper();
+  if (early) return early;
+  const settings = await getStripeSettings();
+  const monthlyPriceId = settings?.prices[input.plan];
+  if (!settings?.secretKey || !monthlyPriceId) {
+    return { ok: false, message: "Create the monthly plans first (Step 2)." };
+  }
+  if (!(input.totalUsd > 0) || ![3, 6, 12].includes(input.months)) {
+    return { ok: false, message: "Enter the total price for that term." };
+  }
+  try {
+    const monthly = await stripeRequest<{ product: string }>(
+      settings.secretKey,
+      "GET",
+      `/prices/${monthlyPriceId}`,
+    );
+    const price = await stripeRequest<{ id: string }>(
+      settings.secretKey,
+      "POST",
+      "/prices",
+      {
+        product: monthly.product,
+        currency: "usd",
+        unit_amount: Math.round(input.totalUsd * 100),
+        "recurring[interval]": "month",
+        "recurring[interval_count]": input.months,
+        "metadata[momentum_plan]": input.plan,
+        "metadata[momentum_months]": input.months,
+      },
+    );
+    const termPrices = { ...(settings.termPrices ?? {}) };
+    termPrices[input.plan] = {
+      ...(termPrices[input.plan] ?? {}),
+      [String(input.months)]: price.id,
+    };
+    const termDisplay = { ...(settings.termDisplay ?? {}) };
+    termDisplay[input.plan] = {
+      ...(termDisplay[input.plan] ?? {}),
+      [String(input.months)]: input.totalUsd,
+    };
+    await saveStripeSettings({ ...settings, termPrices, termDisplay });
+    refresh();
+    return {
+      ok: true,
+      message: `${input.months}-month ${input.plan} term created at $${input.totalUsd} per term.`,
+    };
+  } catch (e) {
+    return { ok: false, message: `Stripe error: ${(e as Error).message}` };
+  }
+}
+
 /** Step 3 (automatic): register our webhook endpoint in Stripe. */
 export async function setupStripeWebhook(): Promise<BillingResult> {
   const early = await guardSuper();

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   connectStripe,
   createStripeProducts,
+  createTermPrices,
   saveWebhookSecret,
   setupStripeWebhook,
 } from "@/app/(portal)/admin/billing/actions";
@@ -58,6 +59,9 @@ export function BillingSetup({ status }: { status: BillingStatus }) {
     status.proPrice ? String(status.proPrice) : "",
   );
   const [manualSecret, setManualSecret] = useState("");
+  const [termPlan, setTermPlan] = useState<"basic" | "pro">("basic");
+  const [termMonths, setTermMonths] = useState<3 | 6 | 12>(3);
+  const [termTotal, setTermTotal] = useState("");
   const [showManual, setShowManual] = useState(false);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -200,6 +204,48 @@ export function BillingSetup({ status }: { status: BillingStatus }) {
                 in Stripe.
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Optional longer terms */}
+      <div className="admin-form" style={{ maxWidth: "none", marginBottom: 14 }}>
+        <div className="admin-field" style={{ marginBottom: 4 }}>
+          <label style={{ fontSize: 13 }}>
+            Longer billing terms (optional) — let members pay every 3, 6, or
+            12 months. Enter the TOTAL charged per term; access always runs
+            to the end of the paid term and renews automatically.
+          </label>
+        </div>
+        <div className="admin-field-row" style={{ gridTemplateColumns: "1fr 1fr 1fr auto" }}>
+          <div className="admin-field" style={{ marginBottom: 0 }}>
+            <label htmlFor="term-plan">Plan</label>
+            <select id="term-plan" value={termPlan} onChange={(e) => setTermPlan(e.target.value as "basic" | "pro")}>
+              <option value="basic">Momentum+ User</option>
+              <option value="pro">Momentum+ Pro User</option>
+            </select>
+          </div>
+          <div className="admin-field" style={{ marginBottom: 0 }}>
+            <label htmlFor="term-months">Term</label>
+            <select id="term-months" value={termMonths} onChange={(e) => setTermMonths(Number(e.target.value) as 3 | 6 | 12)}>
+              <option value={3}>3 months</option>
+              <option value={6}>6 months</option>
+              <option value={12}>12 months</option>
+            </select>
+          </div>
+          <div className="admin-field" style={{ marginBottom: 0 }}>
+            <label htmlFor="term-total">Total for the term ($)</label>
+            <input id="term-total" type="number" min={1} value={termTotal} onChange={(e) => setTermTotal(e.target.value)} placeholder="e.g. 534" />
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={pending || !(Number(termTotal) > 0)}
+              onClick={() => run(() => createTermPrices({ plan: termPlan, months: termMonths, totalUsd: Number(termTotal) }))}
+            >
+              Create term
+            </button>
           </div>
         </div>
       </div>
