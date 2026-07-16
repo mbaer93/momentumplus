@@ -10,6 +10,7 @@ import {
   removeLesson,
   removeLessonDocument,
   removeLessonImage,
+  draftQuizWithAi,
   saveLessonQuiz,
   updateCourse,
   updateLessonDetails,
@@ -393,6 +394,23 @@ function LessonEditor({ lesson }: { lesson: AdminLessonRow }) {
             }
           >
             Add question
+          </button>
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            title="Reads this lesson's content and drafts multiple-choice questions for you to review"
+            onClick={() =>
+              run(async () => {
+                const res = await draftQuizWithAi(lesson.id);
+                if (res.ok && res.questions?.length) {
+                  setQuestions(res.questions);
+                }
+                return res;
+              })
+            }
+          >
+            {pending ? "Drafting…" : "Draft questions with AI"}
           </button>
           <button
             type="button"

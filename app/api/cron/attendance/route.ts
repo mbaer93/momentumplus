@@ -4,31 +4,80 @@ import { getMeetingParticipants } from "@/lib/zoom";
 import { isZoomReady } from "@/lib/service-config";
 
 /*
- * Attendance sync (SPEC.md §4). Vercel cron hits this after sessions end: for
- * each completed session with a Zoom meeting, pull the participant report and
- * mark matching enrollments attended=true by registrant email.
+ * Session lifecycle + attendance sync (SPEC.md §4), on one cron:
+ *
+ * 1. Auto-advance status: scheduled → live while the session is running,
+ *    live/scheduled → completed once it has ended. Nothing else does this,
+ *    and downstream features hang off it — the AI-summaries cron only
+ *    processes completed sessions, enrollment RLS only allows scheduled
+ *    sessions, and the attendance pull below only looks at ended sessions.
+ * 2. For recently-ended sessions with a Zoom meeting, pull the participant
+ *    report and mark matching enrollments attended=true by email.
  *
  * Protected by CRON_SECRET (Authorization: Bearer <CRON_SECRET>).
  */
+
+/** Sessions are swept for attendance for this long after they end. */
+const ATTENDANCE_WINDOW_DAYS = 3;
+
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
   if (!secret || auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!(await isZoomReady())) {
-    return NextResponse.json({ error: "Zoom not configured" }, { status: 503 });
-  }
 
   const admin = createServiceClient();
+  const now = Date.now();
 
-  // Sessions that have ended, have a Zoom meeting, and aren't archived yet.
-  const cutoff = new Date().toISOString();
+  // --- 1. Status transitions (runs even when Zoom isn't configured) ---
+  const { data: open } = await admin
+    .from("sessions")
+    .select("id, status, starts_at, duration_min")
+    .in("status", ["scheduled", "live"])
+    .not("starts_at", "is", null)
+    .lte("starts_at", new Date(now).toISOString());
+
+  let wentLive = 0;
+  let wentCompleted = 0;
+  for (const s of open ?? []) {
+    const started = new Date(s.starts_at as string).getTime();
+    const endMs = started + (s.duration_min ?? 60) * 60 * 1000;
+    const next = now >= endMs ? "completed" : "live";
+    if (next === s.status) continue;
+    const { error: transitionError } = await admin
+      .from("sessions")
+      .update({ status: next })
+      .eq("id", s.id)
+      .eq("status", s.status); // no-op if an admin changed it mid-run
+    if (!transitionError) {
+      if (next === "live") wentLive += 1;
+      else wentCompleted += 1;
+    }
+  }
+
+  if (!(await isZoomReady())) {
+    return NextResponse.json({
+      ok: true,
+      wentLive,
+      wentCompleted,
+      attendance: "skipped (Zoom not configured)",
+    });
+  }
+
+  // --- 2. Attendance for sessions that ended recently ---
+  // Bounded window: Zoom reports stabilize within hours; re-pulling every
+  // historical session forever would burn the Zoom API rate limit.
+  const cutoff = new Date(now).toISOString();
+  const windowStart = new Date(
+    now - ATTENDANCE_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
   const { data: sessions, error } = await admin
     .from("sessions")
     .select("id, zoom_meeting_id, starts_at, duration_min")
     .not("zoom_meeting_id", "is", null)
     .in("status", ["live", "completed"])
+    .gte("starts_at", windowStart)
     .lte("starts_at", cutoff);
 
   if (error) {

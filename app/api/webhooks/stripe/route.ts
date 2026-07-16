@@ -4,17 +4,26 @@ import {
   stripeRequest,
   verifyStripeSignature,
 } from "@/lib/stripe";
+import { GRACE_DAYS } from "@/lib/membership";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /*
  * Stripe → membership sync. Registered by the Admin → Billing wizard.
- *   checkout.session.completed  → create the membership (tier from metadata)
- *   customer.subscription.updated → extend/adjust access to the paid period
- *   customer.subscription.deleted → mark canceled (access until period end)
- *   invoice.payment_failed        → past_due (7-day grace semantics apply)
+ *   checkout.session.completed        → create the membership (paid checkouts
+ *                                       only; ACH etc. wait for async success)
+ *   checkout.session.async_payment_succeeded → same, for delayed methods
+ *   invoice.paid                      → extend access to the newly PAID period
+ *   customer.subscription.updated     → status/tier changes (never extends)
+ *   customer.subscription.deleted     → mark canceled (access until period end)
+ *   invoice.payment_failed            → past_due + clamp access to 7-day grace
  * Signature-verified with the stored signing secret; events we don't know
  * are acknowledged and ignored.
+ *
+ * Access extension deliberately lives on invoice.paid, not
+ * subscription.updated: at renewal Stripe advances current_period_end while
+ * the invoice is still unpaid and status is still "active", so extending on
+ * "updated" hands a failed card a free billing term.
  */
 
 interface StripeSubscription {
@@ -33,11 +42,26 @@ function periodEndIso(sub: StripeSubscription): string | null {
 }
 
 function mapStatus(stripeStatus: string): "active" | "past_due" | "canceled" {
-  if (stripeStatus === "past_due" || stripeStatus === "unpaid") return "past_due";
+  if (stripeStatus === "active" || stripeStatus === "trialing") return "active";
   if (stripeStatus === "canceled" || stripeStatus === "incomplete_expired") {
     return "canceled";
   }
-  return "active";
+  // past_due, unpaid, incomplete, paused, anything new Stripe invents:
+  // access only until the already-paid period (or grace) runs out.
+  return "past_due";
+}
+
+/**
+ * Invoice → subscription id. Current ("Basil", 2025+) Stripe API versions
+ * moved it under parent.subscription_details; older versions have it
+ * top-level. Accept both — the webhook endpoint doesn't pin api_version.
+ */
+function invoiceSubscriptionId(inv: {
+  subscription?: string | null;
+  parent?: { subscription_details?: { subscription?: string | null } | null } | null;
+}): string | null {
+  const sub = inv.subscription ?? inv.parent?.subscription_details?.subscription;
+  return typeof sub === "string" && sub ? sub : null;
 }
 
 export async function POST(req: NextRequest) {
@@ -67,17 +91,23 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         const s = event.data.object as {
           metadata?: Record<string, string>;
           subscription?: string;
           customer?: string;
           customer_details?: { email?: string };
+          payment_status?: string;
         };
         let profileId = s.metadata?.profile_id;
         const plan = s.metadata?.plan === "pro" ? "pro" : "basic";
         const subId = s.subscription;
         if (!subId) break;
+        // Delayed payment methods (ACH) complete checkout with
+        // payment_status "unpaid"; the membership is created when the
+        // async_payment_succeeded event confirms the money actually moved.
+        if (s.payment_status && s.payment_status !== "paid") break;
 
         // Public signup (momentumplus.co home page): no account yet — find
         // or invite one by the checkout email. The invite email lands them
@@ -164,14 +194,34 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      case "invoice.paid": {
+        // The only event that extends access: money actually settled for
+        // the new period. Pull the fresh period end off the subscription.
+        const subId = invoiceSubscriptionId(
+          event.data.object as Parameters<typeof invoiceSubscriptionId>[0],
+        );
+        if (!subId) break;
+        const sub = await stripeRequest<StripeSubscription>(
+          settings.secretKey,
+          "GET",
+          `/subscriptions/${subId}`,
+        );
+        const end = periodEndIso(sub);
+        const patch: Record<string, unknown> = { status: mapStatus(sub.status) };
+        if (end) patch.access_expires_at = end;
+        await admin
+          .from("memberships")
+          .update(patch)
+          .eq("stripe_subscription_id", subId);
+        break;
+      }
+
       case "customer.subscription.updated": {
         const sub = event.data.object as unknown as StripeSubscription;
         const status = mapStatus(sub.status);
         const patch: Record<string, unknown> = { status };
-        // Only a paid period extends access — a declined renewal advances
-        // Stripe's period but must not hand out a free month.
-        const end = periodEndIso(sub);
-        if (end && status === "active") patch.access_expires_at = end;
+        // No access extension here — at renewal Stripe advances the period
+        // before the invoice is paid, so extension waits for invoice.paid.
         // Portal plan switches change the price on the subscription; keep
         // the tier in lockstep so access always matches what they pay for.
         const priceId = (
@@ -191,14 +241,15 @@ export async function POST(req: NextRequest) {
           .maybeSingle();
 
         // Missed checkout event (e.g. webhook added later): create from
-        // subscription metadata when we can.
+        // subscription metadata when we can. Never insert a row with open
+        // -ended access — a null expiry reads as indefinite downstream.
         if (!row && sub.metadata?.profile_id) {
           await admin.from("memberships").insert({
             profile_id: sub.metadata.profile_id,
             tier: sub.metadata.plan === "pro" ? "pro" : "basic",
             status: mapStatus(sub.status),
             access_starts_at: new Date().toISOString(),
-            access_expires_at: periodEndIso(sub),
+            access_expires_at: periodEndIso(sub) ?? new Date().toISOString(),
             source: "stripe",
             stripe_subscription_id: sub.id,
           });
@@ -218,12 +269,31 @@ export async function POST(req: NextRequest) {
       }
 
       case "invoice.payment_failed": {
-        const inv = event.data.object as { subscription?: string };
-        if (inv.subscription) {
+        const subId = invoiceSubscriptionId(
+          event.data.object as Parameters<typeof invoiceSubscriptionId>[0],
+        );
+        if (!subId) break;
+        // past_due + clamp: if an earlier subscription.updated already
+        // stretched access into the unpaid period, pull it back to a 7-day
+        // grace window (same GRACE_DAYS semantics as GHL members). Never
+        // extends an expiry that is already sooner.
+        const { data: row } = await admin
+          .from("memberships")
+          .select("id, access_expires_at")
+          .eq("stripe_subscription_id", subId)
+          .maybeSingle();
+        if (row) {
+          const grace = new Date(
+            Date.now() + GRACE_DAYS * 24 * 60 * 60 * 1000,
+          ).toISOString();
+          const current = row.access_expires_at as string | null;
           await admin
             .from("memberships")
-            .update({ status: "past_due" })
-            .eq("stripe_subscription_id", inv.subscription);
+            .update({
+              status: "past_due",
+              access_expires_at: current && current < grace ? current : grace,
+            })
+            .eq("id", row.id);
         }
         break;
       }

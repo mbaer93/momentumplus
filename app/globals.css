@@ -3603,7 +3603,6 @@ a.course-card:hover {
   color: #f8f6f1;
   line-height: 1;
   margin-bottom: 6px;
-  transform: rotate(-2deg);
 }
 .certificate-seal {
   display: flex;

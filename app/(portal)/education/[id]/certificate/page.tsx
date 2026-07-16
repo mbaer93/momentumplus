@@ -96,7 +96,7 @@ export default async function CertificatePage({
                 />
               </div>
               <div className="certificate-rule" />
-              <div>Sierra Learnership</div>
+              <div>Sierra Learnership Collaborative</div>
             </div>
           </div>
         </div>

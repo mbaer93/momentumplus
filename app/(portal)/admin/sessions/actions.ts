@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { easternInputToIso } from "@/lib/eastern-time";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { AccessLevel, SessionStatus } from "@/lib/types";
@@ -10,7 +11,7 @@ export interface SessionFormValues {
   title: string;
   description: string;
   category: string;
-  startsAt: string; // ISO or ""
+  startsAt: string; // "YYYY-MM-DDTHH:mm" Eastern wall time, or ""
   durationMin: number;
   capacity: number | null;
   minAccess: AccessLevel;
@@ -31,7 +32,10 @@ function toRow(values: SessionFormValues) {
     title: values.title,
     description: values.description || null,
     category: values.category || null,
-    starts_at: values.startsAt ? new Date(values.startsAt).toISOString() : null,
+    // datetime-local values are Eastern wall time by definition (the whole
+    // product pins ET); parsing with new Date() here would use the SERVER's
+    // timezone and shift every session by hours on each save.
+    starts_at: values.startsAt ? easternInputToIso(values.startsAt) : null,
     duration_min: values.durationMin || null,
     capacity: values.capacity,
     min_access: values.minAccess,

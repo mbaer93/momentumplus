@@ -59,5 +59,11 @@ export default async function LiveSessionPage({
     );
   }
 
-  return <LiveRoom session={session} displayName={member.name} />;
+  return (
+    <LiveRoom
+      session={session}
+      displayName={member.name}
+      memberEmail={member.email}
+    />
+  );
 }

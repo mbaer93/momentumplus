@@ -86,15 +86,19 @@ export async function GET(req: NextRequest) {
           }) + " ET"
         : "soon";
 
-      if (wants.in_app) {
-        await admin.from("notifications").insert({
-          profile_id: profile.profile_id,
-          kind: "session_reminder",
-          title: `Starting soon: ${session.title}`,
-          body: `Your session begins at ${startLabel}. The live room is open now.`,
-          link,
-        });
-      }
+      // The notifications row doubles as the idempotency marker checked
+      // above, so it is ALWAYS inserted — a member with in-app off but
+      // email/SMS on would otherwise be re-sent every cron run inside the
+      // reminder window. When in-app is off, the row is born already-read
+      // so it never surfaces as an unread notification.
+      await admin.from("notifications").insert({
+        profile_id: profile.profile_id,
+        kind: "session_reminder",
+        title: `Starting soon: ${session.title}`,
+        body: `Your session begins at ${startLabel}. The live room is open now.`,
+        link,
+        read_at: wants.in_app ? null : new Date().toISOString(),
+      });
 
       // GHL contact id lives on the membership row.
       const { data: membership } = await admin
