@@ -86,23 +86,14 @@ export default async function CertificatePage({
               <div>Momentum+ Education</div>
             </div>
             <div className="certificate-line">
-              <div className="certificate-seal" aria-hidden="true">
-                <svg width="74" height="74" viewBox="0 0 74 74" fill="none">
-                  <circle cx="37" cy="37" r="34" stroke="#B8965A" strokeWidth="2.5" />
-                  <circle cx="37" cy="37" r="28" stroke="#B8965A" strokeWidth="1" />
-                  <text
-                    x="37"
-                    y="43"
-                    textAnchor="middle"
-                    fontFamily="Georgia, serif"
-                    fontSize="17"
-                    fontWeight="bold"
-                    fill="#D4AE75"
-                    letterSpacing="1.5"
-                  >
-                    SLC
-                  </text>
-                </svg>
+              <div className="certificate-seal">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/slc-seal.png"
+                  alt="Sierra Learnership Collaborative seal"
+                  width={78}
+                  height={78}
+                />
               </div>
               <div className="certificate-rule" />
               <div>Sierra Learnership</div>
