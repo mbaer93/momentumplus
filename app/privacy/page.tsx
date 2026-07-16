@@ -208,9 +208,14 @@ export default function PrivacyPage() {
 
         <h2 style={sectionStyle}>Contact</h2>
         <p style={pStyle}>
-          Questions or requests: [CONTACT EMAIL].
+          Questions or requests:{" "}
+          <a href="mailto:hello@momentumplus.co" style={{ color: "#0B1622" }}>
+            hello@momentumplus.co
+          </a>
+          .
           <br />
-          Sierra Learnership Collaborative, LLC, [MAILING ADDRESS].
+          Sierra Learnership Collaborative, LLC, 117 Creekside Lane, Winchester,
+          VA 22602.
         </p>
 
         <div style={{ marginTop: 24, textAlign: "center" }}>
