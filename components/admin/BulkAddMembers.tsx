@@ -48,11 +48,12 @@ export function BulkAddMembers() {
       </div>
       <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 8 }}>
         Paste one member per line: <strong>email, Full Name, plan</strong>.
-        Plans: basic, gift (free Basic, 1 month), vip (free Basic-level, 3
-        months), pro, monthly, 3month, 6month, 12month (or annual), attendee,
-        speaker. New members receive an invite email and set their password on
-        first login. Re-importing the same person is safe — no double-grants.
-        Up to 200 lines per run.
+        Plans: <strong>basic</strong> (Momentum+ User), <strong>pro</strong>{" "}
+        (Momentum+ Pro User), <strong>gift</strong> (Gift User, 1 month),{" "}
+        <strong>vip</strong> (VIP Access User, 3 months), or speaker. New
+        members receive an invite email and set their password on first login.
+        Re-importing the same person is safe — no double-grants. Up to 200
+        lines per run.
       </div>
       <div className="admin-field">
         <textarea

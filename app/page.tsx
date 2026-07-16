@@ -133,7 +133,7 @@ export default async function HomePage() {
         <h2 className="land-h2">Pick your level</h2>
         <div className="land-price-grid">
           <div className="land-price-card">
-            <div className="land-price-name">Basic</div>
+            <div className="land-price-name">Momentum+ User</div>
             <div className="land-price-amount">
               {basicPrice ?? "Join today"}
             </div>
@@ -144,21 +144,21 @@ export default async function HomePage() {
               <li>Private community and member offers</li>
             </ul>
             <Link href="/join?plan=basic" className="btn-gold land-cta">
-              Join as Basic
+              Join Momentum+
             </Link>
           </div>
           <div className="land-price-card best">
             <span className="pricing-best-tag">Most Access</span>
-            <div className="land-price-name">Pro</div>
+            <div className="land-price-name">Momentum+ Pro</div>
             <div className="land-price-amount">{proPrice ?? "Join today"}</div>
             <ul className="land-price-list">
-              <li>Everything in Basic</li>
+              <li>Everything in Momentum+ User</li>
               <li>Pro-only sessions and recordings</li>
               <li>Pro-only courses and resources</li>
               <li>First access to new programs</li>
             </ul>
             <Link href="/join?plan=pro" className="btn-gold land-cta">
-              Join as Pro
+              Join Momentum+ Pro
             </Link>
           </div>
         </div>

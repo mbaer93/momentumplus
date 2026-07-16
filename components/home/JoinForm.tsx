@@ -45,7 +45,7 @@ export function JoinForm({ initialPlan }: { initialPlan: "basic" | "pro" }) {
             className={`join-plan${plan === p ? " active" : ""}`}
             onClick={() => setPlan(p)}
           >
-            {p === "basic" ? "Basic" : "Pro"}
+            {p === "basic" ? "Momentum+ User" : "Momentum+ Pro"}
           </button>
         ))}
       </div>
