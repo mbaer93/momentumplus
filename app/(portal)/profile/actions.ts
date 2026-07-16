@@ -5,6 +5,7 @@ import { getCurrentMember } from "@/lib/current-member";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { PREF_KEYS, type PrefRow } from "@/lib/notifications";
+import { checkPassword } from "@/lib/password";
 
 export interface ProfileResult {
   ok: boolean;
@@ -20,8 +21,9 @@ export async function changePassword(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Changed (preview mode)" };
   }
-  if (newPassword.length < 8) {
-    return { ok: false, message: "Use at least 8 characters." };
+  const policyError = checkPassword(newPassword);
+  if (policyError) {
+    return { ok: false, message: policyError };
   }
   const supabase = createClient();
   const {

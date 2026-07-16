@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { PrefDefinition, PrefRow } from "@/lib/notifications";
+import { PASSWORD_HINT, checkPassword } from "@/lib/password";
 import {
   BillingControls,
   type BillingInfo,
@@ -124,6 +125,11 @@ export function ProfileView({
   function savePassword(e: React.FormEvent) {
     e.preventDefault();
     setPwMsg(null);
+    const policyError = checkPassword(pw.next);
+    if (policyError) {
+      setPwMsg({ text: policyError, ok: false });
+      return;
+    }
     if (pw.next !== pw.confirm) {
       setPwMsg({ text: "The two passwords don't match.", ok: false });
       return;
@@ -464,7 +470,7 @@ export function ProfileView({
                         minLength={8}
                         value={pw.next}
                         onChange={(e) => setPw({ ...pw, next: e.target.value })}
-                        placeholder="At least 8 characters"
+                        placeholder="Choose a strong password"
                       />
                     </div>
                     <div className="admin-field">
@@ -479,6 +485,9 @@ export function ProfileView({
                       />
                     </div>
                   </div>
+                  <p style={{ fontSize: 12, color: "var(--mid-gray)", margin: "2px 0 10px" }}>
+                    {PASSWORD_HINT}
+                  </p>
                   <button
                     type="submit"
                     className="btn-primary"

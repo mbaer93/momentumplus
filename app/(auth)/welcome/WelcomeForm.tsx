@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfile } from "@/app/(portal)/profile/actions";
+import { PASSWORD_HINT, checkPassword } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -47,8 +48,9 @@ export function WelcomeForm({
   async function savePassword(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 8) {
-      setError("Use at least 8 characters.");
+    const policyError = checkPassword(password);
+    if (policyError) {
+      setError(policyError);
       return;
     }
     if (password !== confirm) {
@@ -187,8 +189,11 @@ export function WelcomeForm({
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 8 characters"
+            placeholder="Choose a strong password"
           />
+          <p style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 4 }}>
+            {PASSWORD_HINT}
+          </p>
         </div>
         <div className="login-field">
           <label htmlFor="confirm">Confirm password</label>
