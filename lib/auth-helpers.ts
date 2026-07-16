@@ -12,7 +12,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * switched that area off for them.
  */
 export async function requireAdmin(area?: AdminArea): Promise<
-  | { ok: true; userId: string; access: AdminAccess }
+  | { ok: true; userId: string; userEmail: string | null; access: AdminAccess }
   | { ok: false; status: number; message: string }
 > {
   if (!isSupabaseConfigured()) {
@@ -59,7 +59,7 @@ export async function requireAdmin(area?: AdminArea): Promise<
     };
   }
 
-  return { ok: true, userId: user.id, access };
+  return { ok: true, userId: user.id, userEmail: user.email ?? null, access };
 }
 
 /**
