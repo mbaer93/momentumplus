@@ -1,0 +1,55 @@
+<!--
+  Momentum+ reauthentication code email.
+
+  Where to paste it:
+    supabase.com/dashboard -> your project -> Authentication -> Emails
+    -> Templates -> "Reauthentication" -> replace the body with this HTML -> Save.
+
+  Subject line:
+    Your Momentum+ verification code
+-->
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F8F6F1;padding:32px 0;font-family:Georgia,'Times New Roman',serif;">
+  <tr>
+    <td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#0B1622;border-radius:4px;overflow:hidden;">
+        <tr>
+          <td style="padding:36px 40px 28px;text-align:center;">
+            <div style="font-size:30px;color:#ffffff;letter-spacing:0.5px;">
+              Momentum<span style="color:#B8965A;">+</span>
+            </div>
+            <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#B8965A;margin-top:6px;">
+              Premium Member Portal
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 40px 8px;">
+            <div style="background:#ffffff;border-radius:4px;padding:32px 32px 28px;font-family:Helvetica,Arial,sans-serif;">
+              <h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:22px;color:#0B1622;">
+                Verify it's you
+              </h1>
+              <p style="margin:0 0 22px;font-size:14px;line-height:1.7;color:#3d4247;">
+                You're making a sensitive change to your Momentum+ account. Enter this code to continue:
+              </p>
+              <div style="margin:0 auto 10px;text-align:center;">
+                <div style="display:inline-block;background:#F8F6F1;border:1px solid #B8965A;border-radius:4px;padding:14px 28px;font-size:24px;letter-spacing:6px;font-weight:bold;color:#0B1622;">
+                  {{ .Token }}
+                </div>
+              </div>
+              <p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:#8a8f94;text-align:center;">
+                The code expires shortly and works once.<br />Didn't try to make a change? Reset your password right away.
+              </p>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 40px 28px;text-align:center;">
+            <div style="font-size:11px;color:#6b7280;font-family:Helvetica,Arial,sans-serif;">
+              Momentum+ &middot; Tri-State Leadership Summit &middot; Sierra Learnership Collaborative
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
