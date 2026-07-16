@@ -6,6 +6,7 @@ import {
 import {
   AnthropicWizard,
   GhlWizard,
+  SmtpWizard,
   ZoomWizard,
 } from "@/components/admin/ConnectWizards";
 import { ArrowLeftIcon } from "@/components/icons";
@@ -13,6 +14,7 @@ import { getAdminAccess } from "@/lib/auth-helpers";
 import {
   isAnthropicReady,
   isGhlReady,
+  isSmtpMarkedDone,
   isZoomReady,
   isZoomSdkReady,
 } from "@/lib/service-config";
@@ -96,13 +98,15 @@ export default async function AdminConnectionsPage() {
   const access = await getAdminAccess();
   const isSuper = access?.role === "super";
 
-  const [stripe, zoomOk, zoomSdkOk, anthropicOk, ghlOk] = await Promise.all([
-    getStripeSettings(),
-    isZoomReady(),
-    isZoomSdkReady(),
-    isAnthropicReady(),
-    isGhlReady(),
-  ]);
+  const [stripe, zoomOk, zoomSdkOk, anthropicOk, ghlOk, smtpDone] =
+    await Promise.all([
+      getStripeSettings(),
+      isZoomReady(),
+      isZoomSdkReady(),
+      isAnthropicReady(),
+      isGhlReady(),
+      isSmtpMarkedDone(),
+    ]);
   const stripeDone = stripeReady(stripe);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
@@ -176,6 +180,14 @@ export default async function AdminConnectionsPage() {
             optional
           >
             <GhlWizard webhookUrl={`${siteUrl}/api/webhooks/ghl`} />
+          </ConnectionCard>
+
+          <ConnectionCard
+            title="Email — invites and password resets"
+            powers="Branded Momentum+ email from your own domain (SendGrid SMTP through Supabase)"
+            connected={smtpDone}
+          >
+            <SmtpWizard markedDone={smtpDone} />
           </ConnectionCard>
 
           <ConnectionCard
