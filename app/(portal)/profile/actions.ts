@@ -12,6 +12,34 @@ export interface ProfileResult {
   preview?: boolean;
 }
 
+/** Member changes their own password (Profile → Preferences). */
+export async function changePassword(
+  newPassword: string,
+): Promise<ProfileResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Changed (preview mode)" };
+  }
+  if (newPassword.length < 8) {
+    return { ok: false, message: "Use at least 8 characters." };
+  }
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Not signed in." };
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) {
+    return {
+      ok: false,
+      message: error.message.includes("different from the old")
+        ? "That's already your password — pick a new one."
+        : `Couldn't change the password: ${error.message}`,
+    };
+  }
+  return { ok: true, message: "Password changed." };
+}
+
 export async function updateProfile(input: {
   full_name: string;
   phone: string;
