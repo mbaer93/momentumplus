@@ -44,10 +44,14 @@ export async function POST() {
     { expSeconds: 60 * 60 * 24 },
   );
 
-  // Upsert the Stream user server-side: admins get Stream's admin role
-  // (moderation — delete any message) plus their admin title as a custom
-  // field shown next to the badge. Best-effort: a hiccup here shouldn't
-  // block chat, so token issuance continues either way.
+  const channels = channelsForTier(member.tier);
+
+  // Upsert the Stream user server-side (admins get Stream's admin role and
+  // their title as a custom field), then ADD the user as a member of every
+  // channel their tier allows. Without the membership grant, non-admin
+  // users can't even read the channels — Stream's "user" role only sees
+  // channels it belongs to. Best-effort per step so a hiccup on one channel
+  // doesn't block the rest.
   try {
     const { StreamChat } = await import("stream-chat");
     const server = StreamChat.getInstance(
@@ -61,14 +65,33 @@ export async function POST() {
       // Custom field rendered next to the Admin badge in chat.
       adminTitle: member.isAdmin ? (member.adminTitle ?? "") : "",
     };
-    await server.upsertUser(
-      streamUser as unknown as Parameters<typeof server.upsertUser>[0],
+    const teamUser = {
+      id: "momentum-team",
+      name: "Momentum+ Team",
+      role: "admin",
+      adminTitle: "Momentum+ Team",
+    };
+    await server.upsertUsers([streamUser, teamUser] as unknown as Parameters<
+      typeof server.upsertUsers
+    >[0]);
+
+    await Promise.all(
+      channels.map(async (c) => {
+        try {
+          const channel = server.channel("messaging", c.id, {
+            created_by_id: "momentum-team",
+            ...( { name: c.name } as object),
+          });
+          await channel.create();
+          await channel.addMembers([userId]);
+        } catch {
+          // per-channel best-effort
+        }
+      }),
     );
   } catch {
     // non-fatal
   }
-
-  const channels = channelsForTier(member.tier);
 
   return NextResponse.json(
     {
