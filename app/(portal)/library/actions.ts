@@ -1,11 +1,21 @@
 "use server";
 
+import { getCurrentMember } from "@/lib/current-member";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+
+/** Writes require a live membership, not just a login — the UI already
+ *  locks lapsed members out, and the server actions must agree with it. */
+async function membershipActive(): Promise<boolean> {
+  const member = await getCurrentMember();
+  return Boolean(member?.membershipActive);
+}
 
 /**
  * Record a library view (video_views feeds the member learning record).
  * RLS: members insert only their own rows. Fire-and-forget from the player.
+ * One row per member+video (unique index) — repeat visits update it instead
+ * of inflating the learning record.
  */
 export async function recordVideoView(
   videoId: string,
@@ -16,13 +26,16 @@ export async function recordVideoView(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user || !(await membershipActive())) return;
 
-  await supabase.from("video_views").insert({
-    video_id: videoId,
-    profile_id: user.id,
-    seconds_watched: Math.max(0, Math.round(secondsWatched)),
-  });
+  await supabase.from("video_views").upsert(
+    {
+      video_id: videoId,
+      profile_id: user.id,
+      seconds_watched: Math.max(0, Math.round(secondsWatched)),
+    },
+    { onConflict: "profile_id,video_id" },
+  );
 }
 
 export interface NoteResult {
@@ -47,6 +60,9 @@ export async function saveVideoNote(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
+  if (!(await membershipActive())) {
+    return { ok: false, message: "Your membership has lapsed — renew to keep taking notes." };
+  }
 
   const { error } = await supabase.from("video_notes").upsert(
     {

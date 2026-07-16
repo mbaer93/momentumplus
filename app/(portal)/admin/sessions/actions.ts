@@ -81,12 +81,39 @@ export async function updateSession(
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
-  const { error } = await admin.from("sessions").update(toRow(values)).eq("id", id);
+  const row = toRow(values);
+  const { data: updated, error } = await admin
+    .from("sessions")
+    .update(row)
+    .eq("id", id)
+    .select("zoom_meeting_id")
+    .maybeSingle();
   if (error) return { ok: false, message: error.message };
+
+  // A published session already has a Zoom meeting — keep it in lockstep,
+  // or members join a meeting whose schedule disagrees with the portal.
+  let zoomNote = "";
+  if (updated?.zoom_meeting_id) {
+    try {
+      const { isZoomReady } = await import("@/lib/service-config");
+      if (await isZoomReady()) {
+        const { updateZoomMeeting } = await import("@/lib/zoom");
+        await updateZoomMeeting(updated.zoom_meeting_id, {
+          topic: row.title,
+          startTime: row.starts_at ?? undefined,
+          durationMin: row.duration_min ?? undefined,
+          agenda: row.description ?? undefined,
+        });
+      }
+    } catch (e) {
+      zoomNote = ` Heads up: the Zoom meeting couldn't be updated (${(e as Error).message}) — fix it in Zoom or re-save.`;
+    }
+  }
+
   revalidatePath("/admin/sessions");
   revalidatePath(`/sessions/${id}`);
   revalidatePath("/sessions");
-  return { ok: true, id, message: "Session saved." };
+  return { ok: true, id, message: `Session saved.${zoomNote}` };
 }
 
 export async function deleteSession(id: string): Promise<AdminResult> {

@@ -1,3 +1,4 @@
+import { emailPattern } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
         const { data: profile } = await admin
           .from("profiles")
           .select("id")
-          .ilike("email", row.email)
+          .ilike("email", emailPattern(row.email))
           .maybeSingle();
         profileId = profile?.id ?? null;
       }

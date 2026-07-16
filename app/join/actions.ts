@@ -1,5 +1,6 @@
 "use server";
 
+import { emailPattern } from "@/lib/db-utils";
 import { getStripeSettings, priceForTerm, stripeReady, stripeRequest } from "@/lib/stripe";
 import { requestSiteUrl } from "@/lib/site-url";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -50,7 +51,7 @@ export async function startPublicCheckout(input: {
   const { data: existing } = await createServiceClient()
     .from("profiles")
     .select("id")
-    .ilike("email", email)
+    .ilike("email", emailPattern(email))
     .maybeSingle();
   if (existing) {
     return {

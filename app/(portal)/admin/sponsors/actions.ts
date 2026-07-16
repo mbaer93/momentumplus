@@ -1,5 +1,6 @@
 "use server";
 
+import { emailPattern } from "@/lib/db-utils";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { provisionMember } from "@/lib/onboarding";
@@ -135,7 +136,7 @@ export async function linkSponsorMember(
   const { data: profile } = await admin
     .from("profiles")
     .select("id")
-    .ilike("email", email.trim().toLowerCase())
+    .ilike("email", emailPattern(email))
     .maybeSingle();
   if (!profile) return { ok: false, message: "Could not find that member." };
 

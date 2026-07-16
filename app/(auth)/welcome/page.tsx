@@ -13,8 +13,18 @@ export const metadata = {
  * their profile, and enter the portal.
  */
 export default async function WelcomePage() {
-  let initialName = "";
   let email = "";
+  // Recovery links land here too — a long-standing member resetting their
+  // password walks the same steps, so the profile form MUST start from
+  // their existing details or "Finish" overwrites them with blanks.
+  let initialProfile = {
+    full_name: "",
+    company: "",
+    title: "",
+    phone: "",
+    industry: "",
+    bio: "",
+  };
   if (isSupabaseConfigured()) {
     const supabase = createClient();
     const {
@@ -24,10 +34,19 @@ export default async function WelcomePage() {
       email = user.email ?? "";
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name")
+        .select("full_name, company, title, phone, industry, bio")
         .eq("id", user.id)
         .maybeSingle();
-      initialName = profile?.full_name ?? "";
+      if (profile) {
+        initialProfile = {
+          full_name: profile.full_name ?? "",
+          company: profile.company ?? "",
+          title: profile.title ?? "",
+          phone: profile.phone ?? "",
+          industry: profile.industry ?? "",
+          bio: profile.bio ?? "",
+        };
+      }
     }
   }
 
@@ -36,7 +55,7 @@ export default async function WelcomePage() {
       <div className="login-logo">Momentum+</div>
       <div className="login-tagline">Premium Member Portal</div>
       <Suspense fallback={<div className="login-card">Loading…</div>}>
-        <WelcomeForm initialName={initialName} email={email} />
+        <WelcomeForm initialProfile={initialProfile} email={email} />
       </Suspense>
     </div>
   );

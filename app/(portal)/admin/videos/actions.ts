@@ -175,7 +175,20 @@ export async function finalizeVideoUpload(
       }
     }
 
-    const { error } = await createServiceClient().from("videos").insert({
+    // Idempotent on the Mux asset: double-clicking Finish (or a retry after
+    // a slow response) must not create duplicate library rows.
+    const service = createServiceClient();
+    const { data: existing } = await service
+      .from("videos")
+      .select("id")
+      .eq("mux_asset_id", assetId)
+      .maybeSingle();
+    if (existing) {
+      refresh();
+      return { ok: true, message: "That upload is already in the Library." };
+    }
+
+    const { error } = await service.from("videos").insert({
       title: input.title.trim(),
       category: input.category.trim() || null,
       mux_playback_id: playbackId,

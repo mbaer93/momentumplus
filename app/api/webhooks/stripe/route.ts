@@ -1,3 +1,4 @@
+import { emailPattern } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   getStripeSettings,
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
           const { data: profile } = await admin
             .from("profiles")
             .select("id")
-            .ilike("email", email)
+            .ilike("email", emailPattern(email))
             .maybeSingle();
           if (profile) {
             profileId = profile.id;
