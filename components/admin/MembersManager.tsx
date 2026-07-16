@@ -6,6 +6,7 @@ import type { Tier } from "@/lib/types";
 import { ADMIN_AREAS } from "@/lib/admin-perms";
 import {
   deleteMember,
+  changeMembershipTier,
   deleteMembership,
   expireMembership,
   extendMembership,
@@ -61,6 +62,7 @@ export function MembersManager({
   const [msg, setMsg] = useState<string | null>(null);
   const [grant, setGrant] = useState({ email: "", tier: "basic" as Tier, months: 1 });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [tierForm, setTierForm] = useState<Tier>("basic");
   const [profileForm, setProfileForm] = useState({
     fullName: "",
     title: "",
@@ -87,6 +89,7 @@ export function MembersManager({
 
   function beginEdit(m: AdminMemberRow) {
     setEditingId(m.membershipId);
+    setTierForm(m.tier as Tier);
     setProfileForm({
       fullName: m.name === "—" ? "" : m.name,
       title: m.profileTitle,
@@ -283,6 +286,56 @@ export function MembersManager({
                 <tr>
                   <td colSpan={6} style={{ background: "#fbfaf8" }}>
                     <div style={{ padding: "6px 4px" }}>
+                      <div
+                        className="admin-field-row"
+                        style={{
+                          gridTemplateColumns: "1fr auto",
+                          alignItems: "end",
+                          maxWidth: 420,
+                        }}
+                      >
+                        <div className="admin-field">
+                          <label htmlFor={`edit-tier-${m.membershipId}`}>
+                            Membership level
+                          </label>
+                          <select
+                            id={`edit-tier-${m.membershipId}`}
+                            value={tierForm}
+                            onChange={(e) => setTierForm(e.target.value as Tier)}
+                          >
+                            {TIERS.filter(
+                              (t) =>
+                                viewerIsSuper ||
+                                (t.value !== "admin" && m.tier !== "admin"),
+                            ).map((t) => (
+                              <option key={t.value} value={t.value}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-mini"
+                          style={{ marginBottom: 14 }}
+                          disabled={pending || tierForm === m.tier}
+                          onClick={() => {
+                            if (
+                              tierForm === "admin" &&
+                              !confirm(
+                                `Change ${m.name || m.email} to ADMIN? They will be able to manage sessions, members, and content across the whole platform.`,
+                              )
+                            ) {
+                              return;
+                            }
+                            run(() =>
+                              changeMembershipTier(m.membershipId, tierForm),
+                            );
+                          }}
+                        >
+                          Change level
+                        </button>
+                      </div>
                       <div
                         className="admin-field-row"
                         style={{ gridTemplateColumns: "1.3fr 1fr 1fr 1fr" }}

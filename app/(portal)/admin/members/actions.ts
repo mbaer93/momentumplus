@@ -444,6 +444,55 @@ export async function getLoginLink(email: string): Promise<AdminMemberResult> {
   };
 }
 
+/**
+ * Change a membership row's tier in place — the everyday way to move a
+ * member between levels (Basic → Pro, etc.). Anything touching the admin
+ * tier, in either direction, is Super Admin territory.
+ */
+export async function changeMembershipTier(
+  membershipId: string,
+  tier: Tier,
+): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Changed (preview mode)." };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!GRANTABLE.includes(tier)) {
+    return { ok: false, message: "Unknown tier." };
+  }
+
+  const admin = createServiceClient();
+  const { data: row } = await admin
+    .from("memberships")
+    .select("tier, profile_id")
+    .eq("id", membershipId)
+    .maybeSingle();
+  if (!row) return { ok: false, message: "Membership not found." };
+
+  if ((tier === "admin" || row.tier === "admin") && auth.access.role !== "super") {
+    return {
+      ok: false,
+      message: "Only the Super Admin can change admin access.",
+    };
+  }
+  if (row.tier === "admin" && row.profile_id === auth.userId) {
+    return {
+      ok: false,
+      message: "You can't remove your own admin membership.",
+    };
+  }
+
+  const { error } = await admin
+    .from("memberships")
+    .update({ tier })
+    .eq("id", membershipId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin/members");
+  return { ok: true, message: `Membership level changed to ${tier}.` };
+}
+
 export async function expireMembership(
   membershipId: string,
 ): Promise<AdminMemberResult> {
