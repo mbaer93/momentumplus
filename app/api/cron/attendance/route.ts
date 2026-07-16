@@ -1,3 +1,4 @@
+import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { getMeetingParticipants } from "@/lib/zoom";
@@ -21,9 +22,7 @@ import { isZoomReady } from "@/lib/service-config";
 const ATTENDANCE_WINDOW_DAYS = 3;
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

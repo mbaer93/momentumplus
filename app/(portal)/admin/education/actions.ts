@@ -160,8 +160,13 @@ const LESSON_IMAGE_TYPES: Record<string, string> = {
 };
 
 async function ensureMediaBucket(): Promise<void> {
+  // PRIVATE bucket — lesson docs/images for gated courses must not be
+  // permanent public URLs. On a fresh environment this createBucket runs
+  // before migration 0020's "set public=false" has anything to update, so
+  // it MUST create the bucket private itself. Content is served via signed
+  // URLs (lib/education-media.ts).
   await createServiceClient()
-    .storage.createBucket(MEDIA_BUCKET, { public: true })
+    .storage.createBucket(MEDIA_BUCKET, { public: false })
     .catch(() => undefined);
 }
 

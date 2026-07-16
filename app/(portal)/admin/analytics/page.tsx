@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeftIcon } from "@/components/icons";
+import { canAccessArea } from "@/lib/admin-perms";
+import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -42,6 +45,12 @@ function ctr(clicks: number, impressions: number): string {
 }
 
 export default async function AdminAnalyticsPage() {
+  // Session rosters here list member name + email — same PII sensitivity as
+  // the Members page, so gate on the same "members" area (enforced on read).
+  if (isSupabaseConfigured() && !canAccessArea(await getAdminAccess(), "members")) {
+    redirect("/admin");
+  }
+
   const configured =
     isSupabaseConfigured() && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 

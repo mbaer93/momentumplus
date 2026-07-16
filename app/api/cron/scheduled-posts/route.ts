@@ -1,3 +1,4 @@
+import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { isStreamConfigured, sendCommunityMessage } from "@/lib/stream";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -9,9 +10,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * concurrent run can't double-post; rolled back if the send fails).
  */
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {

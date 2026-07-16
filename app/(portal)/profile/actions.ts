@@ -15,6 +15,7 @@ export interface ProfileResult {
 /** Member changes their own password (Profile → Preferences). */
 export async function changePassword(
   newPassword: string,
+  currentPassword?: string,
 ): Promise<ProfileResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Changed (preview mode)" };
@@ -26,7 +27,21 @@ export async function changePassword(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Not signed in." };
+  if (!user?.email) return { ok: false, message: "Not signed in." };
+
+  // Re-verify the current password before changing it — a hijacked or
+  // shoulder-surfed open session must not be able to silently lock the
+  // owner out. (Skipped only for accounts with no password yet.)
+  if (!currentPassword) {
+    return { ok: false, message: "Enter your current password to confirm." };
+  }
+  const { error: reauthError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+  if (reauthError) {
+    return { ok: false, message: "That current password isn't right." };
+  }
 
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) {
@@ -37,7 +52,22 @@ export async function changePassword(
         : `Couldn't change the password: ${error.message}`,
     };
   }
-  return { ok: true, message: "Password changed." };
+
+  // Sign every OTHER session out so a stolen session can't outlive the
+  // password change (updateUser alone leaves siblings valid).
+  try {
+    const { createServiceClient } = await import("@/lib/supabase/admin");
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      await createServiceClient().auth.admin.signOut(user.id, "others");
+    }
+  } catch {
+    // Best-effort — the password is already changed.
+  }
+
+  return {
+    ok: true,
+    message: "Password changed. Other devices have been signed out.",
+  };
 }
 
 export async function updateProfile(input: {

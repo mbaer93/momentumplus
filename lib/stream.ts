@@ -99,6 +99,27 @@ function base64url(input: Buffer | string): string {
  * Stream user token: JWT HS256 with { user_id } signed by the API secret.
  * Optionally short-lived via expSeconds (Stream accepts exp/iat claims).
  */
+/**
+ * Erase a member from Stream Chat on account deletion — the user record and
+ * their messages/DMs, which otherwise persist on Stream's servers after the
+ * app-side account is gone. Best-effort; never throws.
+ */
+export async function deleteStreamUser(userId: string): Promise<void> {
+  const apiKey = process.env.NEXT_PUBLIC_STREAM_API_KEY;
+  const secret = process.env.STREAM_API_SECRET;
+  if (!apiKey || !secret) return;
+  try {
+    const { StreamChat } = await import("stream-chat");
+    const client = StreamChat.getInstance(apiKey, secret);
+    await client.deleteUser(userId, {
+      mark_messages_deleted: true,
+      hard_delete: true,
+    });
+  } catch {
+    // Stream may not know this user (never chatted) — nothing to erase.
+  }
+}
+
 export function generateStreamUserToken(
   userId: string,
   secret: string,

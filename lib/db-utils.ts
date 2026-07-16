@@ -15,3 +15,30 @@ export function escapeLike(value: string): string {
 export function emailPattern(email: string): string {
   return escapeLike(email.trim().toLowerCase());
 }
+
+/**
+ * Mask an email for logs/API responses that may reach third-party systems
+ * (Vercel logs, cron output, webhook callers): `jane@acme.com` → `j***@acme.com`.
+ * Enough to correlate a row without exposing the full address.
+ */
+export function redactEmail(email: string): string {
+  const at = email.indexOf("@");
+  if (at < 1) return "***";
+  return `${email[0]}***${email.slice(at)}`;
+}
+
+/**
+ * Constant-time check of an `Authorization: Bearer <secret>` header. Hashing
+ * first keeps the compare length-independent. Fails closed when the secret
+ * is unset. Use for CRON_SECRET-protected routes.
+ */
+export function bearerAuthorized(
+  header: string | null,
+  secret: string | undefined,
+): boolean {
+  if (!secret || !header || !header.startsWith("Bearer ")) return false;
+  const { timingSafeEqual, createHash } = require("crypto") as typeof import("crypto");
+  const provided = createHash("sha256").update(header.slice(7)).digest();
+  const expected = createHash("sha256").update(secret).digest();
+  return timingSafeEqual(provided, expected);
+}

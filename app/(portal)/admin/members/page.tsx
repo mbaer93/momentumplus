@@ -6,9 +6,11 @@ import {
 import { BulkAddMembers } from "@/components/admin/BulkAddMembers";
 import { ArrowLeftIcon } from "@/components/icons";
 import { tierLabel } from "@/lib/access";
+import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { redirect } from "next/navigation";
 import type { Tier } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -116,6 +118,15 @@ async function fetchAuthActivity(): Promise<Map<string, AuthActivity>> {
 }
 
 export default async function AdminMembersPage() {
+  // Member PII (email, phone, login history) is behind the "members" area,
+  // enforced HERE on the read — the admin layout only checks "is an admin",
+  // so a standard admin without the members area could otherwise open this
+  // URL directly and read everyone's contact details.
+  const access = await getAdminAccess();
+  if (isSupabaseConfigured() && !canAccessArea(access, "members")) {
+    redirect("/admin");
+  }
+
   let members = PREVIEW_MEMBERS;
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -209,7 +220,7 @@ export default async function AdminMembersPage() {
       <BulkAddMembers />
       <MembersManager
         members={members}
-        viewerIsSuper={(await getAdminAccess())?.role === "super"}
+        viewerIsSuper={access?.role === "super"}
       />
     </div>
   );
