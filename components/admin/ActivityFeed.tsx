@@ -75,14 +75,33 @@ function timeLabel(iso: string): string {
 export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
   const [active, setActive] = useState(CATEGORIES[0].key);
   const [query, setQuery] = useState("");
+  const [member, setMember] = useState(""); // "" = everyone
 
   const category = CATEGORIES.find((c) => c.key === active) ?? CATEGORIES[0];
 
+  // Distinct members present in the feed, for the "one member" picker.
+  const members = useMemo(() => {
+    const seen = new Map<string, string>(); // email -> display name
+    for (const e of events) {
+      if (e.memberEmail && !seen.has(e.memberEmail)) {
+        seen.set(e.memberEmail, e.memberName || e.memberEmail);
+      }
+    }
+    return [...seen.entries()]
+      .map(([email, name]) => ({ email, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [events]);
+
+  // Tab counts reflect the selected member so the tabs read as "this
+  // person's onboarding / learning / …" when one member is chosen.
   const countsByKind = useMemo(() => {
     const m = new Map<ActivityKind, number>();
-    for (const e of events) m.set(e.kind, (m.get(e.kind) ?? 0) + 1);
+    for (const e of events) {
+      if (member && e.memberEmail !== member) continue;
+      m.set(e.kind, (m.get(e.kind) ?? 0) + 1);
+    }
     return m;
-  }, [events]);
+  }, [events, member]);
 
   const categoryCount = (c: Category) =>
     c.kinds.reduce((n, k) => n + (countsByKind.get(k) ?? 0), 0);
@@ -90,6 +109,7 @@ export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return events.filter((e) => {
+      if (member && e.memberEmail !== member) return false;
       if (!category.kinds.includes(e.kind)) return false;
       if (!q) return true;
       return (
@@ -98,7 +118,7 @@ export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
         e.detail.toLowerCase().includes(q)
       );
     });
-  }, [events, query, category]);
+  }, [events, query, category, member]);
 
   return (
     <div>
@@ -122,16 +142,31 @@ export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
         className="admin-form-actions"
         style={{ marginTop: 0, marginBottom: 12, flexWrap: "wrap", gap: 12 }}
       >
+        <label style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+          Member:{" "}
+          <select
+            value={member}
+            onChange={(e) => setMember(e.target.value)}
+            aria-label="Show activity for one member"
+          >
+            <option value="">Everyone</option>
+            {members.map((m) => (
+              <option key={m.email} value={m.email}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
           {category.desc}
         </span>
         <input
           type="search"
-          placeholder="Filter by member or detail…"
+          placeholder="Filter within results…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Filter activity"
-          style={{ minWidth: 240, marginLeft: "auto" }}
+          style={{ minWidth: 200, marginLeft: "auto" }}
         />
       </div>
 

@@ -218,9 +218,11 @@ export async function setAdminAccess(
 }
 
 /**
- * Super Admin only: permanently delete a member — their login, profile,
- * memberships, enrollments, notes, and progress all go (FK cascades from
- * the auth user). Irreversible.
+ * Super Admin only: permanently delete a member. In-database records go via
+ * FK cascade from the auth user; this also cancels their Stripe billing,
+ * erases their Stream chat identity + messages, and scrubs their email from
+ * the import ledger — so a deletion request leaves nothing behind that would
+ * keep charging them or hold their PII. Irreversible.
  */
 export async function deleteMember(profileId: string): Promise<AdminMemberResult> {
   if (!isSupabaseConfigured()) {
@@ -236,13 +238,78 @@ export async function deleteMember(profileId: string): Promise<AdminMemberResult
   }
 
   const admin = createServiceClient();
+
+  // Gather external references BEFORE the cascade removes them.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("email, stripe_customer_id")
+    .eq("id", profileId)
+    .maybeSingle();
+  const { data: subs } = await admin
+    .from("memberships")
+    .select("stripe_subscription_id")
+    .eq("profile_id", profileId)
+    .not("stripe_subscription_id", "is", null);
+
+  const notes: string[] = [];
+
+  // 1. Cancel any live Stripe subscription so a deleted member is never
+  //    billed again, then delete the customer record (removes stored PII).
+  try {
+    const { getStripeSettings, stripeReady, stripeRequest } = await import("@/lib/stripe");
+    const settings = await getStripeSettings();
+    if (stripeReady(settings)) {
+      for (const s of subs ?? []) {
+        const id = s.stripe_subscription_id as string;
+        await stripeRequest(settings.secretKey, "DELETE", `/subscriptions/${id}`).catch(
+          () => notes.push("a Stripe subscription may need manual cancellation"),
+        );
+      }
+      if (profile?.stripe_customer_id) {
+        await stripeRequest(
+          settings.secretKey,
+          "DELETE",
+          `/customers/${profile.stripe_customer_id}`,
+        ).catch(() => notes.push("the Stripe customer may need manual deletion"));
+      }
+    } else if ((subs ?? []).length > 0) {
+      notes.push("Stripe isn't connected — cancel their subscription manually");
+    }
+  } catch {
+    notes.push("Stripe cleanup failed — check their subscription manually");
+  }
+
+  // 2. Erase their Stream chat identity and messages.
+  try {
+    const { deleteStreamUser } = await import("@/lib/stream");
+    await deleteStreamUser(profileId);
+  } catch {
+    notes.push("Stream chat records may need manual removal");
+  }
+
+  // 3. Scrub their email from the TSLS import ledger (cascade only nulls
+  //    profile_id, leaving the address behind).
+  if (profile?.email) {
+    const { error: scrubError } = await admin
+      .from("import_log")
+      .delete()
+      .ilike("email", emailPattern(profile.email));
+    if (scrubError) notes.push("import-log rows may retain their email");
+  }
+
+  // 4. Delete the auth user (cascades all in-DB member data) + profile.
   const { error } = await admin.auth.admin.deleteUser(profileId);
   if (error) return { ok: false, message: error.message };
-  // Belt-and-braces: remove the profile row if any remnant survived.
   await admin.from("profiles").delete().eq("id", profileId);
 
   revalidatePath("/admin/members");
-  return { ok: true, message: "Member deleted permanently." };
+  return {
+    ok: true,
+    message:
+      notes.length > 0
+        ? `Member deleted. Note: ${notes.join("; ")}. Their GHL contact is not removed automatically — delete it in GHL if required.`
+        : "Member deleted permanently. Stripe billing cancelled and chat records erased. (Their GHL contact is not removed automatically — delete it in GHL if required.)",
+  };
 }
 
 export interface BulkResult {

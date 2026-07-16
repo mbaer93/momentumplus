@@ -29,6 +29,13 @@ export interface ProvisionResult {
   /** An equivalent active membership already existed; nothing inserted. */
   alreadyActive: boolean;
   message?: string;
+  /**
+   * One-time login link, ONLY when the invite email couldn't be sent. It is
+   * a live account-takeover token, so it is a separate field (never baked
+   * into `message`) and callers exposed to third parties (the Zapier webhook)
+   * MUST NOT forward it — only the authenticated admin UI may surface it.
+   */
+  loginLink?: string | null;
 }
 
 /**
@@ -279,7 +286,10 @@ export async function provisionMember(
       ...base,
       ok: true,
       invited,
-      message: `${email}: ${input.tier} granted, but the invite email couldn't be sent — send them this one-time login link yourself: ${manualLoginLink}`,
+      // Link is returned in loginLink (admin-only surfaces), NOT in message —
+      // message may travel into third-party logs (Zapier task history).
+      loginLink: manualLoginLink,
+      message: `${email}: ${input.tier} granted, but the invite email couldn't be sent — issue a one-time login link from Admin → Members.`,
     };
   }
   return {

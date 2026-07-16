@@ -85,7 +85,21 @@ export async function POST(req: NextRequest) {
     source: "zapier",
   });
 
-  return NextResponse.json(result, { status: result.ok ? 200 : 422 });
+  // Never echo the one-time login link into the webhook response — it would
+  // land in Zapier's task history (readable by any Zap collaborator) as a
+  // live account-takeover token. If the invite email failed, the admin
+  // issues a link from Admin → Members instead.
+  return NextResponse.json(
+    {
+      ok: result.ok,
+      email: result.email,
+      invited: result.invited,
+      alreadyActive: result.alreadyActive,
+      message: result.message,
+      emailSent: result.invited && !result.loginLink,
+    },
+    { status: result.ok ? 200 : 422 },
+  );
 }
 
 /** Connection test: confirms the endpoint + key work without creating anyone. */

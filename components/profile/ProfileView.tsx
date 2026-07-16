@@ -119,7 +119,7 @@ export function ProfileView({
     });
   }
 
-  const [pw, setPw] = useState({ next: "", confirm: "" });
+  const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
   const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
   function savePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -129,9 +129,9 @@ export function ProfileView({
       return;
     }
     startTransition(async () => {
-      const res = await changePassword(pw.next);
+      const res = await changePassword(pw.next, pw.current);
       setPwMsg({ text: res.message ?? (res.ok ? "Changed." : "Error"), ok: res.ok });
-      if (res.ok) setPw({ next: "", confirm: "" });
+      if (res.ok) setPw({ current: "", next: "", confirm: "" });
     });
   }
 
@@ -443,6 +443,17 @@ export function ProfileView({
                   <h3>Password</h3>
                 </div>
                 <form onSubmit={savePassword} style={{ padding: 18 }}>
+                  <div className="admin-field" style={{ maxWidth: 320 }}>
+                    <label htmlFor="pw-current">Current password</label>
+                    <input
+                      id="pw-current"
+                      type="password"
+                      autoComplete="current-password"
+                      value={pw.current}
+                      onChange={(e) => setPw({ ...pw, current: e.target.value })}
+                      placeholder="Confirm it's you"
+                    />
+                  </div>
                   <div className="admin-field-row">
                     <div className="admin-field">
                       <label htmlFor="pw-next">New password</label>
@@ -471,7 +482,7 @@ export function ProfileView({
                   <button
                     type="submit"
                     className="btn-primary"
-                    disabled={pending || pw.next.length < 8}
+                    disabled={pending || pw.next.length < 8 || !pw.current}
                   >
                     {pending ? "Saving…" : "Change password"}
                   </button>

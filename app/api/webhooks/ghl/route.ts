@@ -1,4 +1,4 @@
-import { emailPattern } from "@/lib/db-utils";
+import { emailPattern, redactEmail } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyGhlWebhook } from "@/lib/ghl";
 import { getGhlCreds } from "@/lib/service-config";
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   if (!profile) {
     return NextResponse.json({
       ok: true,
-      skipped: `no profile for ${event.email}`,
+      skipped: `no profile for ${redactEmail(event.email)}`,
     });
   }
 
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
   if (event.kind === "payment_success" && !tier) {
     // Config gap — surface loudly in the response/logs but don't retry-spam.
     console.error(
-      `[ghl] payment_success with unmapped product "${event.productId}" for ${event.email}`,
+      `[ghl] payment_success with unmapped product "${event.productId}" for ${redactEmail(event.email)}`,
     );
     return NextResponse.json({
       ok: false,
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
   if (!existing && event.kind !== "payment_success") {
     return NextResponse.json({
       ok: true,
-      skipped: `${event.kind} for ${event.email} with no existing membership`,
+      skipped: `${event.kind} for ${redactEmail(event.email)} with no existing membership`,
     });
   }
 

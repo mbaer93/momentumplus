@@ -121,8 +121,11 @@ export async function sendEmailViaGhl(input: {
   subject: string;
   html: string;
 }): Promise<{ sent: boolean; reason?: string }> {
-  if (!process.env.GHL_API_KEY) {
-    console.log(`[notify:email:skipped] ${input.email} — ${input.subject}`);
+  const { getGhlCreds } = await import("./service-config");
+  const creds = await getGhlCreds();
+  if (!creds.apiKey) {
+    // No member PII in logs — an email address is itself personal data.
+    console.log("[notify:email:skipped] GHL not configured");
     return { sent: false, reason: "GHL not configured" };
   }
   if (!input.contactId) {
@@ -131,7 +134,7 @@ export async function sendEmailViaGhl(input: {
   const res = await fetch(`${GHL_API_BASE}/conversations/messages`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.GHL_API_KEY}`,
+      Authorization: `Bearer ${creds.apiKey}`,
       Version: "2021-04-15",
       "Content-Type": "application/json",
     },
@@ -153,8 +156,11 @@ export async function sendSmsViaGhl(input: {
   message: string;
 }): Promise<{ sent: boolean; reason?: string }> {
   // SMS is strictly opt-in; callers must already have checked prefs + phone.
-  if (!process.env.GHL_API_KEY) {
-    console.log(`[notify:sms:skipped] ${input.phone} — ${input.message}`);
+  const { getGhlCreds } = await import("./service-config");
+  const creds = await getGhlCreds();
+  if (!creds.apiKey) {
+    // No phone number or message body in logs — both are personal data.
+    console.log("[notify:sms:skipped] GHL not configured");
     return { sent: false, reason: "GHL not configured" };
   }
   if (!input.contactId || !input.phone) {
@@ -163,7 +169,7 @@ export async function sendSmsViaGhl(input: {
   const res = await fetch(`${GHL_API_BASE}/conversations/messages`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.GHL_API_KEY}`,
+      Authorization: `Bearer ${creds.apiKey}`,
       Version: "2021-04-15",
       "Content-Type": "application/json",
     },

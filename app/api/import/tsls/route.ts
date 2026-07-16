@@ -1,4 +1,4 @@
-import { emailPattern } from "@/lib/db-utils";
+import { bearerAuthorized, emailPattern, redactEmail } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -24,9 +24,7 @@ import {
  * configured, never guessed.
  */
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -105,7 +103,7 @@ export async function GET(req: NextRequest) {
         profileId = profile?.id ?? null;
       }
       if (!profileId) {
-        summary.errors.push(`${row.email}: could not invite or find profile`);
+        summary.errors.push(`${redactEmail(row.email)}: could not invite or find profile`);
         continue;
       }
 
@@ -126,7 +124,7 @@ export async function GET(req: NextRequest) {
         source: "tsls_import",
       });
       if (memberError) {
-        summary.errors.push(`${row.email}: ${memberError.message}`);
+        summary.errors.push(`${redactEmail(row.email)}: ${memberError.message}`);
         continue;
       }
 
@@ -142,7 +140,7 @@ export async function GET(req: NextRequest) {
       await markProcessed(token, sheetPrefix, processedCol, row.rowNumber);
       summary.imported++;
     } catch (e) {
-      summary.errors.push(`${row.email}: ${(e as Error).message}`);
+      summary.errors.push(`${redactEmail(row.email)}: ${(e as Error).message}`);
     }
   }
 
