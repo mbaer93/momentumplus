@@ -41,6 +41,13 @@ const SECTIONS: {
     area: "members",
   },
   {
+    href: "/admin/activity",
+    icon: AdminIcon,
+    title: "Activity Log",
+    desc: "Invites, first logins, enrollments, learning, and engagement — by category.",
+    area: "members",
+  },
+  {
     href: "/admin/announcements",
     icon: CommunityIcon,
     title: "Announcements",
