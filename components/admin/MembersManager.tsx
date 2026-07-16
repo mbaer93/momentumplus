@@ -59,7 +59,7 @@ export function MembersManager({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
-  const [grant, setGrant] = useState({ email: "", tier: "sub_monthly" as Tier, months: 1 });
+  const [grant, setGrant] = useState({ email: "", tier: "basic" as Tier, months: 1 });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState({
     fullName: "",
@@ -145,7 +145,27 @@ export function MembersManager({
               type="button"
               className="btn-purple"
               disabled={pending || !grant.email.includes("@")}
-              onClick={() => run(() => grantMembership(grant))}
+              onClick={() => {
+                // Admin/speaker tiers change what the person can DO — never
+                // hand them out on a stale dropdown without an explicit yes.
+                if (
+                  grant.tier === "admin" &&
+                  !confirm(
+                    `Grant ADMIN access to ${grant.email}? They will be able to manage sessions, members, and content across the whole platform.`,
+                  )
+                ) {
+                  return;
+                }
+                run(async () => {
+                  const res = await grantMembership(grant);
+                  // Reset the dropdown so the next grant can't inherit a
+                  // high-privilege tier by accident.
+                  if (res.ok) {
+                    setGrant({ email: "", tier: "basic", months: 1 });
+                  }
+                  return res;
+                });
+              }}
             >
               Grant
             </button>
