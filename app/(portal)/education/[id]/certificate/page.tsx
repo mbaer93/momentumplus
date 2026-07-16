@@ -97,7 +97,7 @@ export default async function CertificatePage({
                     fontFamily="Georgia, serif"
                     fontSize="17"
                     fontWeight="bold"
-                    fill="#0B1622"
+                    fill="#D4AE75"
                     letterSpacing="1.5"
                   >
                     SLC
