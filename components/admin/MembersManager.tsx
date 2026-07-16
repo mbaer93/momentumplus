@@ -34,20 +34,17 @@ export interface AdminMemberRow {
   adminPerms: Record<string, boolean>;
 }
 
+// The four member levels, plus the two special roles.
 const TIERS: { value: Tier; label: string }[] = [
-  { value: "basic", label: "Basic" },
-  { value: "gift", label: "Gift (free Basic, 1 mo)" },
-  { value: "vip", label: "VIP (free Basic-level, 3 mo)" },
-  { value: "pro", label: "Pro (everything)" },
-  { value: "sub_monthly", label: "Monthly" },
-  { value: "sub_3mo", label: "3-Month" },
-  { value: "sub_6mo", label: "6-Month" },
-  { value: "sub_annual", label: "12-Month" },
-  { value: "tsls_attendee", label: "TSLS Attendee" },
-  { value: "tsls_vip", label: "TSLS VIP" },
+  { value: "basic", label: "Momentum+ User" },
+  { value: "pro", label: "Momentum+ Pro User" },
+  { value: "gift", label: "Gift User (1 month)" },
+  { value: "vip", label: "VIP Access User (3 months)" },
   { value: "speaker", label: "Speaker" },
   { value: "admin", label: "Admin" },
 ];
+/** Gift and VIP have fixed durations. */
+const FIXED_MONTHS: Partial<Record<Tier, number>> = { gift: 1, vip: 3 };
 
 export function MembersManager({
   members,
@@ -122,7 +119,14 @@ export function MembersManager({
             <select
               id="grant-tier"
               value={grant.tier}
-              onChange={(e) => setGrant({ ...grant, tier: e.target.value as Tier })}
+              onChange={(e) => {
+                const tier = e.target.value as Tier;
+                setGrant({
+                  ...grant,
+                  tier,
+                  months: FIXED_MONTHS[tier] ?? grant.months,
+                });
+              }}
             >
               {TIERS.filter((t) => viewerIsSuper || t.value !== "admin").map(
                 (t) => (
@@ -140,6 +144,7 @@ export function MembersManager({
               type="number"
               min={0}
               value={grant.months}
+              disabled={grant.tier in FIXED_MONTHS}
               onChange={(e) => setGrant({ ...grant, months: Number(e.target.value) })}
             />
           </div>

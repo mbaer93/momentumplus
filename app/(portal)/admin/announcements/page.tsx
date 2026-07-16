@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { AnnouncementComposer } from "@/components/admin/AnnouncementComposer";
+import {
+  ScheduledPostsManager,
+  type ScheduledPostRow,
+} from "@/components/admin/ScheduledPostsManager";
 import { ArrowLeftIcon } from "@/components/icons";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -8,9 +12,23 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminAnnouncementsPage() {
   let recent: { id: string; title: string; sent_at: string; audience: string }[] = [];
+  let scheduled: ScheduledPostRow[] = [];
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
+    // Tolerant of the table not existing yet (pre-migration deploys).
+    const { data: sp } = await admin
+      .from("scheduled_posts")
+      .select("id, channel, body, send_at, sent_at")
+      .order("send_at", { ascending: true })
+      .limit(50);
+    scheduled = (sp ?? []).map((r) => ({
+      id: r.id,
+      channel: r.channel,
+      body: r.body,
+      sendAt: r.send_at,
+      sentAt: r.sent_at,
+    }));
     const { data } = await admin
       .from("announcements")
       .select("id, title, sent_at, audience_tiers")
@@ -69,6 +87,8 @@ export default async function AdminAnnouncementsPage() {
           </div>
         </div>
       </div>
+
+      <ScheduledPostsManager rows={scheduled} />
     </div>
   );
 }

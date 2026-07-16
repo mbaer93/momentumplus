@@ -1,4 +1,5 @@
 "use server";
+import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -93,4 +94,100 @@ export async function sendAnnouncement(
   }
 
   return { ok: true, recipients, message: `Sent to ${recipients} member(s).` };
+}
+
+// ---------------------------------------------------------------------------
+// Scheduled community posts: written now, posted to chat later by the cron.
+// ---------------------------------------------------------------------------
+
+export interface ScheduledPostInput {
+  channel: string;
+  body: string;
+  /** ISO timestamp for when the post should go out. */
+  sendAt: string;
+}
+
+async function scheduledGuard(): Promise<AnnouncementResult | null> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("announcements");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  return null;
+}
+
+function validScheduledInput(input: ScheduledPostInput): string | null {
+  if (!input.body.trim()) return "Write the post first.";
+  const at = new Date(input.sendAt);
+  if (Number.isNaN(at.getTime())) return "Pick a valid date and time.";
+  if (at.getTime() < Date.now() - 60_000) {
+    return "That time is in the past — pick a future date and time.";
+  }
+  return null;
+}
+
+export async function createScheduledPost(
+  input: ScheduledPostInput,
+): Promise<AnnouncementResult> {
+  const early = await scheduledGuard();
+  if (early) return early;
+  const bad = validScheduledInput(input);
+  if (bad) return { ok: false, message: bad };
+
+  const auth = await requireAdmin("announcements");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  const { error } = await createServiceClient().from("scheduled_posts").insert({
+    channel: input.channel,
+    body: input.body.trim(),
+    send_at: new Date(input.sendAt).toISOString(),
+    created_by: auth.userId,
+  });
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/announcements");
+  return { ok: true, message: "Post scheduled." };
+}
+
+export async function updateScheduledPost(
+  id: string,
+  input: ScheduledPostInput,
+): Promise<AnnouncementResult> {
+  const early = await scheduledGuard();
+  if (early) return early;
+  const bad = validScheduledInput(input);
+  if (bad) return { ok: false, message: bad };
+
+  const admin = createServiceClient();
+  const { data: row } = await admin
+    .from("scheduled_posts")
+    .select("sent_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return { ok: false, message: "Scheduled post not found." };
+  if (row.sent_at) return { ok: false, message: "That post already went out." };
+
+  const { error } = await admin
+    .from("scheduled_posts")
+    .update({
+      channel: input.channel,
+      body: input.body.trim(),
+      send_at: new Date(input.sendAt).toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/announcements");
+  return { ok: true, message: "Scheduled post updated." };
+}
+
+export async function deleteScheduledPost(
+  id: string,
+): Promise<AnnouncementResult> {
+  const early = await scheduledGuard();
+  if (early) return early;
+  const { error } = await createServiceClient()
+    .from("scheduled_posts")
+    .delete()
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/announcements");
+  return { ok: true, message: "Scheduled post deleted." };
 }

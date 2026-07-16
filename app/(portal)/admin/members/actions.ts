@@ -20,20 +20,12 @@ export interface AdminMemberResult {
   preview?: boolean;
 }
 
-const GRANTABLE: Tier[] = [
-  "tsls_attendee",
-  "tsls_vip",
-  "sub_3mo",
-  "sub_6mo",
-  "sub_monthly",
-  "sub_annual",
-  "basic",
-  "gift",
-  "vip",
-  "pro",
-  "speaker",
-  "admin",
-];
+// The four member levels plus the two special roles. Legacy tiers on
+// existing rows stay valid; new grants use these.
+const GRANTABLE: Tier[] = ["basic", "gift", "vip", "pro", "speaker", "admin"];
+
+// Gift and VIP are fixed-length comps of the base level.
+const FIXED_MONTHS: Partial<Record<Tier, number>> = { gift: 1, vip: 3 };
 
 /**
  * Admin: grant a membership by email (source=admin). Invites the member if
@@ -135,13 +127,14 @@ export async function grantMembership(input: {
   }
 
   const now = new Date();
+  const months = FIXED_MONTHS[input.tier] ?? input.months;
   const { error } = await admin.from("memberships").insert({
     profile_id: profileId,
     tier: input.tier,
     status: "active",
     access_starts_at: now.toISOString(),
     access_expires_at:
-      input.months > 0 ? addMonths(now, input.months).toISOString() : null,
+      months > 0 ? addMonths(now, months).toISOString() : null,
     source: "admin",
   });
   if (error) return { ok: false, message: error.message };

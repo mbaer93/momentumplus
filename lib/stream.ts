@@ -118,6 +118,42 @@ export function generateStreamUserToken(
   return `${header}.${body}.${signature}`;
 }
 
+/**
+ * Server-side post into a community channel as the "Momentum+ Team" system
+ * user (admin badge in chat). Used by scheduled posts. Creates the channel
+ * if no member has opened it yet.
+ */
+export async function sendCommunityMessage(
+  channelId: string,
+  text: string,
+): Promise<void> {
+  if (!isStreamConfigured()) {
+    throw new Error("Stream Chat is not configured.");
+  }
+  const { StreamChat } = await import("stream-chat");
+  const client = StreamChat.getInstance(
+    process.env.NEXT_PUBLIC_STREAM_API_KEY!,
+    process.env.STREAM_API_SECRET!,
+  );
+  const teamUser = {
+    id: "momentum-team",
+    name: "Momentum+ Team",
+    role: "admin",
+    // Custom field rendered next to the Admin badge in chat.
+    adminTitle: "Momentum+ Team",
+  };
+  await client.upsertUser(
+    teamUser as unknown as Parameters<typeof client.upsertUser>[0],
+  );
+  const meta = COMMUNITY_CHANNELS.find((c) => c.id === channelId);
+  const channel = client.channel("messaging", channelId, {
+    created_by_id: "momentum-team",
+    ...(meta ? { name: meta.name } : {}),
+  });
+  await channel.create();
+  await channel.sendMessage({ text, user_id: "momentum-team" });
+}
+
 /** Stream role metadata derived from the membership tier (badges in chat). */
 export function streamRoleForTier(tier: Tier): {
   memberTier: Tier;
