@@ -25,6 +25,13 @@ create policy "announcements: read sent or admin" on public.announcements
   using (is_admin() or sent_at is not null);
 
 -- 4. Trigger functions must not be callable as RPC endpoints (Supabase
---    advisor). They run only from their triggers; revoke public EXECUTE.
-revoke execute on function public.protect_admin_columns() from anon, authenticated;
-revoke execute on function public.enforce_session_capacity() from anon, authenticated;
+--    advisor). They run only from their triggers, never from RLS policies or
+--    by users. The default EXECUTE grant is to PUBLIC, so revoke from PUBLIC
+--    (revoking from anon/authenticated alone leaves the PUBLIC grant intact).
+--
+--    The RLS-helper definers (can_view, is_admin, current_user_tiers,
+--    lesson_completable_by_member) are deliberately left callable: they are
+--    referenced inside RLS policy expressions — revoking EXECUTE would break
+--    gated-content reads — and only ever reveal the CALLER's own access state.
+revoke execute on function public.protect_admin_columns() from public;
+revoke execute on function public.enforce_session_capacity() from public;
