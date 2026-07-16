@@ -9,9 +9,8 @@ export const metadata = {
 /*
  * Member-facing privacy policy. The data-collection and data-sharing
  * sections are grounded in what the platform actually does (see the security
- * audit's data-sharing inventory). Bracketed [PLACEHOLDERS] must be filled
- * in, and the whole document should be reviewed by counsel before launch —
- * see the notice banner at the top.
+ * audit's data-sharing inventory). Company details filled in and approved;
+ * update the effective date if the policy materially changes.
  */
 export default function PrivacyPage() {
   const sectionStyle = { margin: "0 0 8px", fontSize: 20 } as const;
@@ -57,24 +56,7 @@ export default function PrivacyPage() {
           </div>
         </div>
 
-        {/* Pre-launch review banner — remove once reviewed and dates filled. */}
-        <div
-          style={{
-            background: "#FDF6E3",
-            border: "1px solid #E8D9A8",
-            borderRadius: 4,
-            padding: "10px 14px",
-            fontSize: 12.5,
-            color: "#6b5b2b",
-            margin: "18px 0 24px",
-          }}
-        >
-          <strong>Draft — pending review.</strong> This policy is accurate to how
-          the platform handles data, but the bracketed details must be completed
-          and it should be reviewed by legal counsel before publishing.
-        </div>
-
-        <p style={pStyle}>
+        <p style={{ ...pStyle, marginTop: 22 }}>
           <strong>Effective date:</strong> July 16, 2026
         </p>
         <p style={pStyle}>
