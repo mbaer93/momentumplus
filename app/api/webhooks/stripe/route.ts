@@ -177,9 +177,10 @@ export async function POST(req: NextRequest) {
         const priceId = (
           sub as unknown as { items?: { data?: { price?: { id?: string } }[] } }
         ).items?.data?.[0]?.price?.id;
-        if (priceId && settings.prices.basic && settings.prices.pro) {
-          if (priceId === settings.prices.pro) patch.tier = "pro";
-          else if (priceId === settings.prices.basic) patch.tier = "basic";
+        if (priceId) {
+          const { planForPrice } = await import("@/lib/stripe");
+          const plan = planForPrice(settings, priceId);
+          if (plan) patch.tier = plan;
         }
 
         const { data: row } = await admin

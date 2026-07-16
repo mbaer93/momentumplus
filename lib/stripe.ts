@@ -23,6 +23,10 @@ export interface StripeSettings {
   prices: { basic?: string; pro?: string };
   /** Display prices (USD/month) captured when the products were created. */
   displayPrices?: { basic?: number; pro?: number };
+  /** Optional longer billing terms: Stripe price ids keyed by months (3/6/12). */
+  termPrices?: { basic?: Record<string, string>; pro?: Record<string, string> };
+  /** Term totals in USD keyed the same way (for display). */
+  termDisplay?: { basic?: Record<string, number>; pro?: Record<string, number> };
   webhookSecret?: string;
   webhookEndpointId?: string;
   connectedAt: string;
@@ -126,4 +130,27 @@ export function verifyStripeSignature(
   const a = Buffer.from(expected, "hex");
   const b = Buffer.from(v1, "hex");
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** The Stripe price id for a plan at a billing term (1/3/6/12 months). */
+export function priceForTerm(
+  s: StripeSettings,
+  plan: "basic" | "pro",
+  months: number,
+): string | null {
+  if (months === 1) return s.prices[plan] ?? null;
+  return s.termPrices?.[plan]?.[String(months)] ?? null;
+}
+
+/** Reverse lookup: which plan does a Stripe price id belong to? */
+export function planForPrice(
+  s: StripeSettings,
+  priceId: string,
+): "basic" | "pro" | null {
+  for (const plan of ["basic", "pro"] as const) {
+    if (s.prices[plan] === priceId) return plan;
+    const terms = s.termPrices?.[plan] ?? {};
+    if (Object.values(terms).includes(priceId)) return plan;
+  }
+  return null;
 }

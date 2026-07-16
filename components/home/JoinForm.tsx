@@ -8,8 +8,21 @@ import { startPublicCheckout } from "@/app/join/actions";
  * Public signup form: name + email + plan → Stripe Checkout. The account is
  * created automatically after payment (invite email → set password).
  */
-export function JoinForm({ initialPlan }: { initialPlan: "basic" | "pro" }) {
+export type TermMap = Record<string, number | null | undefined>;
+
+export function JoinForm({
+  initialPlan,
+  terms,
+}: {
+  initialPlan: "basic" | "pro";
+  /** Configured billing terms per plan: months -> total USD (1 = monthly). */
+  terms?: { basic: TermMap; pro: TermMap };
+}) {
   const [plan, setPlan] = useState<"basic" | "pro">(initialPlan);
+  const [months, setMonths] = useState(1);
+  const planTerms: [number, number | null][] = [1, 3, 6, 12]
+    .filter((m) => m === 1 || (terms?.[plan]?.[String(m)] ?? null) !== null)
+    .map((m) => [m, m === 1 ? (terms?.[plan]?.["1"] ?? null) : (terms?.[plan]?.[String(m)] ?? null)]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -22,7 +35,7 @@ export function JoinForm({ initialPlan }: { initialPlan: "basic" | "pro" }) {
     setExisting(false);
     startTransition(async () => {
       try {
-        const res = await startPublicCheckout({ plan, email, name });
+        const res = await startPublicCheckout({ plan, email, name, months });
         if (res.ok && res.url) {
           window.location.href = res.url;
           return;
@@ -49,6 +62,23 @@ export function JoinForm({ initialPlan }: { initialPlan: "basic" | "pro" }) {
           </button>
         ))}
       </div>
+      {planTerms.length > 1 && (
+        <div className="admin-field">
+          <label htmlFor="join-term">Billing term</label>
+          <select
+            id="join-term"
+            value={months}
+            onChange={(e) => setMonths(Number(e.target.value))}
+          >
+            {planTerms.map(([m, usd]) => (
+              <option key={m} value={m}>
+                {m === 1 ? "Monthly" : `Every ${m} months`}
+                {usd ? ` — $${usd}${m === 1 ? "/mo" : ` per ${m} mo`}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="admin-field">
         <label htmlFor="join-name">Your name</label>
         <input

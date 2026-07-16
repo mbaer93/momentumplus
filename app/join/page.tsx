@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { JoinForm } from "@/components/home/JoinForm";
+import { getStripeSettings } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,17 @@ export const metadata = {
  * via Stripe Checkout; the account is provisioned by the webhook and the
  * welcome email walks the new member into /welcome.
  */
-export default function JoinPage({
+export default async function JoinPage({
   searchParams,
 }: {
   searchParams?: { plan?: string; success?: string; canceled?: string };
 }) {
   const plan = searchParams?.plan === "pro" ? "pro" : "basic";
+  const settings = await getStripeSettings();
+  const terms = {
+    basic: { 1: settings?.displayPrices?.basic ?? null, ...(settings?.termDisplay?.basic ?? {}) },
+    pro: { 1: settings?.displayPrices?.pro ?? null, ...(settings?.termDisplay?.pro ?? {}) },
+  };
   const success = searchParams?.success === "1";
 
   return (
@@ -55,7 +61,7 @@ export default function JoinPage({
                 ? "No charge was made — pick up right where you left off."
                 : "Pick your level, tell us who you are, and finish on our secure Stripe checkout."}
             </p>
-            <JoinForm initialPlan={plan} />
+            <JoinForm initialPlan={plan} terms={terms} />
           </>
         )}
       </div>
