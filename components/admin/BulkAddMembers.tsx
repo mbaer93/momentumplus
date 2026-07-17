@@ -48,7 +48,7 @@ export function BulkAddMembers() {
       </div>
       <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 8 }}>
         Paste one member per line: <strong>email, Full Name, plan</strong>.
-        Plans: <strong>basic</strong> (Momentum+ User), <strong>pro</strong>{" "}
+        Plans: <strong>basic</strong> (Momentum+ Member), <strong>pro</strong>{" "}
         (Momentum+ Pro User), <strong>gift</strong> (Gift User, 1 month),{" "}
         <strong>vip</strong> (VIP Access User, 3 months), or speaker. New
         members receive an invite email and set their password on first login.

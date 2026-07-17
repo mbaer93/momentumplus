@@ -32,6 +32,7 @@ export default async function EducationPage() {
       <div className="course-grid">
         {visible.map((c) => {
           const unlocked = courseUnlocked(c, member.tier);
+          const lessonCount = c.lessonCount ?? c.lessons.length;
           const pct =
             c.lessons.length > 0
               ? Math.round((c.completedCount / c.lessons.length) * 100)
@@ -57,11 +58,15 @@ export default async function EducationPage() {
               <div className="course-title">{c.title}</div>
               <div className="course-desc">{c.description}</div>
               <div className="course-meta">
-                {c.lessons.length} lesson{c.lessons.length === 1 ? "" : "s"}
+                {lessonCount} lesson{lessonCount === 1 ? "" : "s"}
                 {unlocked && c.completedCount > 0
                   ? ` · ${c.completedCount} completed`
                   : ""}
-                {!unlocked ? " · Available to VIP and annual members" : ""}
+                {!unlocked
+                  ? c.minAccess === "pro_only"
+                    ? " · Momentum+ Pro exclusive"
+                    : " · Available to VIP and annual members"
+                  : ""}
               </div>
               {unlocked && (
                 <div className="progress-track">
@@ -70,14 +75,15 @@ export default async function EducationPage() {
               )}
             </>
           );
-          return unlocked ? (
-            <Link key={c.id} href={`/education/${c.id}`} className="course-card">
+          return (
+            <Link
+              key={c.id}
+              href={`/education/${c.id}`}
+              className="course-card"
+              style={unlocked ? undefined : { opacity: 0.75 }}
+            >
               {body}
             </Link>
-          ) : (
-            <div key={c.id} className="course-card" style={{ opacity: 0.75 }}>
-              {body}
-            </div>
           );
         })}
       </div>

@@ -47,8 +47,19 @@ export default async function CoursePage({
       ) : (
         <div className="admin-banner" style={{ marginTop: 8 }}>
           <div>
-            <h3>This track is for VIP &amp; annual members</h3>
-            <p>Upgrade your membership to unlock every lesson in this course.</p>
+            <h3>
+              {course.minAccess === "pro_only"
+                ? "This track is a Momentum+ Pro exclusive"
+                : "This track is for VIP & annual members"}
+            </h3>
+            <p>
+              Upgrade your membership to unlock all{" "}
+              {course.lessonCount ?? course.lessons.length} lessons
+              {course.ceHours
+                ? ` and earn a certificate of completion (${course.ceHours} educational hours)`
+                : ""}
+              .
+            </p>
           </div>
           <div className="admin-banner-actions">
             <Link href="/profile" className="btn-sm-gold">

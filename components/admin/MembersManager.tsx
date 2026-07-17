@@ -45,7 +45,7 @@ export interface AdminMemberRow {
 
 // The four member levels, plus the two special roles.
 const TIERS: { value: Tier; label: string }[] = [
-  { value: "basic", label: "Momentum+ User" },
+  { value: "basic", label: "Momentum+ Member" },
   { value: "pro", label: "Momentum+ Pro User" },
   { value: "gift", label: "Gift User (1 month)" },
   { value: "vip", label: "VIP Access User (3 months)" },

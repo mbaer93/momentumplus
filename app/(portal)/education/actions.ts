@@ -118,7 +118,8 @@ interface StoredQuiz {
 
 /**
  * Grade a lesson test server-side (answers are option indexes, in question
- * order). Passing marks the lesson complete; default pass mark is 70%.
+ * order, against the same cleaned question list the member saw). Passing
+ * marks the lesson complete; default pass mark is 75%.
  */
 export async function submitLessonQuiz(
   lessonId: string,
@@ -147,7 +148,8 @@ export async function submitLessonQuiz(
     .eq("id", lessonId)
     .maybeSingle();
   const quiz = (lesson?.quiz ?? null) as StoredQuiz | null;
-  const questions = quiz?.questions ?? [];
+  const { gradableQuiz } = await import("@/lib/education");
+  const questions = gradableQuiz(quiz);
   if (questions.length === 0) {
     return { ok: false, passed: false, scorePct: 0, message: "This lesson has no test." };
   }
@@ -158,7 +160,7 @@ export async function submitLessonQuiz(
     0,
   );
   const scorePct = Math.round((correct / questions.length) * 100);
-  const passPct = quiz?.passPct ?? 70;
+  const passPct = quiz?.passPct ?? 75;
   const passed = scorePct >= passPct;
 
   if (passed) {

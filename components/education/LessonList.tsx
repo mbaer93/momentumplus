@@ -71,7 +71,7 @@ export function LessonList({
         >
           <span>
             {done.size} of {lessons.length} lessons completed
-            {ceHours ? ` · ${ceHours} CE hour${ceHours === 1 ? "" : "s"} on completion` : ""}
+            {ceHours ? ` · ${ceHours} educational hour${ceHours === 1 ? "" : "s"} on your certificate` : ""}
           </span>
           <span>{pct}%</span>
         </div>

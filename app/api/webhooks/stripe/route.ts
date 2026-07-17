@@ -147,11 +147,33 @@ export async function POST(req: NextRequest) {
               // must never end up with no account.
               const { findAuthUserIdByEmail, createAccountWithoutEmail } =
                 await import("@/lib/onboarding");
-              profileId =
-                (await findAuthUserIdByEmail(email)) ??
-                (await createAccountWithoutEmail(email, s.metadata?.signup_name))
-                  .profileId ??
-                undefined;
+              const existingId = await findAuthUserIdByEmail(email);
+              if (existingId) {
+                profileId = existingId;
+              } else {
+                const created = await createAccountWithoutEmail(
+                  email,
+                  s.metadata?.signup_name,
+                );
+                profileId = created.profileId ?? undefined;
+                // The invite email failed, so the member is waiting on an
+                // email that will never come. Leave a visible trail for the
+                // team (Audit Log) — the member can also self-serve via the
+                // magic-link / reset flow, which the /join success copy
+                // points at.
+                if (profileId) {
+                  const { logAdminAction } = await import("@/lib/admin-audit");
+                  await logAdminAction({
+                    actorId: null,
+                    actorEmail: "system (stripe webhook)",
+                    action: "invite_email_failed",
+                    targetProfileId: profileId,
+                    targetEmail: email,
+                    detail:
+                      "Paid signup provisioned without an invite email — member should use the sign-in link on /login, or re-send the invite from Admin → Members.",
+                  });
+                }
+              }
             }
           }
         }

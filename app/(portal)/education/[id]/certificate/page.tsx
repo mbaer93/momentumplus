@@ -82,7 +82,7 @@ export default async function CertificatePage({
           <div className="certificate-course">{course.title}</div>
           {course.ceHours !== null && course.ceHours > 0 && (
             <div className="certificate-hours">
-              {course.ceHours} continuing education hour
+              {course.ceHours} educational hour
               {course.ceHours === 1 ? "" : "s"}
             </div>
           )}

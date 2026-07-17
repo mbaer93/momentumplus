@@ -35,7 +35,7 @@ What's where (left sidebar navigation):
 - Sessions: live monthly sessions. Members enroll on a session's page; enrolled members see "Join Session Now" when it's live (Zoom, right inside the page). "Add to calendar" downloads a calendar invite. Each session page has private notes only that member can see.
 - Calendar: month view of all upcoming sessions and events.
 - Library: recordings of past sessions. Cards show duration; some recordings are VIP or Pro only. Each video has AI-generated key takeaways and private notes.
-- Education: self-paced courses made of lessons (video, reading, documents, sometimes a short test). Completing every lesson in a course earns a printable certificate, with CE hours when set. Certificates also live under Profile → My Certificates.
+- Education: self-paced courses made of lessons (video, reading, documents, sometimes a short test). Completing every lesson (and passing each lesson test with 75% or better) earns a printable certificate of completion showing educational hours. Certificates also live under Profile → My Certificates.
 - Community: live group chat channels with other members (VIP members get an extra VIP channel).
 - Speakers: speaker profiles from sessions.
 - Resources: downloadable tools and partner resources.

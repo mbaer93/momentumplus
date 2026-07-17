@@ -49,6 +49,15 @@ export default async function JoinPage({
               password and finish your profile. (Give it a minute, and check
               spam if it&apos;s shy.)
             </p>
+            <p className="join-fine">
+              No email after 10 minutes? Go to{" "}
+              <Link href="/login" style={{ color: "var(--navy)" }}>
+                the login page
+              </Link>
+              , choose &ldquo;Email me a sign-in link,&rdquo; and enter the
+              email you just paid with — that link gets you in even if the
+              welcome email went missing.
+            </p>
             <Link href="/login" className="btn-gold land-cta">
               Go to login
             </Link>
