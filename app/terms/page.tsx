@@ -10,9 +10,8 @@ export const metadata = {
 /*
  * Member-facing Terms of Service, drafted to match how the platform actually
  * works (Stripe subscriptions, self-serve cancellation via the billing
- * portal, community chat, certificates of completion). DRAFT until Matt (and
- * ideally counsel) approves — the banner below comes off on approval, same
- * flow as the privacy policy.
+ * portal, community chat, certificates of completion). Approved by Matt
+ * 2026-07-17 — same flow as the privacy policy.
  */
 export default function TermsPage() {
   const sectionStyle = { margin: "0 0 8px", fontSize: 20 } as const;
@@ -56,17 +55,13 @@ export default function TermsPage() {
 
         <div
           style={{
-            background: "#f4ede0",
-            border: "1px solid #B8965A",
-            borderRadius: 4,
-            padding: "10px 14px",
-            fontSize: 13,
-            color: "#6b5b2b",
-            margin: "16px 0 20px",
+            fontSize: 12.5,
+            color: "#8a8f94",
+            margin: "12px 0 20px",
             textAlign: "center",
           }}
         >
-          Draft — pending review. These terms take effect once approved.
+          Effective July 17, 2026
         </div>
 
         <p style={pStyle}>
