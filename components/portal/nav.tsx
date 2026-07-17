@@ -39,13 +39,13 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Dashboard", href: "/dashboard", icon: DashboardIcon },
       { label: "Community", href: "/community", icon: CommunityIcon },
       { label: "Sessions", href: "/sessions", icon: SessionsIcon },
-      { label: "Rooted Focus", href: "/rooted-focus", icon: TargetIcon },
-      { label: "Library", href: "/library", icon: LibraryIcon },
     ],
   },
   {
     label: "Content",
     items: [
+      { label: "Rooted Focus", href: "/rooted-focus", icon: TargetIcon },
+      { label: "Library", href: "/library", icon: LibraryIcon },
       { label: "Education", href: "/education", icon: EducationIcon },
       {
         label: "Aspire2Achieve Full Focus",

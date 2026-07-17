@@ -20,6 +20,7 @@ export function SponsorOnboardingForm({
   const [business, setBusiness] = useState({
     businessName: initialBusinessName,
     tagline: "",
+    description: "",
     website: "",
     offer: "",
   });
@@ -99,6 +100,21 @@ export function SponsorOnboardingForm({
               setBusiness({ ...business, tagline: e.target.value })
             }
             placeholder="What the business does, in a sentence"
+          />
+        </div>
+        <div className="login-field">
+          <label htmlFor="sp-description">
+            About the business (your full profile page)
+          </label>
+          <textarea
+            id="sp-description"
+            rows={4}
+            value={business.description}
+            onChange={(e) =>
+              setBusiness({ ...business, description: e.target.value })
+            }
+            placeholder="A few sentences about what you do, who you serve, and why members should know you."
+            style={{ width: "100%", resize: "vertical" }}
           />
         </div>
         <div className="login-field">

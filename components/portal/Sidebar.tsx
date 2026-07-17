@@ -96,7 +96,7 @@ export function Sidebar({
       {presentedBy || presentedByLogoUrl ? (
         <Link
           className="sidebar-sponsor"
-          href={presentedBy ? `/sponsors#${presentedBy.id}` : "/sponsors"}
+          href={presentedBy ? `/sponsors/${presentedBy.id}` : "/sponsors"}
           title={presentedBy?.name ?? "Momentum+ Sponsor"}
         >
           <span className="sidebar-sponsor-label">Presented by</span>

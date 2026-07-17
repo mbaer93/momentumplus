@@ -13,6 +13,8 @@ export interface SponsorInput {
   name: string;
   tier: import("@/lib/sponsor-tiers").SponsorTier;
   tagline: string;
+  /** Long-form "about" text on the sponsor's profile page. */
+  description: string;
   offer: string;
   website: string;
   railActive: boolean;
@@ -32,14 +34,21 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
-  const { error } = await admin.from("sponsors").insert({
+  const row = {
     name: input.name.trim(),
     tier: (await import("@/lib/sponsor-tiers")).normalizeSponsorTier(input.tier),
     tagline: input.tagline.trim() || null,
+    description: input.description.trim() || null,
     offer: input.offer.trim() || null,
     website: input.website.trim() || null,
     rail_active: input.railActive,
-  });
+  };
+  let { error } = await admin.from("sponsors").insert(row);
+  if (error && error.message.includes("description")) {
+    // Pre-migration fallback: the column arrives with 0033.
+    const { description: _drop, ...legacy } = row;
+    ({ error } = await admin.from("sponsors").insert(legacy));
+  }
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/sponsors");
   revalidateTag("sponsors");
@@ -204,17 +213,21 @@ export async function updateSponsor(
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
-  const { error } = await admin
-    .from("sponsors")
-    .update({
-      name: input.name.trim(),
-      tier: (await import("@/lib/sponsor-tiers")).normalizeSponsorTier(input.tier),
-      tagline: input.tagline.trim() || null,
-      offer: input.offer.trim() || null,
-      website: input.website.trim() || null,
-      rail_active: input.railActive,
-    })
-    .eq("id", sponsorId);
+  const row = {
+    name: input.name.trim(),
+    tier: (await import("@/lib/sponsor-tiers")).normalizeSponsorTier(input.tier),
+    tagline: input.tagline.trim() || null,
+    description: input.description.trim() || null,
+    offer: input.offer.trim() || null,
+    website: input.website.trim() || null,
+    rail_active: input.railActive,
+  };
+  let { error } = await admin.from("sponsors").update(row).eq("id", sponsorId);
+  if (error && error.message.includes("description")) {
+    // Pre-migration fallback: the column arrives with 0033.
+    const { description: _drop, ...legacy } = row;
+    ({ error } = await admin.from("sponsors").update(legacy).eq("id", sponsorId));
+  }
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/sponsors");
   revalidateTag("sponsors");

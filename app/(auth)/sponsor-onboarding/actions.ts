@@ -18,6 +18,8 @@ import { normalizeSponsorTier } from "@/lib/sponsor-tiers";
 export interface SponsorOnboardingInput {
   businessName: string;
   tagline: string;
+  /** Long-form "about" text for the sponsor's profile page. */
+  description: string;
   website: string;
   offer: string;
   repName: string;
@@ -73,19 +75,30 @@ export async function completeSponsorOnboarding(
 
   // 1) The sponsor page entry (hidden from the rail until the team
   //    activates it; tier was chosen by the admin at invite time).
-  const { data: sponsor, error: sponsorError } = await admin
+  const sponsorRow = {
+    name: businessName,
+    tier: normalizeSponsorTier(invite.tier),
+    tagline: input.tagline.trim() || null,
+    description: input.description.trim() || null,
+    offer: input.offer.trim() || null,
+    website: input.website.trim() || null,
+    rail_active: false,
+    expires_at: termEnd,
+  };
+  let { data: sponsor, error: sponsorError } = await admin
     .from("sponsors")
-    .insert({
-      name: businessName,
-      tier: normalizeSponsorTier(invite.tier),
-      tagline: input.tagline.trim() || null,
-      offer: input.offer.trim() || null,
-      website: input.website.trim() || null,
-      rail_active: false,
-      expires_at: termEnd,
-    })
+    .insert(sponsorRow)
     .select("id")
     .single();
+  if (sponsorError && sponsorError.message.includes("description")) {
+    // Pre-migration fallback: the column arrives with 0033.
+    const { description: _drop, ...legacy } = sponsorRow;
+    ({ data: sponsor, error: sponsorError } = await admin
+      .from("sponsors")
+      .insert(legacy)
+      .select("id")
+      .single());
+  }
   if (sponsorError || !sponsor) {
     return {
       ok: false,

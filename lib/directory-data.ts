@@ -212,6 +212,8 @@ export interface SponsorItem {
   name: string;
   tier: SponsorTier;
   tagline: string;
+  /** Long-form "about" text shown on the sponsor's profile page. */
+  description: string;
   offer: string | null;
   website: string;
   /** Mockup wordmark stand-in — preview placeholders only; null for real rows. */
@@ -228,6 +230,7 @@ export const sponsors: SponsorItem[] = [
     name: "NewsTalk 103.7 FM",
     tier: "momentum_plus",
     tagline: "The Tri-State's voice for local news, talk, and community.",
+    description: "",
     offer: null,
     website: "https://example.com",
     wordmark: "newstalk",
@@ -240,6 +243,7 @@ export const sponsors: SponsorItem[] = [
     name: "Cumberland Valley Bank",
     tier: "gold",
     tagline: "Community banking for the businesses that build the Tri-State.",
+    description: "",
     offer: "Complimentary business banking review for Momentum+ members.",
     website: "https://example.com",
     wordmark: "bank",
@@ -252,6 +256,7 @@ export const sponsors: SponsorItem[] = [
     name: "Summit Growth Partners",
     tier: "gold",
     tagline: "Fractional CFO and growth advisory for scaling companies.",
+    description: "",
     offer: "Free 60-minute growth diagnostic for members.",
     website: "https://example.com",
     wordmark: "summit",
@@ -264,6 +269,7 @@ export const sponsors: SponsorItem[] = [
     name: "Clarity HR Solutions",
     tier: "partner",
     tagline: "People operations, handled — from handbook to hiring.",
+    description: "",
     offer: "15% off the first engagement for Momentum+ members.",
     website: "https://example.com",
     wordmark: "clarity",
@@ -276,6 +282,7 @@ export const sponsors: SponsorItem[] = [
     name: "Peak Wellness Collective",
     tier: "partner",
     tagline: "Corporate wellness programs rooted in real behavior change.",
+    description: "",
     offer: null,
     website: "https://example.com",
     wordmark: "wellness",
@@ -288,6 +295,7 @@ export const sponsors: SponsorItem[] = [
     name: "Demple Photography",
     tier: "partner",
     tagline: "Executive portraits and event photography across MD, PA & WV.",
+    description: "",
     offer: "Member headshot sessions at summit rates.",
     website: "https://example.com",
     wordmark: "photo",

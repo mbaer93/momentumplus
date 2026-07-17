@@ -34,6 +34,7 @@ export interface AdminSponsorRow {
   name: string;
   tier: string;
   tagline: string;
+  description: string;
   offer: string;
   website: string;
   logoUrl: string | null;
@@ -53,6 +54,7 @@ const EMPTY: SponsorInput = {
   name: "",
   tier: "partner",
   tagline: "",
+  description: "",
   offer: "",
   website: "",
   railActive: false,
@@ -116,6 +118,17 @@ function SponsorFields({
         </div>
       </div>
       <div className="admin-field">
+        <label htmlFor={`${idPrefix}-description`}>
+          About (shown on the sponsor&apos;s profile page)
+        </label>
+        <textarea
+          id={`${idPrefix}-description`}
+          value={value.description}
+          onChange={(e) => onChange({ ...value, description: e.target.value })}
+          placeholder="A few sentences about the business — what they do and who they serve."
+        />
+      </div>
+      <div className="admin-field">
         <label htmlFor={`${idPrefix}-offer`}>Member offer (optional)</label>
         <input
           id={`${idPrefix}-offer`}
@@ -176,6 +189,7 @@ export function SponsorsManager({
           name: editSeed.name,
           tier: editSeed.tier as SponsorInput["tier"],
           tagline: editSeed.tagline,
+          description: editSeed.description,
           offer: editSeed.offer,
           website: editSeed.website,
           railActive: editSeed.railActive,
@@ -213,6 +227,7 @@ export function SponsorsManager({
       name: row.name,
       tier: row.tier as SponsorInput["tier"],
       tagline: row.tagline,
+      description: row.description,
       offer: row.offer,
       website: row.website,
       railActive: row.railActive,

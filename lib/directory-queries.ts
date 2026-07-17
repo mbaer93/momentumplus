@@ -206,18 +206,28 @@ interface SponsorRow {
   rail_active: boolean | null;
   expires_at: string | null;
   archived_at: string | null;
+  description?: string | null;
 }
+
+const SPONSOR_COLUMNS =
+  "id, name, tier, tagline, description, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at";
+// Pre-migration fallback (before 0033 adds description).
+const SPONSOR_COLUMNS_LEGACY =
+  "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at";
 
 const cachedSponsorRows = unstable_cache(
   async (): Promise<SponsorRow[]> => {
     const { createServiceClient } = await import("@/lib/supabase/admin");
-    const { data } = await createServiceClient()
-      .from("sponsors")
-      .select(
-        "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
-      )
-      .order("tier");
-    return (data as SponsorRow[]) ?? [];
+    const admin = createServiceClient();
+    let data = (
+      await admin.from("sponsors").select(SPONSOR_COLUMNS).order("tier")
+    ).data as SponsorRow[] | null;
+    if (!data) {
+      data = (
+        await admin.from("sponsors").select(SPONSOR_COLUMNS_LEGACY).order("tier")
+      ).data as SponsorRow[] | null;
+    }
+    return data ?? [];
   },
   ["sponsors-directory"],
   { revalidate: 300, tags: ["sponsors"] },
@@ -231,14 +241,19 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     data = await cachedSponsorRows();
   } else {
     const supabase = createClient();
-    const { data: rows, error } = await supabase
-      .from("sponsors")
-      .select(
-        "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
-      )
-      .order("tier");
-    if (error || !rows) return [];
-    data = rows as SponsorRow[];
+    let rows = (
+      await supabase.from("sponsors").select(SPONSOR_COLUMNS).order("tier")
+    ).data as SponsorRow[] | null;
+    if (!rows) {
+      rows = (
+        await supabase
+          .from("sponsors")
+          .select(SPONSOR_COLUMNS_LEGACY)
+          .order("tier")
+      ).data as SponsorRow[] | null;
+    }
+    if (!rows) return [];
+    data = rows;
   }
 
   // Archived or term-expired sponsors are admin-only (Past Sponsors) —
@@ -256,6 +271,7 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     name: row.name,
     tier: normalizeSponsorTier(row.tier),
     tagline: row.tagline ?? "",
+    description: row.description ?? "",
     offer: row.offer,
     website: row.website ?? "#",
     // Real sponsors never get mockup wordmark stand-ins; without a logo the
@@ -265,6 +281,11 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     sidebarAdUrl: row.sidebar_ad_url ?? null,
     railActive: Boolean(row.rail_active),
   }));
+}
+
+export async function getSponsor(id: string): Promise<SponsorItem | null> {
+  const all = await listSponsors();
+  return all.find((s) => s.id === id) ?? null;
 }
 
 export async function railSponsors(): Promise<SponsorItem[]> {
