@@ -66,11 +66,13 @@ export default async function AdminAnalyticsPage() {
     const [
       { data: sessionRows },
       { data: sponsorRows },
-      { data: sponsorEvents },
       { data: resourceRows },
-      { data: resourceUses },
       { data: videoRows },
-      { data: videoViews },
+      // Database-side aggregates (migration 0032) — raw-row downloads cap
+      // at 1,000 and silently under-count busy tables.
+      spAggRes,
+      resAggRes,
+      vidAggRes,
     ] = await Promise.all([
       admin
         .from("sessions")
@@ -79,21 +81,59 @@ export default async function AdminAnalyticsPage() {
         .order("starts_at", { ascending: false })
         .limit(24),
       admin.from("sponsors").select("id, name").order("name"),
-      admin.from("sponsor_events").select("sponsor_id, kind, at"),
       admin.from("resources").select("id, title"),
-      admin.from("resource_uses").select("resource_id, used_at"),
       admin.from("videos").select("id, title"),
-      admin.from("video_views").select("video_id, profile_id, watched_at"),
+      admin.from("sponsor_event_counts").select("*"),
+      admin.from("resource_use_counts").select("*"),
+      admin.from("video_view_counts").select("*"),
     ]);
 
-    // Rosters only for the sessions on the page — not every enrollment ever.
-    const { data: enrollmentRows } = await admin
-      .from("enrollments")
-      .select("session_id, attended, profiles ( full_name, email )")
-      .in(
-        "session_id",
-        (sessionRows ?? []).map((s) => s.id),
-      );
+    // Pre-migration fallback: count from raw rows (capped, but no worse
+    // than before 0032).
+    const [sponsorEvents, resourceUses, videoViews] = await Promise.all([
+      spAggRes.error
+        ? admin
+            .from("sponsor_events")
+            .select("sponsor_id, kind, at")
+            .then((r) => r.data)
+        : Promise.resolve(null),
+      resAggRes.error
+        ? admin
+            .from("resource_uses")
+            .select("resource_id, used_at")
+            .then((r) => r.data)
+        : Promise.resolve(null),
+      vidAggRes.error
+        ? admin
+            .from("video_views")
+            .select("video_id, profile_id, watched_at")
+            .then((r) => r.data)
+        : Promise.resolve(null),
+    ]);
+
+    // Rosters only for the sessions on the page — paged past the 1,000-row
+    // response cap so big sessions don't lose enrollees.
+    const enrollmentRows: {
+      session_id: string;
+      attended: boolean;
+      profiles: unknown;
+    }[] = [];
+    const sessionIds = (sessionRows ?? []).map((s) => s.id);
+    if (sessionIds.length > 0) {
+      for (let from = 0; ; from += 1000) {
+        const { data: pageRows } = await admin
+          .from("enrollments")
+          .select("session_id, attended, profiles ( full_name, email )")
+          .in("session_id", sessionIds)
+          .order("session_id")
+          .range(from, from + 999);
+        if (!pageRows?.length) break;
+        enrollmentRows.push(
+          ...(pageRows as unknown as typeof enrollmentRows),
+        );
+        if (pageRows.length < 1000) break;
+      }
+    }
 
     type EnrollRow = {
       session_id: string;
@@ -127,18 +167,38 @@ export default async function AdminAnalyticsPage() {
       string,
       { i30: number; c30: number; iAll: number; cAll: number }
     >();
-    for (const e of sponsorEvents ?? []) {
-      const c =
-        spCounts.get(e.sponsor_id) ?? { i30: 0, c30: 0, iAll: 0, cAll: 0 };
-      const recent = e.at >= cutoff;
-      if (e.kind === "click") {
-        c.cAll++;
-        if (recent) c.c30++;
-      } else {
-        c.iAll++;
-        if (recent) c.i30++;
+    if (!spAggRes.error) {
+      for (const row of (spAggRes.data ?? []) as {
+        sponsor_id: string;
+        kind: string;
+        all_count: number;
+        recent_count: number;
+      }[]) {
+        const c =
+          spCounts.get(row.sponsor_id) ?? { i30: 0, c30: 0, iAll: 0, cAll: 0 };
+        if (row.kind === "click") {
+          c.cAll += row.all_count;
+          c.c30 += row.recent_count;
+        } else {
+          c.iAll += row.all_count;
+          c.i30 += row.recent_count;
+        }
+        spCounts.set(row.sponsor_id, c);
       }
-      spCounts.set(e.sponsor_id, c);
+    } else {
+      for (const e of sponsorEvents ?? []) {
+        const c =
+          spCounts.get(e.sponsor_id) ?? { i30: 0, c30: 0, iAll: 0, cAll: 0 };
+        const recent = e.at >= cutoff;
+        if (e.kind === "click") {
+          c.cAll++;
+          if (recent) c.c30++;
+        } else {
+          c.iAll++;
+          if (recent) c.i30++;
+        }
+        spCounts.set(e.sponsor_id, c);
+      }
     }
     sponsors = (sponsorRows ?? []).map((s) => {
       const c = spCounts.get(s.id) ?? { i30: 0, c30: 0, iAll: 0, cAll: 0 };
@@ -152,18 +212,11 @@ export default async function AdminAnalyticsPage() {
       };
     });
 
-    const tally = (
+    const rankRows = (
       rows: { id: string; title: string }[],
-      uses: { key: string; at: string }[],
-    ): CountRow[] => {
-      const counts = new Map<string, { c30: number; cAll: number }>();
-      for (const u of uses) {
-        const c = counts.get(u.key) ?? { c30: 0, cAll: 0 };
-        c.cAll++;
-        if (u.at >= cutoff) c.c30++;
-        counts.set(u.key, c);
-      }
-      return rows
+      counts: Map<string, { c30: number; cAll: number }>,
+    ): CountRow[] =>
+      rows
         .map((r) => ({
           id: r.id,
           title: r.title,
@@ -173,25 +226,63 @@ export default async function AdminAnalyticsPage() {
         .filter((r) => r.countAll > 0)
         .sort((a, b) => b.count30 - a.count30 || b.countAll - a.countAll)
         .slice(0, 12);
+
+    const tallyRaw = (uses: { key: string; at: string }[]) => {
+      const counts = new Map<string, { c30: number; cAll: number }>();
+      for (const u of uses) {
+        const c = counts.get(u.key) ?? { c30: 0, cAll: 0 };
+        c.cAll++;
+        if (u.at >= cutoff) c.c30++;
+        counts.set(u.key, c);
+      }
+      return counts;
     };
 
-    resources = tally(
-      resourceRows ?? [],
-      (resourceUses ?? []).map((u) => ({ key: u.resource_id, at: u.used_at })),
-    );
-    const uniqueViewers = new Map<string, Set<string>>();
-    for (const v of videoViews ?? []) {
-      const set = uniqueViewers.get(v.video_id) ?? new Set<string>();
-      set.add(v.profile_id);
-      uniqueViewers.set(v.video_id, set);
+    const resourceCounts = !resAggRes.error
+      ? new Map(
+          ((resAggRes.data ?? []) as {
+            resource_id: string;
+            all_count: number;
+            recent_count: number;
+          }[]).map((r) => [
+            r.resource_id,
+            { c30: r.recent_count, cAll: r.all_count },
+          ]),
+        )
+      : tallyRaw(
+          (resourceUses ?? []).map((u) => ({ key: u.resource_id, at: u.used_at })),
+        );
+    resources = rankRows(resourceRows ?? [], resourceCounts);
+
+    let videoCounts: Map<string, { c30: number; cAll: number }>;
+    const uniqueViewerCount = new Map<string, number>();
+    if (!vidAggRes.error) {
+      videoCounts = new Map();
+      for (const r of (vidAggRes.data ?? []) as {
+        video_id: string;
+        all_count: number;
+        recent_count: number;
+        unique_viewers: number;
+      }[]) {
+        videoCounts.set(r.video_id, { c30: r.recent_count, cAll: r.all_count });
+        uniqueViewerCount.set(r.video_id, r.unique_viewers);
+      }
+    } else {
+      videoCounts = tallyRaw(
+        (videoViews ?? []).map((v) => ({ key: v.video_id, at: v.watched_at })),
+      );
+      const uniqueViewers = new Map<string, Set<string>>();
+      for (const v of videoViews ?? []) {
+        const set = uniqueViewers.get(v.video_id) ?? new Set<string>();
+        set.add(v.profile_id);
+        uniqueViewers.set(v.video_id, set);
+      }
+      for (const [id, set] of uniqueViewers) uniqueViewerCount.set(id, set.size);
     }
-    videos = tally(
-      videoRows ?? [],
-      (videoViews ?? []).map((v) => ({ key: v.video_id, at: v.watched_at })),
-    ).map((v) => ({
+    videos = rankRows(videoRows ?? [], videoCounts).map((v) => ({
       ...v,
-      extra: `${uniqueViewers.get(v.id)?.size ?? 0} member${
-        (uniqueViewers.get(v.id)?.size ?? 0) === 1 ? "" : "s"
+      extra: `${uniqueViewerCount.get(v.id) ?? 0} member${
+        (uniqueViewerCount.get(v.id) ?? 0) === 1 ? "" : "s"
       }`,
     }));
   }

@@ -146,7 +146,13 @@ async function fetchAuthActivity(
   return byId;
 }
 
-export default async function AdminMembersPage() {
+const PAGE_SIZE = 50;
+
+export default async function AdminMembersPage({
+  searchParams,
+}: {
+  searchParams?: { q?: string; page?: string };
+}) {
   // Member PII (email, phone, login history) is behind the "members" area,
   // enforced HERE on the read — the admin layout only checks "is an admin",
   // so a standard admin without the members area could otherwise open this
@@ -156,18 +162,34 @@ export default async function AdminMembersPage() {
     redirect("/admin");
   }
 
+  // PostgREST or-filter syntax breaks on these characters — strip rather
+  // than error on an admin pasting something odd into search.
+  const q = (searchParams?.q ?? "").replace(/[,()%]/g, " ").trim().slice(0, 80);
+  const page = Math.max(1, Number.parseInt(searchParams?.page ?? "1", 10) || 1);
+  let totalCount = 0;
+
   let members = PREVIEW_MEMBERS;
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
     // Memberships first, then auth activity for exactly those profiles.
-    const { data } = await admin
+    // Search matches name or email; pagination replaces the old silent
+    // 200-row cap that made older members unmanageable from the UI.
+    let query = admin
       .from("memberships")
       .select(
-        "id, profile_id, tier, status, access_expires_at, source, profiles ( full_name, email, title, company, phone, admin_role, admin_perms )",
-      )
+        "id, profile_id, tier, status, access_expires_at, source, profiles!inner ( full_name, email, title, company, phone, admin_role, admin_perms )",
+        { count: "exact" },
+      );
+    if (q) {
+      query = query.or(`full_name.ilike.*${q}*,email.ilike.*${q}*`, {
+        foreignTable: "profiles",
+      });
+    }
+    const { data, count } = await query
       .order("created_at", { ascending: false })
-      .limit(200);
+      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+    totalCount = count ?? 0;
     const authActivity = await fetchAuthActivity(
       Array.from(new Set((data ?? []).map((r) => r.profile_id as string))),
     );
@@ -248,10 +270,71 @@ export default async function AdminMembersPage() {
         </div>
       )}
       <BulkAddMembers />
+
+      {/* Search + pagination (server-side, GET form). */}
+      {isSupabaseConfigured() && (
+        <form
+          method="get"
+          className="admin-form-actions"
+          style={{ marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}
+        >
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Search by name or email…"
+            aria-label="Search members"
+            style={{ minWidth: 240 }}
+          />
+          <button type="submit" className="btn-mini">
+            Search
+          </button>
+          {q && (
+            <Link href="/admin/members" className="btn-mini">
+              Clear
+            </Link>
+          )}
+          <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+            {totalCount === 0
+              ? q
+                ? "No members match that search."
+                : "No members yet."
+              : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, totalCount)} of ${totalCount}${q ? " matching" : ""} members`}
+          </span>
+        </form>
+      )}
+
       <MembersManager
         members={members}
         viewerIsSuper={access?.role === "super"}
       />
+
+      {isSupabaseConfigured() && totalCount > PAGE_SIZE && (
+        <div
+          className="admin-form-actions"
+          style={{ marginTop: 14, alignItems: "center" }}
+        >
+          {page > 1 && (
+            <Link
+              className="btn-mini"
+              href={`/admin/members?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page - 1) })}`}
+            >
+              ← Previous
+            </Link>
+          )}
+          <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+            Page {page} of {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
+          </span>
+          {page * PAGE_SIZE < totalCount && (
+            <Link
+              className="btn-mini"
+              href={`/admin/members?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page + 1) })}`}
+            >
+              Next →
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   );
 }

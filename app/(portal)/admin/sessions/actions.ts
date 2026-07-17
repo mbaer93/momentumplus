@@ -33,6 +33,9 @@ export interface AdminResult {
   message?: string;
   preview?: boolean;
   id?: string;
+  /** Saved, but something needs the admin's attention (styled as a warning,
+      not green success — e.g. the Zoom meeting couldn't be rescheduled). */
+  warning?: boolean;
 }
 
 function toRow(values: SessionFormValues) {
@@ -129,7 +132,7 @@ export async function updateSession(
         });
       }
     } catch (e) {
-      zoomNote = ` Heads up: the Zoom meeting couldn't be updated (${(e as Error).message}) — fix it in Zoom or re-save.`;
+      zoomNote = ` WARNING: the Zoom meeting could NOT be rescheduled (${(e as Error).message}). Members' Zoom invite still has the OLD time — fix it in Zoom or re-save this session.`;
     }
   }
 
@@ -137,7 +140,12 @@ export async function updateSession(
   revalidatePath(`/sessions/${id}`);
   revalidatePath("/sessions");
   revalidatePath("/rooted-focus");
-  return { ok: true, id, message: `Session saved.${zoomNote}` };
+  return {
+    ok: true,
+    id,
+    warning: Boolean(zoomNote),
+    message: `Session saved.${zoomNote}`,
+  };
 }
 
 /**

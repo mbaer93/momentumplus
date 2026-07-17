@@ -110,7 +110,7 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
       <div className="rail-become">
         <div className="rail-become-title">Become a partner</div>
         <div className="rail-become-sub">
-          Put your brand in front of the Tri-State&apos;s most engaged leaders.
+          Put your brand in front of a national community of engaged leaders.
         </div>
         <a
           className="btn-gold"
