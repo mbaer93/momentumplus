@@ -205,10 +205,12 @@ export const resources: ResourceItem[] = [
   },
 ];
 
+import type { SponsorTier } from "@/lib/sponsor-tiers";
+
 export interface SponsorItem {
   id: string;
   name: string;
-  tier: "title" | "partner" | "community";
+  tier: SponsorTier;
   tagline: string;
   offer: string | null;
   website: string;
@@ -224,7 +226,7 @@ export const sponsors: SponsorItem[] = [
   {
     id: "newstalk",
     name: "NewsTalk 103.7 FM",
-    tier: "title",
+    tier: "momentum_plus",
     tagline: "The Tri-State's voice for local news, talk, and community.",
     offer: null,
     website: "https://example.com",
@@ -236,7 +238,7 @@ export const sponsors: SponsorItem[] = [
   {
     id: "cv-bank",
     name: "Cumberland Valley Bank",
-    tier: "partner",
+    tier: "gold",
     tagline: "Community banking for the businesses that build the Tri-State.",
     offer: "Complimentary business banking review for Momentum+ members.",
     website: "https://example.com",
@@ -248,7 +250,7 @@ export const sponsors: SponsorItem[] = [
   {
     id: "summit-growth",
     name: "Summit Growth Partners",
-    tier: "partner",
+    tier: "gold",
     tagline: "Fractional CFO and growth advisory for scaling companies.",
     offer: "Free 60-minute growth diagnostic for members.",
     website: "https://example.com",
@@ -260,7 +262,7 @@ export const sponsors: SponsorItem[] = [
   {
     id: "clarity-hr",
     name: "Clarity HR Solutions",
-    tier: "community",
+    tier: "partner",
     tagline: "People operations, handled — from handbook to hiring.",
     offer: "15% off the first engagement for Momentum+ members.",
     website: "https://example.com",
@@ -272,7 +274,7 @@ export const sponsors: SponsorItem[] = [
   {
     id: "peak-wellness",
     name: "Peak Wellness Collective",
-    tier: "community",
+    tier: "partner",
     tagline: "Corporate wellness programs rooted in real behavior change.",
     offer: null,
     website: "https://example.com",
@@ -284,7 +286,7 @@ export const sponsors: SponsorItem[] = [
   {
     id: "demple-photo",
     name: "Demple Photography",
-    tier: "community",
+    tier: "partner",
     tagline: "Executive portraits and event photography across MD, PA & WV.",
     offer: "Member headshot sessions at summit rates.",
     website: "https://example.com",

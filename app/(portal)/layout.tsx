@@ -90,8 +90,8 @@ export default async function PortalLayout({
   // and always leads the right-hand rail, where its ad creative renders.
   const railList = allSponsors.filter((s) => s.railActive).slice(0, 3);
   const presentedBy =
-    allSponsors.find((s) => s.tier === "title" && s.railActive) ??
-    allSponsors.find((s) => s.tier === "title") ??
+    allSponsors.find((s) => s.tier === "momentum_plus" && s.railActive) ??
+    allSponsors.find((s) => s.tier === "momentum_plus") ??
     null;
   const rail =
     presentedBy && !railList.some((s) => s.id === presentedBy.id)
