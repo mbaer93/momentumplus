@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BellIcon, SearchIcon, SettingsIcon } from "@/components/icons";
+import { markNotificationsRead } from "@/app/(portal)/community/actions";
 import { titleForPath } from "./nav";
 import { MobileNavToggle } from "./PortalNav";
 
@@ -13,14 +14,31 @@ export interface TopbarUpcoming {
   dateLabel: string;
 }
 
+export interface TopbarNotification {
+  id: string;
+  title: string;
+  body: string;
+  link: string;
+  unread: boolean;
+  dateLabel: string;
+}
+
 interface TopbarProps {
   userInitials: string;
   upcoming?: TopbarUpcoming[];
+  notifications?: TopbarNotification[];
 }
 
-export function Topbar({ userInitials, upcoming = [] }: TopbarProps) {
+export function Topbar({
+  userInitials,
+  upcoming = [],
+  notifications = [],
+}: TopbarProps) {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<"bell" | "avatar" | null>(null);
+  // Cleared locally the moment the bell opens; the server marks rows read.
+  const [seen, setSeen] = useState(false);
+  const unreadCount = seen ? 0 : notifications.filter((n) => n.unread).length;
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => setOpenMenu(null), [pathname]);
@@ -44,13 +62,22 @@ export function Topbar({ userInitials, upcoming = [] }: TopbarProps) {
       <div ref={wrapRef} style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
         <button
           className="topbar-icon-btn"
-          aria-label="Your upcoming sessions"
-          title="Your upcoming sessions"
+          aria-label="Notifications and upcoming sessions"
+          title="Notifications & upcoming sessions"
           type="button"
-          onClick={() => setOpenMenu(openMenu === "bell" ? null : "bell")}
+          onClick={() => {
+            const opening = openMenu !== "bell";
+            setOpenMenu(opening ? "bell" : null);
+            if (opening && unreadCount > 0) {
+              setSeen(true);
+              void markNotificationsRead().catch(() => undefined);
+            }
+          }}
         >
           <BellIcon size={16} />
-          {upcoming.length > 0 && <span className="topbar-dot" />}
+          {(unreadCount > 0 || upcoming.length > 0) && (
+            <span className="topbar-dot" />
+          )}
         </button>
         <Link
           href="/profile"
@@ -72,7 +99,26 @@ export function Topbar({ userInitials, upcoming = [] }: TopbarProps) {
         </button>
 
         {openMenu === "bell" && (
-          <div className="topbar-menu" style={{ minWidth: 260 }}>
+          <div className="topbar-menu" style={{ minWidth: 280 }}>
+            {notifications.length > 0 && (
+              <>
+                <div className="topbar-menu-title">Notifications</div>
+                {notifications.slice(0, 5).map((n) => (
+                  <Link
+                    key={n.id}
+                    href={n.link || "/dashboard"}
+                    className="topbar-menu-item"
+                    style={n.unread && !seen ? { background: "var(--gold-pale)" } : undefined}
+                  >
+                    <span className="topbar-menu-item-title">{n.title}</span>
+                    <span className="topbar-menu-item-sub">
+                      {n.body ? `${n.body} · ` : ""}
+                      {n.dateLabel}
+                    </span>
+                  </Link>
+                ))}
+              </>
+            )}
             <div className="topbar-menu-title">Your upcoming sessions</div>
             {upcoming.length === 0 ? (
               <Link href="/sessions" className="topbar-menu-item">

@@ -127,6 +127,10 @@ function CourseFields({
           }
           placeholder="e.g. 2 or 1.5"
         />
+        <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+          Certificates cap at 0.5 CE hours unless at least one lesson has a
+          test (members must pass at 75%).
+        </div>
       </div>
       <div className="admin-field">
         <label htmlFor={`${idPrefix}-desc`}>Description</label>
@@ -320,9 +324,12 @@ function LessonEditor({ lesson }: { lesson: AdminLessonRow }) {
       {/* Test */}
       <div style={{ marginTop: 14 }}>
         <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-          Optional test — with questions saved, members must pass (70%) to
+          Optional test — with questions saved, members must pass (75%) to
           complete this lesson. With no test, opening the lesson completes it
-          automatically.
+          automatically, and a course with no tests awards at most 0.5 CE
+          hours. Write questions yourself or let the AI draft them from the
+          lesson&apos;s reading content or the attached video&apos;s AI
+          summary.
         </span>
         {questions.map((q, qi) => (
           <div
@@ -462,6 +469,11 @@ export function CoursesManager({
   );
   const [newLesson, setNewLesson] = useState({ videoId: "", title: "", summary: "" });
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  // Lessons entered inline while creating the course — added right after
+  // the course row exists, so a whole course can be built in one pass.
+  const [draftLessons, setDraftLessons] = useState<
+    { title: string; videoId: string }[]
+  >([]);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -499,6 +511,77 @@ export function CoursesManager({
           <label style={{ fontSize: 13 }}>Add a course</label>
         </div>
         <CourseFields value={form} onChange={setForm} idPrefix="new" />
+
+        {/* Lessons up front: add them while the course is being input. */}
+        <div className="admin-field" style={{ marginTop: 10, marginBottom: 4 }}>
+          <label style={{ fontSize: 13 }}>Lessons (optional — add now, refine later)</label>
+        </div>
+        {draftLessons.map((l, i) => (
+          <div
+            key={i}
+            className="admin-field-row"
+            style={{ gridTemplateColumns: "1.6fr 1.4fr auto", alignItems: "end" }}
+          >
+            <div className="admin-field">
+              <label htmlFor={`new-lesson-title-${i}`}>Lesson {i + 1} title</label>
+              <input
+                id={`new-lesson-title-${i}`}
+                value={l.title}
+                onChange={(e) =>
+                  setDraftLessons((prev) =>
+                    prev.map((x, xi) => (xi === i ? { ...x, title: e.target.value } : x)),
+                  )
+                }
+                placeholder="e.g. Foundations of Focus"
+              />
+            </div>
+            <div className="admin-field">
+              <label htmlFor={`new-lesson-video-${i}`}>Video (optional)</label>
+              <select
+                id={`new-lesson-video-${i}`}
+                value={l.videoId}
+                onChange={(e) =>
+                  setDraftLessons((prev) =>
+                    prev.map((x, xi) => (xi === i ? { ...x, videoId: e.target.value } : x)),
+                  )
+                }
+              >
+                <option value="">— Article/reading only —</option>
+                {videos.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              className="btn-mini danger"
+              style={{ marginBottom: 14 }}
+              onClick={() =>
+                setDraftLessons((prev) => prev.filter((_, xi) => xi !== i))
+              }
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <div className="admin-form-actions" style={{ marginTop: 2 }}>
+          <button
+            type="button"
+            className="btn-mini"
+            onClick={() =>
+              setDraftLessons((prev) => [...prev, { title: "", videoId: "" }])
+            }
+          >
+            Add a lesson
+          </button>
+          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+            After creating, open Edit on the course to add each lesson&apos;s
+            reading content, documents, and test (typed in or AI-drafted).
+          </span>
+        </div>
+
         <div className="admin-form-actions">
           <button
             type="button"
@@ -507,8 +590,28 @@ export function CoursesManager({
             onClick={() =>
               run(async () => {
                 const res = await createCourse(form);
-                if (res.ok) setForm(EMPTY);
-                return res;
+                if (!res.ok) return res;
+                const lessons = draftLessons.filter((l) => l.title.trim());
+                let added = 0;
+                if (res.id) {
+                  for (const l of lessons) {
+                    const lessonRes = await addLesson(res.id, {
+                      videoId: l.videoId,
+                      title: l.title,
+                      summary: "",
+                    });
+                    if (lessonRes.ok) added++;
+                  }
+                }
+                setForm(EMPTY);
+                setDraftLessons([]);
+                return {
+                  ok: true,
+                  message:
+                    added > 0
+                      ? `Course created with ${added} lesson${added === 1 ? "" : "s"} — open Edit to add content and tests.`
+                      : res.message,
+                };
               })
             }
           >

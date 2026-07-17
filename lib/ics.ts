@@ -11,6 +11,9 @@ export interface IcsEvent {
   durationMin: number;
   organizerName?: string;
   organizerEmail?: string;
+  /** RFC 5545 recurrence rule (e.g. "FREQ=WEEKLY") — the whole series
+      imports in one event. Built via rruleFor() in lib/recurrence.ts. */
+  rrule?: string;
   /** DTSTAMP override — tests pin it for deterministic output. */
   stamp?: Date;
 }
@@ -63,6 +66,10 @@ export function buildIcs(event: IcsEvent): string {
     `DTEND:${toIcsUtc(end)}`,
     `SUMMARY:${escapeText(event.title)}`,
   ];
+
+  if (event.rrule) {
+    lines.push(`RRULE:${event.rrule}`);
+  }
 
   if (event.description) {
     lines.push(`DESCRIPTION:${escapeText(event.description)}`);

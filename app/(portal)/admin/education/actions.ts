@@ -45,18 +45,22 @@ function toRow(input: CourseInput) {
   };
 }
 
-export async function createCourse(input: CourseInput): Promise<AdminResult> {
+export async function createCourse(
+  input: CourseInput,
+): Promise<AdminResult & { id?: string }> {
   const early = await guard();
   if (early) return early;
-  const { error } = await createServiceClient()
+  const { data, error } = await createServiceClient()
     .from("courses")
     .insert({
       ...toRow(input),
       published_at: input.published ? new Date().toISOString() : null,
-    });
+    })
+    .select("id")
+    .single();
   if (error) return { ok: false, message: error.message };
   refresh();
-  return { ok: true, message: "Course created." };
+  return { ok: true, id: data?.id as string | undefined, message: "Course created." };
 }
 
 export async function updateCourse(
@@ -323,7 +327,8 @@ export async function saveLessonQuiz(
   const { error } = await createServiceClient()
     .from("course_lessons")
     .update({
-      quiz: cleaned.length > 0 ? { questions: cleaned, passPct: 70 } : null,
+      // Completion requires passing at 75%+ (Matt's rule).
+      quiz: cleaned.length > 0 ? { questions: cleaned, passPct: 75 } : null,
     })
     .eq("id", lessonId);
   if (error) return { ok: false, message: error.message };
@@ -332,8 +337,8 @@ export async function saveLessonQuiz(
     ok: true,
     message:
       cleaned.length > 0
-        ? `Test saved (${cleaned.length} question${cleaned.length === 1 ? "" : "s"}, 70% to pass).`
-        : "Test removed — the lesson completes automatically when opened.",
+        ? `Test saved (${cleaned.length} question${cleaned.length === 1 ? "" : "s"}, 75% to pass).`
+        : "Test removed — the lesson completes automatically when opened. Note: courses without any test award at most 0.5 CE hours.",
   };
 }
 
@@ -360,22 +365,73 @@ export async function draftQuizWithAi(
       : early;
   }
 
-  const { data: lesson } = await createServiceClient()
+  const admin = createServiceClient();
+  const { data: lesson } = await admin
     .from("course_lessons")
-    .select("title, summary, content, courses ( title )")
+    .select("title, summary, content, video_id, courses ( title )")
     .eq("id", lessonId)
     .maybeSingle();
   if (!lesson) return { ok: false, message: "Lesson not found." };
 
-  const content = [lesson.summary, lesson.content]
+  let content = [lesson.summary, lesson.content]
     .filter(Boolean)
     .join("\n\n")
     .trim();
+
+  // Video lessons without much reading material: draft from the video's AI
+  // summary (takeaways / quotes / action items from the recording).
+  if (content.length < 200 && lesson.video_id) {
+    const { data: video } = await admin
+      .from("videos")
+      .select(
+        "title, session_id, ai_summaries!video_id ( takeaways, quotes, action_items, highlights )",
+      )
+      .eq("id", lesson.video_id)
+      .maybeSingle();
+    let summary = (
+      video as unknown as {
+        ai_summaries:
+          | { takeaways: unknown; quotes: unknown; action_items: unknown; highlights: string | null }
+          | { takeaways: unknown; quotes: unknown; action_items: unknown; highlights: string | null }[]
+          | null;
+      } | null
+    )?.ai_summaries;
+    if (Array.isArray(summary)) summary = summary[0] ?? null;
+    if (!summary && video?.session_id) {
+      const { data: sessionSummary } = await admin
+        .from("ai_summaries")
+        .select("takeaways, quotes, action_items, highlights")
+        .eq("session_id", video.session_id)
+        .maybeSingle();
+      summary = sessionSummary ?? null;
+    }
+    if (summary) {
+      const arr = (v: unknown): string[] =>
+        Array.isArray(v) ? (v as string[]) : [];
+      const parts = [
+        summary.highlights ? `Overview: ${summary.highlights}` : "",
+        arr(summary.takeaways).length
+          ? `Key takeaways:\n- ${arr(summary.takeaways).join("\n- ")}`
+          : "",
+        arr(summary.quotes).length
+          ? `Notable quotes:\n- ${arr(summary.quotes).join("\n- ")}`
+          : "",
+        arr(summary.action_items).length
+          ? `Action items:\n- ${arr(summary.action_items).join("\n- ")}`
+          : "",
+      ].filter(Boolean);
+      content = [content, `Video: ${video?.title ?? ""}`, ...parts]
+        .filter(Boolean)
+        .join("\n\n")
+        .trim();
+    }
+  }
+
   if (content.length < 200) {
     return {
       ok: false,
       message:
-        "Add the lesson's reading content first — the AI writes questions from what members actually read, and this lesson doesn't have enough material yet.",
+        "There isn't enough material yet — add the lesson's reading content, or attach a video that has an AI summary, and try again.",
     };
   }
 

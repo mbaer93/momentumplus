@@ -201,6 +201,24 @@ export async function sendSessionNotice(
     })
     .filter((r): r is { profileId: string; email: string } => Boolean(r.email));
 
+  // GHL delivery needs each member's contact id (from their membership row).
+  const contactIds = new Map<string, string>();
+  if (recipients.length > 0) {
+    const { data: memberships } = await admin
+      .from("memberships")
+      .select("profile_id, ghl_contact_id")
+      .in(
+        "profile_id",
+        recipients.map((r) => r.profileId),
+      )
+      .not("ghl_contact_id", "is", null);
+    for (const m of memberships ?? []) {
+      if (!contactIds.has(m.profile_id as string)) {
+        contactIds.set(m.profile_id as string, m.ghl_contact_id as string);
+      }
+    }
+  }
+
   const esc = (t: string) =>
     t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const paragraphs = message
@@ -240,6 +258,7 @@ export async function sendSessionNotice(
   let sent = 0;
   for (const r of recipients) {
     const res = await sendEmailViaGhl({
+      contactId: contactIds.get(r.profileId) ?? null,
       email: r.email,
       subject: `[Momentum+] ${subject}`,
       html,

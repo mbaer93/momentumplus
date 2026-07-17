@@ -4,6 +4,7 @@ import {
 } from "@/components/calendar/CalendarView";
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { requireMember } from "@/lib/current-member";
+import { expandOccurrences } from "@/lib/recurrence";
 import { listSessions } from "@/lib/sessions/queries";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,10 @@ export default async function CalendarPage() {
   const member = await requireMember();
   const sessions = await listSessions();
 
+  // Recurring series (Rooted Focus) paint every occurrence over the next
+  // few months, not just the next one.
+  const now = Date.now();
+  const horizon = now + 120 * 24 * 60 * 60 * 1000;
   const events: CalendarEvent[] = sessions
     .filter((s) => s.startsAt)
     // Drafts and archived sessions never land on a member's calendar;
@@ -20,15 +25,26 @@ export default async function CalendarPage() {
       (s) =>
         (s.status !== "draft" && s.status !== "archived") || member.isAdmin,
     )
-    .map((s) => ({
-      id: s.id,
-      slug: s.slug,
-      title: s.title,
-      startsAt: s.startsAt,
-      category: s.category,
-      speakerName: s.speaker.name,
-      isEnrolled: s.isEnrolled,
-    }));
+    .flatMap((s) => {
+      const starts = s.recurrence
+        ? expandOccurrences(
+            s.startsAt,
+            s.recurrence,
+            s.recurrenceUntil,
+            now - 24 * 60 * 60 * 1000,
+            horizon,
+          )
+        : [s.startsAt];
+      return starts.map((startsAt, i) => ({
+        id: i === 0 ? s.id : `${s.id}:${i}`,
+        slug: s.slug,
+        title: s.title,
+        startsAt,
+        category: s.category,
+        speakerName: s.speaker.name,
+        isEnrolled: s.isEnrolled,
+      }));
+    });
 
   return (
     <div className="calendar-pad">

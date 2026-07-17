@@ -160,7 +160,8 @@ export async function submitLessonQuiz(
     0,
   );
   const scorePct = Math.round((correct / questions.length) * 100);
-  const passPct = quiz?.passPct ?? 75;
+  // Floor of 75 (Matt's rule) — also lifts older quizzes saved with 70.
+  const passPct = Math.max(quiz?.passPct ?? 75, 75);
   const passed = scorePct >= passPct;
 
   if (passed) {

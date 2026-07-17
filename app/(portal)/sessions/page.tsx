@@ -8,7 +8,10 @@ export const dynamic = "force-dynamic";
 
 export default async function SessionsPage() {
   const member = await requireMember();
-  const sessions = await listSessions();
+  // Rooted Focus sessions live on their own tab.
+  const sessions = (await listSessions()).filter(
+    (s) => s.program !== "rooted_focus",
+  );
 
   return (
     <div className="sessions-pad">

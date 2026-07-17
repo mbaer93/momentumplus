@@ -53,6 +53,10 @@ export function SessionForm({
     minAccess: initial?.minAccess ?? "all_members",
     status: initial?.status ?? "draft",
     speakerId: initial?.speakerId ?? "",
+    program: initial?.program ?? "standard",
+    recurrence: initial?.recurrence ?? "",
+    recurrenceUntil: initial?.recurrenceUntil ?? "",
+    hostName: initial?.hostName ?? "",
   });
 
   function set<K extends keyof SessionFormValues>(
@@ -102,6 +106,40 @@ export function SessionForm({
       </div>
 
       <div className="admin-field">
+        <label htmlFor="program">Program</label>
+        <select
+          id="program"
+          value={values.program}
+          onChange={(e) => {
+            const program = e.target.value as SessionFormValues["program"];
+            setValues((v) => ({
+              ...v,
+              program,
+              // Rooted Focus defaults: 90 minutes, weekly, Business category.
+              ...(program === "rooted_focus" && v.program !== "rooted_focus"
+                ? {
+                    durationMin: 90,
+                    recurrence: "weekly" as const,
+                    category: "Business",
+                  }
+                : {}),
+            }));
+          }}
+        >
+          <option value="standard">Standard session (Sessions tab)</option>
+          <option value="rooted_focus">Rooted Focus (own tab)</option>
+        </select>
+        {values.program === "rooted_focus" && (
+          <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+            Rooted Focus sessions show on the Rooted Focus tab and the
+            calendar — never in the library, and no resources or AI summary.
+            Enrolling adds the whole recurring series to a member&apos;s
+            calendar.
+          </div>
+        )}
+      </div>
+
+      <div className="admin-field">
         <label htmlFor="speaker">Speaker</label>
         <select
           id="speaker"
@@ -118,6 +156,54 @@ export function SessionForm({
         <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
           Speakers are managed in Admin → Speakers; linking one shows the
           session on their profile.
+        </div>
+      </div>
+
+      <div className="admin-field">
+        <label htmlFor="hostName">
+          Host name (if the leader isn&apos;t a speaker — e.g. an SLC team
+          member)
+        </label>
+        <input
+          id="hostName"
+          value={values.hostName}
+          onChange={(e) => set("hostName", e.target.value)}
+          placeholder="e.g. Sierra Collins"
+        />
+        <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+          Shown as the session leader when no speaker is linked. Admins can
+          always start the Zoom meeting as host from the session page.
+        </div>
+      </div>
+
+      <div className="admin-field-row">
+        <div className="admin-field">
+          <label htmlFor="recurrence">Repeats</label>
+          <select
+            id="recurrence"
+            value={values.recurrence}
+            onChange={(e) =>
+              set(
+                "recurrence",
+                e.target.value as SessionFormValues["recurrence"],
+              )
+            }
+          >
+            <option value="">One-time (no repeat)</option>
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Every other week</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        <div className="admin-field">
+          <label htmlFor="recurrenceUntil">Repeats until (optional)</label>
+          <input
+            id="recurrenceUntil"
+            type="date"
+            value={values.recurrenceUntil}
+            onChange={(e) => set("recurrenceUntil", e.target.value)}
+            disabled={!values.recurrence}
+          />
         </div>
       </div>
 

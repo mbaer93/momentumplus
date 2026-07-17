@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { AccessLevel, SessionCategory, SessionDetail } from "@/lib/types";
 import { getPlaceholderSession, getPlaceholderSessions } from "./data";
+import { nextOccurrence } from "@/lib/recurrence";
 import { requestCache } from "@/lib/request-cache";
 
 /*
@@ -32,11 +33,23 @@ interface SessionRow {
   min_access: AccessLevel;
   status: SessionDetail["status"];
   speakers: { id: string; name: string; title: string | null } | null;
+  program?: string | null;
+  recurrence?: string | null;
+  recurrence_until?: string | null;
+  host_name?: string | null;
 }
 
 function mapRow(row: SessionRow): SessionDetail {
-  const speakerName = row.speakers?.name ?? "TBA";
-  return {
+  // Rooted Focus sessions are led by an SLC team member who may not be a
+  // speaker — the host name fills the speaker slot for display.
+  const speakerName = row.speakers?.name ?? row.host_name ?? "TBA";
+  const recurrence =
+    row.recurrence === "weekly" ||
+    row.recurrence === "biweekly" ||
+    row.recurrence === "monthly"
+      ? row.recurrence
+      : null;
+  const session: SessionDetail = {
     id: row.id,
     slug: row.id,
     title: row.title,
@@ -46,7 +59,8 @@ function mapRow(row: SessionRow): SessionDetail {
     speaker: {
       id: row.speakers?.id ?? "tba",
       name: speakerName,
-      title: row.speakers?.title ?? "",
+      title:
+        row.speakers?.title ?? (row.host_name && !row.speakers ? "SLC Team" : ""),
       initials: initialsFrom(speakerName),
       avatarBg: "#1C3050",
       avatarColor: "#D4AE75",
@@ -57,6 +71,10 @@ function mapRow(row: SessionRow): SessionDetail {
     enrolledCount: 0,
     minAccess: row.min_access,
     status: row.status,
+    program: row.program === "rooted_focus" ? "rooted_focus" : "standard",
+    recurrence,
+    recurrenceUntil: row.recurrence_until ?? null,
+    hostName: row.host_name ?? null,
     // Filled by getSession via the service role for enrolled viewers only.
     zoomJoinUrl: null,
     zoomMeetingId: null,
@@ -66,6 +84,18 @@ function mapRow(row: SessionRow): SessionDetail {
     attended: false,
     note: "",
   };
+  // A recurring series presents as its current-or-next occurrence, so cards,
+  // join windows, and "Add to calendar" all track the series week to week.
+  if (recurrence && row.starts_at && session.status !== "cancelled") {
+    const next = nextOccurrence(
+      row.starts_at,
+      session.durationMin,
+      recurrence,
+      session.recurrenceUntil,
+    );
+    if (next) session.startsAt = next;
+  }
+  return session;
 }
 
 // Join credentials (zoom_join_url / zoom_meeting_id / zoom_passcode) are
@@ -73,6 +103,9 @@ function mapRow(row: SessionRow): SessionDetail {
 // hide them, and getSession attaches them via the service role only after
 // confirming the viewer is enrolled.
 const SESSION_SELECT =
+  "id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, speakers ( id, name, title )";
+// Pre-migration fallback (before 0030 adds the Rooted Focus columns).
+const SESSION_SELECT_LEGACY =
   "id, title, description, category, starts_at, duration_min, capacity, min_access, status, speakers ( id, name, title )";
 
 /* requestCache(): layout + page both call this — one execution per request. */
@@ -80,10 +113,18 @@ export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
   if (!isSupabaseConfigured()) return getPlaceholderSessions();
 
   const supabase = createClient();
-  const { data, error } = await supabase
+  let res = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
     .order("starts_at", { ascending: true });
+  if (res.error && /program|recurrence|host_name/.test(res.error.message)) {
+    // Pre-migration fallback: the columns arrive with migration 0030.
+    res = (await supabase
+      .from("sessions")
+      .select(SESSION_SELECT_LEGACY)
+      .order("starts_at", { ascending: true })) as typeof res;
+  }
+  const { data, error } = res;
 
   // Configured mode never shows demo fixtures. A FAILED query is not an
   // empty catalog — throw to the error boundary ("try again") instead of
@@ -155,11 +196,20 @@ export const getSession = requestCache(async (id: string): Promise<SessionDetail
   if (!isSupabaseConfigured()) return getPlaceholderSession(id);
 
   const supabase = createClient();
-  const { data, error } = await supabase
+  let res = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
     .eq("id", id)
     .maybeSingle();
+  if (res.error && /program|recurrence|host_name/.test(res.error.message)) {
+    // Pre-migration fallback: the columns arrive with migration 0030.
+    res = (await supabase
+      .from("sessions")
+      .select(SESSION_SELECT_LEGACY)
+      .eq("id", id)
+      .maybeSingle()) as typeof res;
+  }
+  const { data, error } = res;
 
   if (error || !data) return null;
 

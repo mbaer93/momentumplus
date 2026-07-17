@@ -2,7 +2,7 @@ import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canAccess } from "@/lib/access";
-import { normalizeSponsorTier } from "@/lib/sponsor-tiers";
+import { RAIL_TIERS, normalizeSponsorTier } from "@/lib/sponsor-tiers";
 import { sponsorActive } from "@/lib/sponsor-lifecycle";
 import type { Tier } from "@/lib/types";
 import {
@@ -269,5 +269,9 @@ export async function listSponsors(): Promise<SponsorItem[]> {
 
 export async function railSponsors(): Promise<SponsorItem[]> {
   const all = await listSponsors();
-  return all.filter((s) => s.railActive).slice(0, 3);
+  // Rail ads are reserved for the top tiers (Momentum+ Sponsor, Title,
+  // Platinum) — lower tiers appear on the Sponsors tab only.
+  return all
+    .filter((s) => s.railActive && RAIL_TIERS.has(s.tier))
+    .slice(0, 3);
 }

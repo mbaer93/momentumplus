@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   AdminIcon,
+  BriefcaseIcon,
   ChevronRightIcon,
   CommunityIcon,
   EducationIcon,
@@ -80,6 +81,13 @@ const SECTIONS: {
     icon: ResourcesIcon,
     title: "Resources",
     desc: "Member tools, guides, and partner materials.",
+    area: "content",
+  },
+  {
+    href: "/admin/services",
+    icon: BriefcaseIcon,
+    title: "Additional Services",
+    desc: "SLC service offerings with sign-up links.",
     area: "content",
   },
   {

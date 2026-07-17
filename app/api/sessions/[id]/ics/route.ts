@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/lib/sessions/queries";
 import { buildIcs } from "@/lib/ics";
+import { rruleFor } from "@/lib/recurrence";
 
 // "Add to Calendar" — returns an .ics for the session. RLS (or placeholder
 // visibility) already restricts which sessions can be fetched.
@@ -25,6 +26,10 @@ export async function GET(
     start: new Date(session.startsAt),
     durationMin: session.durationMin,
     organizerName: "Momentum+",
+    // Recurring series (Rooted Focus): one import adds every occurrence.
+    rrule: session.recurrence
+      ? rruleFor(session.recurrence, session.recurrenceUntil)
+      : undefined,
   });
 
   return new NextResponse(ics, {

@@ -4,12 +4,17 @@ import {
   PortalNavProvider,
 } from "@/components/portal/PortalNav";
 import { Sidebar } from "@/components/portal/Sidebar";
-import { Topbar, type TopbarUpcoming } from "@/components/portal/Topbar";
+import {
+  Topbar,
+  type TopbarNotification,
+  type TopbarUpcoming,
+} from "@/components/portal/Topbar";
 import { SponsorRail } from "@/components/sponsors/SponsorRail";
 import { requireMember } from "@/lib/current-member";
 import { listSponsors } from "@/lib/directory-queries";
 import { getPresentedByLogoUrl } from "@/lib/presented-by";
 import { listSessions } from "@/lib/sessions/queries";
+import { RAIL_TIERS } from "@/lib/sponsor-tiers";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -73,6 +78,34 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
   }));
 }
 
+/** The member's recent in-app notifications for the bell menu (own rows via
+    RLS): speaker questions, announcements, whatever lands in the table. */
+async function recentNotifications(): Promise<TopbarNotification[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data } = await supabase
+    .from("notifications")
+    .select("id, title, body, link, read_at, created_at")
+    .eq("profile_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  return (data ?? []).map((n) => ({
+    id: n.id as string,
+    title: (n.title as string) ?? "Notification",
+    body: (n.body as string) ?? "",
+    link: (n.link as string) ?? "/dashboard",
+    unread: !n.read_at,
+    dateLabel: new Date(n.created_at as string).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    }),
+  }));
+}
+
 export default async function PortalLayout({
   children,
 }: {
@@ -81,14 +114,19 @@ export default async function PortalLayout({
   // Requires a signed-in member with an active (or in-grace) membership;
   // lapsed members land on /expired with renewal options (SPEC.md §5).
   const member = await requireMember();
-  const [allSponsors, presentedByLogoUrl, upcoming] = await Promise.all([
-    listSponsors(),
-    getPresentedByLogoUrl(),
-    upcomingEnrolled(),
-  ]);
-  // The Momentum+ Sponsor (title tier) is "Presented by" on the left (logo)
-  // and always leads the right-hand rail, where its ad creative renders.
-  const railList = allSponsors.filter((s) => s.railActive).slice(0, 3);
+  const [allSponsors, presentedByLogoUrl, upcoming, notifications] =
+    await Promise.all([
+      listSponsors(),
+      getPresentedByLogoUrl(),
+      upcomingEnrolled(),
+      recentNotifications(),
+    ]);
+  // The Momentum+ Sponsor is "Presented by" on the left (logo) and always
+  // leads the right-hand rail, where its ad creative renders. Rail ads are
+  // reserved for the top tiers only — Momentum+ Sponsor, Title, Platinum.
+  const railList = allSponsors
+    .filter((s) => s.railActive && RAIL_TIERS.has(s.tier))
+    .slice(0, 3);
   const presentedBy =
     allSponsors.find((s) => s.tier === "momentum_plus" && s.railActive) ??
     allSponsors.find((s) => s.tier === "momentum_plus") ??
@@ -111,7 +149,11 @@ export default async function PortalLayout({
         presentedByLogoUrl={presentedByLogoUrl}
       />
       <div className="main-area">
-        <Topbar userInitials={member.initials} upcoming={upcoming} />
+        <Topbar
+          userInitials={member.initials}
+          upcoming={upcoming}
+          notifications={notifications}
+        />
         <div className="content-area">
           {/* Sponsor rail renders on portal pages except community, profile,
               admin, and the live room (SPEC.md §5); it self-hides by route. */}

@@ -4,7 +4,7 @@
 
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
+import { RAIL_TIERS, SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
 import {
   archiveSponsor,
   createSponsor,
@@ -123,15 +123,22 @@ function SponsorFields({
           onChange={(e) => onChange({ ...value, offer: e.target.value })}
         />
       </div>
-      <label className="admin-check-row">
-        <input
-          type="checkbox"
-          className="pref-toggle"
-          checked={value.railActive}
-          onChange={(e) => onChange({ ...value, railActive: e.target.checked })}
-        />
-        Show in the sponsor side panel
-      </label>
+      {RAIL_TIERS.has(value.tier) ? (
+        <label className="admin-check-row">
+          <input
+            type="checkbox"
+            className="pref-toggle"
+            checked={value.railActive}
+            onChange={(e) => onChange({ ...value, railActive: e.target.checked })}
+          />
+          Show in the sponsor side panel
+        </label>
+      ) : (
+        <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          Side-panel ads are reserved for Momentum+ Sponsor, Title, and
+          Platinum tiers — this sponsor appears on the Sponsors tab.
+        </div>
+      )}
     </>
   );
 }
@@ -498,14 +505,23 @@ export function SponsorsManager({
                     {sponsorTierLabel(s.tier)}
                   </td>
                   <td>
-                    <input
-                      type="checkbox"
-                      className="pref-toggle"
-                      checked={s.railActive}
-                      disabled={pending}
-                      onChange={(e) => run(() => toggleRail(s.id, e.target.checked))}
-                      aria-label={`${s.name} rail`}
-                    />
+                    {RAIL_TIERS.has(s.tier) ? (
+                      <input
+                        type="checkbox"
+                        className="pref-toggle"
+                        checked={s.railActive}
+                        disabled={pending}
+                        onChange={(e) => run(() => toggleRail(s.id, e.target.checked))}
+                        aria-label={`${s.name} rail`}
+                      />
+                    ) : (
+                      <span
+                        style={{ fontSize: 11, color: "var(--mid-gray)" }}
+                        title="Rail ads are reserved for Momentum+ Sponsor, Title, and Platinum tiers."
+                      >
+                        —
+                      </span>
+                    )}
                   </td>
                   <td>{s.impressions.toLocaleString()}</td>
                   <td>{s.clicks.toLocaleString()}</td>

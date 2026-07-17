@@ -22,6 +22,7 @@ import {
   TimerIcon,
   UsersIcon,
 } from "@/components/icons";
+import { RECURRENCE_LABEL, rruleFor } from "@/lib/recurrence";
 import { useNowTick } from "./useNowTick";
 import { AddToCalendarButton } from "./AddToCalendarButton";
 import { EnrollButton } from "./EnrollButton";
@@ -38,10 +39,15 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
   const full =
     session.capacity !== null && session.enrolledCount >= session.capacity;
 
+  // Rooted Focus sessions have no shared resources or AI summaries — pure
+  // co-working, back to its own tab.
+  const rooted = session.program === "rooted_focus";
+
   return (
     <div className="sess-detail-wrap">
-      <Link href="/sessions" className="sess-back">
-        <ArrowLeftIcon size={12} /> All sessions
+      <Link href={rooted ? "/rooted-focus" : "/sessions"} className="sess-back">
+        <ArrowLeftIcon size={12} />{" "}
+        {rooted ? "All Rooted Focus sessions" : "All sessions"}
       </Link>
 
       <div className="sess-detail-card">
@@ -70,6 +76,12 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
                 ? `${session.enrolledCount} of ${session.capacity} enrolled`
                 : `${session.enrolledCount} enrolled`}
             </div>
+            {session.recurrence && (
+              <div className="sess-meta-chip">
+                <CalendarSmallIcon size={11} />{" "}
+                <strong>{RECURRENCE_LABEL[session.recurrence]}</strong>
+              </div>
+            )}
           </div>
 
           <div className="sess-cta-bar">
@@ -125,6 +137,11 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
               startsAt={session.startsAt}
               durationMin={session.durationMin}
               joinUrl={session.isEnrolled ? session.zoomJoinUrl : null}
+              rrule={
+                session.recurrence
+                  ? rruleFor(session.recurrence, session.recurrenceUntil)
+                  : null
+              }
             />
           </div>
         </div>
@@ -139,20 +156,24 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
             >
               Overview
             </button>
-            <button
-              className={`sess-tab${tab === "resources" ? " active" : ""}`}
-              onClick={() => setTab("resources")}
-              type="button"
-            >
-              Resources ({session.resources.length})
-            </button>
-            <button
-              className={`sess-tab${tab === "ai" ? " active" : ""}`}
-              onClick={() => setTab("ai")}
-              type="button"
-            >
-              AI Summary
-            </button>
+            {!rooted && (
+              <button
+                className={`sess-tab${tab === "resources" ? " active" : ""}`}
+                onClick={() => setTab("resources")}
+                type="button"
+              >
+                Resources ({session.resources.length})
+              </button>
+            )}
+            {!rooted && (
+              <button
+                className={`sess-tab${tab === "ai" ? " active" : ""}`}
+                onClick={() => setTab("ai")}
+                type="button"
+              >
+                AI Summary
+              </button>
+            )}
             <button
               className={`sess-tab${tab === "notes" ? " active" : ""}`}
               onClick={() => setTab("notes")}

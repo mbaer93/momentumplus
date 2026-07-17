@@ -1,5 +1,6 @@
 import { CommunityView } from "@/components/community/CommunityView";
 import { requireMember } from "@/lib/current-member";
+import { listSpeakers } from "@/lib/directory-queries";
 import { listSessions } from "@/lib/sessions/queries";
 import { COMMUNITY_CHANNELS, channelsForTier, isStreamConfigured } from "@/lib/stream";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -22,8 +23,12 @@ export default async function CommunityPage() {
     lockLabel: c.gate === "vip_plus" ? "VIP" : c.gate === "annual" ? "Annual" : undefined,
   }));
 
-  // Next upcoming session for the sidebar card.
-  const sessions = await listSessions();
+  // Next upcoming session for the sidebar card + active speakers for the
+  // #speaker-qa question picker.
+  const [sessions, speakers] = await Promise.all([
+    listSessions(),
+    listSpeakers(),
+  ]);
   const next = sessions
     .filter((s) => new Date(s.startsAt).getTime() > Date.now())
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
@@ -37,6 +42,7 @@ export default async function CommunityPage() {
       adminTitle={member.adminTitle}
       streamConfigured={isStreamConfigured()}
       preview={!isSupabaseConfigured()}
+      speakers={speakers.map((s) => ({ id: s.id, name: s.name }))}
       nextSession={
         next
           ? {

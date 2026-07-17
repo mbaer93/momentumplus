@@ -30,6 +30,8 @@ interface CommunityViewProps {
   /** True only when no Supabase env exists (demo fixtures allowed). */
   preview: boolean;
   nextSession: { dateLabel: string; title: string; meta: string };
+  /** Active speakers — #speaker-qa questions are addressed to one of them. */
+  speakers?: { id: string; name: string }[];
 }
 
 type StreamHandle = {
@@ -128,6 +130,7 @@ export function CommunityView({
   streamConfigured,
   preview,
   nextSession,
+  speakers = [],
 }: CommunityViewProps) {
   const [activeId, setActiveId] = useState(
     channels.find((c) => c.allowed)?.id ?? "general",
@@ -144,6 +147,8 @@ export function CommunityView({
   const [live, setLive] = useState(false); // true once Stream is connected
   const [connectError, setConnectError] = useState<string | null>(null);
   const [dms, setDms] = useState<DmInfo[]>([]);
+  // #speaker-qa: which speaker the question is addressed to (required).
+  const [qaSpeakerId, setQaSpeakerId] = useState("");
   const [dmPickerOpen, setDmPickerOpen] = useState(false);
   const [directory, setDirectory] = useState<DirectoryMember[] | null>(null);
   const [dmSearch, setDmSearch] = useState("");
@@ -326,9 +331,29 @@ export function CommunityView({
   }
 
   const send = useCallback(async () => {
-    const text = draft.trim();
+    let text = draft.trim();
     if (!text || !canPost) return;
     setSendError(null);
+
+    // Speaker Q&A: the question must be addressed to a speaker, who then
+    // gets a platform + email notification (recipient details stay
+    // server-side).
+    const isSpeakerQa = activeId === "speaker-qa" && !activeDm;
+    const qaSpeaker = speakers.find((s) => s.id === qaSpeakerId) ?? null;
+    if (isSpeakerQa && speakers.length > 0) {
+      if (!qaSpeaker) {
+        setSendError("Pick which speaker your question is for first.");
+        return;
+      }
+      text = `[Question for ${qaSpeaker.name}] ${text}`;
+    }
+    const notifySpeaker = () => {
+      if (isSpeakerQa && qaSpeaker) {
+        void import("@/app/(portal)/community/actions")
+          .then((m) => m.askSpeakerQuestion(qaSpeaker.id, draft.trim()))
+          .catch(() => undefined);
+      }
+    };
 
     const handle = streamRef.current;
     if (live && handle) {
@@ -342,6 +367,7 @@ export function CommunityView({
       try {
         await channel.sendMessage({ text });
         setDraft("");
+        notifySpeaker();
       } catch {
         setSendError(
           "Your message didn't send — check your connection and try again. Your text is still in the box.",
@@ -350,6 +376,7 @@ export function CommunityView({
       return; // message arrives via the message.new listener
     }
     setDraft("");
+    notifySpeaker();
 
     // Preview mode: append locally.
     setMessagesByChannel((prev) => ({
@@ -371,7 +398,7 @@ export function CommunityView({
         },
       ],
     }));
-  }, [draft, canPost, live, activeId, memberName, memberInitials, isAdmin, adminTitle]);
+  }, [draft, canPost, live, activeId, activeDm, speakers, qaSpeakerId, memberName, memberInitials, isAdmin, adminTitle]);
 
   // Switching conversations clears a stale send error.
   useEffect(() => setSendError(null), [activeId]);
@@ -578,6 +605,32 @@ export function CommunityView({
         {sendError && (
           <div className="chat-preview-note" style={{ color: "var(--accent-red)" }}>
             {sendError}
+          </div>
+        )}
+        {activeId === "speaker-qa" && !activeDm && canPost && speakers.length > 0 && (
+          <div
+            className="chat-preview-note"
+            style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
+          >
+            <label htmlFor="qa-speaker" style={{ fontSize: 12.5 }}>
+              This question is for:
+            </label>
+            <select
+              id="qa-speaker"
+              value={qaSpeakerId}
+              onChange={(e) => setQaSpeakerId(e.target.value)}
+              style={{ fontSize: 12.5, padding: "4px 8px" }}
+            >
+              <option value="">— Choose a speaker —</option>
+              {speakers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+              They&apos;ll get a notification and an email that you asked.
+            </span>
           </div>
         )}
         <div className="chat-input-area">

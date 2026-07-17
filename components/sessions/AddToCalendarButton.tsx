@@ -16,6 +16,7 @@ export function AddToCalendarButton({
   startsAt,
   durationMin,
   joinUrl,
+  rrule = null,
 }: {
   slug: string;
   title: string;
@@ -23,6 +24,8 @@ export function AddToCalendarButton({
   startsAt: string;
   durationMin: number;
   joinUrl: string | null;
+  /** RFC 5545 rule for recurring series — adds every occurrence at once. */
+  rrule?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -50,7 +53,8 @@ export function AddToCalendarButton({
     `&text=${encodeURIComponent(fullTitle)}` +
     `&dates=${stamp(start)}/${stamp(end)}` +
     `&details=${encodeURIComponent(details)}` +
-    `&location=${encodeURIComponent(joinUrl ?? "Momentum+ (online)")}`;
+    `&location=${encodeURIComponent(joinUrl ?? "Momentum+ (online)")}` +
+    (rrule ? `&recur=${encodeURIComponent(`RRULE:${rrule}`)}` : "");
 
   const outlookUrl =
     "https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose" +

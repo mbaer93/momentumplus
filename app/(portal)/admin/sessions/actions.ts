@@ -18,6 +18,14 @@ export interface SessionFormValues {
   status: SessionStatus;
   /** Speaker record this session links to ("" = none yet). */
   speakerId: string;
+  /** Rooted Focus lives on its own member tab. */
+  program: "standard" | "rooted_focus";
+  /** Recurring series cadence ("" = one-time). */
+  recurrence: "" | "weekly" | "biweekly" | "monthly";
+  /** Optional series end, "YYYY-MM-DD" (ET) — blank = open-ended. */
+  recurrenceUntil: string;
+  /** Non-speaker host (e.g. an SLC admin) shown when no speaker is linked. */
+  hostName: string;
 }
 
 export interface AdminResult {
@@ -41,7 +49,21 @@ function toRow(values: SessionFormValues) {
     min_access: values.minAccess,
     status: values.status,
     speaker_id: values.speakerId || null,
+    program: values.program === "rooted_focus" ? "rooted_focus" : "standard",
+    recurrence: values.recurrence || null,
+    // End of day ET so the final occurrence on that date still counts.
+    recurrence_until: values.recurrenceUntil
+      ? easternInputToIso(`${values.recurrenceUntil}T23:59`)
+      : null,
+    host_name: values.hostName.trim() || null,
   };
+}
+
+/** Friendly hint when the Rooted Focus columns aren't deployed yet. */
+function migrationHint(message: string): string {
+  return /program|recurrence|host_name/.test(message)
+    ? "The database doesn't have the Rooted Focus columns yet — run migration 0030 first."
+    : message;
 }
 
 export async function createSession(
@@ -64,9 +86,10 @@ export async function createSession(
     .select("id")
     .single();
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: migrationHint(error.message) };
   revalidatePath("/admin/sessions");
   revalidatePath("/sessions");
+  revalidatePath("/rooted-focus");
   return { ok: true, id: data.id, message: "Session created." };
 }
 
@@ -88,7 +111,7 @@ export async function updateSession(
     .eq("id", id)
     .select("zoom_meeting_id")
     .maybeSingle();
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: migrationHint(error.message) };
 
   // A published session already has a Zoom meeting — keep it in lockstep,
   // or members join a meeting whose schedule disagrees with the portal.
@@ -113,6 +136,7 @@ export async function updateSession(
   revalidatePath("/admin/sessions");
   revalidatePath(`/sessions/${id}`);
   revalidatePath("/sessions");
+  revalidatePath("/rooted-focus");
   return { ok: true, id, message: `Session saved.${zoomNote}` };
 }
 

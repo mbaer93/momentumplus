@@ -14,7 +14,7 @@ import {
   timeLabel,
 } from "@/lib/sessions/view";
 import { isPro } from "@/lib/access";
-import { listCourses } from "@/lib/education";
+import { listCourses, effectiveCeHours } from "@/lib/education";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -121,7 +121,7 @@ export default async function ProfilePage() {
   const certificates = earnedCourses.map((c) => ({
     courseId: c.id,
     title: c.title,
-    ceHours: c.ceHours,
+    ceHours: effectiveCeHours(c),
     dateLabel: new Date(
       completionDates.get(c.id) ?? Date.now(),
     ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
