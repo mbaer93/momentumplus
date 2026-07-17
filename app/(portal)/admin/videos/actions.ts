@@ -54,13 +54,24 @@ function refresh() {
 export async function createVideo(input: VideoInput): Promise<AdminResult> {
   const early = await guard();
   if (early) return early;
-  const { error } = await createServiceClient()
+  const { data: created, error } = await createServiceClient()
     .from("videos")
     .insert({
       ...toRow(input),
       published_at: input.published ? new Date().toISOString() : null,
-    });
+    })
+    .select("id")
+    .single();
   if (error) return { ok: false, message: error.message };
+  if (input.published && created) {
+    const { notifyMembersInApp } = await import("@/lib/engagement-notify");
+    await notifyMembersInApp({
+      key: "recording_ready",
+      title: "New recording in the Library",
+      body: input.title,
+      link: `/library/${created.id}`,
+    });
+  }
   refresh();
   return { ok: true, message: "Recording added." };
 }
@@ -88,6 +99,15 @@ export async function updateVideo(
     .update({ ...toRow(input), published_at })
     .eq("id", id);
   if (error) return { ok: false, message: error.message };
+  if (input.published && !existing?.published_at) {
+    const { notifyMembersInApp } = await import("@/lib/engagement-notify");
+    await notifyMembersInApp({
+      key: "recording_ready",
+      title: "New recording in the Library",
+      body: input.title,
+      link: `/library/${id}`,
+    });
+  }
   refresh();
   return { ok: true, message: "Recording saved." };
 }
@@ -188,16 +208,29 @@ export async function finalizeVideoUpload(
       return { ok: true, message: "That upload is already in the Library." };
     }
 
-    const { error } = await service.from("videos").insert({
-      title: input.title.trim(),
-      category: input.category.trim() || null,
-      mux_playback_id: playbackId,
-      mux_asset_id: assetId,
-      duration_sec: durationSec,
-      min_access: input.minAccess,
-      published_at: input.published ? new Date().toISOString() : null,
-    });
+    const { data: created, error } = await service
+      .from("videos")
+      .insert({
+        title: input.title.trim(),
+        category: input.category.trim() || null,
+        mux_playback_id: playbackId,
+        mux_asset_id: assetId,
+        duration_sec: durationSec,
+        min_access: input.minAccess,
+        published_at: input.published ? new Date().toISOString() : null,
+      })
+      .select("id")
+      .single();
     if (error) return { ok: false, message: error.message };
+    if (input.published && created) {
+      const { notifyMembersInApp } = await import("@/lib/engagement-notify");
+      await notifyMembersInApp({
+        key: "recording_ready",
+        title: "New recording in the Library",
+        body: input.title.trim(),
+        link: `/library/${created.id}`,
+      });
+    }
     refresh();
     return {
       ok: true,

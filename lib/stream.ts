@@ -120,6 +120,25 @@ export async function deleteStreamUser(userId: string): Promise<void> {
   }
 }
 
+/**
+ * Total unread community messages for a member, fetched server-side (the
+ * dashboard "New Messages" stat). Best-effort: 0 when Stream is off, the
+ * member has never chatted, or the API hiccups.
+ */
+export async function getUnreadTotal(userId: string): Promise<number> {
+  const apiKey = process.env.NEXT_PUBLIC_STREAM_API_KEY;
+  const secret = process.env.STREAM_API_SECRET;
+  if (!apiKey || !secret) return 0;
+  try {
+    const { StreamChat } = await import("stream-chat");
+    const client = StreamChat.getInstance(apiKey, secret);
+    const res = await client.getUnreadCount(userId);
+    return res.total_unread_count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function generateStreamUserToken(
   userId: string,
   secret: string,

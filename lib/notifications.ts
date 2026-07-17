@@ -25,13 +25,19 @@ export interface PrefDefinition {
   label: string;
   description: string;
   emailLocked?: boolean; // platform emails cannot be disabled
+  /** Only the in-app bell is wired for this key — hide email/SMS toggles. */
+  inAppOnly?: boolean;
+  /** No sender exists yet — hidden from the preferences UI until one does
+      (showing a toggle that controls nothing erodes trust). */
+  hidden?: boolean;
 }
 
 export const PREF_DEFINITIONS: PrefDefinition[] = [
   {
     key: "session_new",
     label: "New sessions",
-    description: "When a new session is added to the calendar",
+    description: "When a new session is published to the calendar",
+    inAppOnly: true,
   },
   {
     key: "session_reminder",
@@ -41,22 +47,26 @@ export const PREF_DEFINITIONS: PrefDefinition[] = [
   {
     key: "recording_ready",
     label: "Recording ready",
-    description: "When a session recording and AI summary are published",
+    description: "When a new recording lands in the Library",
+    inAppOnly: true,
   },
   {
     key: "chat_reply",
     label: "Replies & mentions",
     description: "When someone replies to or mentions you in community chat",
+    hidden: true, // no sender yet
   },
   {
     key: "chat_channel",
     label: "Channel activity",
     description: "Digest of activity in channels you follow",
+    hidden: true, // no sender yet
   },
   {
     key: "chat_dm",
     label: "Direct messages",
     description: "When you receive a direct message",
+    hidden: true, // no sender yet
   },
   {
     key: "platform",
@@ -68,11 +78,13 @@ export const PREF_DEFINITIONS: PrefDefinition[] = [
     key: "resource_new",
     label: "New resources",
     description: "When partner resources are added",
+    inAppOnly: true,
   },
   {
     key: "event_reminder",
     label: "Event reminders",
     description: "TSLS and community event reminders",
+    hidden: true, // no sender yet
   },
 ];
 
