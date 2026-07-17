@@ -65,7 +65,10 @@ function Fields({
   idPrefix: string;
 }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+    <div
+      className="admin-field-row"
+      style={{ gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}
+    >
       {fields.map((f) => {
         const id = `${idPrefix}-${f.key}`;
         const wide = f.type === "textarea";

@@ -322,3 +322,22 @@ export function PlusIcon(p: IconProps) {
     </Svg>
   );
 }
+
+export function MenuIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M2 4h12" />
+      <path d="M2 8h12" />
+      <path d="M2 12h12" />
+    </Svg>
+  );
+}
+
+export function CloseIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 4l8 8" />
+      <path d="M12 4l-8 8" />
+    </Svg>
+  );
+}

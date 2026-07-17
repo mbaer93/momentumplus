@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_SECTIONS } from "./nav";
+import { MobileNavClose } from "./PortalNav";
 import { SettingsIcon } from "@/components/icons";
 import { SponsorMark } from "@/components/sponsors/SponsorMark";
 import type { SponsorItem } from "@/lib/directory-data";
@@ -41,6 +42,7 @@ export function Sidebar({
           Momentum<span style={{ color: "var(--gold)" }}>+</span>
         </div>
         <div className="sidebar-brand-sub">Premium Member Portal</div>
+        <MobileNavClose />
       </div>
 
       <div className="sidebar-user">
