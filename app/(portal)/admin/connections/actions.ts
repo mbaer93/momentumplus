@@ -129,21 +129,42 @@ export async function connectGhl(
     return { ok: false, message: "API key and Location ID are both required." };
   }
 
-  const res = await fetch(
-    `https://services.leadconnectorhq.com/locations/${locationId.trim()}`,
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey.trim()}`,
-        Version: "2021-07-28",
-      },
-      cache: "no-store",
-    },
+  const headers = {
+    Authorization: `Bearer ${apiKey.trim()}`,
+    Version: "2021-07-28",
+  };
+  // Two validation attempts: the locations endpoint (needs the View
+  // Locations scope), then the contacts endpoint (needs View Contacts —
+  // which the platform requires anyway). A token scoped only for
+  // contacts/conversations used to fail here despite being usable.
+  const locRes = await fetch(
+    `https://services.leadconnectorhq.com/locations/${encodeURIComponent(locationId.trim())}`,
+    { headers, cache: "no-store" },
   ).catch(() => null);
-  if (!res?.ok) {
+  let valid = Boolean(locRes?.ok);
+  let contactsStatus: number | null = null;
+  if (!valid) {
+    const contactRes = await fetch(
+      `https://services.leadconnectorhq.com/contacts/?locationId=${encodeURIComponent(locationId.trim())}&limit=1`,
+      { headers, cache: "no-store" },
+    ).catch(() => null);
+    valid = Boolean(contactRes?.ok);
+    contactsStatus = contactRes?.status ?? null;
+  }
+  if (!valid) {
+    const detail = [
+      locRes ? `locations check: ${locRes.status}` : "locations check: network error",
+      contactsStatus !== null ? `contacts check: ${contactsStatus}` : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
     return {
       ok: false,
       message:
-        "GHL rejected those credentials — check the Private Integration token and Location ID (Settings → Business Profile).",
+        `GHL rejected those credentials (${detail}). Three things to verify: ` +
+        "1) the Private Integration was created INSIDE your sub-account (Settings → Private Integrations while in the location, not at the agency level); " +
+        "2) it has the View Contacts, Edit Contacts, View Conversations, Edit Conversation Messages, and View Locations scopes; " +
+        "3) the Location ID matches that same sub-account (Settings → Business Profile).",
     };
   }
 
