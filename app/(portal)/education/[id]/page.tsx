@@ -4,7 +4,7 @@ import { AdminEditChip } from "@/components/admin/AdminChips";
 import { LessonList } from "@/components/education/LessonList";
 import { ArrowLeftIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
-import { courseUnlocked, getCourse } from "@/lib/education";
+import { courseUnlocked, effectiveCeHours, getCourse } from "@/lib/education";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +42,7 @@ export default async function CoursePage({
         <LessonList
           courseId={course.id}
           lessons={course.lessons}
-          ceHours={course.ceHours}
+          ceHours={effectiveCeHours(course)}
         />
       ) : (
         <div className="admin-banner" style={{ marginTop: 8 }}>
@@ -55,8 +55,8 @@ export default async function CoursePage({
             <p>
               Upgrade your membership to unlock all{" "}
               {course.lessonCount ?? course.lessons.length} lessons
-              {course.ceHours
-                ? ` and earn a certificate of completion (${course.ceHours} educational hours)`
+              {effectiveCeHours(course)
+                ? ` and earn a certificate of completion (${effectiveCeHours(course)} educational hours)`
                 : ""}
               .
             </p>

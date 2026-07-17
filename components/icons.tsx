@@ -138,6 +138,17 @@ export function AdminIcon(p: IconProps) {
   );
 }
 
+export function BriefcaseIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="1.5" y="4.5" width="13" height="9" rx="1.5" />
+      <path d="M5.5 4.5V3A1.5 1.5 0 017 1.5h2A1.5 1.5 0 0110.5 3v1.5" />
+      <path d="M1.5 8h13" />
+      <path d="M8 7v2" />
+    </Svg>
+  );
+}
+
 export function SettingsIcon(p: IconProps) {
   return (
     <Svg {...p}>

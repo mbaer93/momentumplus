@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import {
   AdminIcon,
+  BriefcaseIcon,
   CalendarIcon,
   CommunityIcon,
   DashboardIcon,
@@ -11,6 +12,9 @@ import {
   SessionsIcon,
   SpeakersIcon,
   SponsorsIcon,
+  StarIcon,
+  TargetIcon,
+  UsersIcon,
 } from "@/components/icons";
 
 export interface NavItem {
@@ -35,6 +39,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Dashboard", href: "/dashboard", icon: DashboardIcon },
       { label: "Community", href: "/community", icon: CommunityIcon },
       { label: "Sessions", href: "/sessions", icon: SessionsIcon },
+      { label: "Rooted Focus", href: "/rooted-focus", icon: TargetIcon },
       { label: "Library", href: "/library", icon: LibraryIcon },
     ],
   },
@@ -42,6 +47,11 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Content",
     items: [
       { label: "Education", href: "/education", icon: EducationIcon },
+      {
+        label: "Aspire2Achieve Full Focus",
+        href: "/aspire2achieve",
+        icon: StarIcon,
+      },
     ],
   },
   {
@@ -50,6 +60,19 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Speakers", href: "/speakers", icon: SpeakersIcon },
       { label: "Resources", href: "/resources", icon: ResourcesIcon },
       { label: "Sponsors", href: "/sponsors", icon: SponsorsIcon },
+      {
+        label: "Additional Services",
+        href: "/services",
+        icon: BriefcaseIcon,
+      },
+      // Placeholder while the networking-group integration is worked out —
+      // admins only until it's real.
+      {
+        label: "Networking",
+        href: "/networking",
+        icon: UsersIcon,
+        adminOnly: true,
+      },
       { label: "Calendar", href: "/calendar", icon: CalendarIcon },
     ],
   },

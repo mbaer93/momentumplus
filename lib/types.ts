@@ -119,6 +119,13 @@ export interface SessionDetail {
   enrolledCount: number;
   minAccess: AccessLevel;
   status: SessionStatus;
+  /** Which member tab it belongs to — Rooted Focus lives outside Sessions. */
+  program: "standard" | "rooted_focus";
+  /** Recurring series (Rooted Focus): cadence + optional series end. */
+  recurrence: "weekly" | "biweekly" | "monthly" | null;
+  recurrenceUntil: string | null;
+  /** Non-speaker host (SLC team member) shown when no speaker is linked. */
+  hostName: string | null;
   zoomJoinUrl: string | null;
   zoomMeetingId: string | null;
   resources: SessionResource[];

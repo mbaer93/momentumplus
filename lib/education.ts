@@ -54,6 +54,19 @@ export function courseUnlocked(course: CourseItem, tier: Tier): boolean {
   return canAccess(tier, course.minAccess);
 }
 
+/**
+ * CE hours actually awarded on the certificate. Courses with no test on any
+ * lesson are capped at 0.5 CE hours (Matt's rule: full credit requires
+ * passing a test at 75%+).
+ */
+export function effectiveCeHours(
+  course: Pick<CourseItem, "ceHours" | "lessons">,
+): number | null {
+  if (course.ceHours === null) return null;
+  const hasTest = course.lessons.some((l) => l.quiz && l.quiz.length > 0);
+  return hasTest ? course.ceHours : Math.min(course.ceHours, 0.5);
+}
+
 const PLACEHOLDER_COURSES: CourseItem[] = [
   {
     id: "resilient-leader",

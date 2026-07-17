@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PrintButton } from "@/components/education/PrintButton";
 import { ArrowLeftIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
-import { courseUnlocked, getCourse } from "@/lib/education";
+import { courseUnlocked, effectiveCeHours, getCourse } from "@/lib/education";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -80,12 +80,17 @@ export default async function CertificatePage({
             has successfully completed the course
           </div>
           <div className="certificate-course">{course.title}</div>
-          {course.ceHours !== null && course.ceHours > 0 && (
-            <div className="certificate-hours">
-              {course.ceHours} educational hour
-              {course.ceHours === 1 ? "" : "s"}
-            </div>
-          )}
+          {(() => {
+            // No test on any lesson → capped at 0.5 CE hours (full credit
+            // requires passing a test at 75%+).
+            const hours = effectiveCeHours(course);
+            return hours !== null && hours > 0 ? (
+              <div className="certificate-hours">
+                {hours} educational hour
+                {hours === 1 ? "" : "s"}
+              </div>
+            ) : null;
+          })()}
           <div className="certificate-date">Completed {dateLabel}</div>
           <div className="certificate-footer">
             <div className="certificate-line">

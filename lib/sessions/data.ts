@@ -74,6 +74,9 @@ interface Seed {
   isEnrolled: boolean;
   resources: SessionDetail["resources"];
   withSummary?: boolean;
+  program?: SessionDetail["program"];
+  recurrence?: SessionDetail["recurrence"];
+  hostName?: string;
 }
 
 const seeds: Seed[] = [
@@ -220,6 +223,28 @@ const seeds: Seed[] = [
     resources: [],
     withSummary: true,
   },
+  {
+    slug: "rooted-focus-weekly",
+    title: "Rooted Focus: Weekly Deep-Work Session",
+    description:
+      "90 minutes of structured, distraction-free work alongside the Momentum+ community. Ground in, get to work, check in at halftime, finish strong, and celebrate.",
+    category: "Business",
+    objectives: [
+      "Name your focus for the block",
+      "Two rounds of camera-off deep work",
+      "Leave with a visible win",
+    ],
+    speaker: speakers.katie,
+    offsetMs: 2 * DAY,
+    durationMin: 90,
+    enrolledCount: 14,
+    minAccess: "all_members",
+    isEnrolled: false,
+    resources: [],
+    program: "rooted_focus",
+    recurrence: "weekly",
+    hostName: "Katie Nelson",
+  },
 ];
 
 function summaryFor(seed: Seed): SessionDetail["aiSummary"] {
@@ -271,6 +296,10 @@ export function getPlaceholderSessions(): SessionDetail[] {
       enrolledCount: seed.enrolledCount,
       minAccess: seed.minAccess,
       status,
+      program: seed.program ?? "standard",
+      recurrence: seed.recurrence ?? null,
+      recurrenceUntil: null,
+      hostName: seed.hostName ?? null,
       zoomJoinUrl: "https://zoom.us/j/0000000000",
       zoomMeetingId: "0000000000",
       resources: seed.resources,

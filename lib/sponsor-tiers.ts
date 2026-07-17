@@ -41,3 +41,15 @@ export function sponsorTierLabel(tier: string): string {
 export function normalizeSponsorTier(tier: string): SponsorTier {
   return RANK.has(tier) ? (tier as SponsorTier) : "partner";
 }
+
+/*
+ * Right-rail ad eligibility (Matt, 2026-07-17): only the Momentum+ Sponsor,
+ * Title, and Platinum tiers get an advertisement in the right-hand rail.
+ * Every sponsor still appears on the Sponsors tab, and only the Momentum+
+ * Sponsor gets the "Presented by" slot.
+ */
+export const RAIL_TIERS: ReadonlySet<string> = new Set([
+  "momentum_plus",
+  "title",
+  "platinum",
+]);

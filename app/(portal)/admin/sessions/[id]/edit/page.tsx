@@ -4,6 +4,7 @@ import { getSession } from "@/lib/sessions/queries";
 import { SessionForm } from "@/components/admin/SessionForm";
 import { ArrowLeftIcon } from "@/components/icons";
 import { listSpeakers } from "@/lib/directory-queries";
+import { isoToEasternInput } from "@/lib/eastern-time";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,12 @@ export default async function EditSessionPage({
           speakerId: speakers.some((s) => s.id === session.speaker.id)
             ? session.speaker.id
             : "",
+          program: session.program,
+          recurrence: session.recurrence ?? "",
+          recurrenceUntil: session.recurrenceUntil
+            ? isoToEasternInput(session.recurrenceUntil).slice(0, 10)
+            : "",
+          hostName: session.hostName ?? "",
         }}
       />
     </div>
