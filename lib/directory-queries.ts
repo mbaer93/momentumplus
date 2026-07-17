@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canAccess } from "@/lib/access";
+import { normalizeSponsorTier } from "@/lib/sponsor-tiers";
 import type { Tier } from "@/lib/types";
 import {
   resources as placeholderResources,
@@ -201,7 +202,7 @@ export async function listSponsors(): Promise<SponsorItem[]> {
   return data.map((row) => ({
     id: row.id,
     name: row.name,
-    tier: row.tier as SponsorItem["tier"],
+    tier: normalizeSponsorTier(row.tier),
     tagline: row.tagline ?? "",
     offer: row.offer,
     website: row.website ?? "#",

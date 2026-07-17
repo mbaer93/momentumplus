@@ -4,6 +4,7 @@
 
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
 import {
   createSponsor,
   deleteSponsor,
@@ -43,7 +44,7 @@ export interface AdminSponsorRow {
 
 const EMPTY: SponsorInput = {
   name: "",
-  tier: "community",
+  tier: "partner",
   tagline: "",
   offer: "",
   website: "",
@@ -80,9 +81,11 @@ function SponsorFields({
               onChange({ ...value, tier: e.target.value as SponsorInput["tier"] })
             }
           >
-            <option value="title">Momentum+ Sponsor</option>
-            <option value="partner">Partner</option>
-            <option value="community">Community</option>
+            {SPONSOR_TIERS.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -364,7 +367,7 @@ export function SponsorsManager({
                     )}
                   </td>
                   <td style={{ textTransform: "capitalize" }}>
-                    {s.tier === "title" ? "Momentum+" : s.tier}
+                    {sponsorTierLabel(s.tier)}
                   </td>
                   <td>
                     <input

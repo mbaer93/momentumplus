@@ -10,7 +10,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export interface SponsorInput {
   name: string;
-  tier: "title" | "partner" | "community";
+  tier: import("@/lib/sponsor-tiers").SponsorTier;
   tagline: string;
   offer: string;
   website: string;
@@ -33,7 +33,7 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
   const admin = createServiceClient();
   const { error } = await admin.from("sponsors").insert({
     name: input.name.trim(),
-    tier: input.tier,
+    tier: (await import("@/lib/sponsor-tiers")).normalizeSponsorTier(input.tier),
     tagline: input.tagline.trim() || null,
     offer: input.offer.trim() || null,
     website: input.website.trim() || null,
@@ -207,7 +207,7 @@ export async function updateSponsor(
     .from("sponsors")
     .update({
       name: input.name.trim(),
-      tier: input.tier,
+      tier: (await import("@/lib/sponsor-tiers")).normalizeSponsorTier(input.tier),
       tagline: input.tagline.trim() || null,
       offer: input.offer.trim() || null,
       website: input.website.trim() || null,
