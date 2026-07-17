@@ -1,37 +1,45 @@
--- TSLS 2026 sponsor load (source: "09 - TSLS 2026 Sponsor Tracker" sheet,
--- all returning 2025 sponsors, per Matt 2026-07-17).
--- Tier mapping: Platinum/Gold/Silver -> partner; Community + trade -> community.
--- The single 'title' (Presented by) slot stays empty until the 2026 title
--- sponsor signs. Taglines/offers/websites/logos intentionally left blank —
--- filled in via Admin → Sponsors rather than invented here.
+-- TSLS 2026 sponsor + partner load (source: Matt's confirmed roster,
+-- 2026-07-17, cross-checked against the Sponsors/Partners agreement folders).
+--
+-- Momentum+ tier mapping:
+--   title     = the Momentum+ Sponsor (Work Smarter Digital) — the single
+--               "Presented by" slot; rail_active so it leads the ad rail.
+--   partner   = TSLS 2026 event sponsors (Platinum/Gold/Silver/specialty).
+--   community = TSLS 2026 partners (media/chambers/trade).
+-- Unfilled 2026 slots (Title $15k, Platinum $7.5k, Gold #3, Lunch) are NOT
+-- seeded — they get added when they sign.
+-- Taglines state the factual sponsorship role; offers/websites/logos are
+-- filled in via Admin → Sponsors.
 -- Idempotent: skips any sponsor whose name already exists.
 
-insert into public.sponsors (name, tier, rail_active)
-select v.name, v.tier::sponsor_tier, false
+insert into public.sponsors (name, tier, tagline, rail_active)
+select v.name, v.tier::sponsor_tier, v.tagline, v.rail_active
 from (
   values
-    -- Platinum / Gold / Silver 2025 -> partner
-    ('Barley Snyder',                 'partner'),
-    ('Middletown Valley Bank',        'partner'),
-    ('Martin''s',                     'partner'),
-    ('Work Smarter (Bev Stitely)',    'partner'),
-    -- Community 2025 -> community
-    ('Work Smarter Digital',          'community'),
-    ('F&M Trust',                     'community'),
-    ('Michelle Compton',              'community'),
-    ('CMH Home Loans',                'community'),
-    ('Preston Sphar',                 'community'),
-    ('Eric Jorgenson',                'community'),
-    ('Donna Digman',                  'community'),
-    ('SERVPRO (Bill Humphrey)',       'community'),
-    ('Edward Jones',                  'community'),
-    -- Trade partners 2025 -> community
-    ('Washington County Chamber of Commerce', 'community'),
-    ('TVRC',                          'community'),
-    ('Hagerstown Magazine',           'community'),
-    ('Shippensburg Chamber of Commerce', 'community'),
-    ('CVBA',                          'community')
-) as v(name, tier)
+    -- The Momentum+ Sponsor -> title (Presented by slot)
+    ('Work Smarter Digital', 'title', 'Momentum+ Sponsor', true),
+
+    -- TSLS 2026 event sponsors -> partner
+    ('iWAT',                        'partner', 'TSLS 2026 Platinum Sponsor', false),
+    ('Middletown Valley Bank',      'partner', 'TSLS 2026 Gold Sponsor', false),
+    ('Martin''s Potato Rolls',      'partner', 'TSLS 2026 Gold Sponsor', false),
+    ('Arc Human Capital',           'partner', 'TSLS 2026 Silver Sponsor', false),
+    ('Saunders Tax and Accounting', 'partner', 'TSLS 2026 Silver Sponsor', false),
+    ('Smartypants Medicine',        'partner', 'TSLS 2026 Silver Sponsor', false),
+    ('RM Benefits',                 'partner', 'TSLS 2026 Coffee Break Sponsor', false),
+    ('Meinelschmidt Distillery',    'partner', 'TSLS 2026 Networking Happy Hour Sponsor', false),
+    ('Gypsy Soul',                  'partner', 'TSLS 2026 Breakfast Sponsor', false),
+
+    -- TSLS 2026 partners -> community
+    ('Hagerstown Magazine',                  'community', 'TSLS 2026 Partner', false),
+    ('Apostrophe Communications',            'community', 'TSLS 2026 Partner', false),
+    ('Hancock Media',                        'community', 'TSLS 2026 Partner', false),
+    ('CVBA',                                 'community', 'TSLS 2026 Partner', false),
+    ('TVRC',                                 'community', 'TSLS 2026 Partner', false),
+    ('Martinsburg-Berkeley County Chamber',  'community', 'TSLS 2026 Partner', false),
+    ('Shippensburg Chamber',                 'community', 'TSLS 2026 Partner', false),
+    ('Frederick County Chamber',             'community', 'TSLS 2026 Partner', false)
+) as v(name, tier, tagline, rail_active)
 where not exists (
   select 1 from public.sponsors s where lower(s.name) = lower(v.name)
 );
