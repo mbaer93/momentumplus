@@ -127,6 +127,35 @@ export function mergePrefs(saved: Partial<PrefRow>[]): PrefRow[] {
 
 const GHL_API_BASE = "https://services.leadconnectorhq.com";
 
+/**
+ * Find-or-create the GHL contact for an email address. Members created by
+ * hand (admin grants, invites, comps) have no ghl_contact_id on their
+ * membership — without this, every email to them silently skipped.
+ */
+async function upsertGhlContact(
+  email: string,
+  apiKey: string,
+  locationId: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${GHL_API_BASE}/contacts/upsert`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Version: "2021-07-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ locationId, email }),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { contact?: { id?: string } };
+    return json.contact?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function sendEmailViaGhl(input: {
   contactId?: string | null;
   email: string;
@@ -140,7 +169,11 @@ export async function sendEmailViaGhl(input: {
     console.log("[notify:email:skipped] GHL not configured");
     return { sent: false, reason: "GHL not configured" };
   }
-  if (!input.contactId) {
+  let contactId = input.contactId ?? null;
+  if (!contactId && creds.locationId) {
+    contactId = await upsertGhlContact(input.email, creds.apiKey, creds.locationId);
+  }
+  if (!contactId) {
     return { sent: false, reason: "no GHL contact id" };
   }
   const res = await fetch(`${GHL_API_BASE}/conversations/messages`, {
@@ -152,7 +185,7 @@ export async function sendEmailViaGhl(input: {
     },
     body: JSON.stringify({
       type: "Email",
-      contactId: input.contactId,
+      contactId,
       subject: input.subject,
       html: input.html,
     }),
