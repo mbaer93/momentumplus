@@ -18,6 +18,9 @@ const PROTECTED_PREFIXES = [
   "/profile",
   "/admin",
   "/welcome",
+  // Sponsor-rep onboarding: requires sign-in but NOT an active membership
+  // (the form itself grants the membership).
+  "/sponsor-onboarding",
 ];
 
 const AUTH_PATHS = ["/login", "/reset"];

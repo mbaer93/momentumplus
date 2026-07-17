@@ -19,6 +19,12 @@ export interface ProvisionInput {
   /** Access length; 0/null = ongoing (speaker/admin-style grants). */
   months: number | null;
   source: string;
+  /** First-login landing (default /welcome); sponsor reps get the
+      sponsor-onboarding form instead. */
+  inviteRedirect?: string;
+  /** Explicit access end (overrides months) — e.g. sponsor seats that
+      expire October 1 regardless of when they were invited. */
+  accessExpiresAt?: string | null;
 }
 
 export interface ProvisionResult {
@@ -149,7 +155,9 @@ export async function createAccountWithoutEmail(
     type: "recovery",
     email,
     options: {
-      redirectTo: siteUrl ? `${siteUrl}/auth/callback?redirect=/welcome` : undefined,
+      redirectTo: siteUrl
+        ? `${siteUrl}/auth/callback?redirect=/welcome`
+        : undefined,
     },
   });
   const hashed = linkData?.properties?.hashed_token;
@@ -192,7 +200,9 @@ export async function provisionMember(
     const siteUrl = requestSiteUrl();
     const { data: inv, error } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: input.name ?? "" },
-      redirectTo: siteUrl ? `${siteUrl}/auth/callback?redirect=/welcome` : undefined,
+      redirectTo: siteUrl
+        ? `${siteUrl}/auth/callback?redirect=${encodeURIComponent(input.inviteRedirect ?? "/welcome")}`
+        : undefined,
     });
     if (inv?.user) {
       profileId = inv.user.id;
@@ -274,7 +284,11 @@ export async function provisionMember(
     status: "active",
     access_starts_at: now.toISOString(),
     access_expires_at:
-      months > 0 ? addMonths(now, months).toISOString() : null,
+      input.accessExpiresAt !== undefined
+        ? input.accessExpiresAt
+        : months > 0
+          ? addMonths(now, months).toISOString()
+          : null,
     source: input.source,
   });
   if (memberError) {

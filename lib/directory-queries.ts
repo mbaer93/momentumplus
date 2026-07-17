@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canAccess } from "@/lib/access";
 import { normalizeSponsorTier } from "@/lib/sponsor-tiers";
+import { sponsorActive } from "@/lib/sponsor-lifecycle";
 import type { Tier } from "@/lib/types";
 import {
   resources as placeholderResources,
@@ -164,6 +165,8 @@ interface SponsorRow {
   logo_url: string | null;
   sidebar_ad_url: string | null;
   rail_active: boolean | null;
+  expires_at: string | null;
+  archived_at: string | null;
 }
 
 const cachedSponsorRows = unstable_cache(
@@ -172,7 +175,7 @@ const cachedSponsorRows = unstable_cache(
     const { data } = await createServiceClient()
       .from("sponsors")
       .select(
-        "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
+        "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
       )
       .order("tier");
     return (data as SponsorRow[]) ?? [];
@@ -192,14 +195,24 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     const { data: rows, error } = await supabase
       .from("sponsors")
       .select(
-        "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
+        "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
       )
       .order("tier");
     if (error || !rows) return [];
     data = rows as SponsorRow[];
   }
 
-  return data.map((row) => ({
+  // Archived or term-expired sponsors are admin-only (Past Sponsors) —
+  // members never see them. Filtered here (not in the cached query) so the
+  // 5-minute cache can't serve a stale "active" list past an expiry moment.
+  return data
+    .filter((row) =>
+      sponsorActive({
+        archivedAt: row.archived_at ?? null,
+        expiresAt: row.expires_at ?? null,
+      }),
+    )
+    .map((row) => ({
     id: row.id,
     name: row.name,
     tier: normalizeSponsorTier(row.tier),
