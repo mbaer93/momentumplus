@@ -5,6 +5,7 @@ import { initials, placeholderProfile } from "./placeholder-data";
 import { createClient } from "./supabase/server";
 import { isSupabaseConfigured } from "./supabase/config";
 import type { Membership, Tier } from "./types";
+import { requestCache } from "@/lib/request-cache";
 
 export interface CurrentMember {
   name: string;
@@ -39,7 +40,13 @@ export async function requireMember(): Promise<CurrentMember> {
   return member;
 }
 
-export async function getCurrentMember(): Promise<CurrentMember | null> {
+/*
+ * requestCache(): the portal layout and nearly every page resolve the member
+ * independently — this dedupes them to one auth call + one query pair per
+ * request instead of one per call site.
+ */
+export const getCurrentMember = requestCache(
+  async (): Promise<CurrentMember | null> => {
   if (!isSupabaseConfigured()) {
     const tier = placeholderProfile.tier;
     return {
@@ -92,4 +99,4 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
     membershipActive: effective !== null,
     accessExpiresAt: effective?.access_expires_at ?? null,
   };
-}
+});

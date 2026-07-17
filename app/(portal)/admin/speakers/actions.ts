@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -47,6 +47,7 @@ async function guard(): Promise<AdminResult | null> {
 function refresh() {
   revalidatePath("/admin/speakers");
   revalidatePath("/speakers");
+  revalidateTag("speakers");
 }
 
 export async function createSpeaker(input: SpeakerInput): Promise<AdminResult> {

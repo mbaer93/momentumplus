@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canAccess } from "@/lib/access";
@@ -42,16 +43,52 @@ function initialsOf(name: string): string {
     .toUpperCase();
 }
 
+/*
+ * The speaker/sponsor directories are identical for every member, so the
+ * rows are fetched through the service role inside a 5-minute
+ * unstable_cache instead of once per request per user. Admin mutations
+ * bust the tags (revalidateTag in the admin actions).
+ */
+interface SpeakerRow {
+  id: string;
+  name: string;
+  title: string | null;
+  bio: string | null;
+  industries: string[] | null;
+  headshot_url: string | null;
+  website: string | null;
+  created_at: string;
+}
+
+const cachedSpeakerRows = unstable_cache(
+  async (): Promise<SpeakerRow[]> => {
+    const { createServiceClient } = await import("@/lib/supabase/admin");
+    const { data } = await createServiceClient()
+      .from("speakers")
+      .select("id, name, title, bio, industries, headshot_url, website, created_at")
+      .order("featured", { ascending: false });
+    return (data as SpeakerRow[]) ?? [];
+  },
+  ["speakers-directory"],
+  { revalidate: 300, tags: ["speakers"] },
+);
+
 export async function listSpeakers(): Promise<SpeakerProfile[]> {
   if (!isSupabaseConfigured()) return placeholderSpeakers;
 
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("speakers")
-    .select("id, name, title, bio, industries, headshot_url, website, created_at")
-    .order("featured", { ascending: false });
-  // Configured mode: empty table = empty directory (demo data is preview-only).
-  if (error || !data) return [];
+  let data: SpeakerRow[];
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    data = await cachedSpeakerRows();
+  } else {
+    const supabase = createClient();
+    const { data: rows, error } = await supabase
+      .from("speakers")
+      .select("id, name, title, bio, industries, headshot_url, website, created_at")
+      .order("featured", { ascending: false });
+    // Configured mode: empty table = empty directory (demo is preview-only).
+    if (error || !rows) return [];
+    data = rows as SpeakerRow[];
+  }
 
   return data.map((row) => {
     const i = hashIndex(row.id, BANNERS.length);
@@ -116,17 +153,50 @@ export function resourceUnlocked(r: ResourceItem, tier: Tier): boolean {
   return canAccess(tier, r.minAccess);
 }
 
+interface SponsorRow {
+  id: string;
+  name: string;
+  tier: string;
+  tagline: string | null;
+  offer: string | null;
+  website: string | null;
+  logo_url: string | null;
+  sidebar_ad_url: string | null;
+  rail_active: boolean | null;
+}
+
+const cachedSponsorRows = unstable_cache(
+  async (): Promise<SponsorRow[]> => {
+    const { createServiceClient } = await import("@/lib/supabase/admin");
+    const { data } = await createServiceClient()
+      .from("sponsors")
+      .select(
+        "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
+      )
+      .order("tier");
+    return (data as SponsorRow[]) ?? [];
+  },
+  ["sponsors-directory"],
+  { revalidate: 300, tags: ["sponsors"] },
+);
+
 export async function listSponsors(): Promise<SponsorItem[]> {
   if (!isSupabaseConfigured()) return placeholderSponsors;
 
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("sponsors")
-    .select(
-      "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
-    )
-    .order("tier");
-  if (error || !data) return [];
+  let data: SponsorRow[];
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    data = await cachedSponsorRows();
+  } else {
+    const supabase = createClient();
+    const { data: rows, error } = await supabase
+      .from("sponsors")
+      .select(
+        "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
+      )
+      .order("tier");
+    if (error || !rows) return [];
+    data = rows as SponsorRow[];
+  }
 
   return data.map((row) => ({
     id: row.id,

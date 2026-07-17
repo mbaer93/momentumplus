@@ -11,7 +11,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Momentum+ | Premium Member Portal",
     short_name: "Momentum+",
     description:
-      "The members-only community and learning platform for the Tri-State Leadership Summit.",
+      "The members-only, year-round leadership community and learning platform.",
     id: "/dashboard",
     start_url: "/dashboard",
     scope: "/",

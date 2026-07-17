@@ -16,9 +16,9 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Momentum+ | The Tri-State Leadership Community",
+  title: "Momentum+ | The Year-Round Leadership Community",
   description:
-    "Live leadership sessions, a full session library, self-paced courses with certificates of completion, and a private community of Tri-State leaders. By the Tri-State Leadership Summit.",
+    "Live leadership sessions, a full session library, self-paced courses with certificates of completion, and a private community of leaders nationwide. By the team behind the Tri-State Leadership Summit.",
   alternates: { canonical: "/" },
 };
 
@@ -41,7 +41,7 @@ const PERKS: { icon: typeof SessionsIcon; title: string; desc: string }[] = [
   {
     icon: CommunityIcon,
     title: "Private Community",
-    desc: "A members-only space to trade wins, questions, and introductions with leaders across the region and beyond.",
+    desc: "A members-only space to trade wins, questions, and introductions with leaders across the country.",
   },
   {
     icon: ResourcesIcon,
@@ -64,7 +64,7 @@ const HOW_IT_WORKS: { step: string; title: string; desc: string }[] = [
   {
     step: "2",
     title: "Show up — live or later",
-    desc: "Enroll in the monthly session with one click, add it to your calendar, and catch the recording with AI takeaways if life gets in the way.",
+    desc: "Enroll in the monthly Zoom session with one click, add it to your calendar, and catch the recording with AI takeaways if life gets in the way.",
   },
   {
     step: "3",
@@ -76,11 +76,11 @@ const HOW_IT_WORKS: { step: string; title: string; desc: string }[] = [
 const FAQS: { q: string; a: string }[] = [
   {
     q: "Who is Momentum+ for?",
-    a: "Momentum+ is rooted in Maryland, Pennsylvania, and West Virginia — the Tri-State Leadership Summit community — and open to leaders everywhere. If you lead a team, a business, or a community, you belong here.",
+    a: "Leaders everywhere. Momentum+ was born at the Tri-State Leadership Summit and is now a national community — if you lead a team, a business, or an organization, wherever you are, you belong here.",
   },
   {
     q: "What exactly do I get each month?",
-    a: "A live session with a featured speaker (plus Pro-only sessions on the Pro plan), the full recording library with AI-generated takeaways, self-paced courses, the private member community, and member-only tools and offers.",
+    a: "A live online session (via Zoom) with a featured speaker (plus Pro-only sessions on the Pro plan), the full recording library with AI-generated takeaways, self-paced courses, the private member community, and member-only tools and offers.",
   },
   {
     q: "What are the certificates?",
@@ -91,8 +91,8 @@ const FAQS: { q: string; a: string }[] = [
     a: "Memberships renew automatically on the schedule you pick at checkout, and the price is always shown before you pay. You can cancel anytime from your profile's billing settings — you keep access through the end of the period you've paid for. Full details are in our Terms of Service.",
   },
   {
-    q: "Do I have to attend live?",
-    a: "No. Live is the best seat in the house, but every session is recorded and lands in the library with AI takeaways and action items, usually within a couple of days.",
+    q: "Do I have to attend live? Is anything in person?",
+    a: "Everything in Momentum+ happens online — live sessions are on Zoom, so you can join from anywhere (the in-person experience is the annual summit itself). And you never have to attend live: every session is recorded and lands in the library with AI takeaways and action items, usually within a couple of days.",
   },
   {
     q: "What's the difference between Member and Pro?",
@@ -178,7 +178,7 @@ export default async function HomePage() {
       {/* Hero */}
       <section className="land-hero">
         <div className="land-badge">
-          By the Tri-State Leadership Summit
+          From the team behind the Tri-State Leadership Summit
         </div>
         <h1>
           Leadership doesn&apos;t stop
@@ -186,11 +186,11 @@ export default async function HomePage() {
           when the summit ends.
         </h1>
         <p>
-          Momentum+ is the year-round community and learning platform from the
-          Tri-State Leadership Summit — live monthly sessions, a full recording
-          library, self-paced courses with certificates, and a private
-          community. Rooted in Maryland, Pennsylvania, and West Virginia, and
-          open to leaders everywhere.
+          Momentum+ is the year-round leadership community and learning
+          platform — live monthly online sessions with nationally recognized
+          speakers, a full recording library, self-paced courses with
+          certificates, and a private community of leaders across the
+          country. All from wherever you are.
         </p>
         <div className="land-hero-actions">
           <a href="#pricing" className="btn-gold land-cta">
@@ -305,7 +305,7 @@ export default async function HomePage() {
               {basicPrice ? `$${basicPrice}/mo` : "Membership"}
             </div>
             <ul className="land-price-list">
-              <li>Live monthly leadership session</li>
+              <li>Live monthly leadership session (online, via Zoom)</li>
               <li>Full recording library with AI takeaways</li>
               <li>Core courses with certificates of completion</li>
               <li>Private member community</li>
@@ -398,8 +398,8 @@ export default async function HomePage() {
           Momentum<span style={{ color: "var(--gold)" }}>+</span>
         </div>
         <div className="land-footer-note">
-          A Tri-State Leadership Summit community · Sierra Learnership
-          Collaborative
+          From the team behind the Tri-State Leadership Summit · Sierra
+          Learnership Collaborative
         </div>
         <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
           <Link href="/terms" className="land-footer-login">

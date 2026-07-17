@@ -95,9 +95,38 @@ interface AuthActivity {
  * id (= profile id). This is what tells us whether an "active" membership
  * belongs to someone who has actually signed in.
  */
-async function fetchAuthActivity(): Promise<Map<string, AuthActivity>> {
+async function fetchAuthActivity(
+  profileIds: string[],
+): Promise<Map<string, AuthActivity>> {
   const admin = createServiceClient();
   const byId = new Map<string, AuthActivity>();
+  if (profileIds.length === 0) return byId;
+
+  // One RPC scoped to exactly the displayed profiles (migration 0024) —
+  // this page used to walk the ENTIRE auth user list, up to 20 sequential
+  // Auth-admin API calls per view.
+  const { data: rpcRows, error: rpcError } = await admin.rpc("auth_activity", {
+    ids: profileIds,
+  });
+  if (!rpcError && rpcRows) {
+    for (const u of rpcRows as {
+      id: string;
+      invited_at: string | null;
+      confirmed_at: string | null;
+      last_sign_in_at: string | null;
+      created_at: string | null;
+    }[]) {
+      byId.set(u.id, {
+        invitedAt: u.invited_at ?? null,
+        confirmedAt: u.confirmed_at ?? null,
+        lastSignInAt: u.last_sign_in_at ?? null,
+        createdAt: u.created_at ?? null,
+      });
+    }
+    return byId;
+  }
+
+  // Fallback until the migration is applied: page the auth list.
   for (let page = 1; page <= 20; page++) {
     const { data, error } = await admin.auth.admin.listUsers({
       page,
@@ -131,16 +160,17 @@ export default async function AdminMembersPage() {
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
-    const [{ data }, authActivity] = await Promise.all([
-      admin
-        .from("memberships")
-        .select(
-          "id, profile_id, tier, status, access_expires_at, source, profiles ( full_name, email, title, company, phone, admin_role, admin_perms )",
-        )
-        .order("created_at", { ascending: false })
-        .limit(200),
-      fetchAuthActivity(),
-    ]);
+    // Memberships first, then auth activity for exactly those profiles.
+    const { data } = await admin
+      .from("memberships")
+      .select(
+        "id, profile_id, tier, status, access_expires_at, source, profiles ( full_name, email, title, company, phone, admin_role, admin_perms )",
+      )
+      .order("created_at", { ascending: false })
+      .limit(200);
+    const authActivity = await fetchAuthActivity(
+      Array.from(new Set((data ?? []).map((r) => r.profile_id as string))),
+    );
     if (data) {
       members = data.map((row) => {
         const p = (

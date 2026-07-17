@@ -5,7 +5,7 @@ import { getStripeSettings } from "@/lib/stripe";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Join Momentum+ | The Tri-State Leadership Community",
+  title: "Join Momentum+ | The Year-Round Leadership Community",
 };
 
 /*

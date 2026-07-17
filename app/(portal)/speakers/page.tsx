@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { requireMember } from "@/lib/current-member";
 import { listSpeakers } from "@/lib/directory-queries";
@@ -39,11 +40,13 @@ export default async function SpeakersPage() {
               style={{ background: s.bannerGradient }}
             >
               {s.headshotUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
+                <Image
                   className="speaker-card-av"
                   src={s.headshotUrl}
                   alt={`${s.name} headshot`}
+                  width={120}
+                  height={120}
+                  sizes="120px"
                   style={{ objectFit: "cover" }}
                 />
               ) : (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { VideoItem } from "@/lib/videos/data";
 import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
@@ -57,11 +58,12 @@ export function LibraryBrowser({
             <Link href={`/library/${v.id}`} className="recording-card">
               <div className="recording-thumb" style={{ background: v.gradient }}>
                 {v.thumbnailUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={v.thumbnailUrl}
                     alt=""
                     className="recording-thumb-img"
+                    fill
+                    sizes="(max-width: 640px) 100vw, 360px"
                   />
                 )}
                 {v.minAccess === "vip_plus" && (

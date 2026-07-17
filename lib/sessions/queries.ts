@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { AccessLevel, SessionCategory, SessionDetail } from "@/lib/types";
 import { getPlaceholderSession, getPlaceholderSessions } from "./data";
+import { requestCache } from "@/lib/request-cache";
 
 /*
  * Sessions data access. When Supabase is configured, reads from the database
@@ -74,7 +75,8 @@ function mapRow(row: SessionRow): SessionDetail {
 const SESSION_SELECT =
   "id, title, description, category, starts_at, duration_min, capacity, min_access, status, speakers ( id, name, title )";
 
-export async function listSessions(): Promise<SessionDetail[]> {
+/* requestCache(): layout + page both call this — one execution per request. */
+export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
   if (!isSupabaseConfigured()) return getPlaceholderSessions();
 
   const supabase = createClient();
@@ -95,18 +97,32 @@ export async function listSessions(): Promise<SessionDetail[]> {
 
   // Real enrollment counts (members can only read their own enrollment rows,
   // so counting requires the service role — aggregate only, nothing personal).
+  // One query against the aggregate view (migration 0024); falls back to
+  // downloading + counting rows if the view isn't deployed yet.
   if (sessions.length > 0 && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const { createServiceClient } = await import("@/lib/supabase/admin");
-    const { data: allEnrollments } = await createServiceClient()
-      .from("enrollments")
-      .select("session_id")
+    const service = createServiceClient();
+    const counts = new Map<string, number>();
+    const { data: viewRows, error: viewError } = await service
+      .from("session_enrollment_counts")
+      .select("session_id, enrolled")
       .in(
         "session_id",
         sessions.map((s) => s.id),
       );
-    const counts = new Map<string, number>();
-    for (const e of allEnrollments ?? []) {
-      counts.set(e.session_id, (counts.get(e.session_id) ?? 0) + 1);
+    if (!viewError && viewRows) {
+      for (const r of viewRows) counts.set(r.session_id, r.enrolled ?? 0);
+    } else {
+      const { data: allEnrollments } = await service
+        .from("enrollments")
+        .select("session_id")
+        .in(
+          "session_id",
+          sessions.map((s) => s.id),
+        );
+      for (const e of allEnrollments ?? []) {
+        counts.set(e.session_id, (counts.get(e.session_id) ?? 0) + 1);
+      }
     }
     for (const s of sessions) s.enrolledCount = counts.get(s.id) ?? 0;
   }
@@ -129,9 +145,9 @@ export async function listSessions(): Promise<SessionDetail[]> {
   }
 
   return sessions;
-}
+});
 
-export async function getSession(id: string): Promise<SessionDetail | null> {
+export const getSession = requestCache(async (id: string): Promise<SessionDetail | null> => {
   if (!isSupabaseConfigured()) return getPlaceholderSession(id);
 
   const supabase = createClient();
@@ -149,53 +165,66 @@ export async function getSession(id: string): Promise<SessionDetail | null> {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) {
-    const [{ data: enrollment }, { data: note }] = await Promise.all([
-      supabase
-        .from("enrollments")
-        .select("attended")
-        .eq("session_id", id)
-        .eq("profile_id", user.id)
-        .maybeSingle(),
-      supabase
-        .from("session_notes")
-        .select("body")
-        .eq("session_id", id)
-        .eq("profile_id", user.id)
-        .maybeSingle(),
-    ]);
-    if (enrollment) {
-      session.isEnrolled = true;
-      session.attended = Boolean(enrollment.attended);
-    }
-    if (note?.body) session.note = note.body;
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? (await import("@/lib/supabase/admin")).createServiceClient()
+    : null;
+
+  // Viewer state, the aggregate count, and (optimistically) the join
+  // credentials all run concurrently — this was a 4-stage serial waterfall.
+  const [enrollmentRes, noteRes, countRes, joinRes] = await Promise.all([
+    user
+      ? supabase
+          .from("enrollments")
+          .select("attended")
+          .eq("session_id", id)
+          .eq("profile_id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    user
+      ? supabase
+          .from("session_notes")
+          .select("body")
+          .eq("session_id", id)
+          .eq("profile_id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    service
+      ? service
+          .from("enrollments")
+          .select("id", { count: "exact", head: true })
+          .eq("session_id", id)
+      : Promise.resolve({ count: null }),
+    service
+      ? service
+          .from("sessions")
+          .select("zoom_join_url, zoom_meeting_id")
+          .eq("id", id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  if (enrollmentRes.data) {
+    session.isEnrolled = true;
+    session.attended = Boolean(
+      (enrollmentRes.data as { attended: boolean | null }).attended,
+    );
   }
+  const noteBody = (noteRes.data as { body?: string } | null)?.body;
+  if (noteBody) session.note = noteBody;
+  session.enrolledCount = countRes.count ?? 0;
 
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const { createServiceClient } = await import("@/lib/supabase/admin");
-    const service = createServiceClient();
-
-    // Real enrollment count (aggregate only — members can't read others'
-    // enrollment rows themselves).
-    const { count } = await service
-      .from("enrollments")
-      .select("id", { count: "exact", head: true })
-      .eq("session_id", id);
-    session.enrolledCount = count ?? 0;
-
-    // Join credentials only exist for enrolled viewers — the columns are not
-    // member-selectable (migration 0020), so this is the single hand-out point.
-    if (session.isEnrolled) {
-      const { data: joinInfo } = await service
-        .from("sessions")
-        .select("zoom_join_url, zoom_meeting_id")
-        .eq("id", id)
-        .maybeSingle();
-      session.zoomJoinUrl = (joinInfo?.zoom_join_url as string | null) ?? null;
-      session.zoomMeetingId =
-        (joinInfo?.zoom_meeting_id as string | null) ?? null;
-    }
+  // Join credentials only exist for enrolled viewers — the columns are not
+  // member-selectable (migration 0020), so this is the single hand-out
+  // point. The row was fetched concurrently; it is only ATTACHED here,
+  // after the enrollment check.
+  if (session.isEnrolled && joinRes.data) {
+    const j = joinRes.data as {
+      zoom_join_url: string | null;
+      zoom_meeting_id: string | null;
+    };
+    session.zoomJoinUrl = j.zoom_join_url ?? null;
+    session.zoomMeetingId = j.zoom_meeting_id ?? null;
   }
 
   return session;
-}
+});

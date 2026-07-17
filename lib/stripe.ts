@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { requestCache } from "@/lib/request-cache";
 
 /*
  * Stripe integration (billing lives with Sierra's Stripe account, connected
@@ -32,7 +33,9 @@ export interface StripeSettings {
   connectedAt: string;
 }
 
-export async function getStripeSettings(): Promise<StripeSettings | null> {
+/* requestCache(): read once per request (layout, pages, and actions all ask). */
+export const getStripeSettings = requestCache(
+  async (): Promise<StripeSettings | null> => {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return null;
   }
@@ -42,7 +45,7 @@ export async function getStripeSettings(): Promise<StripeSettings | null> {
     .eq("key", STRIPE_SETTINGS_KEY)
     .maybeSingle();
   return (data?.value as StripeSettings | undefined) ?? null;
-}
+});
 
 export async function saveStripeSettings(value: StripeSettings): Promise<void> {
   await createServiceClient()

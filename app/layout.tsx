@@ -4,7 +4,7 @@ import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-inter",
   display: "swap",
 });
@@ -23,21 +23,21 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: "Momentum+ | Premium Member Portal",
   description:
-    "The members-only community and learning platform for the Tri-State Leadership Summit.",
+    "The members-only, year-round leadership community and learning platform.",
   openGraph: {
     type: "website",
     siteName: "Momentum+",
-    title: "Momentum+ | The Tri-State Leadership Community",
+    title: "Momentum+ | The Year-Round Leadership Community",
     description:
-      "Live leadership sessions, a full recording library, courses with certificates, and a private community — by the Tri-State Leadership Summit.",
+      "Live leadership sessions, a full recording library, courses with certificates, and a private community of leaders nationwide.",
     url: SITE,
     images: [{ url: "/og.png", width: 1200, height: 630, alt: "Momentum+" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Momentum+ | The Tri-State Leadership Community",
+    title: "Momentum+ | The Year-Round Leadership Community",
     description:
-      "Live leadership sessions, a full recording library, courses with certificates, and a private community — by the Tri-State Leadership Summit.",
+      "Live leadership sessions, a full recording library, courses with certificates, and a private community of leaders nationwide.",
     images: ["/og.png"],
   },
   // Installed-app behavior on iOS: opens full-screen from the home-screen
