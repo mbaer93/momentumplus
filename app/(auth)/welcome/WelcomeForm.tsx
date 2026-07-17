@@ -25,9 +25,13 @@ export interface WelcomeInitialProfile {
 export function WelcomeForm({
   initialProfile,
   email,
+  mode = "welcome",
 }: {
   initialProfile: WelcomeInitialProfile;
   email: string;
+  /** "reset" = an existing member changing a forgotten password: no
+      onboarding copy, no profile step — just the new password. */
+  mode?: "welcome" | "reset";
 }) {
   const router = useRouter();
   const configured = isSupabaseConfigured();
@@ -66,6 +70,11 @@ export function WelcomeForm({
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
+      if (mode === "reset") {
+        // Existing member: password changed, straight back inside.
+        router.replace("/dashboard");
+        return;
+      }
       setStep(2);
     } catch (err) {
       setError(
@@ -85,7 +94,7 @@ export function WelcomeForm({
     }
     setLoading(true);
     try {
-      await updateProfile({
+      const res = await updateProfile({
         full_name: profile.full_name,
         phone: profile.phone,
         company: profile.company,
@@ -95,10 +104,24 @@ export function WelcomeForm({
         industry: initialProfile.industry,
         bio: initialProfile.bio,
       });
+      // A failed save used to silently drop everything the member typed —
+      // keep them on the form and say so.
+      if (res && res.ok === false) {
+        if (/not signed in/i.test(res.message ?? "")) {
+          router.replace("/login?redirect=/welcome");
+          return;
+        }
+        setError(
+          res.message ??
+            "We couldn't save your profile — try again, or finish it later in Settings.",
+        );
+        return;
+      }
       router.replace("/dashboard");
     } catch {
-      // Profile details can always be finished later in Settings.
-      router.replace("/dashboard");
+      setError(
+        "We couldn't save your profile — check your connection and try again, or finish it later in Settings.",
+      );
     } finally {
       setLoading(false);
     }
@@ -165,17 +188,33 @@ export function WelcomeForm({
 
   return (
     <div className="login-card">
-      <h2>Welcome to Momentum+</h2>
+      <h2>{mode === "reset" ? "Choose a new password" : "Welcome to Momentum+"}</h2>
       <p>
-        You&apos;re in — two quick steps and you&apos;re set. First, choose a
-        password. Your username is your email address
-        {email ? (
+        {mode === "reset" ? (
           <>
-            {" "}
-            (<strong>{email}</strong>)
+            You&apos;re signed in — set a new password below and you&apos;re
+            done. Your username is still your email address
+            {email ? (
+              <>
+                {" "}
+                (<strong>{email}</strong>)
+              </>
+            ) : null}
+            .
           </>
-        ) : null}
-        — you&apos;ll sign in with it and this password from now on.
+        ) : (
+          <>
+            You&apos;re in — two quick steps and you&apos;re set. First,
+            choose a password. Your username is your email address
+            {email ? (
+              <>
+                {" "}
+                (<strong>{email}</strong>)
+              </>
+            ) : null}{" "}
+            — you&apos;ll sign in with it and this password from now on.
+          </>
+        )}
       </p>
       {error && <div className="login-error">{error}</div>}
       <form onSubmit={savePassword}>
@@ -207,7 +246,7 @@ export function WelcomeForm({
           />
         </div>
         <button type="submit" className="login-btn" disabled={loading}>
-          {loading ? "Saving…" : "Continue"}
+          {loading ? "Saving…" : mode === "reset" ? "Save new password" : "Continue"}
         </button>
       </form>
     </div>

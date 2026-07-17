@@ -116,6 +116,42 @@ export async function updateSession(
   return { ok: true, id, message: `Session saved.${zoomNote}` };
 }
 
+/**
+ * Cancel a session without deleting it: members see an honest "Cancelled"
+ * state (and can no longer enroll) while notes/enrollment history survive.
+ * Members are NOT auto-notified — announce the cancellation separately.
+ */
+export async function cancelSession(id: string): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Cancelled (preview mode)." };
+  }
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("sessions")
+    .update({ status: "cancelled" })
+    .eq("id", id);
+  if (error) {
+    if (/invalid input value for enum/i.test(error.message)) {
+      return {
+        ok: false,
+        message:
+          "The database doesn't have the 'cancelled' status yet — run migration 0026 first.",
+      };
+    }
+    return { ok: false, message: error.message };
+  }
+  revalidatePath("/admin/sessions");
+  revalidatePath("/sessions");
+  return {
+    ok: true,
+    message:
+      "Session cancelled — members now see it as Cancelled. Consider sending an announcement.",
+  };
+}
+
 export async function deleteSession(id: string): Promise<AdminResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Deleted (preview mode)." };

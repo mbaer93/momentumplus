@@ -44,6 +44,26 @@ function dayKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+/*
+ * Events are pinned to their EASTERN calendar day, matching every other
+ * time label in the product. Keying by the browser's local date put an
+ * 8 PM ET session on the wrong grid day for anyone outside Eastern time.
+ */
+const ET_DAY_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+});
+
+function etDayKey(iso: string | Date): string {
+  const parts = ET_DAY_PARTS.formatToParts(
+    typeof iso === "string" ? new Date(iso) : iso,
+  );
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "0";
+  return `${get("year")}-${Number(get("month")) - 1}-${Number(get("day"))}`;
+}
+
 export function CalendarView({ events }: { events: CalendarEvent[] }) {
   const router = useRouter();
   const now = new Date();
@@ -53,7 +73,7 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const e of events) {
-      const key = dayKey(new Date(e.startsAt));
+      const key = etDayKey(e.startsAt);
       map.set(key, [...(map.get(key) ?? []), e]);
     }
     for (const list of map.values()) {
@@ -87,7 +107,7 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
     setMonth(d.getMonth());
   }
 
-  const todayKey = dayKey(now);
+  const todayKey = etDayKey(now);
 
   return (
     <div className="calendar-layout" style={{ marginTop: 20 }}>
@@ -164,11 +184,19 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
         {upcoming.map((e) => {
           const d = new Date(e.startsAt);
           const dateLabel = `${d
-            .toLocaleDateString("en-US", { month: "short" })
-            .toUpperCase()} ${d.getDate()}, ${d.getFullYear()} · ${d.toLocaleTimeString(
-            "en-US",
-            { hour: "numeric", minute: "2-digit", timeZoneName: "short" },
-          )}`;
+            .toLocaleDateString("en-US", { month: "short", timeZone: "America/New_York" })
+            .toUpperCase()} ${d.toLocaleDateString("en-US", {
+            day: "numeric",
+            timeZone: "America/New_York",
+          })}, ${d.toLocaleDateString("en-US", {
+            year: "numeric",
+            timeZone: "America/New_York",
+          })} · ${d.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            timeZoneName: "short",
+            timeZone: "America/New_York",
+          })}`;
           return (
             <Link
               href={`/sessions/${e.slug}`}

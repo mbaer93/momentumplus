@@ -26,5 +26,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.redirect(`${origin}${redirectTo}`);
+  // No code at all = a truncated or mangled link. Forwarding unauthenticated
+  // used to bounce members through /login into the onboarding wizard —
+  // say what actually happened instead.
+  return NextResponse.redirect(
+    `${origin}/login?error=${encodeURIComponent(
+      "That link didn't come through cleanly — sign in below, or use Forgot password for a fresh link.",
+    )}`,
+  );
 }

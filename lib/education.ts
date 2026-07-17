@@ -266,8 +266,12 @@ export async function listCourses(): Promise<CourseItem[]> {
           .eq("profile_id", user.id)
       : Promise.resolve({ data: [] as { lesson_id: string }[] }),
   ]);
-  if (error || !data) {
-    return error ? [] : await lockedCourseTeasers(new Set());
+  if (error) {
+    // An outage is not "no courses yet" — let the error boundary say so.
+    throw new Error(`Couldn't load courses: ${error.message}`);
+  }
+  if (!data) {
+    return await lockedCourseTeasers(new Set());
   }
 
   // Server-side enrichment: quiz questions (answers stripped before they

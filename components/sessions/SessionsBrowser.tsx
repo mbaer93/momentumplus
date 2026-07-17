@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useNowTick } from "./useNowTick";
 import type { SessionDetail } from "@/lib/types";
 import { displayStatus } from "@/lib/sessions/view";
 import { SessionCard } from "./SessionCard";
@@ -36,11 +37,14 @@ export function SessionsBrowser({
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   // Compute once on the client so the time-derived status is consistent.
-  const now = useMemo(() => Date.now(), []);
+  const now = useNowTick();
 
   const visible = useMemo(() => {
-    return sessions.filter((s) => {
+    const filtered = sessions.filter((s) => {
       const status = displayStatus(s, now);
+      // Members never see drafts mixed into the list; admins see them
+      // badged (the card shows a Draft pill).
+      if (status === "draft" && !isAdmin) return false;
       switch (filter) {
         case "all":
           return true;
@@ -59,7 +63,17 @@ export function SessionsBrowser({
           return true;
       }
     });
-  }, [sessions, filter, now]);
+    // Live and upcoming sessions lead (soonest first); past ones follow,
+    // newest first — the old ascending-only sort opened the page on a wall
+    // of January recordings after a few months.
+    const upcoming = filtered
+      .filter((s) => new Date(s.startsAt).getTime() + s.durationMin * 60000 >= now)
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+    const past = filtered
+      .filter((s) => new Date(s.startsAt).getTime() + s.durationMin * 60000 < now)
+      .sort((a, b) => b.startsAt.localeCompare(a.startsAt));
+    return [...upcoming, ...past];
+  }, [sessions, filter, now, isAdmin]);
 
   return (
     <>

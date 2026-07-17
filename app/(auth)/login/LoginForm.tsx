@@ -61,7 +61,18 @@ export function LoginForm() {
             )}`,
           },
         });
-        if (error) throw error;
+        if (error) {
+          // Unknown email with shouldCreateUser=false surfaces as
+          // "Signups not allowed for otp" — meaningless jargon that also
+          // leaks whether an address has an account. Stay neutral.
+          if (/signups not allowed/i.test(error.message)) {
+            setNotice(
+              "If an account exists for that email, a sign-in link is on its way — check your inbox.",
+            );
+            return;
+          }
+          throw error;
+        }
         setNotice("Check your email for a magic sign-in link.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({

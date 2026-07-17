@@ -26,7 +26,13 @@ export async function GET(request: NextRequest) {
       type: type as "invite" | "recovery" | "signup" | "email" | "email_change" | "magiclink",
     });
     if (!error) {
-      return NextResponse.redirect(`${origin}${redirectTo}`);
+      // Recovery = an existing member resetting a forgotten password. Route
+      // them to the reset-mode form (new password only) instead of the
+      // new-member onboarding wizard — works even with older email
+      // templates that still say redirect=/welcome.
+      const finalRedirect =
+        type === "recovery" ? "/welcome?mode=reset" : redirectTo;
+      return NextResponse.redirect(`${origin}${finalRedirect}`);
     }
     return NextResponse.redirect(
       `${origin}/login?error=${encodeURIComponent(

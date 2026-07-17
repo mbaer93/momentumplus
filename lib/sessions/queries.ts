@@ -85,9 +85,13 @@ export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
     .select(SESSION_SELECT)
     .order("starts_at", { ascending: true });
 
-  // Configured mode never shows demo fixtures: an empty or failed query
-  // renders honest empty states. Placeholders are preview-mode only.
-  if (error || !data) return [];
+  // Configured mode never shows demo fixtures. A FAILED query is not an
+  // empty catalog — throw to the error boundary ("try again") instead of
+  // rendering "No sessions yet" during an outage.
+  if (error) {
+    throw new Error(`Couldn't load sessions: ${error.message}`);
+  }
+  if (!data) return [];
 
   const {
     data: { user },

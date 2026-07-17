@@ -12,7 +12,12 @@ export const metadata = {
  * via /auth/callback?redirect=/welcome; here they set a password, complete
  * their profile, and enter the portal.
  */
-export default async function WelcomePage() {
+export default async function WelcomePage({
+  searchParams,
+}: {
+  searchParams?: { mode?: string };
+}) {
+  const mode = searchParams?.mode === "reset" ? "reset" : "welcome";
   let email = "";
   // Recovery links land here too — a long-standing member resetting their
   // password walks the same steps, so the profile form MUST start from
@@ -55,7 +60,7 @@ export default async function WelcomePage() {
       <div className="login-logo">Momentum+</div>
       <div className="login-tagline">Premium Member Portal</div>
       <Suspense fallback={<div className="login-card">Loading…</div>}>
-        <WelcomeForm initialProfile={initialProfile} email={email} />
+        <WelcomeForm initialProfile={initialProfile} email={email} mode={mode} />
       </Suspense>
     </div>
   );

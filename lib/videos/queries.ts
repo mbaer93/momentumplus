@@ -102,7 +102,9 @@ export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
     .select(VIDEO_LIST_SELECT)
     .not("published_at", "is", null)
     .order("published_at", { ascending: false });
-  if (error || !data) return [];
+  // An outage is not an empty library — surface it to the error boundary.
+  if (error) throw new Error(`Couldn't load the library: ${error.message}`);
+  if (!data) return [];
   return (data as unknown as VideoRow[]).map(mapRow);
 }
 

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  canEnroll,
   displayStatus,
   isJoinWindowOpen,
   isLive,
@@ -12,6 +13,7 @@ const base = {
   durationMin: 90,
   isEnrolled: true,
   attended: false,
+  status: "scheduled" as const,
 };
 
 const START = new Date(base.startsAt).getTime();
@@ -53,6 +55,51 @@ test("displayStatus reflects live/upcoming/enrolled/attended/past", () => {
       START + 5 * 24 * 3600 * 1000,
     ),
     "past",
+  );
+});
+
+test("DB status overrides the clock: cancelled/draft/completed win", () => {
+  const before = START - 2 * 24 * 3600 * 1000;
+  assert.equal(
+    displayStatus({ ...base, status: "cancelled" as const }, before),
+    "cancelled",
+  );
+  assert.equal(
+    displayStatus({ ...base, status: "draft" as const }, before),
+    "draft",
+  );
+  // Future-dated but marked completed must NOT render as upcoming.
+  assert.equal(
+    displayStatus({ ...base, status: "completed" as const, isEnrolled: false }, before),
+    "past",
+  );
+});
+
+test("canEnroll blocks cancelled, past, and full sessions", () => {
+  const before = START - 24 * 3600 * 1000;
+  const open = { ...base, isEnrolled: false, capacity: 20, enrolledCount: 5 };
+  assert.deepEqual(canEnroll(open, before), { ok: true, reason: null });
+  assert.deepEqual(
+    canEnroll({ ...open, status: "cancelled" as const }, before),
+    { ok: false, reason: "cancelled" },
+  );
+  assert.deepEqual(
+    canEnroll(open, START + 91 * 60 * 1000),
+    { ok: false, reason: "past" },
+  );
+  assert.deepEqual(
+    canEnroll({ ...open, enrolledCount: 20 }, before),
+    { ok: false, reason: "full" },
+  );
+  // Already-enrolled members aren't blocked by fullness (they can cancel).
+  assert.deepEqual(
+    canEnroll({ ...open, isEnrolled: true, enrolledCount: 20 }, before),
+    { ok: true, reason: null },
+  );
+  // No capacity = never full.
+  assert.deepEqual(
+    canEnroll({ ...open, capacity: null, enrolledCount: 500 }, before),
+    { ok: true, reason: null },
   );
 });
 

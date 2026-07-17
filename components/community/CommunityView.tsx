@@ -136,6 +136,7 @@ export function CommunityView({
     Record<string, ChatMessage[]>
   >(() => (preview ? { ...placeholderMessages } : {}));
   const [draft, setDraft] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
   // Phones show one pane at a time: the channel list, or (after picking a
   // channel) the conversation with a back button. Desktop shows both panes
   // side by side and ignores this flag entirely (CSS-controlled).
@@ -160,7 +161,11 @@ export function CommunityView({
       }
     : (channels.find((c) => c.id === activeId) ?? channels[0]);
   const messages = messagesByChannel[activeId] ?? [];
-  const canPost = active.allowed && (!active.adminPostOnly || isAdmin);
+  // In configured (non-preview) mode the input is only live once Stream is
+  // actually connected — the old behavior kept it enabled and "sent" into
+  // local state, which looked delivered but vanished on refresh.
+  const canPost =
+    active.allowed && (!active.adminPostOnly || isAdmin) && (preview || live);
 
   // Wire a Stream channel into local state: seed history + live listeners.
   const wireChannel = useCallback(
@@ -323,13 +328,28 @@ export function CommunityView({
   const send = useCallback(async () => {
     const text = draft.trim();
     if (!text || !canPost) return;
-    setDraft("");
+    setSendError(null);
 
     const handle = streamRef.current;
     if (live && handle) {
-      await handle.channels.get(activeId)?.sendMessage({ text });
+      const channel = handle.channels.get(activeId);
+      if (!channel) {
+        setSendError("This channel isn't connected — refresh and try again.");
+        return;
+      }
+      // Clear the draft only AFTER the send succeeds — a failed send used
+      // to silently eat the message.
+      try {
+        await channel.sendMessage({ text });
+        setDraft("");
+      } catch {
+        setSendError(
+          "Your message didn't send — check your connection and try again. Your text is still in the box.",
+        );
+      }
       return; // message arrives via the message.new listener
     }
+    setDraft("");
 
     // Preview mode: append locally.
     setMessagesByChannel((prev) => ({
@@ -352,6 +372,9 @@ export function CommunityView({
       ],
     }));
   }, [draft, canPost, live, activeId, memberName, memberInitials, isAdmin, adminTitle]);
+
+  // Switching conversations clears a stale send error.
+  useEffect(() => setSendError(null), [activeId]);
 
   // Admin moderation: remove a message everywhere (Stream when live, local
   // state otherwise — the message.deleted event also syncs other viewers).
@@ -536,7 +559,7 @@ export function CommunityView({
           <div className="chat-preview-note">
             {preview
               ? "Preview mode — messages aren't saved. Community goes live once Stream Chat is connected."
-              : "Community chat goes live once Stream Chat is connected — messages aren't saved yet."}
+              : "Chat is reconnecting — sending is paused so nothing gets lost. Refresh if this lingers."}
             {!preview && isAdmin && (
               <>
                 {" "}
@@ -552,6 +575,11 @@ export function CommunityView({
         {live && connectError && (
           <div className="chat-preview-note">{connectError}</div>
         )}
+        {sendError && (
+          <div className="chat-preview-note" style={{ color: "var(--accent-red)" }}>
+            {sendError}
+          </div>
+        )}
         <div className="chat-input-area">
           <div className="chat-input-box">
             <input
@@ -561,9 +589,11 @@ export function CommunityView({
                   ? activeDm
                     ? `Message ${activeDm.otherName}`
                     : `Message #${active.name}`
-                  : active.adminPostOnly
-                    ? "Only admins can post in this channel"
-                    : "Upgrade your membership to join this channel"
+                  : !preview && !live && active.allowed
+                    ? "Chat is reconnecting…"
+                    : active.adminPostOnly
+                      ? "Only admins can post in this channel"
+                      : "Upgrade your membership to join this channel"
               }
               value={draft}
               disabled={!canPost}

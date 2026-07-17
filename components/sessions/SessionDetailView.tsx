@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import type { SessionDetail } from "@/lib/types";
 import {
@@ -22,6 +22,7 @@ import {
   TimerIcon,
   UsersIcon,
 } from "@/components/icons";
+import { useNowTick } from "./useNowTick";
 import { AddToCalendarButton } from "./AddToCalendarButton";
 import { EnrollButton } from "./EnrollButton";
 import { NotesEditor } from "./NotesEditor";
@@ -30,10 +31,12 @@ type Tab = "overview" | "resources" | "ai" | "notes";
 
 export function SessionDetailView({ session }: { session: SessionDetail }) {
   const [tab, setTab] = useState<Tab>("overview");
-  const now = useMemo(() => Date.now(), []);
+  const now = useNowTick();
   const status = displayStatus(session, now);
   const joinable = isJoinWindowOpen(session, now) && session.isEnrolled;
   const isLive = status === "live";
+  const full =
+    session.capacity !== null && session.enrolledCount >= session.capacity;
 
   return (
     <div className="sess-detail-wrap">
@@ -62,12 +65,22 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
               <TimerIcon size={11} /> {durationLabel(session.durationMin)}
             </div>
             <div className="sess-meta-chip">
-              <UsersIcon size={11} /> {session.enrolledCount} enrolled
+              <UsersIcon size={11} />{" "}
+              {session.capacity
+                ? `${session.enrolledCount} of ${session.capacity} enrolled`
+                : `${session.enrolledCount} enrolled`}
             </div>
           </div>
 
           <div className="sess-cta-bar">
-            {joinable || isLive ? (
+            {status === "cancelled" ? (
+              <span
+                className="status-pill cancelled"
+                style={{ padding: "8px 14px" }}
+              >
+                This session was cancelled
+              </span>
+            ) : joinable || isLive ? (
               session.isEnrolled ? (
                 <Link
                   href={`/sessions/${session.slug}/live`}
@@ -79,6 +92,7 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
                 <EnrollButton
                   sessionId={session.id}
                   initialEnrolled={session.isEnrolled}
+                  full={full}
                 />
               )
             ) : status === "attended" || status === "past" ? (
@@ -92,9 +106,18 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
               <EnrollButton
                 sessionId={session.id}
                 initialEnrolled={session.isEnrolled}
+                full={full}
               />
             )}
 
+            {session.isEnrolled &&
+              status === "enrolled" &&
+              !joinable &&
+              !isLive && (
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.75)" }}>
+                  The live room opens here 30 minutes before start.
+                </span>
+              )}
             <AddToCalendarButton
               slug={session.slug}
               title={session.title}
