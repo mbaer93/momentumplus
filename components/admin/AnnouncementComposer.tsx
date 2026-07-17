@@ -2,19 +2,31 @@
 
 import { useState, useTransition } from "react";
 import type { Tier } from "@/lib/types";
+import { tierLabel } from "@/lib/access";
 import {
   previewAnnouncementAudience,
   sendAnnouncement,
 } from "@/app/(portal)/admin/announcements/actions";
 
-const TIER_OPTIONS: { value: Tier; label: string }[] = [
-  { value: "sub_monthly", label: "Monthly" },
-  { value: "sub_3mo", label: "3-Month" },
-  { value: "sub_6mo", label: "6-Month" },
-  { value: "sub_annual", label: "12-Month" },
-  { value: "tsls_attendee", label: "TSLS Attendees" },
-  { value: "tsls_vip", label: "TSLS VIP" },
-  { value: "speaker", label: "Speakers" },
+// Current member levels first; legacy tiers stay selectable because members
+// granted under the old system still hold them. Labels come from the same
+// registry as everywhere else (lib/access), so this list can't drift again.
+const CURRENT_TIERS: Tier[] = ["basic", "pro", "vip", "gift", "speaker"];
+const LEGACY_TIERS: Tier[] = [
+  "sub_monthly",
+  "sub_3mo",
+  "sub_6mo",
+  "sub_annual",
+  "tsls_attendee",
+  "tsls_vip",
+];
+const TIER_OPTIONS: { value: Tier; label: string; legacy?: boolean }[] = [
+  ...CURRENT_TIERS.map((value) => ({ value, label: tierLabel(value) })),
+  ...LEGACY_TIERS.map((value) => ({
+    value,
+    label: `${tierLabel(value)} (legacy)`,
+    legacy: true,
+  })),
 ];
 
 export function AnnouncementComposer() {
