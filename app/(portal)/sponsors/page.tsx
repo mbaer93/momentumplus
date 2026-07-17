@@ -73,6 +73,12 @@ export default async function SponsorsPage() {
               <div className="sp-title-info">
                 <div className="sp-title-name">{s.name}</div>
                 <p className="sp-title-desc">{s.tagline}</p>
+                {s.offer && (
+                  <div className="sp-offer-box" style={{ maxWidth: 420 }}>
+                    <strong>Member offer</strong>
+                    {s.offer}
+                  </div>
+                )}
                 <div className="sp-card-links" style={{ borderTop: "none", paddingTop: 16 }}>
                   <Link href={`/sponsors/${s.id}`} className="sp-link">
                     View profile
