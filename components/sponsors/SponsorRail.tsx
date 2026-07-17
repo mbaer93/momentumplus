@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SponsorMark } from "./SponsorMark";
@@ -28,9 +29,12 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
   const hidden = hiddenFor(pathname);
   const seenPath = useRef<string | null>(null);
 
-  // Batched impression per page view.
+  // Batched impression per page view — only when the rail is actually
+  // visible (CSS hides it below 1180px; counting there would overreport
+  // to sponsors).
   useEffect(() => {
     if (hidden || sponsors.length === 0) return;
+    if (!window.matchMedia("(min-width: 1180px)").matches) return;
     if (seenPath.current === pathname) return;
     seenPath.current = pathname;
     void fetch("/api/sponsors/track", {
@@ -77,12 +81,16 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
         >
           <span className="sponsor-ad-tag">Sponsored</span>
           {s.sidebarAdUrl ? (
-            /* Uploaded ad creative replaces the logo/tagline block. */
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
+            /* Uploaded ad creative replaces the logo/tagline block.
+               next/image resizes the (up to 2 MB) original to ~200px. */
+            <Image
               className="sponsor-ad-creative"
               src={s.sidebarAdUrl}
               alt={`${s.name} — sponsor ad`}
+              width={400}
+              height={300}
+              sizes="200px"
+              style={{ width: "100%", height: "auto" }}
             />
           ) : (
             <div className="sponsor-ad-logo">

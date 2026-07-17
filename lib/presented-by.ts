@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -10,8 +11,11 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const PRESENTED_BY_PATH = "presented-by/logo";
 
-/** Public URL of the uploaded presented-by logo, or null if none exists. */
-export async function getPresentedByLogoUrl(): Promise<string | null> {
+/** Public URL of the uploaded presented-by logo, or null if none exists.
+    Cached 5 min (it renders in the sidebar on every page and changes ~never);
+    the upload/remove actions bust the tag. */
+export const getPresentedByLogoUrl = unstable_cache(
+  async (): Promise<string | null> => {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return null;
   }
@@ -31,4 +35,7 @@ export async function getPresentedByLogoUrl(): Promise<string | null> {
   } catch {
     return null;
   }
-}
+  },
+  ["presented-by-logo"],
+  { revalidate: 300, tags: ["presented-by"] },
+);

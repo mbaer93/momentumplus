@@ -25,7 +25,7 @@ export default async function ExpiredPage() {
         <div className="renew-logo">
           Momentum<span style={{ color: "var(--gold)" }}>+</span>
         </div>
-        <div className="renew-tagline">The Tri-State Leadership Community</div>
+        <div className="renew-tagline">The Year-Round Leadership Community</div>
 
         <h1 className="renew-headline">Your membership has lapsed</h1>
         <p className="renew-sub">

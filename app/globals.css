@@ -4005,3 +4005,24 @@ a.course-card:hover {
 @media (max-width: 700px) {
   .land-shots { grid-template-columns: 1fr; }
 }
+
+/* ===== LOADING SKELETONS (route-level loading.tsx) ===== */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--warm-gray), #f3f0ea, var(--warm-gray));
+  border-radius: 8px;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+.skeleton-title { height: 26px; width: min(260px, 60%); margin-bottom: 10px; }
+.skeleton-sub { height: 14px; width: min(380px, 80%); margin-bottom: 24px; }
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.skeleton-card { height: 96px; }
+.skeleton-block { height: 280px; }

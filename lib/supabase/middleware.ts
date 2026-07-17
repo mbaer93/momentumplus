@@ -28,8 +28,22 @@ function isProtected(pathname: string): boolean {
   );
 }
 
+// Purely public, never-personalized paths: no session refresh needed, so
+// skip the Supabase Auth round trip entirely (robots/sitemap/og are hit by
+// crawlers constantly; /privacy and /terms render the same for everyone).
+const AUTH_FREE_PATHS = new Set([
+  "/privacy",
+  "/terms",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/og.png",
+  "/manifest.webmanifest",
+]);
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+
+  if (AUTH_FREE_PATHS.has(request.nextUrl.pathname)) return response;
 
   // Phase 1 dev convenience: without Supabase env configured, skip auth so the
   // shell is viewable — LOCAL DEV ONLY. On any deployed environment, missing

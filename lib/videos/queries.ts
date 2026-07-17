@@ -87,6 +87,11 @@ function mapRow(row: VideoRow): VideoItem {
 const VIDEO_SELECT =
   "id, title, category, mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ), ai_summaries ( takeaways, quotes, action_items, highlights, model, generated_at ) ), ai_summaries!video_id ( takeaways, quotes, action_items, highlights, model, generated_at )";
 
+// List view: no AI summaries — nothing on the grid renders them, and the
+// full summaries added 1-3 KB of dead RSC payload per video per view.
+const VIDEO_LIST_SELECT =
+  "id, title, category, mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ) )";
+
 export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
   if (!isSupabaseConfigured()) {
     return placeholderVideos.filter((v) => canAccess(viewerTier, v.minAccess));
@@ -94,7 +99,7 @@ export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("videos")
-    .select(VIDEO_SELECT)
+    .select(VIDEO_LIST_SELECT)
     .not("published_at", "is", null)
     .order("published_at", { ascending: false });
   if (error || !data) return [];
