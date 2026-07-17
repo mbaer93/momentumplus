@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SponsorMark } from "@/components/sponsors/SponsorMark";
 import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
 import { SPONSOR_INTEREST_URL } from "@/lib/links";
@@ -73,6 +74,9 @@ export default async function SponsorsPage() {
                 <div className="sp-title-name">{s.name}</div>
                 <p className="sp-title-desc">{s.tagline}</p>
                 <div className="sp-card-links" style={{ borderTop: "none", paddingTop: 16 }}>
+                  <Link href={`/sponsors/${s.id}`} className="sp-link">
+                    View profile
+                  </Link>
                   <SponsorWebsiteLink sponsorId={s.id} href={s.website} />
                 </div>
               </div>
@@ -112,6 +116,9 @@ export default async function SponsorsPage() {
                     </div>
                   )}
                   <div className="sp-card-links">
+                    <Link href={`/sponsors/${s.id}`} className="sp-link">
+                      View profile
+                    </Link>
                     <SponsorWebsiteLink sponsorId={s.id} href={s.website} />
                   </div>
                 </div>
@@ -125,7 +132,7 @@ export default async function SponsorsPage() {
         <div>
           <h3>Become a partner</h3>
           <p>
-            Put your brand in front of the Tri-State&apos;s most engaged
+            Put your brand in front of a national community of engaged
             leaders — tasteful, integrated, and measured.
           </p>
         </div>

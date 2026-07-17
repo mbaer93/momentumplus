@@ -21,6 +21,7 @@ export default async function AdminSponsorsPage({
     name: s.name,
     tier: s.tier,
     tagline: s.tagline,
+    description: s.description,
     offer: s.offer ?? "",
     website: s.website,
     logoUrl: s.logoUrl,
@@ -40,9 +41,20 @@ export default async function AdminSponsorsPage({
         admin
           .from("sponsors")
           .select(
-            "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
+            "id, name, tier, tagline, description, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
           )
-          .order("tier"),
+          .order("tier")
+          .then((res) =>
+            // Pre-migration fallback: description arrives with 0033.
+            res.data
+              ? res
+              : admin
+                  .from("sponsors")
+                  .select(
+                    "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
+                  )
+                  .order("tier"),
+          ),
         admin.from("sponsor_events").select("sponsor_id, kind"),
         admin
           .from("sponsor_members")
@@ -90,6 +102,7 @@ export default async function AdminSponsorsPage({
         name: s.name,
         tier: s.tier,
         tagline: s.tagline ?? "",
+        description: (s as { description?: string | null }).description ?? "",
         offer: s.offer ?? "",
         website: s.website ?? "",
         logoUrl: s.logo_url ?? null,
