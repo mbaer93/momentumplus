@@ -29,7 +29,7 @@ export default function PrivacyPage() {
           margin: "0 auto",
           background: "#fff",
           borderRadius: 4,
-          padding: "36px 40px",
+          padding: "clamp(20px, 5vw, 40px)",
           fontFamily: "Helvetica, Arial, sans-serif",
         }}
       >

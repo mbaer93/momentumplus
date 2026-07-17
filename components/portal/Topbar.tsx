@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BellIcon, SearchIcon, SettingsIcon } from "@/components/icons";
 import { titleForPath } from "./nav";
+import { MobileNavToggle } from "./PortalNav";
 
 export interface TopbarUpcoming {
   slug: string;
@@ -34,6 +35,7 @@ export function Topbar({ userInitials, upcoming = [] }: TopbarProps) {
 
   return (
     <header className="topbar">
+      <MobileNavToggle />
       <span className="topbar-title">{titleForPath(pathname)}</span>
       <div className="topbar-search">
         <SearchIcon size={14} />

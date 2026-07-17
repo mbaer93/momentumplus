@@ -1,4 +1,8 @@
 import { HelpChat } from "@/components/help/HelpChat";
+import {
+  MobileNavBackdrop,
+  PortalNavProvider,
+} from "@/components/portal/PortalNav";
 import { Sidebar } from "@/components/portal/Sidebar";
 import { Topbar, type TopbarUpcoming } from "@/components/portal/Topbar";
 import { SponsorRail } from "@/components/sponsors/SponsorRail";
@@ -50,7 +54,8 @@ export default async function PortalLayout({
       : railList;
 
   return (
-    <div className="app-shell">
+    <PortalNavProvider>
+      <MobileNavBackdrop />
       <Sidebar
         userName={member.name}
         userInitials={member.initials}
@@ -71,6 +76,6 @@ export default async function PortalLayout({
         </div>
       </div>
       <HelpChat />
-    </div>
+    </PortalNavProvider>
   );
 }
