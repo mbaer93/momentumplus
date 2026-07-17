@@ -161,7 +161,9 @@ export function EntityManager({
     seed ? { ...seed.values } : emptyValues,
   );
   const [pending, startTransition] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
+  // Failures must look like failures — a red message, never the green
+  // "success" styling this used to apply to everything.
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   const requiredOk = (v: EntityValues) =>
     fields
@@ -173,10 +175,10 @@ export function EntityManager({
     startTransition(async () => {
       try {
         const res = await fn();
-        setMsg(res.message ?? null);
+        setMsg(res.message ? { text: res.message, ok: res.ok } : null);
         if (res.ok) router.refresh();
       } catch {
-        setMsg("That didn't save — please try again.");
+        setMsg({ text: "That didn't save — please try again.", ok: false });
       }
     });
   }
@@ -209,7 +211,11 @@ export function EntityManager({
             >
               Add {entityLabel}
             </button>
-            {msg && <span className="admin-form-msg ok">{msg}</span>}
+            {msg && (
+              <span className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}>
+                {msg.text}
+              </span>
+            )}
           </div>
           {createHint && (
             <div
@@ -221,8 +227,11 @@ export function EntityManager({
         </div>
       )}
       {!allowCreate && msg && (
-        <div className="admin-form-msg ok" style={{ marginBottom: 10 }}>
-          {msg}
+        <div
+          className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+          style={{ marginBottom: 10 }}
+        >
+          {msg.text}
         </div>
       )}
 

@@ -74,8 +74,13 @@ export function SessionForm({
         mode === "create"
           ? await createSession(values)
           : await updateSession(sessionId!, values);
-      setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "Saved." : "Error") });
-      if (res.ok && !res.preview) {
+      // A warning (e.g. Zoom couldn't be rescheduled) must be SEEN — style
+      // it as an error and stay on the form instead of navigating away.
+      setMsg({
+        ok: res.ok && !res.warning,
+        text: res.message ?? (res.ok ? "Saved." : "Error"),
+      });
+      if (res.ok && !res.preview && !res.warning) {
         router.push("/admin/sessions");
         router.refresh();
       }

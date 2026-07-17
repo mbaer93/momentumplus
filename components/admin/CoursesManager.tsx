@@ -407,15 +407,25 @@ function LessonEditor({ lesson }: { lesson: AdminLessonRow }) {
             className="btn-mini"
             disabled={pending}
             title="Reads this lesson's content and drafts multiple-choice questions for you to review"
-            onClick={() =>
+            onClick={() => {
+              // Never silently blow away questions someone typed by hand.
+              const hasHandWritten = questions.some((q) => q.q.trim());
+              if (
+                hasHandWritten &&
+                !confirm(
+                  "The AI draft replaces the questions currently in the form. Overwrite them?",
+                )
+              ) {
+                return;
+              }
               run(async () => {
                 const res = await draftQuizWithAi(lesson.id);
                 if (res.ok && res.questions?.length) {
                   setQuestions(res.questions);
                 }
                 return res;
-              })
-            }
+              });
+            }}
           >
             {pending ? "Drafting…" : "Draft questions with AI"}
           </button>
@@ -789,7 +799,15 @@ export function CoursesManager({
                               type="button"
                               className="btn-mini danger"
                               disabled={pending}
-                              onClick={() => run(() => removeLesson(l.id))}
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    `Remove the lesson "${l.title}"? Its content, documents, and test go with it — this can't be undone.`,
+                                  )
+                                ) {
+                                  run(() => removeLesson(l.id));
+                                }
+                              }}
                             >
                               Remove
                             </button>

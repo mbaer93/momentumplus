@@ -19,6 +19,8 @@ export interface AdminMemberResult {
   ok: boolean;
   message?: string;
   preview?: boolean;
+  /** One-time sign-in link — the UI shows it in a copy-to-clipboard box. */
+  loginLink?: string | null;
 }
 
 // The four member levels plus the two special roles. Legacy tiers on
@@ -144,7 +146,8 @@ export async function grantMembership(input: {
   if (manualLoginLink) {
     return {
       ok: true,
-      message: `Granted ${input.tier} to ${email} — but the invite email couldn't be sent, so copy this one-time login link and send it to them yourself (it signs them in and asks for a password): ${manualLoginLink}`,
+      loginLink: manualLoginLink,
+      message: `Granted ${input.tier} to ${email} — but the invite email couldn't be sent. Copy the one-time login link below and send it to them yourself (it signs them in and asks for a password).`,
     };
   }
   return { ok: true, message: `Granted ${input.tier} to ${email}.` };
@@ -646,7 +649,8 @@ export async function getLoginLink(email: string): Promise<AdminMemberResult> {
 
   return {
     ok: true,
-    message: `One-time login link for ${email} — copy and send it to them (signs them in, then asks for a password): ${link}`,
+    loginLink: link,
+    message: `One-time login link for ${email} — copy it below and send it to them (signs them in, then asks for a password).`,
   };
 }
 

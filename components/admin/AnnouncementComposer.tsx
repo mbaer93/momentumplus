@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from "react";
 import type { Tier } from "@/lib/types";
-import { sendAnnouncement } from "@/app/(portal)/admin/announcements/actions";
+import {
+  previewAnnouncementAudience,
+  sendAnnouncement,
+} from "@/app/(portal)/admin/announcements/actions";
 
 const TIER_OPTIONS: { value: Tier; label: string }[] = [
   { value: "sub_monthly", label: "Monthly" },
@@ -24,6 +27,10 @@ export function AnnouncementComposer() {
   ]);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Two-step send: first click counts the audience, second click sends.
+  const [confirmCount, setConfirmCount] = useState<number | null>(null);
+  // Set when a send partially failed — resending skips everyone reached.
+  const [resumeId, setResumeId] = useState<string | undefined>(undefined);
 
   function toggleTier(t: Tier) {
     setTiers((prev) =>
@@ -39,17 +46,34 @@ export function AnnouncementComposer() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
-    startTransition(async () => {
-      const res = await sendAnnouncement({
-        title,
-        body,
-        audienceTiers: tiers,
-        channels,
+
+    // Step 1: count the audience and ask for confirmation — a single
+    // mis-click must never email every member.
+    if (confirmCount === null) {
+      startTransition(async () => {
+        const { count } = await previewAnnouncementAudience(tiers);
+        setConfirmCount(count);
       });
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await sendAnnouncement(
+        { title, body, audienceTiers: tiers, channels },
+        resumeId,
+      );
       setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "Sent." : "Error") });
-      if (res.ok && !res.preview) {
-        setTitle("");
-        setBody("");
+      if (res.ok) {
+        setConfirmCount(null);
+        setResumeId(undefined);
+        if (!res.preview) {
+          setTitle("");
+          setBody("");
+        }
+      } else {
+        // Keep the confirm armed and remember the announcement so a retry
+        // resumes it instead of double-sending.
+        setResumeId(res.announcementId ?? resumeId);
       }
     });
   }
@@ -116,14 +140,42 @@ export function AnnouncementComposer() {
         </div>
       </div>
 
-      <div className="admin-form-actions">
+      <div className="admin-form-actions" style={{ flexWrap: "wrap" }}>
         <button
           type="submit"
           className="btn-purple"
           disabled={pending || tiers.length === 0 || channels.length === 0}
         >
-          {pending ? "Sending…" : "Send announcement"}
+          {pending
+            ? confirmCount === null
+              ? "Counting audience…"
+              : "Sending…"
+            : confirmCount === null
+              ? "Review & send"
+              : resumeId
+                ? `Retry failed sends (${confirmCount} members)`
+                : `Confirm — send to ${confirmCount} member${confirmCount === 1 ? "" : "s"}`}
         </button>
+        {confirmCount !== null && !pending && (
+          <button
+            type="button"
+            className="btn-mini"
+            onClick={() => {
+              setConfirmCount(null);
+              setResumeId(undefined);
+              setMsg(null);
+            }}
+          >
+            Cancel
+          </button>
+        )}
+        {confirmCount !== null && !pending && !msg && (
+          <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+            This reaches {confirmCount} member{confirmCount === 1 ? "" : "s"} via{" "}
+            {channels.map((c) => (c === "email" ? "email" : "in-app")).join(" + ")}.
+            Nothing has been sent yet.
+          </span>
+        )}
         {msg && (
           <span className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}>
             {msg.text}

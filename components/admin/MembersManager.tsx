@@ -65,7 +65,10 @@ export function MembersManager({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  // One-time login link from the last action, shown in a copy box (it used
+  // to be buried inside the message text and impossible to copy cleanly).
+  const [loginLink, setLoginLink] = useState<string | null>(null);
   const [grant, setGrant] = useState({ email: "", tier: "basic" as Tier, months: 1 });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tierForm, setTierForm] = useState<Tier>("basic");
@@ -80,15 +83,19 @@ export function MembersManager({
     perms: Record<string, boolean>;
   }>({ role: "standard", perms: {} });
 
-  function run(fn: () => Promise<{ ok: boolean; message?: string }>) {
+  function run(
+    fn: () => Promise<{ ok: boolean; message?: string; loginLink?: string | null }>,
+  ) {
     setMsg(null);
+    setLoginLink(null);
     startTransition(async () => {
       try {
         const res = await fn();
-        setMsg(res.message ?? (res.ok ? "Done." : "Error"));
+        setMsg({ text: res.message ?? (res.ok ? "Done." : "Error"), ok: res.ok });
+        setLoginLink(res.loginLink ?? null);
         if (res.ok) router.refresh();
       } catch {
-        setMsg("That didn't save — please try again.");
+        setMsg({ text: "That didn't save — please try again.", ok: false });
       }
     });
   }
@@ -189,8 +196,28 @@ export function MembersManager({
           </div>
         </div>
         {msg && (
-          <div className="admin-form-msg ok" style={{ marginTop: 10 }}>
-            {msg}
+          <div
+            className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+            style={{ marginTop: 10 }}
+          >
+            {msg.text}
+          </div>
+        )}
+        {loginLink && (
+          <div
+            className="admin-form-actions"
+            style={{ marginTop: 8, alignItems: "center" }}
+          >
+            <code style={{ fontSize: 11, wordBreak: "break-all", flex: 1 }}>
+              {loginLink}
+            </code>
+            <button
+              type="button"
+              className="btn-mini"
+              onClick={() => void navigator.clipboard.writeText(loginLink)}
+            >
+              Copy link
+            </button>
           </div>
         )}
       </div>
