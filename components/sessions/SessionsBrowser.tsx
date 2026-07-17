@@ -43,8 +43,10 @@ export function SessionsBrowser({
     const filtered = sessions.filter((s) => {
       const status = displayStatus(s, now);
       // Members never see drafts mixed into the list; admins see them
-      // badged (the card shows a Draft pill).
+      // badged (the card shows a Draft pill). Archived sessions (their
+      // speaker's season ended) are likewise admin-only.
       if (status === "draft" && !isAdmin) return false;
+      if (s.status === "archived" && !isAdmin) return false;
       switch (filter) {
         case "all":
           return true;

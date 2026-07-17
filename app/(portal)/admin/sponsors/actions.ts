@@ -5,7 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { provisionMember } from "@/lib/onboarding";
 import { PRESENTED_BY_PATH } from "@/lib/presented-by";
-import { nextOctoberFirst } from "@/lib/sponsor-lifecycle";
+import { seasonEnd } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -589,7 +589,7 @@ export async function reinstateSponsor(
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
-  const termEnd = nextOctoberFirst().toISOString();
+  const termEnd = seasonEnd().toISOString();
   const { error } = await admin
     .from("sponsors")
     .update({ archived_at: null, expires_at: termEnd })

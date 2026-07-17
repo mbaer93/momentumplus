@@ -175,6 +175,22 @@ export interface ZoomParticipant {
 }
 
 // Past-meeting participant report (used to mark attendance). Handles paging.
+/** Host start link for an existing meeting — fetched live so it's always
+    valid; only ever handed to the session's own speaker (or an admin). */
+export async function getMeetingStartUrl(
+  meetingId: string,
+  creds?: ZoomS2SCreds,
+): Promise<string | null> {
+  const token = await getZoomAccessToken(creds);
+  const res = await fetch(
+    `https://api.zoom.us/v2/meetings/${encodeURIComponent(meetingId)}`,
+    { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const json = (await res.json()) as { start_url?: string };
+  return json.start_url ?? null;
+}
+
 export async function getMeetingParticipants(
   meetingId: string,
 ): Promise<ZoomParticipant[]> {

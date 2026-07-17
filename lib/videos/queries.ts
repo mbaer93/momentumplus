@@ -97,11 +97,22 @@ export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
     return placeholderVideos.filter((v) => canAccess(viewerTier, v.minAccess));
   }
   const supabase = createClient();
-  const { data, error } = await supabase
+  // Archived items (speaker archived with their season) stay out of the
+  // library without being deleted.
+  let { data, error } = await supabase
     .from("videos")
     .select(VIDEO_LIST_SELECT)
+    .is("archived_at", null)
     .not("published_at", "is", null)
     .order("published_at", { ascending: false });
+  if (error && error.message.includes("archived_at")) {
+    // Pre-migration fallback: the column arrives with migration 0028.
+    ({ data, error } = await supabase
+      .from("videos")
+      .select(VIDEO_LIST_SELECT)
+      .not("published_at", "is", null)
+      .order("published_at", { ascending: false }));
+  }
   // An outage is not an empty library — surface it to the error boundary.
   if (error) throw new Error(`Couldn't load the library: ${error.message}`);
   if (!data) return [];
@@ -117,11 +128,20 @@ export async function getVideo(
     return v && canAccess(viewerTier, v.minAccess) ? v : null;
   }
   const supabase = createClient();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("videos")
     .select(VIDEO_SELECT)
     .eq("id", id)
+    .is("archived_at", null)
     .maybeSingle();
+  if (error && error.message.includes("archived_at")) {
+    // Pre-migration fallback: the column arrives with migration 0028.
+    ({ data, error } = await supabase
+      .from("videos")
+      .select(VIDEO_SELECT)
+      .eq("id", id)
+      .maybeSingle());
+  }
   if (error || !data) return null;
   return mapRow(data as unknown as VideoRow);
 }

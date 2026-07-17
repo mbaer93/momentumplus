@@ -106,6 +106,7 @@ export default async function PortalLayout({
         userInitials={member.initials}
         tierLabel={member.tierLabel}
         isAdmin={member.isAdmin}
+        isSpeaker={member.isSpeaker}
         presentedBy={presentedBy}
         presentedByLogoUrl={presentedByLogoUrl}
       />

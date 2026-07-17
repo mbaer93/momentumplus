@@ -14,6 +14,8 @@ export interface CurrentMember {
   tier: Tier;
   tierLabel: string;
   isAdmin: boolean;
+  /** Has an active speaker record — unlocks the Speaker Studio. */
+  isSpeaker: boolean;
   /** Admin-set title (relative to Momentum+/TSLS) shown on their chat messages. */
   adminTitle: string | null;
   /** False when every membership has lapsed → portal layout sends to /expired. */
@@ -56,6 +58,7 @@ export const getCurrentMember = requestCache(
       tier,
       tierLabel: tierLabel(tier),
       isAdmin: tier === "admin",
+      isSpeaker: true, // preview shows the Studio for demo purposes
       adminTitle: tier === "admin" ? "Momentum+ Team" : null,
       membershipActive: true,
       accessExpiresAt: null,
@@ -68,17 +71,23 @@ export const getCurrentMember = requestCache(
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [{ data: profile }, { data: memberships }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("full_name, email, admin_title")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("memberships")
-      .select("tier, status, access_starts_at, access_expires_at")
-      .eq("profile_id", user.id),
-  ]);
+  const [{ data: profile }, { data: memberships }, { data: speakerRow }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, email, admin_title")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("memberships")
+        .select("tier, status, access_starts_at, access_expires_at")
+        .eq("profile_id", user.id),
+      supabase
+        .from("speakers")
+        .select("id, archived_at, expires_at")
+        .eq("profile_id", user.id)
+        .maybeSingle(),
+    ]);
 
   const name = profile?.full_name || user.email || "Member";
   const rows = (memberships ?? []) as Pick<
@@ -94,6 +103,14 @@ export const getCurrentMember = requestCache(
     tier: effective?.tier ?? "tsls_attendee",
     tierLabel: effective ? tierLabel(effective.tier) : "Membership lapsed",
     isAdmin: effective?.tier === "admin",
+    isSpeaker: Boolean(
+      speakerRow &&
+        !(speakerRow as { archived_at?: string | null }).archived_at &&
+        (!(speakerRow as { expires_at?: string | null }).expires_at ||
+          new Date(
+            (speakerRow as { expires_at: string }).expires_at,
+          ) > new Date()),
+    ),
     adminTitle:
       effective?.tier === "admin" ? (profile?.admin_title ?? null) : null,
     membershipActive: effective !== null,

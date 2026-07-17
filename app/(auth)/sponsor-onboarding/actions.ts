@@ -4,7 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { nextOctoberFirst } from "@/lib/sponsor-lifecycle";
+import { seasonEnd } from "@/lib/sponsor-lifecycle";
 import { normalizeSponsorTier } from "@/lib/sponsor-tiers";
 
 /*
@@ -69,7 +69,7 @@ export async function completeSponsorOnboarding(
     };
   }
 
-  const termEnd = nextOctoberFirst().toISOString();
+  const termEnd = seasonEnd().toISOString();
 
   // 1) The sponsor page entry (hidden from the rail until the team
   //    activates it; tier was chosen by the admin at invite time).

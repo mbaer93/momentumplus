@@ -14,6 +14,12 @@ export default async function CalendarPage() {
 
   const events: CalendarEvent[] = sessions
     .filter((s) => s.startsAt)
+    // Drafts and archived sessions never land on a member's calendar;
+    // admins manage those from Admin → Sessions, not here.
+    .filter(
+      (s) =>
+        (s.status !== "draft" && s.status !== "archived") || member.isAdmin,
+    )
     .map((s) => ({
       id: s.id,
       slug: s.slug,

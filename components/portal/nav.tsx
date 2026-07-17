@@ -19,6 +19,7 @@ export interface NavItem {
   icon: ComponentType<{ size?: number }>;
   badge?: { text: string; variant?: "gold" | "blue" };
   adminOnly?: boolean;
+  speakerOnly?: boolean;
 }
 
 export interface NavSection {
@@ -56,6 +57,12 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Account",
     items: [
       { label: "My Profile", href: "/profile", icon: ProfileIcon },
+      {
+        label: "Speaker Studio",
+        href: "/speaker",
+        icon: SpeakersIcon,
+        speakerOnly: true,
+      },
       {
         label: "Admin Panel",
         href: "/admin",
