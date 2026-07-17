@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
@@ -21,6 +21,21 @@ export const metadata: Metadata = {
   title: "Momentum+ | Premium Member Portal",
   description:
     "The members-only community and learning platform for the Tri-State Leadership Summit.",
+  // Installed-app behavior on iOS: opens full-screen from the home-screen
+  // icon instead of in Safari. Android/Chrome reads the same from the
+  // manifest (app/manifest.ts).
+  appleWebApp: {
+    capable: true,
+    title: "Momentum+",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0B1622",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
