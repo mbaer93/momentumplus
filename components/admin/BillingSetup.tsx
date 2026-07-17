@@ -221,7 +221,7 @@ export function BillingSetup({ status }: { status: BillingStatus }) {
           <div className="admin-field" style={{ marginBottom: 0 }}>
             <label htmlFor="term-plan">Plan</label>
             <select id="term-plan" value={termPlan} onChange={(e) => setTermPlan(e.target.value as "basic" | "pro")}>
-              <option value="basic">Momentum+ User</option>
+              <option value="basic">Momentum+ Member</option>
               <option value="pro">Momentum+ Pro User</option>
             </select>
           </div>

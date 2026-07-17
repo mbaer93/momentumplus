@@ -58,10 +58,22 @@ export function JoinForm({
             className={`join-plan${plan === p ? " active" : ""}`}
             onClick={() => setPlan(p)}
           >
-            {p === "basic" ? "Momentum+ User" : "Momentum+ Pro"}
+            {p === "basic" ? "Momentum+ Member" : "Momentum+ Pro"}
           </button>
         ))}
       </div>
+      {(() => {
+        const usd = planTerms.find(([m]) => m === months)?.[1] ?? null;
+        return (
+          <p className="join-price-line">
+            {usd
+              ? `${plan === "pro" ? "Momentum+ Pro" : "Momentum+ Member"} — $${usd}${
+                  months === 1 ? "/month" : ` every ${months} months`
+                }, renews automatically. Cancel anytime from your profile.`
+              : "Final price is shown on the secure Stripe checkout before you pay."}
+          </p>
+        );
+      })()}
       {planTerms.length > 1 && (
         <div className="admin-field">
           <label htmlFor="join-term">Billing term</label>
@@ -83,7 +95,9 @@ export function JoinForm({
         <label htmlFor="join-name">Your name</label>
         <input
           id="join-name"
+          name="name"
           type="text"
+          autoComplete="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="First and last name"
@@ -94,7 +108,9 @@ export function JoinForm({
         <label htmlFor="join-email">Email</label>
         <input
           id="join-email"
+          name="email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@company.com"

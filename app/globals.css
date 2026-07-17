@@ -16,6 +16,10 @@
   --warm-gray: #ede9e3;
   --mid-gray: #b0a99e;
   --text: #1a2332;
+  /* Dark body-text color used on light cards inside dark screens (landing
+     pricing cards, join card, menus). Was referenced but never defined —
+     text fell back to the inherited cream and vanished on cream cards. */
+  --ink: #1a2332;
   --gold: #b8965a;
   --gold-light: #d4ae75;
   --gold-pale: #f4ede0;
@@ -3854,4 +3858,150 @@ a.course-card:hover {
 @media (max-width: 380px) {
   .stat-grid,
   .admin-stats-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== LANDING: proof sections (screenshots, sessions, steps, FAQ) ===== */
+.land-shots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  max-width: 1060px;
+  margin: 0 auto;
+  text-align: left;
+}
+.land-shot {
+  margin: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 4px;
+  padding: 14px;
+}
+.land-shot.wide { grid-column: 1 / -1; }
+.land-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.land-shot figcaption {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: rgba(248, 246, 241, 0.7);
+  line-height: 1.5;
+}
+.land-sessions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 320px));
+  gap: 16px;
+  justify-content: center;
+  max-width: 1020px;
+  margin: 0 auto;
+  text-align: left;
+}
+.land-session {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(184, 150, 90, 0.3);
+  border-radius: 4px;
+  padding: 18px 20px;
+}
+.land-session-when {
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.land-session-title {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 17px;
+  color: #fff;
+  line-height: 1.35;
+}
+.land-session-speaker {
+  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(248, 246, 241, 0.75);
+}
+.land-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: left;
+}
+.land-step {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 4px;
+  padding: 22px;
+}
+.land-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+.land-faq {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: left;
+}
+.land-faq-item {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 0;
+}
+.land-faq-item summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 28px 14px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  position: relative;
+}
+.land-faq-item summary::-webkit-details-marker { display: none; }
+.land-faq-item summary::after {
+  content: "+";
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gold);
+  font-size: 18px;
+  font-weight: 400;
+}
+.land-faq-item[open] summary::after { content: "\2212"; }
+.land-faq-item p {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: rgba(248, 246, 241, 0.78);
+}
+.land-final-cta { padding-top: 0; }
+.land-price-note a { color: var(--gold); }
+.join-price-line {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--navy);
+  background: var(--gold-pale);
+  border: 1px solid rgba(184, 150, 90, 0.3);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+@media (max-width: 700px) {
+  .land-shots { grid-template-columns: 1fr; }
 }

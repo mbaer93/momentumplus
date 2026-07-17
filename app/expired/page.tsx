@@ -13,7 +13,9 @@ export const metadata = {
  * the GHL renewal page. Pricing copy comes from SPEC.md §2 as listed.
  */
 export default async function ExpiredPage() {
-  const renewUrl = process.env.NEXT_PUBLIC_GHL_RENEW_URL || "#";
+  // No Stripe and no GHL renewal page configured → the only honest CTA is
+  // "email us", not a button that opens a blank tab.
+  const renewUrl = process.env.NEXT_PUBLIC_GHL_RENEW_URL || null;
   const stripe = await getStripeSettings();
   const stripeLive = stripeReady(stripe);
 
@@ -58,7 +60,7 @@ export default async function ExpiredPage() {
               basicPrice={stripe.displayPrices?.basic ?? null}
               proPrice={stripe.displayPrices?.pro ?? null}
             />
-          ) : (
+          ) : renewUrl ? (
             <a
               className="btn-gold"
               href={renewUrl}
@@ -66,6 +68,10 @@ export default async function ExpiredPage() {
               rel="noopener noreferrer"
             >
               Renew Membership
+            </a>
+          ) : (
+            <a className="btn-gold" href="mailto:hello@momentumplus.co?subject=Renew%20my%20Momentum%2B%20membership">
+              Email us to renew
             </a>
           )}
           {/* Must sign out first — a plain /login link bounces a lapsed

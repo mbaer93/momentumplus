@@ -17,10 +17,29 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE),
   title: "Momentum+ | Premium Member Portal",
   description:
     "The members-only community and learning platform for the Tri-State Leadership Summit.",
+  openGraph: {
+    type: "website",
+    siteName: "Momentum+",
+    title: "Momentum+ | The Tri-State Leadership Community",
+    description:
+      "Live leadership sessions, a full recording library, courses with certificates, and a private community — by the Tri-State Leadership Summit.",
+    url: SITE,
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Momentum+" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Momentum+ | The Tri-State Leadership Community",
+    description:
+      "Live leadership sessions, a full recording library, courses with certificates, and a private community — by the Tri-State Leadership Summit.",
+    images: ["/og.png"],
+  },
   // Installed-app behavior on iOS: opens full-screen from the home-screen
   // icon instead of in Safari. Android/Chrome reads the same from the
   // manifest (app/manifest.ts).

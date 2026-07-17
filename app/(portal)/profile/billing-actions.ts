@@ -84,9 +84,12 @@ export async function startCheckout(
     const customerId = await ensureCustomer(ctx);
     // One live subscription per member: switching plans happens in the
     // billing portal (prorated) — a second checkout would double-bill.
+    // For a past-due member the portal is also where they fix their card,
+    // so send them straight there instead of a dead-end message (a lapsed
+    // member can't reach the /profile "Manage billing" button at all).
     const { data: liveSub } = await createServiceClient()
       .from("memberships")
-      .select("id")
+      .select("id, status")
       .eq("profile_id", ctx.userId)
       .eq("source", "stripe")
       .in("status", ["active", "past_due"])
@@ -94,11 +97,23 @@ export async function startCheckout(
       .limit(1)
       .maybeSingle();
     if (liveSub) {
-      return {
-        ok: false,
-        message:
-          "You already have a subscription — use Manage billing below to switch plans (it prorates automatically) instead of buying a second one.",
-      };
+      try {
+        const portal = await stripeRequest<{ url: string }>(
+          ctx.settings.secretKey,
+          "POST",
+          "/billing_portal/sessions",
+          { customer: customerId, return_url: `${SITE()}/profile` },
+        );
+        return { ok: true, url: portal.url };
+      } catch {
+        return {
+          ok: false,
+          message:
+            liveSub.status === "past_due"
+              ? "Your subscription has a failed payment — contact support and we'll get your card updated."
+              : "You already have a subscription — use Manage billing on your profile to switch plans (it prorates automatically).",
+        };
+      }
     }
     const session = await stripeRequest<{ url: string }>(
       ctx.settings.secretKey,

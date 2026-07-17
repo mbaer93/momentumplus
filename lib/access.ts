@@ -72,7 +72,7 @@ export function tierLabel(tier: Tier): string {
     sub_6mo: "6-Month Member",
     sub_monthly: "Monthly Member",
     sub_annual: "Annual Member",
-    basic: "Momentum+ User",
+    basic: "Momentum+ Member",
     gift: "Gift User",
     vip: "VIP Access User",
     pro: "Momentum+ Pro User",

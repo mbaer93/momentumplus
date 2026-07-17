@@ -41,10 +41,13 @@ export interface CourseItem {
   category: string;
   minAccess: "all_members" | "vip_plus" | "pro_only";
   published: boolean;
-  /** Continuing-education hours printed on the completion certificate. */
+  /** Educational hours printed on the certificate of completion. */
   ceHours: number | null;
   lessons: CourseLesson[];
   completedCount: number;
+  /** For locked teaser courses (RLS hides their lessons), the real lesson
+      count fetched via the service role; defaults to lessons.length. */
+  lessonCount?: number;
 }
 
 export function courseUnlocked(course: CourseItem, tier: Tier): boolean {
@@ -202,8 +205,44 @@ export function publicQuiz(raw: unknown): QuizQuestionPublic[] | null {
   return cleaned.length > 0 ? cleaned : null;
 }
 
+export interface GradableQuestion {
+  options: string[];
+  answer: number | null;
+}
+
+/**
+ * Same cleaning as publicQuiz but keeping the correct answer, with the
+ * answer index remapped onto the cleaned options. Grading MUST judge the
+ * exact question/option list the member saw — grading the raw stored array
+ * would misalign every answer the moment the display filter drops anything.
+ */
+export function gradableQuiz(raw: unknown): GradableQuestion[] {
+  const questions = (raw as { questions?: unknown } | null)?.questions;
+  if (!Array.isArray(questions)) return [];
+  const out: GradableQuestion[] = [];
+  for (const q of questions) {
+    if (typeof q !== "object" || q === null) continue;
+    const rec = q as { q?: unknown; options?: unknown; answer?: unknown };
+    if (typeof rec.q !== "string" || !rec.q) continue;
+    const rawOptions = Array.isArray(rec.options) ? rec.options : [];
+    const options: string[] = [];
+    let answer: number | null = null;
+    rawOptions.forEach((o, i) => {
+      if (typeof o !== "string") return;
+      if (typeof rec.answer === "number" && rec.answer === i) {
+        answer = options.length;
+      }
+      options.push(o);
+    });
+    if (options.length < 2) continue;
+    out.push({ options, answer });
+  }
+  return out;
+}
+
 export async function listCourses(): Promise<CourseItem[]> {
   if (!isSupabaseConfigured()) return PLACEHOLDER_COURSES;
+  // (teasers for RLS-hidden gated courses are appended at the end)
 
   const supabase = createClient();
   const {
@@ -227,7 +266,9 @@ export async function listCourses(): Promise<CourseItem[]> {
           .eq("profile_id", user.id)
       : Promise.resolve({ data: [] as { lesson_id: string }[] }),
   ]);
-  if (error || !data) return [];
+  if (error || !data) {
+    return error ? [] : await lockedCourseTeasers(new Set());
+  }
 
   // Server-side enrichment: quiz questions (answers stripped before they
   // reach the browser) and signed URLs for the private media bucket.
@@ -259,7 +300,7 @@ export async function listCourses(): Promise<CourseItem[]> {
     url ? (signedUrls.get(url) ?? url) : null;
 
   const done = new Set((progress ?? []).map((p) => p.lesson_id as string));
-  return rows.map((row) => {
+  const mapped = rows.map((row) => {
     const lessons = [...(row.course_lessons ?? [])]
       .sort((a, b) => a.position - b.position)
       .map((l) => ({
@@ -291,6 +332,49 @@ export async function listCourses(): Promise<CourseItem[]> {
       completedCount: lessons.filter((l) => l.completed).length,
     } satisfies CourseItem;
   });
+  const teasers = await lockedCourseTeasers(new Set(mapped.map((c) => c.id)));
+  return [...mapped, ...teasers];
+}
+
+/*
+ * Gated (VIP/Pro) courses are invisible to under-tier members at the RLS
+ * layer — which would hide the upgrade path entirely. Fetch published
+ * courses' metadata (never lesson content or quizzes) through the service
+ * role and append locked teasers for any the member can't see.
+ */
+async function lockedCourseTeasers(
+  visibleIds: Set<string>,
+): Promise<CourseItem[]> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+  try {
+    const { createServiceClient } = await import("@/lib/supabase/admin");
+    const { data } = await createServiceClient()
+      .from("courses")
+      .select(
+        "id, title, description, category, min_access, ce_hours, published_at, course_lessons ( id )",
+      )
+      .not("published_at", "is", null)
+      .order("position");
+    return (data ?? [])
+      .filter((row) => !visibleIds.has(row.id as string))
+      .map((row) => ({
+        id: row.id as string,
+        title: row.title as string,
+        description: (row.description as string) ?? "",
+        category: (row.category as string) ?? "Leadership",
+        minAccess:
+          row.min_access === "vip_plus" || row.min_access === "pro_only"
+            ? (row.min_access as "vip_plus" | "pro_only")
+            : "all_members",
+        published: true,
+        ceHours: row.ce_hours === null ? null : Number(row.ce_hours),
+        lessons: [],
+        completedCount: 0,
+        lessonCount: ((row.course_lessons as { id: string }[]) ?? []).length,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getCourse(id: string): Promise<CourseItem | null> {

@@ -8,7 +8,8 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export interface AdminAuditEntry {
-  actorId: string;
+  /** Null for system-initiated entries (e.g. the Stripe webhook). */
+  actorId: string | null;
   actorEmail?: string | null;
   action: string;
   targetProfileId?: string | null;
@@ -48,6 +49,7 @@ const ACTION_LABELS: Record<string, string> = {
   set_admin_access: "Changed admin access",
   grant_admin: "Granted admin",
   change_to_admin: "Changed member to admin",
+  invite_email_failed: "Invite email failed (needs re-send)",
 };
 
 /** Recent admin actions for the super-admin audit page. */
