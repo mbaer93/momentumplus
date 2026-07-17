@@ -8,7 +8,7 @@ import {
   placeholderMessages,
   type ChatMessage,
 } from "@/lib/community-data";
-import { ChannelIcon } from "@/components/icons";
+import { ArrowLeftIcon, ChannelIcon } from "@/components/icons";
 
 interface ChannelInfo {
   id: string;
@@ -136,6 +136,10 @@ export function CommunityView({
     Record<string, ChatMessage[]>
   >(() => (preview ? { ...placeholderMessages } : {}));
   const [draft, setDraft] = useState("");
+  // Phones show one pane at a time: the channel list, or (after picking a
+  // channel) the conversation with a back button. Desktop shows both panes
+  // side by side and ignores this flag entirely (CSS-controlled).
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [live, setLive] = useState(false); // true once Stream is connected
   const [connectError, setConnectError] = useState<string | null>(null);
   const [dms, setDms] = useState<DmInfo[]>([]);
@@ -294,6 +298,7 @@ export function CommunityView({
             : [{ id: key, otherName: other.name }, ...prev],
         );
         setActiveId(key);
+        setMobileChatOpen(true);
       } catch (e) {
         setConnectError(
           `Couldn't open that conversation: ${(e as Error).message}`,
@@ -375,7 +380,7 @@ export function CommunityView({
   );
 
   return (
-    <div className="chat-wrap">
+    <div className={`chat-wrap${mobileChatOpen ? " chat-open" : ""}`}>
       {/* Channels rail */}
       <div className="chat-channels">
         <div className="chat-channels-header">Channels</div>
@@ -386,7 +391,11 @@ export function CommunityView({
             className={`channel-item${ch.id === activeId ? " active" : ""}${
               ch.allowed ? "" : " locked"
             }`}
-            onClick={() => ch.allowed && setActiveId(ch.id)}
+            onClick={() => {
+              if (!ch.allowed) return;
+              setActiveId(ch.id);
+              setMobileChatOpen(true);
+            }}
             title={ch.allowed ? ch.description : ch.lockLabel}
           >
             <ChannelIcon size={14} />
@@ -417,7 +426,10 @@ export function CommunityView({
             key={dm.id}
             type="button"
             className={`channel-item${dm.id === activeId ? " active" : ""}`}
-            onClick={() => setActiveId(dm.id)}
+            onClick={() => {
+              setActiveId(dm.id);
+              setMobileChatOpen(true);
+            }}
             title={`Direct message with ${dm.otherName}`}
           >
             <span className="dm-avatar-mini">{initialsOf(dm.otherName)}</span>
@@ -443,6 +455,14 @@ export function CommunityView({
       {/* Main chat */}
       <div className="chat-main">
         <div className="chat-topbar">
+          <button
+            type="button"
+            className="chat-back"
+            aria-label="Back to channels"
+            onClick={() => setMobileChatOpen(false)}
+          >
+            <ArrowLeftIcon size={14} />
+          </button>
           <ChannelIcon size={16} />
           <div>
             <div className="chat-topbar-name">{active.name}</div>
