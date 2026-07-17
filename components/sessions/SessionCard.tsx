@@ -16,6 +16,8 @@ const STATUS_LABEL: Record<string, string> = {
   enrolled: "Enrolled",
   attended: "Attended",
   past: "Completed",
+  cancelled: "Cancelled",
+  draft: "Draft",
 };
 
 const STATUS_PILL: Record<string, string> = {
@@ -24,6 +26,8 @@ const STATUS_PILL: Record<string, string> = {
   enrolled: "enrolled",
   attended: "attended",
   past: "attended",
+  cancelled: "cancelled",
+  draft: "draft",
 };
 
 export function SessionCard({
@@ -36,10 +40,14 @@ export function SessionCard({
   const status = displayStatus(session, now);
   const isLive = status === "live";
   const joinable = isJoinWindowOpen(session, now) && session.isEnrolled;
+  const full =
+    session.capacity !== null && session.enrolledCount >= session.capacity;
   const countLabel =
     status === "attended" || status === "past"
-      ? `${session.enrolledCount} attended`
-      : `${session.enrolledCount} enrolled`;
+      ? `${session.enrolledCount} enrolled`
+      : session.capacity
+        ? `${session.enrolledCount} of ${session.capacity} enrolled${full && !session.isEnrolled ? " — full" : ""}`
+        : `${session.enrolledCount} enrolled`;
 
   return (
     <div className={`session-card${isLive ? " live" : ""}`}>

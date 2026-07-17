@@ -31,21 +31,34 @@ export default async function AdminSponsorsPage({
     seats: [],
   }));
 
+  let pastRows: AdminSponsorRow[] = [];
+  let pendingInvites: { email: string; tier: string; businessName: string; createdAt: string }[] = [];
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
-    const [{ data: sponsors }, { data: events }, { data: seatRows }] =
+    const [{ data: sponsors }, { data: events }, { data: seatRows }, { data: inviteRows }] =
       await Promise.all([
         admin
           .from("sponsors")
           .select(
-            "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active",
+            "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
           )
           .order("tier"),
         admin.from("sponsor_events").select("sponsor_id, kind"),
         admin
           .from("sponsor_members")
           .select("sponsor_id, profile_id, profiles ( full_name, email )"),
+        admin
+          .from("sponsor_invites")
+          .select("email, tier, business_name, created_at")
+          .is("completed_at", null)
+          .order("created_at", { ascending: false }),
       ]);
+    pendingInvites = (inviteRows ?? []).map((i) => ({
+      email: i.email as string,
+      tier: i.tier as string,
+      businessName: (i.business_name as string) ?? "",
+      createdAt: i.created_at as string,
+    }));
     if (sponsors) {
       const counts = new Map<string, { impressions: number; clicks: number }>();
       for (const e of events ?? []) {
@@ -72,7 +85,7 @@ export default async function AdminSponsorsPage({
         });
         seatsBySponsor.set(seat.sponsor_id, list);
       }
-      rows = sponsors.map((s) => ({
+      const mapRow = (s: (typeof sponsors)[number]): AdminSponsorRow => ({
         id: s.id,
         name: s.name,
         tier: s.tier,
@@ -85,7 +98,19 @@ export default async function AdminSponsorsPage({
         impressions: counts.get(s.id)?.impressions ?? 0,
         clicks: counts.get(s.id)?.clicks ?? 0,
         seats: seatsBySponsor.get(s.id) ?? [],
-      }));
+        expiresAt: (s as { expires_at?: string | null }).expires_at ?? null,
+        archivedAt: (s as { archived_at?: string | null }).archived_at ?? null,
+      });
+      const now = Date.now();
+      const isPast = (s: (typeof sponsors)[number]) => {
+        const row = s as { archived_at?: string | null; expires_at?: string | null };
+        return Boolean(
+          row.archived_at ||
+            (row.expires_at && new Date(row.expires_at).getTime() <= now),
+        );
+      };
+      rows = sponsors.filter((s) => !isPast(s)).map(mapRow);
+      pastRows = sponsors.filter(isPast).map(mapRow);
     }
   }
 
@@ -108,6 +133,8 @@ export default async function AdminSponsorsPage({
       )}
       <SponsorsManager
         sponsors={rows}
+        pastSponsors={pastRows}
+        pendingInvites={pendingInvites}
         presentedByLogoUrl={await getPresentedByLogoUrl()}
         initialEditId={searchParams?.edit}
       />

@@ -37,18 +37,59 @@ export function isLive(
   return now >= startMs(session) && now <= endMs(session);
 }
 
-export type DisplayStatus = "live" | "upcoming" | "attended" | "enrolled" | "past";
+export type DisplayStatus =
+  | "live"
+  | "upcoming"
+  | "attended"
+  | "enrolled"
+  | "past"
+  | "cancelled"
+  | "draft";
 
 export function displayStatus(
   session: Pick<
     SessionDetail,
-    "startsAt" | "durationMin" | "isEnrolled" | "attended"
+    "startsAt" | "durationMin" | "isEnrolled" | "attended" | "status"
   >,
   now: number = Date.now(),
 ): DisplayStatus {
+  // The database status wins over the clock: a cancelled or archived
+  // session must never show a live Enroll button just because its date is
+  // in the future.
+  if (session.status === "cancelled") return "cancelled";
+  if (session.status === "draft") return "draft";
+  if (session.status === "completed" || session.status === "archived") {
+    return session.attended ? "attended" : "past";
+  }
   if (isLive(session, now)) return "live";
   if (now > endMs(session)) return session.attended ? "attended" : "past";
   return session.isEnrolled ? "enrolled" : "upcoming";
+}
+
+/** True when members can still sign up (scheduled, in the future, seats left). */
+export function canEnroll(
+  session: Pick<
+    SessionDetail,
+    "startsAt" | "durationMin" | "status" | "capacity" | "enrolledCount" | "isEnrolled"
+  >,
+  now: number = Date.now(),
+): { ok: boolean; reason: "cancelled" | "past" | "full" | null } {
+  if (session.status === "cancelled") return { ok: false, reason: "cancelled" };
+  if (
+    session.status === "completed" ||
+    session.status === "archived" ||
+    now > endMs(session)
+  ) {
+    return { ok: false, reason: "past" };
+  }
+  if (
+    !session.isEnrolled &&
+    session.capacity !== null &&
+    session.enrolledCount >= session.capacity
+  ) {
+    return { ok: false, reason: "full" };
+  }
+  return { ok: true, reason: null };
 }
 
 export function dateLabel(startsAt: string): string {

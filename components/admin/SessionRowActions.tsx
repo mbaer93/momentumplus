@@ -3,7 +3,10 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deleteSession } from "@/app/(portal)/admin/sessions/actions";
+import {
+  cancelSession,
+  deleteSession,
+} from "@/app/(portal)/admin/sessions/actions";
 
 export function SessionRowActions({
   sessionId,
@@ -15,6 +18,20 @@ export function SessionRowActions({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
+
+  function onCancel() {
+    if (
+      !confirm(
+        "Cancel this session? Members will see it marked Cancelled and enrollment closes. They are NOT notified automatically — send an announcement if they should hear about it.",
+      )
+    )
+      return;
+    startTransition(async () => {
+      const res = await cancelSession(sessionId);
+      setNote(res.message ?? null);
+      if (res.ok) router.refresh();
+    });
+  }
 
   function onDelete() {
     if (!confirm("Delete this session? This cannot be undone.")) return;
@@ -56,6 +73,15 @@ export function SessionRowActions({
         }
       >
         Publish
+      </button>
+      <button
+        type="button"
+        className="btn-mini"
+        onClick={onCancel}
+        disabled={pending}
+        title="Mark cancelled (keeps history; members see it as Cancelled)"
+      >
+        Cancel
       </button>
       <button
         type="button"

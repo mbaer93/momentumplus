@@ -10,17 +10,23 @@ import {
 export function EnrollButton({
   sessionId,
   initialEnrolled,
+  full = false,
 }: {
   sessionId: string;
   initialEnrolled: boolean;
+  /** Session at capacity (and viewer not enrolled): render a disabled
+      "Session full" state instead of a button that fails on click. */
+  full?: boolean;
 }) {
   const [enrolled, setEnrolled] = useState(initialEnrolled);
   const [message, setMessage] = useState<string | null>(null);
+  const [isError, setIsError] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   function toggle() {
     setMessage(null);
+    setIsError(false);
     startTransition(async () => {
       const res = enrolled
         ? await unenrollFromSession(sessionId)
@@ -30,13 +36,22 @@ export function EnrollButton({
         if (res.preview) setMessage(res.message ?? null);
         router.refresh();
       } else {
-        setMessage(res.message ?? "Something went wrong.");
+        setIsError(true);
+        setMessage(res.message ?? "Something went wrong — try again.");
       }
     });
   }
 
+  if (full && !enrolled) {
+    return (
+      <span className="status-pill cancelled" style={{ padding: "8px 14px" }}>
+        Session full
+      </span>
+    );
+  }
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <button
         type="button"
         className={enrolled ? "btn-ghost" : "btn-gold"}
@@ -51,7 +66,12 @@ export function EnrollButton({
         {pending ? "…" : enrolled ? "Enrolled — Cancel" : "Enroll"}
       </button>
       {message && (
-        <span style={{ fontSize: 12, color: "var(--gold-light)" }}>
+        <span
+          style={{
+            fontSize: 12,
+            color: isError ? "#e08585" : "var(--gold-light)",
+          }}
+        >
           {message}
         </span>
       )}

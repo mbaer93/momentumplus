@@ -46,7 +46,19 @@ export async function enrollInSession(sessionId: string): Promise<ActionResult> 
         message: "This session is at capacity — no seats left.",
       };
     }
-    return { ok: false, message: error.message };
+    // RLS blocks enrolling in cancelled/completed/archived sessions — the
+    // raw policy violation reads like a database stack trace to a member.
+    if (/row-level security/i.test(error.message)) {
+      return {
+        ok: false,
+        message:
+          "Enrollment isn't open for this session — it may have been cancelled or already ended.",
+      };
+    }
+    return {
+      ok: false,
+      message: "Couldn't enroll you just now — refresh and try again.",
+    };
   }
 
   revalidatePath(`/sessions/${sessionId}`);

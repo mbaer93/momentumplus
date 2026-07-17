@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSession } from "@/lib/sessions/queries";
 import { requireMember } from "@/lib/current-member";
-import { isJoinWindowOpen } from "@/lib/sessions/view";
+import { endMs, isJoinWindowOpen } from "@/lib/sessions/view";
 import { dateLabel, timeLabel } from "@/lib/sessions/view";
 import { LiveRoom } from "@/components/sessions/LiveRoom";
 
@@ -39,21 +39,45 @@ export default async function LiveSessionPage({
     );
   }
 
-  // The room opens 30 minutes before start.
+  // The room opens 30 minutes before start — and closes when the session
+  // ends. The two states need different words: telling someone a finished
+  // session "isn't open yet" is a dead end.
   if (!isJoinWindowOpen(session)) {
+    const ended = Date.now() > endMs(session);
     return (
       <div className="dash-pad">
         <div className="placeholder" style={{ margin: "40px auto" }}>
-          <h3>The live room isn&apos;t open yet</h3>
-          <p>
-            This room opens 30 minutes before the session begins —{" "}
-            {dateLabel(session.startsAt)} at {timeLabel(session.startsAt)}.
-          </p>
-          <p style={{ marginTop: 16 }}>
-            <Link href={`/sessions/${session.slug}`} className="btn-primary">
-              Back to session
-            </Link>
-          </p>
+          {ended ? (
+            <>
+              <h3>This session has ended</h3>
+              <p>
+                The recording lands in the Session Library with AI takeaways,
+                usually within a couple of days. Your private notes are saved
+                on the session page.
+              </p>
+              <p style={{ marginTop: 16, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                <Link href={`/sessions/${session.slug}`} className="btn-primary">
+                  Session notes &amp; summary
+                </Link>
+                <Link href="/library" className="btn-ghost" style={{ color: "var(--text)" }}>
+                  Browse the library
+                </Link>
+              </p>
+            </>
+          ) : (
+            <>
+              <h3>The live room isn&apos;t open yet</h3>
+              <p>
+                This room opens 30 minutes before the session begins —{" "}
+                {dateLabel(session.startsAt)} at {timeLabel(session.startsAt)}.
+              </p>
+              <p style={{ marginTop: 16 }}>
+                <Link href={`/sessions/${session.slug}`} className="btn-primary">
+                  Back to session
+                </Link>
+              </p>
+            </>
+          )}
         </div>
       </div>
     );

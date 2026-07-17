@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import type { SessionDetail } from "@/lib/types";
 import { DocIcon, ExternalIcon } from "@/components/icons";
 import { NotesEditor } from "./NotesEditor";
@@ -200,12 +199,17 @@ export function LiveRoom({
               ))}
             {tab === "community" && (
               <div className="live-community-msg">
-                The live session chat channel opens here once the community
-                feature (Stream Chat) ships in Phase 4. For now, use{" "}
-                <Link href="/community" style={{ color: "var(--gold)" }}>
+                Chat with other members during the session in{" "}
+                <a
+                  href="/community"
+                  target="_blank"
+                  rel="noopener"
+                  style={{ color: "var(--gold)" }}
+                >
                   Community
-                </Link>{" "}
-                to keep the conversation going.
+                </a>{" "}
+                — it opens in a new tab so you stay in the room. Zoom&apos;s
+                own in-meeting chat works here too.
               </div>
             )}
           </div>

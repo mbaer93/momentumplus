@@ -21,7 +21,7 @@ export interface ProfileSessionRow {
   month: string;
   day: string;
   timeLabel: string;
-  status: "upcoming" | "enrolled" | "attended" | "live" | "past";
+  status: import("@/lib/sessions/view").DisplayStatus;
 }
 
 export interface ProfileActivityRow {

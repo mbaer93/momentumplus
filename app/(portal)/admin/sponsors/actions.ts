@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { provisionMember } from "@/lib/onboarding";
 import { PRESENTED_BY_PATH } from "@/lib/presented-by";
+import { seasonEnd } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -401,4 +402,238 @@ export async function removeSponsorAd(sponsorId: string): Promise<SponsorResult>
   revalidateTag("presented-by");
   revalidatePath("/", "layout");
   return { ok: true, message: "Ad graphic removed." };
+}
+
+
+/* =====================================================================
+   Sponsor lifecycle (Matt, 2026-07-17): invite a sponsor rep by email;
+   they self-serve the business + personal details at /sponsor-onboarding.
+   Sponsorships and rep Pro access run through October 1; archived/expired
+   sponsors are hidden from members (never deleted) and reinstatable.
+   ===================================================================== */
+
+export interface SponsorInviteResult extends SponsorResult {
+  /** Manual sign-in link when the invite email could not be sent. */
+  loginLink?: string | null;
+}
+
+export async function inviteSponsorRep(
+  emailRaw: string,
+  tierRaw: string,
+  businessName: string,
+): Promise<SponsorInviteResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Invite sent (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const email = emailRaw.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, message: "That doesn't look like a valid email." };
+  }
+  const { normalizeSponsorTier } = await import("@/lib/sponsor-tiers");
+  const tier = normalizeSponsorTier(tierRaw);
+
+  const admin = createServiceClient();
+
+  // One pending invite per email: refresh it instead of stacking.
+  const { data: pending } = await admin
+    .from("sponsor_invites")
+    .select("id")
+    .ilike("email", emailPattern(email))
+    .is("completed_at", null)
+    .maybeSingle();
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .ilike("email", emailPattern(email))
+    .maybeSingle();
+
+  let profileId: string | null = profile?.id ?? null;
+  let accountCreated = false;
+  let invited = false;
+  let loginLink: string | null = null;
+
+  if (!profileId) {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const { data: inv } = await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: siteUrl
+        ? `${siteUrl}/auth/callback?redirect=/sponsor-onboarding`
+        : undefined,
+    });
+    if (inv?.user) {
+      profileId = inv.user.id;
+      invited = true;
+      accountCreated = true;
+    } else {
+      const { findAuthUserIdByEmail, createAccountWithoutEmail } =
+        await import("@/lib/onboarding");
+      profileId = await findAuthUserIdByEmail(email);
+      if (!profileId) {
+        const created = await createAccountWithoutEmail(email);
+        profileId = created.profileId;
+        loginLink = created.loginLink ?? null;
+        accountCreated = true;
+      }
+    }
+  }
+  if (!profileId) {
+    return { ok: false, message: "Couldn't create an account for that email." };
+  }
+
+  const inviteRow = {
+    email,
+    tier,
+    business_name: businessName.trim() || null,
+    invited_profile_id: profileId,
+    account_created: accountCreated,
+    created_by: auth.userId,
+    completed_at: null,
+  };
+  const { error } = pending
+    ? await admin.from("sponsor_invites").update(inviteRow).eq("id", pending.id)
+    : await admin.from("sponsor_invites").insert(inviteRow);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin/sponsors");
+  return {
+    ok: true,
+    loginLink,
+    message: invited
+      ? `Invite sent to ${email} — the email walks them through adding their business and their own details.`
+      : loginLink
+        ? `Account created but the invite email failed to send — copy the sign-in link below and send it to ${email} yourself.`
+        : `${email} already has a Momentum+ account — they'll see the sponsor setup form at momentumplus.co/sponsor-onboarding the next time they sign in (send them that link).`,
+  };
+}
+
+/** Retire a sponsor into the admin-only Past Sponsors archive. */
+export async function archiveSponsor(sponsorId: string): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Archived (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("sponsors")
+    .update({ archived_at: new Date().toISOString(), rail_active: false })
+    .eq("id", sponsorId);
+  if (error) return { ok: false, message: error.message };
+
+  // End the reps' sponsor-comp Pro access now (unless another ACTIVE
+  // sponsor still seats them).
+  const { data: seats } = await admin
+    .from("sponsor_members")
+    .select("profile_id")
+    .eq("sponsor_id", sponsorId);
+  const repIds = (seats ?? []).map((r) => r.profile_id as string);
+  if (repIds.length > 0) {
+    const { data: otherSeats } = await admin
+      .from("sponsor_members")
+      .select("profile_id, sponsors!inner ( archived_at, expires_at )")
+      .in("profile_id", repIds)
+      .neq("sponsor_id", sponsorId);
+    const stillActive = new Set(
+      (otherSeats ?? [])
+        .filter((r) => {
+          const sp = r.sponsors as unknown as {
+            archived_at: string | null;
+            expires_at: string | null;
+          };
+          return (
+            !sp.archived_at &&
+            (!sp.expires_at || new Date(sp.expires_at) > new Date())
+          );
+        })
+        .map((r) => r.profile_id as string),
+    );
+    const toExpire = repIds.filter((id) => !stillActive.has(id));
+    if (toExpire.length > 0) {
+      await admin
+        .from("memberships")
+        .update({
+          status: "expired",
+          access_expires_at: new Date().toISOString(),
+        })
+        .in("profile_id", toExpire)
+        .eq("tier", "pro")
+        .eq("source", "sponsor")
+        .eq("status", "active");
+    }
+  }
+
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsors");
+  revalidateTag("sponsors");
+  revalidateTag("presented-by");
+  return {
+    ok: true,
+    message:
+      "Moved to Past Sponsors — hidden from members, reps' sponsor access ended. Reinstate anytime.",
+  };
+}
+
+/** Bring a past sponsor back: visible again, term through next October 1,
+    reps' Pro access restored to the same date. */
+export async function reinstateSponsor(
+  sponsorId: string,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Reinstated (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const termEnd = seasonEnd().toISOString();
+  const { error } = await admin
+    .from("sponsors")
+    .update({ archived_at: null, expires_at: termEnd })
+    .eq("id", sponsorId);
+  if (error) return { ok: false, message: error.message };
+
+  // Restore the reps' Pro seats through the new term.
+  const { data: seats } = await admin
+    .from("sponsor_members")
+    .select("profile_id")
+    .eq("sponsor_id", sponsorId);
+  for (const seat of seats ?? []) {
+    const { data: existing } = await admin
+      .from("memberships")
+      .select("id")
+      .eq("profile_id", seat.profile_id)
+      .eq("tier", "pro")
+      .eq("source", "sponsor")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      await admin
+        .from("memberships")
+        .update({ status: "active", access_expires_at: termEnd })
+        .eq("id", existing.id);
+    } else {
+      await admin.from("memberships").insert({
+        profile_id: seat.profile_id,
+        tier: "pro",
+        status: "active",
+        access_starts_at: new Date().toISOString(),
+        access_expires_at: termEnd,
+        source: "sponsor",
+      });
+    }
+  }
+
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsors");
+  revalidateTag("sponsors");
+  revalidateTag("presented-by");
+  return {
+    ok: true,
+    message: `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — visible to members again, reps' Pro access restored.`,
+  };
 }

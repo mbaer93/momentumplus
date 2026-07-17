@@ -824,6 +824,14 @@
   background: rgba(58, 112, 85, 0.12);
   color: var(--accent-green);
 }
+.status-pill.cancelled {
+  background: rgba(160, 64, 64, 0.12);
+  color: var(--accent-red);
+}
+.status-pill.draft {
+  background: rgba(92, 61, 122, 0.12);
+  color: var(--purple);
+}
 .status-pill.live {
   background: var(--accent-red);
   color: white;
@@ -1433,6 +1441,7 @@
 /* ===== LIVE ROOM ===== */
 .live-wrap {
   height: calc(100vh - var(--header-height));
+  height: calc(100dvh - var(--header-height));
   display: flex;
   flex-direction: column;
   background: var(--navy);
@@ -3839,6 +3848,13 @@ a.course-card:hover {
 
   /* --- Live session room --- */
   .live-side { height: 48%; }
+  .live-topbar { gap: 8px; }
+  .live-topbar > div { min-width: 0; }
+  .live-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   /* --- Landing page nav: keep wordmark + login, hide anchor links --- */
   .land-nav-links a:not(.land-login-btn) { display: none; }
@@ -4026,3 +4042,43 @@ a.course-card:hover {
 }
 .skeleton-card { height: 96px; }
 .skeleton-block { height: 280px; }
+
+/* ===== ERROR / 404 SCREENS ===== */
+.error-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.error-card {
+  max-width: 440px;
+  text-align: center;
+  color: var(--cream);
+}
+.error-logo {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 30px;
+  color: var(--gold-light);
+  margin-bottom: 16px;
+}
+.error-card h1 {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 24px;
+  color: #fff;
+  margin: 0 0 10px;
+}
+.error-card p {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: rgba(248, 246, 241, 0.78);
+  margin: 0 0 22px;
+}
+.error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}

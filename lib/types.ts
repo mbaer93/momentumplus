@@ -35,7 +35,8 @@ export type SessionStatus =
   | "scheduled"
   | "live"
   | "completed"
-  | "archived";
+  | "archived"
+  | "cancelled";
 
 export interface Profile {
   id: string;

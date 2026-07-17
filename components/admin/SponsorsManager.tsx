@@ -6,8 +6,11 @@ import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
 import {
+  archiveSponsor,
   createSponsor,
   deleteSponsor,
+  inviteSponsorRep,
+  reinstateSponsor,
   linkSponsorMember,
   removePresentedByLogo,
   removeSponsorAd,
@@ -40,6 +43,10 @@ export interface AdminSponsorRow {
   clicks: number;
   /** Members holding a seat (each gets Pro while linked). */
   seats: SponsorSeat[];
+  /** Sponsorship term end (October 1); null = no term. */
+  expiresAt?: string | null;
+  /** Set when retired to the Past Sponsors archive. */
+  archivedAt?: string | null;
 }
 
 const EMPTY: SponsorInput = {
@@ -131,10 +138,21 @@ function SponsorFields({
 
 export function SponsorsManager({
   sponsors,
+  pastSponsors = [],
+  pendingInvites = [],
   presentedByLogoUrl,
   initialEditId,
 }: {
   sponsors: AdminSponsorRow[];
+  /** Archived or term-expired sponsors — admin-only, reinstatable. */
+  pastSponsors?: AdminSponsorRow[];
+  /** Sponsor onboarding invites that haven't been completed yet. */
+  pendingInvites?: {
+    email: string;
+    tier: string;
+    businessName: string;
+    createdAt: string;
+  }[];
   /** Current site-wide "Presented by" logo (left panel), if uploaded. */
   presentedByLogoUrl?: string | null;
   initialEditId?: string;
@@ -160,6 +178,9 @@ export function SponsorsManager({
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [seatEmail, setSeatEmail] = useState("");
+  const [invite, setInvite] = useState({ email: "", tier: "partner", businessName: "" });
+  const [inviteMsg, setInviteMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function run(fn: () => Promise<{ ok: boolean; message?: string }>) {
@@ -232,6 +253,113 @@ export function SponsorsManager({
 
   return (
     <div>
+      {/* Sponsor self-service onboarding: enter the rep's email; they fill
+          in the business + their own details and get Pro access to Oct 1. */}
+      <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
+        <div className="admin-field" style={{ marginBottom: 4 }}>
+          <label style={{ fontSize: 13 }}>Invite a sponsor</label>
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+          Enter the sponsor representative&apos;s email and pick their tier.
+          They get an email that walks them through adding the business and
+          their own details — no data entry on your side. The rep receives
+          Momentum+ Pro access, and the sponsorship runs through October 1.
+        </div>
+        <div className="admin-field-row" style={{ gridTemplateColumns: "1.4fr 1fr 1.2fr auto", alignItems: "end" }}>
+          <div className="admin-field">
+            <label htmlFor="sp-invite-email">Rep email</label>
+            <input
+              id="sp-invite-email"
+              type="email"
+              value={invite.email}
+              onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+              placeholder="rep@business.com"
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="sp-invite-tier">Tier</label>
+            <select
+              id="sp-invite-tier"
+              value={invite.tier}
+              onChange={(e) => setInvite({ ...invite, tier: e.target.value })}
+            >
+              {SPONSOR_TIERS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="sp-invite-biz">Business name (optional prefill)</label>
+            <input
+              id="sp-invite-biz"
+              value={invite.businessName}
+              onChange={(e) =>
+                setInvite({ ...invite, businessName: e.target.value })
+              }
+              placeholder="They can edit this"
+            />
+          </div>
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending || !invite.email.includes("@")}
+            onClick={() => {
+              setInviteMsg(null);
+              setInviteLink(null);
+              startTransition(async () => {
+                const res = await inviteSponsorRep(
+                  invite.email,
+                  invite.tier,
+                  invite.businessName,
+                );
+                setInviteMsg(
+                  res.message ? { text: res.message, ok: res.ok } : null,
+                );
+                setInviteLink(res.loginLink ?? null);
+                if (res.ok) {
+                  setInvite({ email: "", tier: "partner", businessName: "" });
+                  router.refresh();
+                }
+              });
+            }}
+          >
+            Send invite
+          </button>
+        </div>
+        {inviteMsg && (
+          <div className={`admin-form-msg ${inviteMsg.ok ? "ok" : "err"}`}>
+            {inviteMsg.text}
+          </div>
+        )}
+        {inviteLink && (
+          <div className="admin-form-actions" style={{ marginTop: 8, alignItems: "center" }}>
+            <code style={{ fontSize: 11, wordBreak: "break-all", flex: 1 }}>
+              {inviteLink}
+            </code>
+            <button
+              type="button"
+              className="btn-mini"
+              onClick={() => void navigator.clipboard.writeText(inviteLink)}
+            >
+              Copy link
+            </button>
+          </div>
+        )}
+        {pendingInvites.length > 0 && (
+          <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--mid-gray)" }}>
+            Waiting on:{" "}
+            {pendingInvites
+              .map(
+                (i) =>
+                  `${i.email}${i.businessName ? ` (${i.businessName})` : ""} — ${sponsorTierLabel(i.tier)}`,
+              )
+              .join(" · ")}
+          </div>
+        )}
+      </div>
+
       {/* Presented-by logo: one site-wide slot for the Momentum+ Sponsor. */}
       <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
         <div className="admin-field" style={{ marginBottom: 4 }}>
@@ -397,10 +525,27 @@ export function SponsorsManager({
                       </button>
                       <button
                         type="button"
+                        className="btn-mini"
+                        disabled={pending}
+                        title="Move to Past Sponsors (hidden from members, reversible)"
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Archive ${s.name}? They disappear from member pages and their reps' sponsor access ends — nothing is deleted, and you can reinstate them anytime.`,
+                            )
+                          ) {
+                            run(() => archiveSponsor(s.id));
+                          }
+                        }}
+                      >
+                        Archive
+                      </button>
+                      <button
+                        type="button"
                         className="btn-mini danger"
                         disabled={pending}
                         onClick={() => {
-                          if (confirm(`Delete ${s.name}?`)) {
+                          if (confirm(`Delete ${s.name}? For retiring a sponsor, Archive is usually what you want — Delete erases them permanently.`)) {
                             run(() => deleteSponsor(s.id));
                           }
                         }}
@@ -616,6 +761,66 @@ export function SponsorsManager({
           </tbody>
         </table>
       </div>
+
+      {pastSponsors.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <div className="admin-field" style={{ marginBottom: 6 }}>
+            <label style={{ fontSize: 13 }}>
+              Past sponsors ({pastSponsors.length}) — hidden from members
+            </label>
+          </div>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Sponsor</th>
+                  <th>Tier</th>
+                  <th>Term ended</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pastSponsors.map((s) => (
+                  <tr key={s.id}>
+                    <td className="admin-row-title">{s.name}</td>
+                    <td>{sponsorTierLabel(s.tier)}</td>
+                    <td style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                      {s.archivedAt
+                        ? `Archived ${new Date(s.archivedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                        : s.expiresAt
+                          ? `Expired ${new Date(s.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                          : "—"}
+                    </td>
+                    <td>
+                      <div
+                        className="admin-actions-cell"
+                        style={{ justifyContent: "flex-end" }}
+                      >
+                        <button
+                          type="button"
+                          className="btn-mini"
+                          disabled={pending}
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through next October 1.`,
+                              )
+                            ) {
+                              run(() => reinstateSponsor(s.id));
+                            }
+                          }}
+                        >
+                          Reinstate as sponsor
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
