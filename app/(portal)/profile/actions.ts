@@ -79,6 +79,8 @@ export async function updateProfile(input: {
   title: string;
   industry: string;
   bio: string;
+  /** Opt-in: show email/phone on the Member Directory (default off). */
+  share_contact?: boolean;
   /** Only persisted when the caller is an admin (chat badge title). */
   admin_title?: string;
 }): Promise<ProfileResult> {
@@ -91,7 +93,7 @@ export async function updateProfile(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
 
-  const update: Record<string, string | null> = {
+  const update: Record<string, string | boolean | null> = {
     full_name: input.full_name.trim(),
     phone: input.phone.trim() || null,
     company: input.company.trim() || null,
@@ -99,6 +101,9 @@ export async function updateProfile(input: {
     industry: input.industry.trim() || null,
     bio: input.bio.trim() || null,
   };
+  if (input.share_contact !== undefined) {
+    update.share_contact = input.share_contact;
+  }
   if (input.admin_title !== undefined) {
     const member = await getCurrentMember();
     if (member?.isAdmin) {
@@ -107,7 +112,12 @@ export async function updateProfile(input: {
   }
 
   // RLS: members can only update their own profile row.
-  const { error } = await supabase.from("profiles").update(update).eq("id", user.id);
+  let { error } = await supabase.from("profiles").update(update).eq("id", user.id);
+  if (error && error.message.includes("share_contact")) {
+    // Pre-migration fallback: the column arrives with 0034.
+    delete update.share_contact;
+    ({ error } = await supabase.from("profiles").update(update).eq("id", user.id));
+  }
 
   if (error) return { ok: false, message: error.message };
   revalidatePath("/profile");

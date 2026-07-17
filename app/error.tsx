@@ -1,15 +1,23 @@
 "use client";
 
+import { useEffect } from "react";
+import { reportClientError } from "@/lib/report-error";
+
 /*
  * Route-level error boundary — a transient Supabase/network failure used to
  * surface Next's unbranded "Application error" screen with no way forward.
+ * Every render of this screen also reports home (throttled server-side).
  */
 export default function AppError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    reportClientError(error);
+  }, [error]);
   return (
     <div className="error-screen">
       <div className="error-card">

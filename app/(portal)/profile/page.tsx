@@ -34,6 +34,7 @@ export default async function ProfilePage() {
         title: "Executive Coach",
         industry: "Leadership Development",
         bio: "",
+        share_contact: false,
         admin_title: "",
         created_at: "2024-11-12T00:00:00.000Z",
       }
@@ -43,6 +44,7 @@ export default async function ProfilePage() {
         title: "",
         industry: "",
         bio: "",
+        share_contact: false,
         admin_title: "",
         created_at: new Date().toISOString(),
       };
@@ -55,11 +57,11 @@ export default async function ProfilePage() {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      const [{ data: p }, { data: prefRows }] = await Promise.all([
+      let [{ data: p }, prefsRes] = await Promise.all([
         supabase
           .from("profiles")
           .select(
-            "phone, company, title, industry, bio, admin_title, stripe_customer_id, created_at",
+            "phone, company, title, industry, bio, share_contact, admin_title, stripe_customer_id, created_at",
           )
           .eq("id", user.id)
           .maybeSingle(),
@@ -68,6 +70,17 @@ export default async function ProfilePage() {
           .select("key, email, sms, in_app")
           .eq("profile_id", user.id),
       ]);
+      if (!p) {
+        // Pre-migration fallback: share_contact arrives with 0034.
+        ({ data: p } = (await supabase
+          .from("profiles")
+          .select(
+            "phone, company, title, industry, bio, admin_title, stripe_customer_id, created_at",
+          )
+          .eq("id", user.id)
+          .maybeSingle()) as { data: typeof p });
+      }
+      const { data: prefRows } = prefsRes;
       if (p) {
         profileRow = {
           phone: p.phone ?? "",
@@ -75,6 +88,9 @@ export default async function ProfilePage() {
           title: p.title ?? "",
           industry: p.industry ?? "",
           bio: p.bio ?? "",
+          share_contact: Boolean(
+            (p as { share_contact?: boolean }).share_contact,
+          ),
           admin_title: p.admin_title ?? "",
           created_at: p.created_at,
         };
@@ -194,6 +210,7 @@ export default async function ProfilePage() {
         title: profileRow.title,
         industry: profileRow.industry,
         bio: profileRow.bio,
+        shareContact: profileRow.share_contact,
         adminTitle: profileRow.admin_title,
         memberSince,
       }}

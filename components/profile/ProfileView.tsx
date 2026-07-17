@@ -50,6 +50,8 @@ interface ProfileViewProps {
     industry: string;
     bio: string;
     memberSince: string;
+    /** Opt-in: share email/phone on the Member Directory. */
+    shareContact: boolean;
     /** Admin-only: title shown next to the Admin badge in community chat. */
     adminTitle: string;
   };
@@ -90,6 +92,7 @@ export function ProfileView({
     title: profile.title,
     industry: profile.industry,
     bio: profile.bio,
+    share_contact: profile.shareContact,
     admin_title: profile.adminTitle,
   });
   const [pending, startTransition] = useTransition();
@@ -337,12 +340,21 @@ export function ProfileView({
                             : ""}
                         </div>
                       </div>
-                      <Link
-                        href={`/education/${c.courseId}/certificate`}
-                        className="btn-mini"
-                      >
-                        View / print certificate
-                      </Link>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <a
+                          href={`/api/education/${c.courseId}/certificate`}
+                          className="btn-mini"
+                          download
+                        >
+                          Download PDF
+                        </a>
+                        <Link
+                          href={`/education/${c.courseId}/certificate`}
+                          className="btn-mini"
+                        >
+                          View / print
+                        </Link>
+                      </div>
                     </div>
                   ))
                 )}
@@ -422,6 +434,22 @@ export function ProfileView({
                       onChange={(e) => setForm({ ...form, bio: e.target.value })}
                     />
                   </div>
+                  <label className="admin-check-row">
+                    <input
+                      type="checkbox"
+                      className="pref-toggle"
+                      checked={form.share_contact}
+                      onChange={(e) =>
+                        setForm({ ...form, share_contact: e.target.checked })
+                      }
+                    />
+                    <span>
+                      Share my contact info in the Member Directory — other
+                      members can see my email
+                      {" "}and phone. Off by default; your name, title, and
+                      company are always listed.
+                    </span>
+                  </label>
                   {member.isAdmin && (
                     <div className="admin-field">
                       <label htmlFor="pf-admin-title">

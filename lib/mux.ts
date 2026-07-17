@@ -131,6 +131,18 @@ export async function createMuxDirectUpload(
   });
 }
 
+/**
+ * Ingest a video Mux can download itself (e.g. a Zoom cloud-recording
+ * download URL with its access token) — the recording pipeline's entry
+ * point. Returns the new asset id; poll getMuxAsset for readiness.
+ */
+export async function createMuxAssetFromUrl(inputUrl: string): Promise<MuxAsset> {
+  return muxRequest<MuxAsset>("POST", "/video/v1/assets", {
+    input: [{ url: inputUrl }],
+    playback_policy: [isMuxSigningConfigured() ? "signed" : "public"],
+  });
+}
+
 export interface MuxUploadStatus {
   id: string;
   status: string; // waiting | asset_created | errored | cancelled | timed_out

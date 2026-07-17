@@ -13,6 +13,10 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/cron/dunning",
+      "schedule": "0 13 * * *"
+    },
+    {
       "path": "/api/cron/reminders",
       "schedule": "*/5 * * * *"
     },

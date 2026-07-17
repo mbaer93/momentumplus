@@ -24,6 +24,8 @@ export default function robots(): MetadataRoute.Robots {
           "/resources",
           "/sponsors",
           "/services",
+          "/members",
+          "/search",
           "/rooted-focus",
           "/aspire2achieve",
           "/networking",
