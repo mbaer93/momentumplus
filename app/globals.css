@@ -3709,39 +3709,41 @@ a.course-card:hover {
   .topbar-search { width: 170px; }
 }
 
-/* Community chat: channels become a horizontal chip strip on top */
+/* Community chat on phones: one pane at a time, like a messaging app.
+   The channel list fills the screen; picking a channel slides you into the
+   conversation, and a back arrow in the chat topbar returns to the list
+   (.chat-wrap.chat-open toggled by CommunityView). Desktop keeps both
+   panes side by side and never shows the back arrow. */
+.chat-back { display: none; }
 @media (max-width: 820px) {
-  .chat-wrap { flex-direction: column; }
   .chat-channels {
     width: 100%;
-    flex-direction: row;
-    align-items: center;
-    gap: 6px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 10px 12px;
     border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-    flex-shrink: 0;
-    -webkit-overflow-scrolling: touch;
+    padding-top: 4px;
   }
-  .chat-channels-header {
-    padding: 0 4px;
-    margin: 0 !important;
-    white-space: nowrap;
+  .chat-wrap.chat-open .chat-channels { display: none; }
+  .chat-main { display: none; }
+  .chat-wrap.chat-open .chat-main { display: flex; }
+  /* Roomy, tappable rows in the full-screen list */
+  .channel-item { padding: 13px 18px; font-size: 15px; }
+  .chat-channels-header { padding: 18px 18px 8px; }
+  .chat-back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin-left: -8px;
+    border: none;
+    background: none;
+    color: var(--mid-gray);
+    border-radius: 8px;
+    cursor: pointer;
     flex-shrink: 0;
   }
-  .channel-item {
-    width: auto;
-    flex-shrink: 0;
-    white-space: nowrap;
-    padding: 7px 13px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-  }
-  .channel-item.active { border-color: var(--gold); }
+  .chat-back:hover { background: var(--warm-gray); color: var(--text); }
   .chat-messages { padding: 14px; }
-  .chat-topbar { padding: 0 14px; }
+  .chat-topbar { padding: 0 14px; gap: 10px; }
 }
 
 @media (max-width: 640px) {
