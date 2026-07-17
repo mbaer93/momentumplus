@@ -90,12 +90,18 @@ export default async function DashboardPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    let newMessages = 0;
     if (user) {
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("created_at")
-        .eq("id", user.id)
-        .maybeSingle();
+      const [{ data: p }, unread] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("created_at")
+          .eq("id", user.id)
+          .maybeSingle(),
+        // Real unread count from Stream — this stat was hardcoded to 0.
+        import("@/lib/stream").then((m) => m.getUnreadTotal(user.id)),
+      ]);
+      newMessages = unread;
       if (p?.created_at) {
         memberSinceDays = Math.max(
           1,
@@ -109,7 +115,7 @@ export default async function DashboardPage() {
     stats = {
       upcomingSessions: future.length,
       sessionsAttended: attended,
-      newMessages: 0, // becomes live with Stream chat
+      newMessages,
       memberSinceDays,
     };
 

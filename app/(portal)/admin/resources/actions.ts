@@ -145,6 +145,15 @@ export async function createResource(input: ResourceInput): Promise<AdminResult>
   if (created && input.url.trim()) {
     pulled = await tryPullImageFromLink(created.id, input.url.trim());
   }
+  if (created && input.active) {
+    const { notifyMembersInApp } = await import("@/lib/engagement-notify");
+    await notifyMembersInApp({
+      key: "resource_new",
+      title: "New resource available",
+      body: input.title,
+      link: "/resources",
+    });
+  }
   refresh();
   return {
     ok: true,

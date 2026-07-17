@@ -81,5 +81,17 @@ export async function POST(
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // Draft → scheduled is the moment a session becomes real for members —
+  // tell the bell (honors each member's session_new preference; deduped).
+  if (session.status === "draft" && update.status === "scheduled") {
+    const { notifyMembersInApp } = await import("@/lib/engagement-notify");
+    await notifyMembersInApp({
+      key: "session_new",
+      title: "New session on the calendar",
+      body: session.title,
+      link: `/sessions/${session.id}`,
+    });
+  }
+
   return NextResponse.json({ ok: true, ...update });
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   directMessages,
   onlineMembers,
@@ -152,8 +153,13 @@ export function CommunityView({
   const [dmPickerOpen, setDmPickerOpen] = useState(false);
   const [directory, setDirectory] = useState<DirectoryMember[] | null>(null);
   const [dmSearch, setDmSearch] = useState("");
+  // Per-conversation unread counts drive the badges in the channel rail.
+  const [unread, setUnread] = useState<Record<string, number>>({});
   const streamRef = useRef<StreamHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // The message.new listeners close over this ref to know which
+  // conversation is on screen (state would be stale inside them).
+  const activeIdRef = useRef(activeId);
 
   const activeDm = dms.find((d) => d.id === activeId) ?? null;
   const active: ChannelInfo = activeDm
@@ -186,6 +192,11 @@ export function CommunityView({
           ...prev,
           [key]: [...(prev[key] ?? []), toChatMessage(m, viewerId, true)],
         }));
+        // Someone else's message in a conversation that isn't on screen →
+        // bump its unread badge.
+        if (m.user?.id !== viewerId && activeIdRef.current !== key) {
+          setUnread((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+        }
       });
       channel.on("message.deleted", (event) => {
         const deletedId = event.message?.id;
@@ -235,6 +246,11 @@ export function CommunityView({
           await channel.watch();
           chans.set(ch.id, channel);
           wireChannel(channel, ch.id, cfg.userId);
+          // Seed the unread badge from Stream's read state.
+          const count = channel.countUnread();
+          if (count > 0) {
+            setUnread((prev) => ({ ...prev, [ch.id]: count }));
+          }
         }
         streamRef.current = { client, channels: chans, userId: cfg.userId };
         setLive(true);
@@ -260,11 +276,50 @@ export function CommunityView({
             chans.set(key, ch);
             wireChannel(ch, key, cfg.userId);
             found.push({ id: key, otherName: dmPartnerName(ch, cfg.userId) });
+            const count = ch.countUnread();
+            if (count > 0) {
+              setUnread((prev) => ({ ...prev, [key]: count }));
+            }
           }
           setDms(found);
         } catch {
           // DM listing is best-effort; group chat stays up regardless.
         }
+
+        // A brand-new DM (first message from someone you've never chatted
+        // with) arrives on a channel we're not watching — pick it up live
+        // instead of waiting for a refresh.
+        const adoptDm = async (channelId?: string | null) => {
+          const key = channelId ?? null;
+          if (!key || communityIds.has(key) || chans.has(key) || cancelled) {
+            return;
+          }
+          try {
+            const channel = client.channel("messaging", key);
+            await channel.watch();
+            if (cancelled) return;
+            chans.set(key, channel);
+            wireChannel(channel, key, cfg.userId);
+            const otherName = dmPartnerName(channel, cfg.userId);
+            setDms((prev) =>
+              prev.some((d) => d.id === key)
+                ? prev
+                : [{ id: key, otherName }, ...prev],
+            );
+            const count = channel.countUnread();
+            if (count > 0) {
+              setUnread((prev) => ({ ...prev, [key]: count }));
+            }
+          } catch {
+            // Best-effort — the message still shows after a refresh.
+          }
+        };
+        client.on("notification.message_new", (event) => {
+          void adoptDm(event.channel?.id ?? event.channel_id);
+        });
+        client.on("notification.added_to_channel", (event) => {
+          void adoptDm(event.channel?.id ?? event.channel_id);
+        });
       } catch (e) {
         // Stay in the local fallback, but surface why for admins.
         setConnectError((e as Error).message || "Connection failed");
@@ -403,6 +458,16 @@ export function CommunityView({
   // Switching conversations clears a stale send error.
   useEffect(() => setSendError(null), [activeId]);
 
+  // Opening a conversation clears its badge and tells Stream it's read.
+  useEffect(() => {
+    activeIdRef.current = activeId;
+    setUnread((prev) =>
+      prev[activeId] ? { ...prev, [activeId]: 0 } : prev,
+    );
+    const channel = streamRef.current?.channels.get(activeId);
+    if (channel) void channel.markRead().catch(() => undefined);
+  }, [activeId, live]);
+
   // Admin moderation: remove a message everywhere (Stream when live, local
   // state otherwise — the message.deleted event also syncs other viewers).
   const deleteMessage = useCallback(
@@ -442,7 +507,8 @@ export function CommunityView({
               ch.allowed ? "" : " locked"
             }`}
             onClick={() => {
-              if (!ch.allowed) return;
+              // Locked channels open too — to an upgrade panel, not a dead
+              // button.
               setActiveId(ch.id);
               setMobileChatOpen(true);
             }}
@@ -450,6 +516,11 @@ export function CommunityView({
           >
             <ChannelIcon size={14} />
             {ch.name}
+            {ch.allowed && (unread[ch.id] ?? 0) > 0 && (
+              <span className="channel-unread">
+                {(unread[ch.id] ?? 0) > 9 ? "9+" : unread[ch.id]}
+              </span>
+            )}
             {!ch.allowed && <span className="channel-lock">{ch.lockLabel}</span>}
           </button>
         ))}
@@ -484,6 +555,11 @@ export function CommunityView({
           >
             <span className="dm-avatar-mini">{initialsOf(dm.otherName)}</span>
             {dm.otherName}
+            {(unread[dm.id] ?? 0) > 0 && (
+              <span className="channel-unread">
+                {(unread[dm.id] ?? 0) > 9 ? "9+" : unread[dm.id]}
+              </span>
+            )}
           </button>
         ))}
         {(preview ? directMessages : []).map((dm) => (
@@ -521,7 +597,34 @@ export function CommunityView({
         </div>
 
         <div className="chat-messages" ref={scrollRef}>
-          {messages.length === 0 ? (
+          {!active.allowed ? (
+            /* Locked channel: an upgrade path, not a dead end. */
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 10,
+                padding: "48px 24px",
+                textAlign: "center",
+              }}
+            >
+              <ChannelIcon size={26} />
+              <div style={{ fontSize: 15, fontWeight: 600 }}>
+                #{active.name} is for {active.lockLabel ?? "upgraded"} members
+              </div>
+              <div style={{ fontSize: 13, color: "var(--mid-gray)", maxWidth: 380 }}>
+                {active.description}
+              </div>
+              <Link
+                href="/profile"
+                className="btn-gold"
+                style={{ marginTop: 6, padding: "9px 16px", fontSize: 13 }}
+              >
+                View membership options
+              </Link>
+            </div>
+          ) : messages.length === 0 ? (
             <div style={{ color: "var(--mid-gray)", fontSize: 13 }}>
               {activeDm
                 ? `This is the very start of your conversation with ${activeDm.otherName}.`

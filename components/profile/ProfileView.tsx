@@ -521,48 +521,72 @@ export function ProfileView({
                       </tr>
                     </thead>
                     <tbody>
-                      {prefDefinitions.map((def) => {
-                        const row = prefs.find((p) => p.key === def.key)!;
-                        return (
-                          <tr key={def.key}>
-                            <td>
-                              <div className="pref-name">{def.label}</div>
-                              <div className="pref-desc">{def.description}</div>
-                            </td>
-                            <td className="center">
-                              <input
-                                type="checkbox"
-                                className="pref-toggle"
-                                checked={row.email}
-                                disabled={def.emailLocked}
-                                onChange={() => togglePref(def.key, "email")}
-                                aria-label={`${def.label} email`}
-                              />
-                              {def.emailLocked && (
-                                <div className="pref-locked-note">Always on</div>
-                              )}
-                            </td>
-                            <td className="center">
-                              <input
-                                type="checkbox"
-                                className="pref-toggle"
-                                checked={row.sms}
-                                onChange={() => togglePref(def.key, "sms")}
-                                aria-label={`${def.label} SMS`}
-                              />
-                            </td>
-                            <td className="center">
-                              <input
-                                type="checkbox"
-                                className="pref-toggle"
-                                checked={row.in_app}
-                                onChange={() => togglePref(def.key, "in_app")}
-                                aria-label={`${def.label} in-app`}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {/* Only categories with a real sender behind them —
+                          toggles that control nothing erode trust. */}
+                      {prefDefinitions
+                        .filter((def) => !def.hidden)
+                        .map((def) => {
+                          const row = prefs.find((p) => p.key === def.key)!;
+                          return (
+                            <tr key={def.key}>
+                              <td>
+                                <div className="pref-name">{def.label}</div>
+                                <div className="pref-desc">{def.description}</div>
+                              </td>
+                              <td className="center">
+                                {def.inAppOnly ? (
+                                  <span
+                                    style={{ color: "var(--mid-gray)", fontSize: 12 }}
+                                    title="Delivered in-app only"
+                                  >
+                                    —
+                                  </span>
+                                ) : (
+                                  <>
+                                    <input
+                                      type="checkbox"
+                                      className="pref-toggle"
+                                      checked={row.email}
+                                      disabled={def.emailLocked}
+                                      onChange={() => togglePref(def.key, "email")}
+                                      aria-label={`${def.label} email`}
+                                    />
+                                    {def.emailLocked && (
+                                      <div className="pref-locked-note">Always on</div>
+                                    )}
+                                  </>
+                                )}
+                              </td>
+                              <td className="center">
+                                {def.inAppOnly ? (
+                                  <span
+                                    style={{ color: "var(--mid-gray)", fontSize: 12 }}
+                                    title="Delivered in-app only"
+                                  >
+                                    —
+                                  </span>
+                                ) : (
+                                  <input
+                                    type="checkbox"
+                                    className="pref-toggle"
+                                    checked={row.sms}
+                                    onChange={() => togglePref(def.key, "sms")}
+                                    aria-label={`${def.label} SMS`}
+                                  />
+                                )}
+                              </td>
+                              <td className="center">
+                                <input
+                                  type="checkbox"
+                                  className="pref-toggle"
+                                  checked={row.in_app}
+                                  onChange={() => togglePref(def.key, "in_app")}
+                                  aria-label={`${def.label} in-app`}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
