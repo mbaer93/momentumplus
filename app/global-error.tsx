@@ -1,16 +1,23 @@
 "use client";
 
+import { useEffect } from "react";
+import { reportClientError } from "@/lib/report-error";
+
 /*
  * Last-resort boundary for failures in the root layout itself. Renders its
  * own <html> because the layout didn't. Styles are inline — global CSS may
- * not have loaded when this fires.
+ * not have loaded when this fires. Reports home like app/error.tsx.
  */
 export default function GlobalError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    reportClientError(error);
+  }, [error]);
   return (
     <html lang="en">
       <body

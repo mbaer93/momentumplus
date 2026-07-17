@@ -117,8 +117,20 @@ export default async function CertificatePage({
 
       <div
         className="no-print"
-        style={{ display: "flex", justifyContent: "center", marginTop: 18 }}
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: 10,
+          marginTop: 18,
+        }}
       >
+        <a
+          className="btn-gold"
+          href={`/api/education/${course.id}/certificate`}
+          download
+        >
+          Download PDF
+        </a>
         <PrintButton />
       </div>
     </div>

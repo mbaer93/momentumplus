@@ -15,6 +15,8 @@ const PROTECTED_PREFIXES = [
   "/resources",
   "/sponsors",
   "/services",
+  "/members",
+  "/search",
   "/rooted-focus",
   "/aspire2achieve",
   "/networking",

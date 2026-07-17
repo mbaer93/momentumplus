@@ -55,10 +55,16 @@ export function Topbar({
     <header className="topbar">
       <MobileNavToggle />
       <span className="topbar-title">{titleForPath(pathname)}</span>
-      <div className="topbar-search">
+      {/* Submits to /search — this box was decorative for far too long. */}
+      <form className="topbar-search" action="/search" method="get">
         <SearchIcon size={14} />
-        <input type="text" placeholder="Search sessions, speakers..." />
-      </div>
+        <input
+          type="search"
+          name="q"
+          placeholder="Search sessions, speakers..."
+          aria-label="Search Momentum+"
+        />
+      </form>
       <div ref={wrapRef} style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
         <button
           className="topbar-icon-btn"
