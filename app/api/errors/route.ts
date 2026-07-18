@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { sendEmailViaGhl } from "@/lib/notifications";
@@ -9,6 +10,11 @@ import { sendEmailViaGhl } from "@/lib/notifications";
  * screen. Reports are fingerprinted and journaled in error_reports; each
  * distinct error emails the Super Admin(s) at most once every 6 hours no
  * matter how many members hit it — visibility without an inbox storm.
+ *
+ * Abuse guard: the endpoint is public (error boundaries fire for signed-out
+ * visitors too), so anonymous reports may only bump the counter on errors
+ * we've already seen — they can never create rows, email Matt, or ring the
+ * admin bell. Signed-in reports get the full pipeline.
  */
 
 const EMAIL_THROTTLE_MS = 6 * 60 * 60 * 1000;
@@ -32,6 +38,16 @@ export async function POST(req: NextRequest) {
     .digest("hex")
     .slice(0, 32);
 
+  let authenticated = false;
+  try {
+    const {
+      data: { user },
+    } = await createClient().auth.getUser();
+    authenticated = Boolean(user);
+  } catch {
+    authenticated = false;
+  }
+
   const admin = createServiceClient();
   const nowIso = new Date().toISOString();
 
@@ -51,10 +67,19 @@ export async function POST(req: NextRequest) {
       .from("error_reports")
       .update({ count: (existing.count as number) + 1, last_seen: nowIso, message, path })
       .eq("hash", hash);
-  } else {
+  } else if (authenticated) {
     await admin
       .from("error_reports")
       .insert({ hash, message, path, count: 1, first_seen: nowIso, last_seen: nowIso });
+  } else {
+    // Anonymous + never-seen error: counted nowhere. Accepting it would let
+    // anyone spam rows and alert emails with fabricated reports.
+    return NextResponse.json({ ok: true, anonymous: true });
+  }
+
+  if (!authenticated) {
+    // Counter bumped above; alerts stay member-triggered only.
+    return NextResponse.json({ ok: true, anonymous: true });
   }
 
   const lastEmailed = existing?.last_emailed_at

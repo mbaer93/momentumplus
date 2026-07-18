@@ -11,7 +11,7 @@ import {
 // The current member levels only, labeled from the same registry as
 // everywhere else (lib/access) so this list can't drift again.
 const TIER_OPTIONS: { value: Tier; label: string }[] = (
-  ["basic", "pro", "vip", "gift", "speaker"] as Tier[]
+  ["basic", "pro", "vip", "gift", "sponsor", "speaker"] as Tier[]
 ).map((value) => ({ value, label: tierLabel(value) }));
 
 export function AnnouncementComposer() {
@@ -30,12 +30,23 @@ export function AnnouncementComposer() {
   // Set when a send partially failed — resending skips everyone reached.
   const [resumeId, setResumeId] = useState<string | undefined>(undefined);
 
+  // Any edit after "Review & send" disarms the confirm — the count shown
+  // must always describe exactly what the Confirm click will send. It also
+  // drops the resume handle: edited content is a new announcement, not a
+  // retry of the old one.
+  function disarm() {
+    setConfirmCount(null);
+    setResumeId(undefined);
+    setMsg(null);
+  }
   function toggleTier(t: Tier) {
+    disarm();
     setTiers((prev) =>
       prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t],
     );
   }
   function toggleChannel(c: "email" | "in_app" | "community") {
+    disarm();
     setChannels((prev) =>
       prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
     );
@@ -84,7 +95,10 @@ export function AnnouncementComposer() {
           id="ann-title"
           required
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            disarm();
+            setTitle(e.target.value);
+          }}
           placeholder="e.g. March session schedule is live"
         />
       </div>
@@ -93,7 +107,10 @@ export function AnnouncementComposer() {
         <textarea
           id="ann-body"
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => {
+            disarm();
+            setBody(e.target.value);
+          }}
           placeholder="What members need to know…"
         />
       </div>

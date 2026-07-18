@@ -98,9 +98,11 @@ export async function askSpeakerQuestion(
   return { ok: true };
 }
 
-/** Mark all of the viewer's notifications read (bell menu opened). */
-export async function markNotificationsRead(): Promise<void> {
-  if (!isSupabaseConfigured()) return;
+/** Mark the notifications the member actually saw as read (bell menu
+    opened). Only the displayed ids — marking everything would silently
+    swallow unread items that never made it onto the screen. */
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  if (!isSupabaseConfigured() || ids.length === 0) return;
   const supabase = createClient();
   const {
     data: { user },
@@ -111,5 +113,6 @@ export async function markNotificationsRead(): Promise<void> {
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("profile_id", user.id)
+    .in("id", ids.slice(0, 50))
     .is("read_at", null);
 }

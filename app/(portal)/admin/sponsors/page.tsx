@@ -3,9 +3,12 @@ import {
   SponsorsManager,
   type AdminSponsorRow,
 } from "@/components/admin/SponsorsManager";
+import { SponsorTicketSettings } from "@/components/admin/SponsorTicketSettings";
 import { ArrowLeftIcon } from "@/components/icons";
+import { getAdminAccess } from "@/lib/auth-helpers";
 import { sponsors as placeholderSponsors } from "@/lib/directory-data";
 import { getPresentedByLogoUrl } from "@/lib/presented-by";
+import { getTicketCounts } from "@/lib/sponsor-team";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -150,6 +153,15 @@ export default async function AdminSponsorsPage({
         pendingInvites={pendingInvites}
         presentedByLogoUrl={await getPresentedByLogoUrl()}
         initialEditId={searchParams?.edit}
+      />
+      <SponsorTicketSettings
+        counts={
+          isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY
+            ? await getTicketCounts()
+            : {}
+        }
+        sponsors={rows.map((r) => ({ id: r.id, name: r.name }))}
+        isSuperAdmin={(await getAdminAccess())?.role === "super"}
       />
     </div>
   );

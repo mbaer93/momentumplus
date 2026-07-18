@@ -23,9 +23,18 @@ export interface AdminMemberResult {
   loginLink?: string | null;
 }
 
-// The four member levels plus the two special roles. Legacy tiers on
-// existing rows stay valid; new grants use these.
-const GRANTABLE: Tier[] = ["basic", "gift", "vip", "pro", "speaker", "admin"];
+// The four member levels plus the special roles. Legacy tiers on
+// existing rows stay valid; new grants use these. Sponsor normally arrives
+// via the sponsor invite flow — granting it by hand is the repair path.
+const GRANTABLE: Tier[] = [
+  "basic",
+  "gift",
+  "vip",
+  "pro",
+  "sponsor",
+  "speaker",
+  "admin",
+];
 
 // Gift and VIP are fixed-length comps of the base level.
 const FIXED_MONTHS: Partial<Record<Tier, number>> = { gift: 1, vip: 3 };
@@ -141,6 +150,20 @@ export async function grantMembership(input: {
     source: "admin",
   });
   if (error) return { ok: false, message: error.message };
+
+  if (input.tier === "admin") {
+    // Minting an admin is a sensitive action — same trail as tier changes
+    // to admin and admin-access edits.
+    const { logAdminAction } = await import("@/lib/admin-audit");
+    await logAdminAction({
+      actorId: auth.userId,
+      actorEmail: auth.userEmail,
+      action: "grant_admin",
+      targetProfileId: profileId,
+      targetEmail: email,
+      detail: "New admin membership granted from Admin → Members",
+    });
+  }
 
   revalidatePath("/admin/members");
   if (manualLoginLink) {

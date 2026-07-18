@@ -26,6 +26,23 @@ export interface SponsorResult {
   preview?: boolean;
 }
 
+/** Per-tier VIP ticket allotments (Admin → Sponsors). */
+export async function saveSponsorTicketCounts(
+  counts: Record<string, number>,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  const { saveTicketCounts } = await import("@/lib/sponsor-team");
+  const { error } = await saveTicketCounts(counts);
+  if (error) return { ok: false, message: error };
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsor");
+  return { ok: true, message: "Ticket allotments saved." };
+}
+
 export async function createSponsor(input: SponsorInput): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Created (preview mode)." };
@@ -94,11 +111,12 @@ async function expireOrphanedSponsorPro(profileIds: string[]): Promise<void> {
   const seated = new Set((stillSeated ?? []).map((r) => r.profile_id));
   const orphaned = profileIds.filter((id) => !seated.has(id));
   if (orphaned.length === 0) return;
+  // Source (not tier) marks sponsor-granted rows — catches both comped-Pro
+  // seats and the rep's sponsor-tier row.
   await admin
     .from("memberships")
     .update({ status: "expired", access_expires_at: new Date().toISOString() })
     .in("profile_id", orphaned)
-    .eq("tier", "pro")
     .eq("source", "sponsor")
     .eq("status", "active");
 }
@@ -573,7 +591,6 @@ export async function archiveSponsor(sponsorId: string): Promise<SponsorResult> 
           access_expires_at: new Date().toISOString(),
         })
         .in("profile_id", toExpire)
-        .eq("tier", "pro")
         .eq("source", "sponsor")
         .eq("status", "active");
     }
@@ -609,36 +626,27 @@ export async function reinstateSponsor(
     .eq("id", sponsorId);
   if (error) return { ok: false, message: error.message };
 
-  // Restore the reps' Pro seats through the new term.
-  const { data: seats } = await admin
-    .from("sponsor_members")
-    .select("profile_id")
-    .eq("sponsor_id", sponsorId);
+  // Restore each seat's sponsor-granted access through the new term. The
+  // rep (whoever completed the sponsor invite) holds the sponsor tier;
+  // comped seat members stay Pro.
+  const { upsertSponsorMembership } = await import("@/lib/sponsor-membership");
+  const [{ data: seats }, { data: repInvites }] = await Promise.all([
+    admin
+      .from("sponsor_members")
+      .select("profile_id")
+      .eq("sponsor_id", sponsorId),
+    admin
+      .from("sponsor_invites")
+      .select("invited_profile_id")
+      .eq("sponsor_id", sponsorId)
+      .not("completed_at", "is", null),
+  ]);
+  const reps = new Set(
+    (repInvites ?? []).map((r) => r.invited_profile_id as string),
+  );
   for (const seat of seats ?? []) {
-    const { data: existing } = await admin
-      .from("memberships")
-      .select("id")
-      .eq("profile_id", seat.profile_id)
-      .eq("tier", "pro")
-      .eq("source", "sponsor")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existing) {
-      await admin
-        .from("memberships")
-        .update({ status: "active", access_expires_at: termEnd })
-        .eq("id", existing.id);
-    } else {
-      await admin.from("memberships").insert({
-        profile_id: seat.profile_id,
-        tier: "pro",
-        status: "active",
-        access_starts_at: new Date().toISOString(),
-        access_expires_at: termEnd,
-        source: "sponsor",
-      });
-    }
+    const id = seat.profile_id as string;
+    await upsertSponsorMembership(id, termEnd, reps.has(id));
   }
 
   revalidatePath("/admin/sponsors");

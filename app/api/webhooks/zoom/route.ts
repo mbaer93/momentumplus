@@ -154,14 +154,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Tell the admins there's a recording to review.
-  const { data: admins } = await admin
-    .from("profiles")
-    .select("id")
-    .not("admin_role", "is", null);
-  if (admins?.length) {
+  const { listAdminProfileIds } = await import("@/lib/engagement-notify");
+  const adminIds = await listAdminProfileIds();
+  if (adminIds.length) {
     await admin.from("notifications").insert(
-      admins.map((a) => ({
-        profile_id: a.id,
+      adminIds.map((id) => ({
+        profile_id: id,
         kind: "platform",
         title: "Session recording ready to review",
         body: `"${session.title}" imported from Zoom — review and publish it.`,

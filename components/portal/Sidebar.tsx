@@ -14,6 +14,7 @@ interface SidebarProps {
   tierLabel: string;
   isAdmin: boolean;
   isSpeaker?: boolean;
+  isSponsorManager?: boolean;
   /** Momentum+ Sponsor shown in the left-panel "Presented by" slot (logo
       mark; the ad creative lives in the right-hand rail). Clicks lead to the
       sponsor's profile on /sponsors, where the website link lives. */
@@ -29,6 +30,7 @@ export function Sidebar({
   tierLabel,
   isAdmin,
   isSpeaker = false,
+  isSponsorManager = false,
   presentedBy,
   presentedByLogoUrl,
 }: SidebarProps) {
@@ -60,7 +62,8 @@ export function Sidebar({
           const items = section.items.filter(
             (item) =>
               (!item.adminOnly || isAdmin) &&
-              (!item.speakerOnly || isSpeaker),
+              (!item.speakerOnly || isSpeaker) &&
+              (!item.sponsorOnly || isSponsorManager),
           );
           if (items.length === 0) return null;
           return (

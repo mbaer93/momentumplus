@@ -29,6 +29,7 @@ const PROTECTED_PREFIXES = [
   "/sponsor-onboarding",
   "/speaker-onboarding",
   "/speaker",
+  "/sponsor",
 ];
 
 const AUTH_PATHS = ["/login", "/reset"];

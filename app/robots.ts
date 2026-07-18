@@ -36,6 +36,7 @@ export default function robots(): MetadataRoute.Robots {
           "/sponsor-onboarding",
           "/speaker-onboarding",
           "/speaker",
+          "/sponsor",
           "/expired",
         ],
       },

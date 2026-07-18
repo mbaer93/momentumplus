@@ -59,14 +59,12 @@ export async function submitTestimonial(input: {
   if (error) return { ok: false, message: error.message };
 
   // Tell the admins there's a testimonial waiting.
-  const { data: admins } = await admin
-    .from("profiles")
-    .select("id")
-    .not("admin_role", "is", null);
-  if (admins?.length) {
+  const { listAdminProfileIds } = await import("@/lib/engagement-notify");
+  const adminIds = await listAdminProfileIds();
+  if (adminIds.length) {
     await admin.from("notifications").insert(
-      admins.map((a) => ({
-        profile_id: a.id,
+      adminIds.map((id) => ({
+        profile_id: id,
         kind: "platform",
         title: "New testimonial to review",
         body: `${name}: “${quote.slice(0, 100)}${quote.length > 100 ? "…" : ""}”`,

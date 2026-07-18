@@ -87,12 +87,14 @@ async function recentNotifications(): Promise<TopbarNotification[]> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return [];
+  // Unread first so nothing unread hides behind read rows, then newest.
   const { data } = await supabase
     .from("notifications")
     .select("id, title, body, link, read_at, created_at")
     .eq("profile_id", user.id)
+    .order("read_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: false })
-    .limit(5);
+    .limit(8);
   return (data ?? []).map((n) => ({
     id: n.id as string,
     title: (n.title as string) ?? "Notification",
@@ -145,6 +147,7 @@ export default async function PortalLayout({
         tierLabel={member.tierLabel}
         isAdmin={member.isAdmin}
         isSpeaker={member.isSpeaker}
+        isSponsorManager={member.isSponsorManager}
         presentedBy={presentedBy}
         presentedByLogoUrl={presentedByLogoUrl}
       />

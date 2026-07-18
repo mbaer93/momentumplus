@@ -49,6 +49,7 @@ const TIERS: { value: Tier; label: string }[] = [
   { value: "pro", label: "Momentum+ Pro User" },
   { value: "gift", label: "Gift User (1 month)" },
   { value: "vip", label: "VIP Access User (3 months)" },
+  { value: "sponsor", label: "Sponsor" },
   { value: "speaker", label: "Speaker" },
   { value: "admin", label: "Admin" },
 ];

@@ -16,6 +16,8 @@ export interface CurrentMember {
   isAdmin: boolean;
   /** Has an active speaker record — unlocks the Speaker Studio. */
   isSpeaker: boolean;
+  /** Owns or manages a sponsor page — unlocks the Sponsor Studio. */
+  isSponsorManager: boolean;
   /** Admin-set title (relative to Momentum+/TSLS) shown on their chat messages. */
   adminTitle: string | null;
   /** False when every membership has lapsed → portal layout sends to /expired. */
@@ -59,6 +61,7 @@ export const getCurrentMember = requestCache(
       tierLabel: tierLabel(tier),
       isAdmin: tier === "admin",
       isSpeaker: true, // preview shows the Studio for demo purposes
+      isSponsorManager: true,
       adminTitle: tier === "admin" ? "Momentum+ Team" : null,
       membershipActive: true,
       accessExpiresAt: null,
@@ -71,23 +74,33 @@ export const getCurrentMember = requestCache(
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [{ data: profile }, { data: memberships }, { data: speakerRow }] =
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .select("full_name, email, admin_title")
-        .eq("id", user.id)
-        .maybeSingle(),
-      supabase
-        .from("memberships")
-        .select("tier, status, access_starts_at, access_expires_at")
-        .eq("profile_id", user.id),
-      supabase
-        .from("speakers")
-        .select("id, archived_at, expires_at")
-        .eq("profile_id", user.id)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: profile },
+    { data: memberships },
+    { data: speakerRow },
+    sponsorSeats,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("full_name, email, admin_title")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("memberships")
+      .select("tier, status, access_starts_at, access_expires_at")
+      .eq("profile_id", user.id),
+    supabase
+      .from("speakers")
+      .select("id, archived_at, expires_at")
+      .eq("profile_id", user.id)
+      .maybeSingle(),
+    // Own seats via RLS (migration 0039). Errors (pre-migration) → no studio.
+    supabase
+      .from("sponsor_members")
+      .select("role")
+      .eq("profile_id", user.id)
+      .in("role", ["owner", "manager"]),
+  ]);
 
   const name = profile?.full_name || user.email || "Member";
   const rows = (memberships ?? []) as Pick<
@@ -111,6 +124,7 @@ export const getCurrentMember = requestCache(
             (speakerRow as { expires_at: string }).expires_at,
           ) > new Date()),
     ),
+    isSponsorManager: Boolean(sponsorSeats.data?.length),
     adminTitle:
       effective?.tier === "admin" ? (profile?.admin_title ?? null) : null,
     membershipActive: effective !== null,
