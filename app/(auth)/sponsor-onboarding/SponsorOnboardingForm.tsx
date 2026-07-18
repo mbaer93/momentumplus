@@ -11,10 +11,13 @@ export function SponsorOnboardingForm({
   tierLabel,
   initialBusinessName,
   needsPassword,
+  ticketAllotment = 0,
 }: {
   tierLabel: string;
   initialBusinessName: string;
   needsPassword: boolean;
+  /** Free VIP access tickets included with this sponsor tier. */
+  ticketAllotment?: number;
 }) {
   const router = useRouter();
   const [business, setBusiness] = useState({
@@ -25,6 +28,7 @@ export function SponsorOnboardingForm({
     offer: "",
   });
   const [rep, setRep] = useState({ repName: "", repTitle: "", repPhone: "" });
+  const [ticketEmails, setTicketEmails] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,12 +55,18 @@ export function SponsorOnboardingForm({
         const { error: pwError } = await supabase.auth.updateUser({ password });
         if (pwError) throw pwError;
       }
-      const res = await completeSponsorOnboarding({ ...business, ...rep });
+      const res = await completeSponsorOnboarding({
+        ...business,
+        ...rep,
+        ticketEmails,
+      });
       if (!res.ok) {
         setError(res.message ?? "Something went wrong — try again.");
         return;
       }
-      router.replace("/sponsors");
+      // Land in the new Sponsor Studio — it shows the page, team, and
+      // remaining VIP tickets they just set up.
+      router.replace("/sponsor");
     } catch (err) {
       setError(
         err instanceof Error
@@ -74,8 +84,8 @@ export function SponsorOnboardingForm({
       <p>
         You&apos;re joining as a <strong>{tierLabel}</strong>. Tell us about
         the business (this becomes your listing on the members&apos; Sponsors
-        page) and about you — you&apos;ll get full Momentum+ Pro access as
-        the sponsor representative.
+        page) and about you — as the page&apos;s primary manager you get the
+        sponsorship&apos;s free Momentum+ membership for the season.
       </p>
       {error && <div className="login-error">{error}</div>}
       <form onSubmit={submit}>
@@ -169,6 +179,29 @@ export function SponsorOnboardingForm({
             placeholder="+1 (555) 555-5555"
           />
         </div>
+
+        {ticketAllotment > 0 && (
+          <div className="login-field">
+            <label htmlFor="sp-tickets">
+              VIP access tickets ({ticketAllotment} included)
+            </label>
+            <textarea
+              id="sp-tickets"
+              rows={3}
+              value={ticketEmails}
+              onChange={(e) => setTicketEmails(e.target.value)}
+              placeholder={"one@example.com\ntwo@example.com"}
+              style={{ width: "100%", resize: "vertical" }}
+            />
+            <p style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 4 }}>
+              Your {tierLabel} package includes {ticketAllotment} free VIP
+              access ticket{ticketAllotment === 1 ? "" : "s"} (3 months each).
+              Add one email per person — each gets an invite to set up their
+              own profile. You can also do this later from your Sponsor
+              Studio.
+            </p>
+          </div>
+        )}
 
         {needsPassword && (
           <>

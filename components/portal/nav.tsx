@@ -24,6 +24,8 @@ export interface NavItem {
   badge?: { text: string; variant?: "gold" | "blue" };
   adminOnly?: boolean;
   speakerOnly?: boolean;
+  /** Visible only to sponsor-page owners/managers. */
+  sponsorOnly?: boolean;
 }
 
 export interface NavSection {
@@ -86,6 +88,12 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/speaker",
         icon: SpeakersIcon,
         speakerOnly: true,
+      },
+      {
+        label: "Sponsor Studio",
+        href: "/sponsor",
+        icon: SponsorsIcon,
+        sponsorOnly: true,
       },
       {
         label: "Admin Panel",

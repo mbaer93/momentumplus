@@ -26,6 +26,23 @@ export interface SponsorResult {
   preview?: boolean;
 }
 
+/** Per-tier VIP ticket allotments (Admin → Sponsors). */
+export async function saveSponsorTicketCounts(
+  counts: Record<string, number>,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  const { saveTicketCounts } = await import("@/lib/sponsor-team");
+  const { error } = await saveTicketCounts(counts);
+  if (error) return { ok: false, message: error };
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsor");
+  return { ok: true, message: "Ticket allotments saved." };
+}
+
 export async function createSponsor(input: SponsorInput): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Created (preview mode)." };

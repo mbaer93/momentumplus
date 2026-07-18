@@ -28,6 +28,7 @@ export default async function SponsorOnboardingPage() {
           tierLabel={sponsorTierLabel(invite.tier ?? "partner")}
           initialBusinessName={invite.businessName ?? ""}
           needsPassword={Boolean(invite.needsPassword)}
+          ticketAllotment={invite.ticketAllotment ?? 0}
         />
       ) : (
         <div className="login-card">

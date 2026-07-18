@@ -25,6 +25,9 @@ export interface SponsorOnboardingInput {
   repName: string;
   repTitle: string;
   repPhone: string;
+  /** Emails for the tier's free VIP access tickets (whitespace/comma
+      separated) — optional; more can be handed out later in the Studio. */
+  ticketEmails?: string;
 }
 
 export interface SponsorOnboardingResult {
@@ -117,13 +120,23 @@ export async function completeSponsorOnboarding(
     })
     .eq("id", user.id);
 
-  // 3) Seat + sponsor-tier access (Pro-equivalent) through October 1.
-  await admin
+  // 3) Owner seat + sponsor-tier access (Pro-equivalent) through October 1.
+  // The rep who completes onboarding is the page's primary manager.
+  const { error: seatError } = await admin
     .from("sponsor_members")
     .upsert(
-      { sponsor_id: sponsor.id, profile_id: user.id },
+      { sponsor_id: sponsor.id, profile_id: user.id, role: "owner" },
       { onConflict: "sponsor_id,profile_id" },
     );
+  if (seatError && /role/.test(seatError.message)) {
+    // Pre-migration-0039 fallback: seat without a role column.
+    await admin
+      .from("sponsor_members")
+      .upsert(
+        { sponsor_id: sponsor.id, profile_id: user.id },
+        { onConflict: "sponsor_id,profile_id" },
+      );
+  }
   const { upsertSponsorMembership } = await import("@/lib/sponsor-membership");
   const access = await upsertSponsorMembership(user.id, termEnd, true);
   if (access.error) {
@@ -141,10 +154,40 @@ export async function completeSponsorOnboarding(
     .update({ completed_at: new Date().toISOString(), sponsor_id: sponsor.id })
     .eq("id", invite.id);
 
+  // 5) VIP access tickets, if the rep listed emails. Best-effort — a bad
+  //    email must not sink the onboarding that already succeeded; the
+  //    Studio shows remaining tickets and per-person status afterwards.
+  let ticketNote = "";
+  const ticketEmails = (input.ticketEmails ?? "")
+    .split(/[\s,;]+/)
+    .map((e) => e.trim())
+    .filter(Boolean);
+  if (ticketEmails.length > 0) {
+    try {
+      const { inviteTicketUsers } = await import("@/lib/sponsor-team");
+      const summary = await inviteTicketUsers(
+        {
+          id: sponsor.id as string,
+          tier: normalizeSponsorTier(invite.tier as string),
+        },
+        ticketEmails,
+      );
+      const bits: string[] = [];
+      if (summary.invited.length > 0) {
+        bits.push(`${summary.invited.length} VIP invite${summary.invited.length === 1 ? "" : "s"} sent`);
+      }
+      for (const f of summary.failed) bits.push(`${f.email}: ${f.reason}`);
+      ticketNote = bits.join("; ");
+    } catch {
+      ticketNote =
+        "Your VIP invites couldn't be sent just now — hand them out from your Sponsor Studio.";
+    }
+  }
+
   revalidatePath("/sponsors");
   revalidatePath("/admin/sponsors");
   revalidateTag("sponsors");
-  return { ok: true, sponsorId: sponsor.id };
+  return { ok: true, sponsorId: sponsor.id, message: ticketNote || undefined };
 }
 
 /** Whether the signed-in user has a pending sponsor invite (drives the
@@ -154,9 +197,17 @@ export async function getPendingSponsorInvite(): Promise<{
   tier?: string;
   businessName?: string;
   needsPassword?: boolean;
+  /** Free VIP access tickets included with the invited tier. */
+  ticketAllotment?: number;
 }> {
   if (!isSupabaseConfigured()) {
-    return { pending: true, tier: "partner", businessName: "", needsPassword: true };
+    return {
+      pending: true,
+      tier: "partner",
+      businessName: "",
+      needsPassword: true,
+      ticketAllotment: 2,
+    };
   }
   const supabase = createClient();
   const {
@@ -172,10 +223,13 @@ export async function getPendingSponsorInvite(): Promise<{
     .limit(1)
     .maybeSingle();
   if (!invite) return { pending: false };
+  const { getTicketCounts } = await import("@/lib/sponsor-team");
+  const counts = await getTicketCounts();
   return {
     pending: true,
     tier: invite.tier as string,
     businessName: (invite.business_name as string) ?? "",
     needsPassword: Boolean(invite.account_created),
+    ticketAllotment: counts[normalizeSponsorTier(invite.tier as string)] ?? 0,
   };
 }

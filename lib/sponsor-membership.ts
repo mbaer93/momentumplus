@@ -15,12 +15,15 @@ export async function upsertSponsorMembership(
 ): Promise<{ error: string | null }> {
   const admin = createServiceClient();
   // Source (not tier) identifies sponsor-granted rows, so this finds both
-  // new `sponsor` rows and pre-migration `pro` fallback rows.
+  // new `sponsor` rows and pre-migration `pro` fallback rows. VIP-ticket
+  // rows (tier=vip, source=sponsor) are a different grant and must never be
+  // mistaken for the page-runner's free membership.
   const { data: existing, error: lookupError } = await admin
     .from("memberships")
     .select("id, tier")
     .eq("profile_id", profileId)
     .eq("source", "sponsor")
+    .neq("tier", "vip")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
