@@ -13,6 +13,7 @@ export const GRACE_DAYS = 7;
 export const TIER_PRECEDENCE: Tier[] = [
   "admin",
   "pro",
+  "sponsor",
   "speaker",
   "sub_annual",
   "tsls_vip",
@@ -43,6 +44,7 @@ export function tierDurationMonths(tier: Tier): number | null {
       return 6;
     case "sub_annual":
       return 12;
+    case "sponsor": // season-bound; the sponsor flows set expiry explicitly
     case "speaker":
     case "admin":
       return null;

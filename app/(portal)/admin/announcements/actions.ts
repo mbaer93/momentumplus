@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth-helpers";
+import { allRows } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { sendEmailViaGhl } from "@/lib/notifications";
@@ -39,12 +40,16 @@ export async function previewAnnouncementAudience(
   const auth = await requireAdmin("announcements");
   if (!auth.ok) return { count: 0 };
   const admin = createServiceClient();
-  const { data } = await admin
-    .from("memberships")
-    .select("profile_id")
-    .in("tier", audienceTiers)
-    .in("status", ["active", "past_due"]);
-  return { count: new Set((data ?? []).map((r) => r.profile_id)).size };
+  const { rows } = await allRows<{ profile_id: string }>((from, to) =>
+    admin
+      .from("memberships")
+      .select("profile_id")
+      .in("tier", audienceTiers)
+      .in("status", ["active", "past_due"])
+      .order("profile_id")
+      .range(from, to),
+  );
+  return { count: new Set(rows.map((r) => r.profile_id)).size };
 }
 
 /**
@@ -118,17 +123,37 @@ export async function sendAnnouncement(
   }
 
   // Community post: into the #announcements chat channel as the team user.
+  // Journaled on the announcement row (community_posted_at, migration 0038)
+  // so retrying a partially-failed send can't post to chat twice.
   let communityNote = "";
   if (input.channels.includes("community")) {
-    try {
-      const { sendCommunityMessage } = await import("@/lib/stream");
-      await sendCommunityMessage(
-        "announcements",
-        `${input.title.trim()}${input.body.trim() ? `\n\n${input.body.trim()}` : ""}`,
-      );
-      communityNote = " Posted to #announcements.";
-    } catch (e) {
-      communityNote = ` Community post failed (${(e as Error).message}) — send it again with only the Community channel selected to retry.`;
+    const { data: annRow } = await admin
+      .from("announcements")
+      .select("community_posted_at")
+      .eq("id", announcementId)
+      .maybeSingle();
+    const alreadyPosted = Boolean(
+      annRow && (annRow as { community_posted_at?: string | null }).community_posted_at,
+    );
+    if (alreadyPosted) {
+      communityNote = " Already posted to #announcements on the earlier run.";
+    } else {
+      try {
+        const { sendCommunityMessage } = await import("@/lib/stream");
+        await sendCommunityMessage(
+          "announcements",
+          `${input.title.trim()}${input.body.trim() ? `\n\n${input.body.trim()}` : ""}`,
+        );
+        communityNote = " Posted to #announcements.";
+        // Best-effort journal — fails only pre-migration-0038, where retry
+        // behavior simply matches the old (repost) behavior.
+        await admin
+          .from("announcements")
+          .update({ community_posted_at: new Date().toISOString() })
+          .eq("id", announcementId);
+      } catch (e) {
+        communityNote = ` Community post failed (${(e as Error).message}) — send it again with only the Community channel selected to retry.`;
+      }
     }
   }
   if (input.audienceTiers.length === 0) {
@@ -141,11 +166,29 @@ export async function sendAnnouncement(
   }
 
   // Audience: members holding a usable membership in the selected tiers.
-  const { data: memberships } = await admin
-    .from("memberships")
-    .select("profile_id, ghl_contact_id, profiles ( email, full_name )")
-    .in("tier", input.audienceTiers)
-    .in("status", ["active", "past_due"]);
+  // Paged — a plain select silently stops at 1000 members.
+  const { rows: memberships } = await allRows<{
+    profile_id: string;
+    ghl_contact_id: string | null;
+    profiles: { email: string; full_name: string } | null;
+  }>((from, to) =>
+    admin
+      .from("memberships")
+      .select("profile_id, ghl_contact_id, profiles ( email, full_name )")
+      .in("tier", input.audienceTiers)
+      .in("status", ["active", "past_due"])
+      .order("profile_id")
+      .range(from, to) as unknown as PromiseLike<{
+      data:
+        | {
+            profile_id: string;
+            ghl_contact_id: string | null;
+            profiles: { email: string; full_name: string } | null;
+          }[]
+        | null;
+      error: { message: string } | null;
+    }>,
+  );
 
   const seen = new Set<string>();
   const audience: {
@@ -154,18 +197,15 @@ export async function sendAnnouncement(
     email: string;
     name: string;
   }[] = [];
-  for (const m of memberships ?? []) {
+  for (const m of memberships) {
     if (seen.has(m.profile_id)) continue;
     seen.add(m.profile_id);
-    const profile = (
-      m as unknown as { profiles: { email: string; full_name: string } | null }
-    ).profiles;
-    if (!profile) continue;
+    if (!m.profiles) continue;
     audience.push({
-      profileId: m.profile_id as string,
-      contactId: (m.ghl_contact_id as string) ?? null,
-      email: profile.email,
-      name: profile.full_name,
+      profileId: m.profile_id,
+      contactId: m.ghl_contact_id ?? null,
+      email: m.profiles.email,
+      name: m.profiles.full_name,
     });
   }
   const profileIds = audience.map((a) => a.profileId);
@@ -175,43 +215,64 @@ export async function sendAnnouncement(
   let delivered = new Map<string, { notified: boolean; emailed: boolean }>();
   let ledgerAvailable = true;
   {
-    const { data: rows, error } = await admin
-      .from("announcement_deliveries")
-      .select("profile_id, notified_at, emailed_at")
-      .eq("announcement_id", announcementId);
+    const { rows, error } = await allRows<{
+      profile_id: string;
+      notified_at: string | null;
+      emailed_at: string | null;
+    }>((from, to) =>
+      admin
+        .from("announcement_deliveries")
+        .select("profile_id, notified_at, emailed_at")
+        .eq("announcement_id", announcementId)
+        .order("profile_id")
+        .range(from, to),
+    );
     if (error) {
       ledgerAvailable = false;
     } else {
       delivered = new Map(
-        (rows ?? []).map((r) => [
-          r.profile_id as string,
+        rows.map((r) => [
+          r.profile_id,
           { notified: Boolean(r.notified_at), emailed: Boolean(r.emailed_at) },
         ]),
       );
     }
   }
 
-  // Platform prefs in ONE query (was one query per member).
+  // Platform prefs in ONE paged query, filtered against the audience in
+  // memory (a giant .in(profileIds) both overflows the URL and caps at
+  // 1000 returned rows).
   const optedOut = new Set<string>();
   if (input.channels.includes("in_app") && profileIds.length > 0) {
-    const { data: prefs } = await admin
-      .from("notification_prefs")
-      .select("profile_id, in_app")
-      .eq("key", "platform")
-      .in("profile_id", profileIds);
-    for (const p of prefs ?? []) {
-      if (p.in_app === false) optedOut.add(p.profile_id as string);
+    const audienceIds = new Set(profileIds);
+    const { rows: prefs } = await allRows<{
+      profile_id: string;
+      in_app: boolean | null;
+    }>((from, to) =>
+      admin
+        .from("notification_prefs")
+        .select("profile_id, in_app")
+        .eq("key", "platform")
+        .order("profile_id")
+        .range(from, to),
+    );
+    for (const p of prefs) {
+      if (p.in_app === false && audienceIds.has(p.profile_id)) {
+        optedOut.add(p.profile_id);
+      }
     }
   }
 
-  // In-app rows: one bulk insert for everyone still owed one.
+  // In-app rows: bulk inserts in bounded chunks for everyone still owed one.
   if (input.channels.includes("in_app")) {
     const owed = audience.filter(
       (a) => !optedOut.has(a.profileId) && !delivered.get(a.profileId)?.notified,
     );
-    if (owed.length > 0) {
+    const CHUNK = 500;
+    for (let i = 0; i < owed.length; i += CHUNK) {
+      const chunk = owed.slice(i, i + CHUNK);
       await admin.from("notifications").insert(
-        owed.map((a) => ({
+        chunk.map((a) => ({
           profile_id: a.profileId,
           kind: "announcement",
           title: input.title.trim(),
@@ -221,7 +282,7 @@ export async function sendAnnouncement(
       );
       if (ledgerAvailable) {
         await admin.from("announcement_deliveries").upsert(
-          owed.map((a) => ({
+          chunk.map((a) => ({
             announcement_id: announcementId,
             profile_id: a.profileId,
             notified_at: new Date().toISOString(),
@@ -269,10 +330,13 @@ export async function sendAnnouncement(
     parts.push(`${emailed} email${emailed === 1 ? "" : "s"} sent this run.`);
     if (emailFailures > 0) {
       parts.push(
-        `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed — press Send again to retry just those (no one gets duplicates).`,
+        ledgerAvailable
+          ? `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed — press Send again to retry just those (no one gets duplicates).`
+          : `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed. Retry-dedupe is unavailable (migration 0031 hasn't run), so pressing Send again MAY re-email members already reached.`,
       );
     }
   }
+  if (communityNote) parts.push(communityNote.trim());
   return {
     ok: emailFailures === 0,
     recipients: audience.length,

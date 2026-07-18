@@ -76,14 +76,19 @@ export function Topbar({
             setOpenMenu(opening ? "bell" : null);
             if (opening && unreadCount > 0) {
               setSeen(true);
-              void markNotificationsRead().catch(() => undefined);
+              // Only the notifications actually shown in this menu — never
+              // ones the member hasn't seen.
+              const shown = notifications
+                .filter((n) => n.unread)
+                .map((n) => n.id);
+              void markNotificationsRead(shown).catch(() => undefined);
             }
           }}
         >
           <BellIcon size={16} />
-          {(unreadCount > 0 || upcoming.length > 0) && (
-            <span className="topbar-dot" />
-          )}
+          {/* The dot means unread — upcoming sessions alone must not light
+              it, or it never turns off and stops meaning anything. */}
+          {unreadCount > 0 && <span className="topbar-dot" />}
         </button>
         <Link
           href="/profile"
@@ -109,7 +114,7 @@ export function Topbar({
             {notifications.length > 0 && (
               <>
                 <div className="topbar-menu-title">Notifications</div>
-                {notifications.slice(0, 5).map((n) => (
+                {notifications.map((n) => (
                   <Link
                     key={n.id}
                     href={n.link || "/dashboard"}

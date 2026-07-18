@@ -9,11 +9,13 @@ export type Tier =
   | "sub_annual"
   // Member levels (July 2026): basic = paid Basic access; gift = free Basic
   // for 1 month; vip = free Basic-level for 3 months; pro = everything,
-  // including pro_only content.
+  // including pro_only content; sponsor = the user who runs a sponsor page
+  // (Pro-equivalent access, season-bound).
   | "basic"
   | "gift"
   | "vip"
   | "pro"
+  | "sponsor"
   | "speaker"
   | "admin";
 

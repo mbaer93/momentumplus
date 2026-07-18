@@ -28,6 +28,28 @@ export function redactEmail(email: string): string {
 }
 
 /**
+ * Drain a query past PostgREST's 1000-row page cap. Give it a function that
+ * runs the query for one `.range(from, to)` window; it keeps fetching until
+ * a short page arrives. Audience fan-outs (announcements, content notify)
+ * MUST use this — a plain select silently tops out at 1000 members.
+ */
+export async function allRows<T>(
+  fetchPage: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  pageSize = 1000,
+): Promise<{ rows: T[]; error: string | null }> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await fetchPage(from, from + pageSize - 1);
+    if (error) return { rows, error: error.message };
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) return { rows, error: null };
+  }
+}
+
+/**
  * Constant-time check of an `Authorization: Bearer <secret>` header. Hashing
  * first keeps the compare length-independent. Fails closed when the secret
  * is unset. Use for CRON_SECRET-protected routes.

@@ -3,10 +3,18 @@ import type { AccessLevel, Membership, Tier } from "./types";
 // Tiers that satisfy the `vip_plus` gate (SPEC.md §2). Pro members get
 // everything, so they clear this gate too. (The new `vip` level is a
 // 3-month comp of Basic-level access — deliberately NOT vip_plus.)
-const VIP_PLUS_TIERS: Tier[] = ["tsls_vip", "sub_annual", "speaker", "admin", "pro"];
+const VIP_PLUS_TIERS: Tier[] = [
+  "tsls_vip",
+  "sub_annual",
+  "speaker",
+  "admin",
+  "pro",
+  "sponsor",
+];
 
 // Tiers that satisfy the `pro_only` gate (exclusive content toggle).
-const PRO_TIERS: Tier[] = ["pro", "admin"];
+// Sponsors (the rep running a sponsor page) hold Pro-equivalent access.
+const PRO_TIERS: Tier[] = ["pro", "admin", "sponsor"];
 
 const ADMIN_TIERS: Tier[] = ["admin"];
 
@@ -76,6 +84,7 @@ export function tierLabel(tier: Tier): string {
     gift: "Gift User",
     vip: "VIP Access User",
     pro: "Momentum+ Pro User",
+    sponsor: "Sponsor",
     speaker: "Speaker",
     admin: "Administrator",
   };

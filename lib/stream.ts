@@ -204,10 +204,12 @@ export function streamRoleForTier(tier: Tier): {
       ? "Admin"
       : tier === "speaker"
         ? "Speaker"
-        : tier === "tsls_vip"
-          ? "VIP"
-          : tier === "sub_annual"
-            ? "Annual"
-            : "Member";
+        : tier === "sponsor"
+          ? "Sponsor"
+          : tier === "tsls_vip"
+            ? "VIP"
+            : tier === "sub_annual"
+              ? "Annual"
+              : "Member";
   return { memberTier: tier, badge };
 }

@@ -117,36 +117,22 @@ export async function completeSponsorOnboarding(
     })
     .eq("id", user.id);
 
-  // 3) Seat + Pro access through October 1.
+  // 3) Seat + sponsor-tier access (Pro-equivalent) through October 1.
   await admin
     .from("sponsor_members")
     .upsert(
       { sponsor_id: sponsor.id, profile_id: user.id },
       { onConflict: "sponsor_id,profile_id" },
     );
-  const { data: existingPro } = await admin
-    .from("memberships")
-    .select("id")
-    .eq("profile_id", user.id)
-    .eq("tier", "pro")
-    .eq("source", "sponsor")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (existingPro) {
-    await admin
-      .from("memberships")
-      .update({ status: "active", access_expires_at: termEnd })
-      .eq("id", existingPro.id);
-  } else {
-    await admin.from("memberships").insert({
-      profile_id: user.id,
-      tier: "pro",
-      status: "active",
-      access_starts_at: new Date().toISOString(),
-      access_expires_at: termEnd,
-      source: "sponsor",
-    });
+  const { upsertSponsorMembership } = await import("@/lib/sponsor-membership");
+  const access = await upsertSponsorMembership(user.id, termEnd, true);
+  if (access.error) {
+    // Leave the invite open so the rep can retry — without a membership row
+    // they'd be locked out of the portal.
+    return {
+      ok: false,
+      message: `Your sponsor page saved, but portal access couldn't be set up: ${access.error}. Please try again or contact the Momentum+ team.`,
+    };
   }
 
   // 4) Close out the invite.
