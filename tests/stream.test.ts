@@ -14,19 +14,29 @@ function decode(seg: string) {
   );
 }
 
-test("channelsForTier enforces SPEC §4 gates", () => {
+test("channelsForTier enforces the member-level gates", () => {
   const ids = (tier: Parameters<typeof channelsForTier>[0]) =>
     channelsForTier(tier).map((c) => c.id);
 
-  assert.ok(ids("sub_monthly").includes("general"));
-  assert.ok(!ids("sub_monthly").includes("vip-only"));
-  assert.ok(!ids("sub_monthly").includes("annual-members"));
+  // Channel ids are permanent Stream anchors: "vip-only" is the vip_plus
+  // inner circle; "annual-members" is the pro-gated Pro lounge.
+  assert.ok(ids("basic").includes("general"));
+  assert.ok(!ids("basic").includes("vip-only"));
+  assert.ok(!ids("basic").includes("annual-members"));
 
-  assert.ok(ids("tsls_vip").includes("vip-only"));
-  assert.ok(!ids("tsls_vip").includes("annual-members"));
+  // The new VIP Access comp is Basic-level — no premium rooms.
+  assert.ok(!ids("vip").includes("vip-only"));
+  assert.ok(!ids("vip").includes("annual-members"));
 
-  assert.ok(ids("sub_annual").includes("vip-only"));
-  assert.ok(ids("sub_annual").includes("annual-members"));
+  // Speakers join the inner circle but not the Pro lounge.
+  assert.ok(ids("speaker").includes("vip-only"));
+  assert.ok(!ids("speaker").includes("annual-members"));
+
+  // Pro (and sponsor, its equivalent) get both premium rooms.
+  assert.ok(ids("pro").includes("vip-only"));
+  assert.ok(ids("pro").includes("annual-members"));
+  assert.ok(ids("sponsor").includes("vip-only"));
+  assert.ok(ids("sponsor").includes("annual-members"));
 
   assert.equal(ids("admin").length, COMMUNITY_CHANNELS.length);
 });

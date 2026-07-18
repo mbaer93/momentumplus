@@ -1,4 +1,5 @@
 import { LibraryBrowser } from "@/components/library/LibraryBrowser";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 import { requireMember } from "@/lib/current-member";
 import { listVideos } from "@/lib/videos/queries";
 
@@ -10,6 +11,7 @@ export default async function LibraryPage() {
 
   return (
     <div className="library-pad">
+      <BodyAd variant="banner" />
       <LibraryBrowser videos={videos} isAdmin={member.isAdmin} />
     </div>
   );

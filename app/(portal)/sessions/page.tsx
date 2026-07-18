@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listSessions } from "@/lib/sessions/queries";
 import { SessionsBrowser } from "@/components/sessions/SessionsBrowser";
 import { AdminAddChip } from "@/components/admin/AdminChips";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 import { requireMember } from "@/lib/current-member";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export default async function SessionsPage() {
           </Link>
         </div>
       </div>
+      <BodyAd variant="banner" />
       <SessionsBrowser sessions={sessions} isAdmin={member.isAdmin} />
     </div>
   );

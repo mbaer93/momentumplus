@@ -18,7 +18,7 @@ export interface GeneratedSummary {
   highlights: string;
 }
 
-const SYSTEM_PROMPT = `You summarize leadership development session transcripts for Momentum+, a members-only community for business leaders in the Tri-State region (MD, PA, WV). Voice: confident, plain-spoken, practical — never motivational-poster language, no emoji.
+const SYSTEM_PROMPT = `You summarize leadership development session transcripts for Momentum+, a national members-only community for business leaders. Voice: confident, plain-spoken, practical — never motivational-poster language, no emoji.
 
 Return ONLY a JSON object with exactly these keys:
 - "takeaways": 3-5 short, concrete lessons a member can apply (strings)

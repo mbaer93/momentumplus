@@ -20,7 +20,9 @@ export default async function CommunityPage() {
     description: c.description,
     adminPostOnly: Boolean(c.adminPostOnly),
     allowed: allowedIds.has(c.id),
-    lockLabel: c.gate === "vip_plus" ? "VIP" : c.gate === "annual" ? "Annual" : undefined,
+    // Both premium rooms unlock at the Pro level (vip_plus additionally
+    // admits speakers & sponsors) — "Pro" is the honest upgrade label.
+    lockLabel: c.gate === "vip_plus" || c.gate === "pro" ? "Pro" : undefined,
   }));
 
   // Next upcoming session for the sidebar card + active speakers for the

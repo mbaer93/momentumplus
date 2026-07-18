@@ -2,13 +2,26 @@ import Image from "next/image";
 import Link from "next/link";
 import { requireMember } from "@/lib/current-member";
 import { listSpeakers } from "@/lib/directory-queries";
+import { listSessions } from "@/lib/sessions/queries";
 import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 
 export const dynamic = "force-dynamic";
 
 export default async function SpeakersPage() {
   const member = await requireMember();
-  const speakers = await listSpeakers();
+  const [speakers, sessions] = await Promise.all([
+    listSpeakers(),
+    listSessions(),
+  ]);
+  // Real per-speaker session counts (the directory rows don't carry them) —
+  // archived sessions don't count toward a speaker's tally.
+  const countFor = (sp: { id: string; name: string }) =>
+    sessions.filter(
+      (s) =>
+        s.status !== "archived" &&
+        (s.speaker.id === sp.id || s.speaker.name === sp.name),
+    ).length;
 
   return (
     <div className="speakers-pad">
@@ -26,6 +39,7 @@ export default async function SpeakersPage() {
           Speaker profiles will appear here as they&apos;re added.
         </div>
       )}
+      <BodyAd variant="tile" />
       <div className="speakers-grid">
         {speakers.map((s) => (
           <div key={s.id} style={{ position: "relative" }}>
@@ -74,7 +88,8 @@ export default async function SpeakersPage() {
                 Member since <strong>{s.memberSince}</strong>
               </div>
               <div className="speaker-stat">
-                <strong>{s.sessionCount}</strong> sessions
+                <strong>{countFor(s)}</strong> session
+                {countFor(s) === 1 ? "" : "s"}
               </div>
             </div>
           </Link>

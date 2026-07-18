@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminAddChip } from "@/components/admin/AdminChips";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 import { requireMember } from "@/lib/current-member";
 import { courseUnlocked, listCourses } from "@/lib/education";
 
@@ -22,6 +23,8 @@ export default async function EducationPage() {
           <AdminAddChip href="/admin/education" label="Manage courses" />
         )}
       </div>
+
+      <BodyAd variant="banner" />
 
       {visible.length === 0 && (
         <div className="sessions-empty" style={{ marginTop: 20 }}>
@@ -46,7 +49,7 @@ export default async function EducationPage() {
                 )}
                 {c.minAccess === "vip_plus" && (
                   <span className="recording-vip" style={{ position: "static" }}>
-                    VIP
+                    EXCLUSIVE
                   </span>
                 )}
                 {c.minAccess === "pro_only" && (

@@ -3,6 +3,7 @@ import { listSessions } from "@/lib/sessions/queries";
 import { SessionsBrowser } from "@/components/sessions/SessionsBrowser";
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { requireMember } from "@/lib/current-member";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,8 @@ export default async function RootedFocusPage() {
           </Link>
         </div>
       </div>
+
+      <BodyAd variant="banner" />
 
       {/* The rhythm: five phases, every session. */}
       <div

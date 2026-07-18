@@ -2,13 +2,21 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveSponsorTicketCounts } from "@/app/(portal)/admin/sponsors/actions";
-import { SPONSOR_TIERS } from "@/lib/sponsor-tiers";
+import {
+  saveSponsorTicketCounts,
+  saveSponsorTicketOverride,
+} from "@/app/(portal)/admin/sponsors/actions";
+import { SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
 
 interface SponsorTicketSettingsProps {
   counts: Record<string, number>;
-  /** Active sponsors, for the "open studio as admin" jump list. */
-  sponsors: { id: string; name: string }[];
+  /** Active sponsors, for the per-sponsor override + studio jump list. */
+  sponsors: {
+    id: string;
+    name: string;
+    tier: string;
+    ticketOverride: number | null;
+  }[];
   isSuperAdmin: boolean;
 }
 
@@ -29,8 +37,25 @@ export function SponsorTicketSettings({
     ),
   );
   const [studioTarget, setStudioTarget] = useState("");
+  const [overrideTarget, setOverrideTarget] = useState("");
+  const [overrideValue, setOverrideValue] = useState("");
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const overrideSponsor = sponsors.find((s) => s.id === overrideTarget) ?? null;
+
+  function runOverride(value: number | null) {
+    if (!overrideTarget) return;
+    setMsg(null);
+    startTransition(async () => {
+      const res = await saveSponsorTicketOverride(overrideTarget, value);
+      setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "Saved." : "Error") });
+      if (res.ok) {
+        setOverrideValue("");
+        router.refresh();
+      }
+    });
+  }
 
   function save() {
     setMsg(null);
@@ -95,6 +120,88 @@ export function SponsorTicketSettings({
           </span>
         )}
       </div>
+
+      {sponsors.length > 0 && (
+        <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+          <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>
+            Per-sponsor override
+          </div>
+          <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+            Give one sponsor a custom ticket count regardless of their tier.
+            Clear it to fall back to the tier default.
+          </p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div className="admin-field" style={{ minWidth: 220 }}>
+              <label htmlFor="override-sponsor">Sponsor</label>
+              <select
+                id="override-sponsor"
+                value={overrideTarget}
+                onChange={(e) => {
+                  setOverrideTarget(e.target.value);
+                  const s = sponsors.find((x) => x.id === e.target.value);
+                  setOverrideValue(
+                    s?.ticketOverride === null || s === undefined
+                      ? ""
+                      : String(s.ticketOverride),
+                  );
+                }}
+              >
+                <option value="">Choose a sponsor…</option>
+                {sponsors.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                    {s.ticketOverride !== null ? ` (override: ${s.ticketOverride})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="admin-field" style={{ width: 120 }}>
+              <label htmlFor="override-count">Tickets</label>
+              <input
+                id="override-count"
+                type="number"
+                min={0}
+                max={999}
+                value={overrideValue}
+                onChange={(e) => setOverrideValue(e.target.value)}
+                placeholder={
+                  overrideSponsor
+                    ? String(counts[overrideSponsor.tier] ?? 0)
+                    : "0"
+                }
+              />
+            </div>
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={pending || !overrideTarget || overrideValue === ""}
+              onClick={() => runOverride(Number(overrideValue))}
+            >
+              Set override
+            </button>
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={
+                pending || !overrideTarget || overrideSponsor?.ticketOverride === null
+              }
+              onClick={() => runOverride(null)}
+            >
+              Clear (use tier default)
+            </button>
+          </div>
+          {overrideSponsor && (
+            <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 6 }}>
+              {overrideSponsor.name} · {sponsorTierLabel(overrideSponsor.tier)} ·
+              tier default {counts[overrideSponsor.tier] ?? 0} ticket
+              {(counts[overrideSponsor.tier] ?? 0) === 1 ? "" : "s"}
+              {overrideSponsor.ticketOverride !== null
+                ? ` · current override ${overrideSponsor.ticketOverride}`
+                : " · no override"}
+            </div>
+          )}
+        </div>
+      )}
 
       {isSuperAdmin && sponsors.length > 0 && (
         <div style={{ marginTop: 16 }}>

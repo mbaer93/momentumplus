@@ -15,7 +15,7 @@ import {
 const CATEGORIES = ["Leadership", "Wellness", "Business", "Networking"];
 const ACCESS: { value: AccessLevel; label: string }[] = [
   { value: "all_members", label: "All members" },
-  { value: "vip_plus", label: "VIP & annual+" },
+  { value: "vip_plus", label: "Exclusive — Pro, speakers & sponsors" },
   { value: "pro_only", label: "Pro members only (exclusive)" },
   { value: "admin_only", label: "Admin only" },
 ];

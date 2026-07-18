@@ -40,7 +40,7 @@ const FIELDS: FieldDef[] = [
     type: "select",
     options: [
       { value: "all_members", label: "All members" },
-      { value: "vip_plus", label: "VIP & annual only" },
+      { value: "vip_plus", label: "Exclusive — Pro, speakers & sponsors" },
       { value: "pro_only", label: "Pro members only (exclusive)" },
     ],
   },

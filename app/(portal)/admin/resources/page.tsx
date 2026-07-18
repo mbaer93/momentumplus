@@ -17,7 +17,7 @@ export default async function AdminResourcesPage({
     id: r.id,
     title: r.title,
     subtitle: r.type,
-    badge: r.minAccess === "vip_plus" ? "VIP+" : undefined,
+    badge: r.minAccess === "vip_plus" ? "Exclusive" : undefined,
     values: {
       title: r.title,
       category: r.tags[0] ?? "",
@@ -45,7 +45,7 @@ export default async function AdminResourcesPage({
         : r.min_access === "pro_only"
           ? "Pro"
           : r.min_access === "vip_plus"
-            ? "VIP+"
+            ? "Exclusive"
             : undefined,
       values: {
         title: r.title,

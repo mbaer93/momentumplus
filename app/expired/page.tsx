@@ -1,5 +1,4 @@
 import { RenewButtons } from "@/components/billing/RenewButtons";
-import { PRICING_PLANS } from "@/lib/pricing";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
 
 export const metadata = {
@@ -10,7 +9,8 @@ export const metadata = {
  * Shown when a member's access has lapsed (expired / past-due beyond grace /
  * canceled period ended). Once Stripe is connected (Admin → Billing wizard),
  * renewal happens right here via Checkout; otherwise the CTA links out to
- * the GHL renewal page. Pricing copy comes from SPEC.md §2 as listed.
+ * the GHL renewal page. Shows the CURRENT two member levels (Member/Pro) —
+ * the legacy monthly/3/6/12 plans are gone.
  */
 export default async function ExpiredPage() {
   // No Stripe and no GHL renewal page configured → the only honest CTA is
@@ -34,24 +34,31 @@ export default async function ExpiredPage() {
           community profile are all saved and waiting.
         </p>
 
-        <div className="pricing-grid">
-          {PRICING_PLANS.map((plan) => (
-            <div
-              key={plan.tier}
-              className={`pricing-card${plan.bestValue ? " best" : ""}`}
-            >
-              {plan.bestValue && (
-                <span className="pricing-best-tag">Best Value</span>
-              )}
-              <div className="pricing-name">{plan.name}</div>
-              <div className="pricing-price">{plan.price}</div>
-              <div className="pricing-permonth">{plan.perMonth}</div>
-              {plan.savings && (
-                <span className="pricing-savings">{plan.savings}</span>
-              )}
-              <p className="pricing-blurb">{plan.blurb}</p>
+        <div className="pricing-grid" style={{ maxWidth: 560, margin: "0 auto" }}>
+          <div className="pricing-card">
+            <div className="pricing-name">Momentum+ Member</div>
+            <div className="pricing-price">
+              {stripe?.displayPrices?.basic
+                ? `$${stripe.displayPrices.basic}/mo`
+                : "Membership"}
             </div>
-          ))}
+            <p className="pricing-blurb">
+              Live sessions, the full library, core courses, and the community.
+            </p>
+          </div>
+          <div className="pricing-card best">
+            <span className="pricing-best-tag">Most Access</span>
+            <div className="pricing-name">Momentum+ Pro</div>
+            <div className="pricing-price">
+              {stripe?.displayPrices?.pro
+                ? `$${stripe.displayPrices.pro}/mo`
+                : "Membership"}
+            </div>
+            <p className="pricing-blurb">
+              Everything in Member, plus Pro-only sessions, recordings,
+              advanced tracks, and premium resources.
+            </p>
+          </div>
         </div>
 
         <div className="renew-actions">

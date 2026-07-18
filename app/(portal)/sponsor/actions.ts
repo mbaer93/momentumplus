@@ -101,7 +101,7 @@ export async function sendTicketInvites(
   const admin = createServiceClient();
   const { data: sponsor } = await admin
     .from("sponsors")
-    .select("id, tier")
+    .select("id")
     .eq("id", sponsorId)
     .maybeSingle();
   if (!sponsor) return { ok: false, message: "Sponsor not found." };
@@ -114,10 +114,7 @@ export async function sendTicketInvites(
     return { ok: false, message: "Add at least one email address." };
   }
 
-  const summary = await inviteTicketUsers(
-    { id: sponsor.id as string, tier: (sponsor.tier as string) ?? "partner" },
-    emails,
-  );
+  const summary = await inviteTicketUsers({ id: sponsor.id as string }, emails);
   const parts: string[] = [];
   if (summary.invited.length > 0) {
     parts.push(

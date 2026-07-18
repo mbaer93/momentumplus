@@ -1,4 +1,5 @@
 import { Greeting } from "@/components/portal/Greeting";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 import { TestimonialAsk } from "@/components/dashboard/TestimonialAsk";
 import { hasTestimonial } from "./testimonial-actions";
 import Link from "next/link";
@@ -13,7 +14,6 @@ import {
   TargetIcon,
 } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
-import { VIP_INCLUDED_NOTE } from "@/lib/pricing";
 import {
   placeholderActivity,
   placeholderNextSession,
@@ -170,11 +170,6 @@ export default async function DashboardPage() {
               ? `You have ${stats.upcomingSessions} upcoming session${stats.upcomingSessions === 1 ? "" : "s"} on the calendar.`
               : "Welcome to your leadership home base."}
           </p>
-          {member.tier === "tsls_vip" && (
-            <p style={{ marginTop: 8, color: "var(--gold-light)" }}>
-              {VIP_INCLUDED_NOTE}
-            </p>
-          )}
           <div className="welcome-meta">
             <div className="welcome-meta-item">
               <strong>Day {stats.memberSinceDays}</strong> as a member
@@ -240,6 +235,8 @@ export default async function DashboardPage() {
           )}
         </div>
       )}
+
+      <BodyAd variant="banner" />
 
       {/* Stat Grid */}
       <div className="stat-grid">
