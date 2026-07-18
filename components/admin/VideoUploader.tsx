@@ -157,7 +157,7 @@ export function VideoUploader({ muxConnected }: { muxConnected: boolean }) {
             }
           >
             <option value="all_members">All members</option>
-            <option value="vip_plus">VIP &amp; annual only</option>
+            <option value="vip_plus">Exclusive — Pro, speakers &amp; sponsors</option>
             <option value="pro_only">Pro members only (exclusive)</option>
           </select>
         </div>

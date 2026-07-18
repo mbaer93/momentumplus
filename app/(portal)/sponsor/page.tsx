@@ -4,8 +4,8 @@ import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
 import { sponsorTierLabel } from "@/lib/sponsor-tiers";
 import {
-  getTicketCounts,
   listSponsorTeam,
+  sponsorTicketAllotment,
   ticketsUsed,
   type SponsorRole,
 } from "@/lib/sponsor-team";
@@ -106,11 +106,10 @@ export default async function SponsorStudioPage({
     );
   }
 
-  const [team, counts] = await Promise.all([
+  const [team, allotment] = await Promise.all([
     listSponsorTeam(sponsorId),
-    getTicketCounts(),
+    sponsorTicketAllotment(sponsorId),
   ]);
-  const allotment = counts[(sponsor.tier as string) ?? ""] ?? 0;
   const used = ticketsUsed(team);
   const canOwn = isSuperAdmin || viewerRole === "owner";
 

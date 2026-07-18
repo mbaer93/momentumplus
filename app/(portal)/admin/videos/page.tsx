@@ -19,7 +19,7 @@ export default async function AdminVideosPage({
     id: v.id,
     title: v.title,
     subtitle: `${v.speakerName}${v.durationLabel ? ` · ${v.durationLabel}` : ""}`,
-    badge: v.minAccess === "vip_plus" ? "VIP+" : undefined,
+    badge: v.minAccess === "vip_plus" ? "Exclusive" : undefined,
     values: {
       title: v.title,
       category: v.category,
@@ -50,7 +50,7 @@ export default async function AdminVideosPage({
         : v.min_access === "pro_only"
           ? "Pro"
           : v.min_access === "vip_plus"
-            ? "VIP+"
+            ? "Exclusive"
             : undefined,
       values: {
         title: v.title,

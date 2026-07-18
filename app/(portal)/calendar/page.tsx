@@ -4,6 +4,7 @@ import {
 } from "@/components/calendar/CalendarView";
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { requireMember } from "@/lib/current-member";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 import { expandOccurrences } from "@/lib/recurrence";
 import { listSessions } from "@/lib/sessions/queries";
 
@@ -57,6 +58,7 @@ export default async function CalendarPage() {
           <AdminAddChip href="/admin/sessions/new" label="New session" />
         )}
       </div>
+      <BodyAd variant="banner" />
       <CalendarView events={events} />
     </div>
   );

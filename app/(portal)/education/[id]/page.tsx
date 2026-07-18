@@ -50,7 +50,7 @@ export default async function CoursePage({
             <h3>
               {course.minAccess === "pro_only"
                 ? "This track is a Momentum+ Pro exclusive"
-                : "This track is for VIP & annual members"}
+                : "This track is exclusive to Momentum+ Pro members"}
             </h3>
             <p>
               Upgrade your membership to unlock all{" "}

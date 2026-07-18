@@ -67,7 +67,7 @@ export function LibraryBrowser({
                   />
                 )}
                 {v.minAccess === "vip_plus" && (
-                  <span className="recording-vip">VIP</span>
+                  <span className="recording-vip">EXCLUSIVE</span>
                 )}
                 {v.minAccess === "pro_only" && (
                   <span className="recording-vip">PRO</span>

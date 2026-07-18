@@ -14,6 +14,31 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
+/** Sponsors + their per-sponsor ticket override for the settings panel
+    (override column arrives with migration 0041 — absent means null). */
+async function sponsorOverrideRows(
+  rows: AdminSponsorRow[],
+): Promise<{ id: string; name: string; tier: string; ticketOverride: number | null }[]> {
+  const overrides = new Map<string, number | null>();
+  if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { data } = await createServiceClient()
+      .from("sponsors")
+      .select("id, ticket_override");
+    for (const r of data ?? []) {
+      overrides.set(
+        r.id as string,
+        typeof r.ticket_override === "number" ? r.ticket_override : null,
+      );
+    }
+  }
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    tier: r.tier,
+    ticketOverride: overrides.get(r.id) ?? null,
+  }));
+}
+
 export default async function AdminSponsorsPage({
   searchParams,
 }: {
@@ -160,7 +185,7 @@ export default async function AdminSponsorsPage({
             ? await getTicketCounts()
             : {}
         }
-        sponsors={rows.map((r) => ({ id: r.id, name: r.name }))}
+        sponsors={await sponsorOverrideRows(rows)}
         isSuperAdmin={(await getAdminAccess())?.role === "super"}
       />
     </div>

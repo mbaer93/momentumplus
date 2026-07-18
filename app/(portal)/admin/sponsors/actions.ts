@@ -43,6 +43,44 @@ export async function saveSponsorTicketCounts(
   return { ok: true, message: "Ticket allotments saved." };
 }
 
+/** Per-sponsor ticket override: a custom count that replaces the tier
+    default for one sponsor. null = back to the tier default. */
+export async function saveSponsorTicketOverride(
+  sponsorId: string,
+  override: number | null,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  const value =
+    override === null || !Number.isFinite(override) || override < 0
+      ? null
+      : Math.floor(override);
+  const { error } = await createServiceClient()
+    .from("sponsors")
+    .update({ ticket_override: value })
+    .eq("id", sponsorId);
+  if (error) {
+    return {
+      ok: false,
+      message: /ticket_override/.test(error.message)
+        ? "Run migration 0041 in the Supabase SQL editor first — it adds the override column."
+        : error.message,
+    };
+  }
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsor");
+  return {
+    ok: true,
+    message:
+      value === null
+        ? "Override cleared — this sponsor uses the tier default again."
+        : `This sponsor now has ${value} VIP ticket${value === 1 ? "" : "s"} regardless of tier.`,
+  };
+}
+
 export async function createSponsor(input: SponsorInput): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Created (preview mode)." };

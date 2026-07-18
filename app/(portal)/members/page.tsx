@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/current-member";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 import { tierLabel } from "@/lib/access";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -34,7 +35,7 @@ const PREVIEW_ROWS: DirectoryRow[] = [
     title: "VP of Operations",
     company: "Hartline Logistics",
     industry: "Logistics",
-    tier: "Annual Member",
+    tier: "Momentum+ Pro User",
     email: "sarah@example.com",
     phone: null,
   },
@@ -44,7 +45,7 @@ const PREVIEW_ROWS: DirectoryRow[] = [
     title: "Founder",
     company: "Chen Creative",
     industry: "Marketing",
-    tier: "VIP Member",
+    tier: "Momentum+ Member",
     email: null,
     phone: null,
   },
@@ -68,7 +69,10 @@ export default async function MembersPage({
   await requireMember();
   const q = (searchParams?.q ?? "").trim().toLowerCase().slice(0, 80);
 
-  let rows: DirectoryRow[] = PREVIEW_ROWS;
+  // Preview fixtures appear ONLY with no Supabase at all — a configured
+  // deployment missing its service key shows an empty directory, never
+  // fake members presented as real ones.
+  let rows: DirectoryRow[] = isSupabaseConfigured() ? [] : PREVIEW_ROWS;
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
@@ -190,6 +194,8 @@ export default async function MembersPage({
         </Link>
         . Until then, only your name, title, and company are shown.
       </div>
+
+      <BodyAd variant="tile" />
 
       {visible.length === 0 ? (
         <div className="sessions-empty">No members match that search.</div>

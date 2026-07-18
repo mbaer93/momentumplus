@@ -1,5 +1,5 @@
 import { createHmac } from "crypto";
-import { isVipPlus } from "./access";
+import { isPro, isVipPlus } from "./access";
 import type { Tier } from "./types";
 
 /*
@@ -19,7 +19,7 @@ export interface CommunityChannel {
   name: string;
   description: string;
   /** Which members may read/write. */
-  gate: "all_members" | "vip_plus" | "annual";
+  gate: "all_members" | "vip_plus" | "pro";
   /** Only admins may post (announcements). */
   adminPostOnly?: boolean;
 }
@@ -42,7 +42,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
   {
     id: "networking",
     name: "networking",
-    description: "Make connections across the Tri-State",
+    description: "Make connections with leaders nationwide",
     gate: "all_members",
   },
   {
@@ -57,17 +57,20 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
     description: "Shared tools, templates, and reading",
     gate: "all_members",
   },
+  // Stream channel ids are permanent (they anchor message history), so the
+  // two premium rooms keep their original ids and only their display names
+  // and gates evolved with the July 2026 member levels.
   {
     id: "vip-only",
-    name: "vip-only",
-    description: "The VIP room — vip, annual, speakers",
+    name: "inner-circle",
+    description: "The inner circle — Pro members, speakers & sponsors",
     gate: "vip_plus",
   },
   {
     id: "annual-members",
-    name: "annual-members",
-    description: "For members on the 12-month journey",
-    gate: "annual",
+    name: "pro-members",
+    description: "The Pro lounge — for Momentum+ Pro members",
+    gate: "pro",
   },
 ];
 
@@ -79,8 +82,8 @@ export function channelsForTier(tier: Tier): CommunityChannel[] {
         return true;
       case "vip_plus":
         return isVipPlus(tier);
-      case "annual":
-        return tier === "sub_annual" || tier === "admin";
+      case "pro":
+        return isPro(tier);
       default:
         return false;
     }

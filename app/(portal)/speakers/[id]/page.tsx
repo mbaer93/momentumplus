@@ -17,12 +17,16 @@ export default async function SpeakerDetailPage({
   const speaker = await getSpeaker(params.id);
   if (!speaker) notFound();
 
-  // Sessions by this speaker (matched by placeholder slugs or speaker name).
+  // Sessions by this speaker (matched by placeholder slugs, speaker id, or
+  // name). Archived sessions stay out — they're hidden history, not a
+  // schedule.
   const all = await listSessions();
   const theirSessions = all.filter(
     (s) =>
-      speaker.sessionSlugs.includes(s.slug) ||
-      s.speaker.name === speaker.name,
+      s.status !== "archived" &&
+      (speaker.sessionSlugs.includes(s.slug) ||
+        s.speaker.id === speaker.id ||
+        s.speaker.name === speaker.name),
   );
 
   return (

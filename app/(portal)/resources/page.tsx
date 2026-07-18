@@ -1,5 +1,6 @@
 import { ResourcesBrowser } from "@/components/resources/ResourcesBrowser";
 import { AdminAddChip } from "@/components/admin/AdminChips";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 import { requireMember } from "@/lib/current-member";
 import { listResources, resourceUnlocked } from "@/lib/directory-queries";
 
@@ -23,6 +24,7 @@ export default async function ResourcesPage() {
           <AdminAddChip href="/admin/resources" label="Add resource" />
         )}
       </div>
+      <BodyAd variant="tile" />
       <ResourcesBrowser
         resources={resources}
         unlockedIds={unlockedIds}

@@ -166,10 +166,7 @@ export async function completeSponsorOnboarding(
     try {
       const { inviteTicketUsers } = await import("@/lib/sponsor-team");
       const summary = await inviteTicketUsers(
-        {
-          id: sponsor.id as string,
-          tier: normalizeSponsorTier(invite.tier as string),
-        },
+        { id: sponsor.id as string },
         ticketEmails,
       );
       const bits: string[] = [];

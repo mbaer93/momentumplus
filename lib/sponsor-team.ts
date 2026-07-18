@@ -157,6 +157,34 @@ export async function resolveSponsorActor(
   };
 }
 
+/**
+ * A sponsor's VIP ticket allotment: their per-sponsor override when the
+ * admin set one, otherwise the tier default from app_settings.
+ */
+export async function sponsorTicketAllotment(sponsorId: string): Promise<number> {
+  const admin = createServiceClient();
+  const counts = await getTicketCounts();
+  let res = await admin
+    .from("sponsors")
+    .select("tier, ticket_override")
+    .eq("id", sponsorId)
+    .maybeSingle();
+  if (res.error && /ticket_override/.test(res.error.message)) {
+    // Pre-migration-0041 fallback: no override column yet.
+    res = (await admin
+      .from("sponsors")
+      .select("tier")
+      .eq("id", sponsorId)
+      .maybeSingle()) as typeof res;
+  }
+  const row = res.data as { tier?: string; ticket_override?: number | null } | null;
+  if (!row) return 0;
+  if (typeof row.ticket_override === "number" && row.ticket_override >= 0) {
+    return Math.floor(row.ticket_override);
+  }
+  return counts[row.tier ?? ""] ?? 0;
+}
+
 export interface TicketInviteSummary {
   invited: string[];
   existing: string[];
@@ -167,17 +195,18 @@ export interface TicketInviteSummary {
 /**
  * Hand out VIP tickets: for each email, provision a 3-month VIP Access
  * membership (source=sponsor) and tie them to the sponsor with a
- * role-'member' seat. Enforces the tier's ticket allotment. The caller has
- * already authorized the actor.
+ * role-'member' seat. Enforces the sponsor's ticket allotment (per-sponsor
+ * override, else tier default). The caller has already authorized the actor.
  */
 export async function inviteTicketUsers(
-  sponsor: { id: string; tier: string },
+  sponsor: { id: string },
   rawEmails: string[],
 ): Promise<TicketInviteSummary> {
   const admin = createServiceClient();
-  const team = await listSponsorTeam(sponsor.id);
-  const counts = await getTicketCounts();
-  const allotment = counts[sponsor.tier] ?? 0;
+  const [team, allotment] = await Promise.all([
+    listSponsorTeam(sponsor.id),
+    sponsorTicketAllotment(sponsor.id),
+  ]);
   let remaining = Math.max(0, allotment - ticketsUsed(team));
 
   const summary: TicketInviteSummary = {

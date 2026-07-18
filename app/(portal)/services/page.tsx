@@ -1,6 +1,7 @@
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { BriefcaseIcon, ExternalIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
+import { BodyAd } from "@/components/sponsors/BodyAd";
 import { listServices } from "@/lib/services-queries";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,8 @@ export default async function ServicesPage() {
           <AdminAddChip href="/admin/services" label="Manage services" />
         )}
       </div>
+
+      <BodyAd variant="tile" />
 
       {services.length === 0 && (
         <div className="sessions-empty" style={{ marginTop: 20 }}>

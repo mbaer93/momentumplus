@@ -103,7 +103,7 @@ function CourseFields({
             }
           >
             <option value="all_members">All members</option>
-            <option value="vip_plus">VIP &amp; annual only</option>
+            <option value="vip_plus">Exclusive — Pro, speakers &amp; sponsors</option>
             <option value="pro_only">Pro members only (exclusive)</option>
           </select>
         </div>
@@ -661,7 +661,7 @@ export function CoursesManager({
                     <div className="admin-row-title">{c.title}</div>
                     <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
                       {c.category}
-                      {c.minAccess === "vip_plus" ? " · VIP & annual" : ""}
+                      {c.minAccess === "vip_plus" ? " · Exclusive" : ""}
                       {c.minAccess === "pro_only" ? " · Pro only" : ""}
                     </div>
                   </td>
