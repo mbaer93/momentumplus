@@ -291,23 +291,45 @@ export async function archiveSpeaker(id: string): Promise<AdminResult> {
   }
 
   // End their speaker access.
+  let accessWarning = "";
   if (speaker?.profile_id) {
-    await admin
+    const { error: accessError } = await admin
       .from("memberships")
       .update({ status: "expired", access_expires_at: nowIso })
       .eq("profile_id", speaker.profile_id)
       .eq("source", "speaker")
       .eq("status", "active");
+    if (accessError) {
+      accessWarning = membershipWarning(
+        "their portal access could NOT be revoked",
+        accessError.message,
+      );
+    }
   }
 
   refresh();
   revalidatePath("/sessions");
   revalidatePath("/library");
+  if (accessWarning) {
+    return {
+      ok: false,
+      message: `Speaker archived and their content is hidden, but ${accessWarning}`,
+    };
+  }
   return {
     ok: true,
     message:
       "Speaker archived — their profile, sessions, and library items are hidden from members. Reinstate anytime.",
   };
+}
+
+/** Membership writes for speakers fail loudly instead of silently — the
+    most likely cause is a database missing migration 0036. */
+function membershipWarning(what: string, detail: string): string {
+  const hint = /membership_source/i.test(detail)
+    ? " Run migration 0036 in the Supabase SQL editor, then retry."
+    : "";
+  return `${what}: ${detail}.${hint}`;
 }
 
 /** Bring a past speaker back through the next season end. Their library
@@ -342,8 +364,9 @@ export async function reinstateSpeaker(id: string): Promise<AdminResult> {
       .in("session_id", sessionIds);
   }
 
+  let accessWarning = "";
   if (speaker?.profile_id) {
-    const { data: existing } = await admin
+    const { data: existing, error: lookupError } = await admin
       .from("memberships")
       .select("id")
       .eq("profile_id", speaker.profile_id)
@@ -351,13 +374,24 @@ export async function reinstateSpeaker(id: string): Promise<AdminResult> {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (existing) {
-      await admin
+    if (lookupError) {
+      accessWarning = membershipWarning(
+        "their portal access could NOT be restored",
+        lookupError.message,
+      );
+    } else if (existing) {
+      const { error: updateError } = await admin
         .from("memberships")
         .update({ status: "active", access_expires_at: termEnd })
         .eq("id", existing.id);
+      if (updateError) {
+        accessWarning = membershipWarning(
+          "their portal access could NOT be restored",
+          updateError.message,
+        );
+      }
     } else {
-      await admin.from("memberships").insert({
+      const { error: insertError } = await admin.from("memberships").insert({
         profile_id: speaker.profile_id,
         tier: "speaker",
         status: "active",
@@ -365,12 +399,24 @@ export async function reinstateSpeaker(id: string): Promise<AdminResult> {
         access_expires_at: termEnd,
         source: "speaker",
       });
+      if (insertError) {
+        accessWarning = membershipWarning(
+          "their portal access could NOT be restored",
+          insertError.message,
+        );
+      }
     }
   }
 
   refresh();
   revalidatePath("/sessions");
   revalidatePath("/library");
+  if (accessWarning) {
+    return {
+      ok: false,
+      message: `Speaker profile and library items are back, but ${accessWarning}`,
+    };
+  }
   return {
     ok: true,
     message: `Speaker reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Library items restored; re-publish any upcoming sessions from Admin → Sessions.`,
