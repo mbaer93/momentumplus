@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   AdminIcon,
   BriefcaseIcon,
+  StarIcon,
   ChevronRightIcon,
   CommunityIcon,
   EducationIcon,
@@ -88,6 +89,13 @@ const SECTIONS: {
     icon: BriefcaseIcon,
     title: "Additional Services",
     desc: "SLC service offerings with sign-up links.",
+    area: "content",
+  },
+  {
+    href: "/admin/testimonials",
+    icon: StarIcon,
+    title: "Testimonials",
+    desc: "Review member testimonials for the landing page.",
     area: "content",
   },
   {

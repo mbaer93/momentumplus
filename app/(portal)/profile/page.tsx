@@ -49,6 +49,7 @@ export default async function ProfilePage() {
         created_at: new Date().toISOString(),
       };
   let savedPrefs: Partial<PrefRow>[] = [];
+  let referral: { link: string; count: number } | null = null;
   let hasStripeCustomer = false;
 
   if (isSupabaseConfigured()) {
@@ -97,6 +98,21 @@ export default async function ProfilePage() {
         hasStripeCustomer = Boolean(p.stripe_customer_id);
       }
       savedPrefs = (prefRows ?? []) as Partial<PrefRow>[];
+
+      // Referral program: mint the code on first visit; count conversions.
+      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        const { ensureReferralCode, getReferralCount } = await import(
+          "@/lib/referrals"
+        );
+        const code = await ensureReferralCode(user.id);
+        if (code) {
+          const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
+          referral = {
+            link: `${site}/join?ref=${code}`,
+            count: await getReferralCount(user.id),
+          };
+        }
+      }
     }
   }
 
@@ -223,6 +239,7 @@ export default async function ProfilePage() {
       prefDefinitions={PREF_DEFINITIONS}
       initialPrefs={mergePrefs(savedPrefs)}
       certificates={certificates}
+      referral={referral}
       billing={{
         enabled: billingEnabled,
         basicPrice: stripeSettings?.displayPrices?.basic ?? null,

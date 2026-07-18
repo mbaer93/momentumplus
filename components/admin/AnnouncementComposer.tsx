@@ -8,35 +8,21 @@ import {
   sendAnnouncement,
 } from "@/app/(portal)/admin/announcements/actions";
 
-// Current member levels first; legacy tiers stay selectable because members
-// granted under the old system still hold them. Labels come from the same
-// registry as everywhere else (lib/access), so this list can't drift again.
-const CURRENT_TIERS: Tier[] = ["basic", "pro", "vip", "gift", "speaker"];
-const LEGACY_TIERS: Tier[] = [
-  "sub_monthly",
-  "sub_3mo",
-  "sub_6mo",
-  "sub_annual",
-  "tsls_attendee",
-  "tsls_vip",
-];
-const TIER_OPTIONS: { value: Tier; label: string; legacy?: boolean }[] = [
-  ...CURRENT_TIERS.map((value) => ({ value, label: tierLabel(value) })),
-  ...LEGACY_TIERS.map((value) => ({
-    value,
-    label: `${tierLabel(value)} (legacy)`,
-    legacy: true,
-  })),
-];
+// The current member levels only, labeled from the same registry as
+// everywhere else (lib/access) so this list can't drift again.
+const TIER_OPTIONS: { value: Tier; label: string }[] = (
+  ["basic", "pro", "vip", "gift", "speaker"] as Tier[]
+).map((value) => ({ value, label: tierLabel(value) }));
 
 export function AnnouncementComposer() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [tiers, setTiers] = useState<Tier[]>(TIER_OPTIONS.map((t) => t.value));
-  const [channels, setChannels] = useState<("email" | "in_app")[]>([
-    "email",
-    "in_app",
-  ]);
+  // Nothing pre-selected — the admin chooses the audience and channels
+  // deliberately every time.
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [channels, setChannels] = useState<("email" | "in_app" | "community")[]>(
+    [],
+  );
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // Two-step send: first click counts the audience, second click sends.
@@ -49,7 +35,7 @@ export function AnnouncementComposer() {
       prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t],
     );
   }
-  function toggleChannel(c: "email" | "in_app") {
+  function toggleChannel(c: "email" | "in_app" | "community") {
     setChannels((prev) =>
       prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
     );
@@ -145,10 +131,19 @@ export function AnnouncementComposer() {
           >
             In-app
           </button>
+          <button
+            type="button"
+            className={`tier-chip${channels.includes("community") ? " selected" : ""}`}
+            onClick={() => toggleChannel("community")}
+          >
+            Community (#announcements)
+          </button>
         </div>
         <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 8 }}>
-          SMS announcements are intentionally excluded — SMS stays strictly
-          opt-in per member and per notification type.
+          Community posts land in the #announcements channel (visible to all
+          members regardless of tier). SMS announcements are intentionally
+          excluded — SMS stays strictly opt-in per member and per
+          notification type.
         </div>
       </div>
 
@@ -156,7 +151,11 @@ export function AnnouncementComposer() {
         <button
           type="submit"
           className="btn-purple"
-          disabled={pending || tiers.length === 0 || channels.length === 0}
+          disabled={
+            pending ||
+            channels.length === 0 ||
+            (tiers.length === 0 && !channels.includes("community"))
+          }
         >
           {pending
             ? confirmCount === null

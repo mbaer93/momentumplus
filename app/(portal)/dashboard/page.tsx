@@ -1,4 +1,6 @@
 import { Greeting } from "@/components/portal/Greeting";
+import { TestimonialAsk } from "@/components/dashboard/TestimonialAsk";
+import { hasTestimonial } from "./testimonial-actions";
 import Link from "next/link";
 import {
   CalendarIcon,
@@ -145,6 +147,10 @@ export default async function DashboardPage() {
       };
     });
   }
+
+  // Testimonial ask: shown after 2 weeks of membership, until submitted.
+  const askForTestimonial =
+    stats.memberSinceDays >= 14 && !(await hasTestimonial());
 
   const renewsLabel = member.accessExpiresAt
     ? new Date(member.accessExpiresAt).toLocaleDateString("en-US", {
@@ -360,6 +366,10 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {askForTestimonial && (
+        <TestimonialAsk memberName={member.name} defaultRole="" />
+      )}
 
       {/* Admin Banner — only for admin-tier members */}
       {member.isAdmin && (

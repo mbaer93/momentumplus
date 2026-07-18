@@ -12,6 +12,7 @@ import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { listApprovedTestimonials } from "@/lib/testimonials";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +99,14 @@ const FAQS: { q: string; a: string }[] = [
     q: "What's the difference between Member and Pro?",
     a: "Momentum+ Member includes everything most leaders need: live sessions, the library, core courses, and the community. Pro adds Pro-only sessions and recordings, advanced course tracks, premium resources, and first access to new programs.",
   },
+  {
+    q: "What is Rooted Focus?",
+    a: "Recurring 90-minute virtual co-working sessions led by the SLC team. You name your focus, work in two distraction-free rounds with a halftime check-in, and leave with a visible win. Enroll once and the whole series lands on your calendar.",
+  },
+  {
+    q: "Can I connect with other members?",
+    a: "Yes — the private community has topic channels, direct messages, and speaker Q&A, plus a member directory. Your name, title, and company are listed; your contact info is shared only if you choose to turn that on.",
+  },
 ];
 
 /** Next few scheduled session titles — real proof for the landing page. */
@@ -157,6 +166,7 @@ export default async function HomePage() {
   const basicPrice = stripe?.displayPrices?.basic ?? null;
   const proPrice = stripe?.displayPrices?.pro ?? null;
   const sessions = await upcomingPublicSessions();
+  const testimonials = await listApprovedTestimonials();
 
   return (
     <div className="land-screen">
@@ -367,6 +377,44 @@ export default async function HomePage() {
           </p>
         )}
       </section>
+
+      {/* Testimonials — appears once members' approved quotes exist. */}
+      {testimonials.length > 0 && (
+        <section className="land-section" id="testimonials">
+          <h2 className="land-h2">What members say</h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 18,
+              maxWidth: 980,
+              margin: "0 auto",
+            }}
+          >
+            {testimonials.map((t) => (
+              <blockquote
+                key={t.id}
+                style={{
+                  margin: 0,
+                  background: "#fff",
+                  border: "1px solid #E8E4DC",
+                  borderTop: "3px solid #B8965A",
+                  borderRadius: 4,
+                  padding: "20px 22px",
+                }}
+              >
+                <p style={{ margin: "0 0 12px", fontSize: 14.5, lineHeight: 1.7 }}>
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <footer style={{ fontSize: 12.5, color: "#6b7280" }}>
+                  — <strong>{t.name}</strong>
+                  {t.roleCompany ? `, ${t.roleCompany}` : ""}
+                </footer>
+              </blockquote>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* FAQ */}
       <section className="land-section" id="faq">

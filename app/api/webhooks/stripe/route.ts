@@ -214,6 +214,16 @@ export async function POST(req: NextRequest) {
           source: "stripe",
           stripe_subscription_id: subId,
         });
+
+        // Referral attribution: the /join?ref= code rode along in checkout
+        // metadata. Rewards the referrer; never blocks provisioning.
+        if (s.metadata?.referral_code) {
+          const { attributeReferral } = await import("@/lib/referrals");
+          await attributeReferral({
+            referredProfileId: profileId,
+            code: s.metadata.referral_code,
+          });
+        }
         break;
       }
 

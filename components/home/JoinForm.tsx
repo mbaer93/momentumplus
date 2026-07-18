@@ -13,8 +13,11 @@ export type TermMap = Record<string, number | null | undefined>;
 export function JoinForm({
   initialPlan,
   terms,
+  referralCode,
 }: {
   initialPlan: "basic" | "pro";
+  /** Referral code from /join?ref=… — attributed at checkout. */
+  referralCode?: string;
   /** Configured billing terms per plan: months -> total USD (1 = monthly). */
   terms?: { basic: TermMap; pro: TermMap };
 }) {
@@ -35,7 +38,7 @@ export function JoinForm({
     setExisting(false);
     startTransition(async () => {
       try {
-        const res = await startPublicCheckout({ plan, email, name, months });
+        const res = await startPublicCheckout({ plan, email, name, months, ref: referralCode });
         if (res.ok && res.url) {
           window.location.href = res.url;
           return;

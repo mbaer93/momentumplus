@@ -11,7 +11,9 @@ export interface AnnouncementInput {
   title: string;
   body: string;
   audienceTiers: Tier[];
-  channels: ("email" | "in_app")[]; // SMS announcements come later; opt-in only
+  /** SMS announcements come later; opt-in only. "community" posts to the
+      #announcements chat channel (all members, tiers don't apply). */
+  channels: ("email" | "in_app" | "community")[];
 }
 
 export interface AnnouncementResult {
@@ -58,8 +60,21 @@ export async function sendAnnouncement(
   input: AnnouncementInput,
   resumeId?: string,
 ): Promise<AnnouncementResult> {
-  if (!input.title.trim() || input.audienceTiers.length === 0) {
-    return { ok: false, message: "Title and at least one audience tier required." };
+  const communityOnly =
+    input.channels.length > 0 &&
+    input.channels.every((c) => c === "community");
+  if (!input.title.trim()) {
+    return { ok: false, message: "Give the announcement a title." };
+  }
+  if (input.channels.length === 0) {
+    return { ok: false, message: "Pick at least one channel." };
+  }
+  if (input.audienceTiers.length === 0 && !communityOnly) {
+    return {
+      ok: false,
+      message:
+        "Pick at least one audience tier (or send to Community only — that channel reaches everyone).",
+    };
   }
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return {
@@ -100,6 +115,29 @@ export async function sendAnnouncement(
       return { ok: false, message: insertError?.message ?? "Couldn't record the announcement." };
     }
     announcementId = created.id as string;
+  }
+
+  // Community post: into the #announcements chat channel as the team user.
+  let communityNote = "";
+  if (input.channels.includes("community")) {
+    try {
+      const { sendCommunityMessage } = await import("@/lib/stream");
+      await sendCommunityMessage(
+        "announcements",
+        `${input.title.trim()}${input.body.trim() ? `\n\n${input.body.trim()}` : ""}`,
+      );
+      communityNote = " Posted to #announcements.";
+    } catch (e) {
+      communityNote = ` Community post failed (${(e as Error).message}) — send it again with only the Community channel selected to retry.`;
+    }
+  }
+  if (input.audienceTiers.length === 0) {
+    return {
+      ok: !communityNote.includes("failed"),
+      recipients: 0,
+      announcementId,
+      message: communityNote.trim() || "Nothing sent.",
+    };
   }
 
   // Audience: members holding a usable membership in the selected tiers.
