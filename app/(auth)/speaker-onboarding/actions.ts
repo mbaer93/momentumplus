@@ -141,13 +141,15 @@ export async function completeSpeakerOnboarding(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  let accessError: string | null = null;
   if (existingAccess) {
-    await admin
+    const { error } = await admin
       .from("memberships")
       .update({ status: "active", access_expires_at: termEnd })
       .eq("id", existingAccess.id);
+    accessError = error?.message ?? null;
   } else {
-    await admin.from("memberships").insert({
+    const { error } = await admin.from("memberships").insert({
       profile_id: user.id,
       tier: "speaker",
       status: "active",
@@ -155,6 +157,18 @@ export async function completeSpeakerOnboarding(
       access_expires_at: termEnd,
       source: "speaker",
     });
+    accessError = error?.message ?? null;
+  }
+  if (accessError) {
+    // Leave the invite open so the speaker can retry once it's fixed —
+    // without a membership row they'd be locked out of the portal.
+    const hint = /membership_source/i.test(accessError)
+      ? " (The team needs to apply database migration 0036.)"
+      : "";
+    return {
+      ok: false,
+      message: `Your speaker page saved, but portal access couldn't be set up: ${accessError}.${hint} Please try again or contact the Momentum+ team.`,
+    };
   }
 
   // 5) Close the invite.

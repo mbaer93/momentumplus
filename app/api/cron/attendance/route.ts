@@ -3,12 +3,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { getMeetingParticipants } from "@/lib/zoom";
 import { isZoomReady } from "@/lib/service-config";
+import { nextOccurrence, type Recurrence } from "@/lib/recurrence";
 
 /*
  * Session lifecycle + attendance sync (SPEC.md §4), on one cron:
  *
  * 1. Auto-advance status: scheduled → live while the session is running,
- *    live/scheduled → completed once it has ended. Nothing else does this,
+ *    live/scheduled → completed once it has ended. Recurring series instead
+ *    cycle live → scheduled between occurrences and only complete once the
+ *    whole series is past its end date. Nothing else does this,
  *    and downstream features hang off it — the AI-summaries cron only
  *    processes completed sessions, enrollment RLS only allows scheduled
  *    sessions, and the attendance pull below only looks at ended sessions.
@@ -30,19 +33,79 @@ export async function GET(req: NextRequest) {
   const now = Date.now();
 
   // --- 1. Status transitions (runs even when Zoom isn't configured) ---
-  const { data: open } = await admin
+  // Recurring (Rooted Focus) series must NOT be completed after one
+  // occurrence — they cycle scheduled → live → scheduled until the series
+  // end date passes. recurrence columns arrived in migration 0030, so fall
+  // back to the legacy select if they're missing.
+  type OpenRow = {
+    id: string;
+    status: string;
+    starts_at: string;
+    duration_min: number | null;
+    recurrence?: Recurrence | null;
+    recurrence_until?: string | null;
+  };
+  let openRes = await admin
     .from("sessions")
-    .select("id, status, starts_at, duration_min")
+    .select("id, status, starts_at, duration_min, recurrence, recurrence_until")
     .in("status", ["scheduled", "live"])
     .not("starts_at", "is", null)
     .lte("starts_at", new Date(now).toISOString());
+  if (openRes.error && /recurrence/.test(openRes.error.message)) {
+    openRes = (await admin
+      .from("sessions")
+      .select("id, status, starts_at, duration_min")
+      .in("status", ["scheduled", "live"])
+      .not("starts_at", "is", null)
+      .lte("starts_at", new Date(now).toISOString())) as typeof openRes;
+  }
+  const open = (openRes.data ?? []) as OpenRow[];
+
+  // Self-heal: recurring rows someone (or a pre-fix cron) marked completed
+  // while the series is still running go back to scheduled.
+  const healRes = await admin
+    .from("sessions")
+    .select("id, starts_at, duration_min, recurrence, recurrence_until")
+    .eq("status", "completed")
+    .not("recurrence", "is", null);
+  for (const s of (healRes.data ?? []) as OpenRow[]) {
+    const occ = nextOccurrence(
+      s.starts_at,
+      s.duration_min ?? 60,
+      s.recurrence as Recurrence,
+      s.recurrence_until ?? null,
+      now,
+    );
+    if (occ !== null) {
+      open.push({ ...s, status: "completed" });
+    }
+  }
 
   let wentLive = 0;
   let wentCompleted = 0;
-  for (const s of open ?? []) {
-    const started = new Date(s.starts_at as string).getTime();
-    const endMs = started + (s.duration_min ?? 60) * 60 * 1000;
-    const next = now >= endMs ? "completed" : "live";
+  let wentScheduled = 0;
+  for (const s of open) {
+    let next: string;
+    if (s.recurrence) {
+      const occ = nextOccurrence(
+        s.starts_at,
+        s.duration_min ?? 60,
+        s.recurrence,
+        s.recurrence_until ?? null,
+        now,
+      );
+      if (occ === null) {
+        next = "completed"; // series fully ended
+      } else {
+        const occStart = new Date(occ).getTime();
+        const occEnd = occStart + (s.duration_min ?? 60) * 60 * 1000;
+        next = now >= occStart && now < occEnd ? "live" : "scheduled";
+      }
+    } else {
+      const started = new Date(s.starts_at).getTime();
+      const endMs = started + (s.duration_min ?? 60) * 60 * 1000;
+      next = now >= endMs ? "completed" : "live";
+    }
     if (next === s.status) continue;
     const { error: transitionError } = await admin
       .from("sessions")
@@ -51,7 +114,8 @@ export async function GET(req: NextRequest) {
       .eq("status", s.status); // no-op if an admin changed it mid-run
     if (!transitionError) {
       if (next === "live") wentLive += 1;
-      else wentCompleted += 1;
+      else if (next === "completed") wentCompleted += 1;
+      else wentScheduled += 1;
     }
   }
 
@@ -60,6 +124,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       wentLive,
       wentCompleted,
+      wentScheduled,
       attendance: "skipped (Zoom not configured)",
     });
   }
@@ -126,5 +191,12 @@ export async function GET(req: NextRequest) {
     results.push({ sessionId: session.id, matched: toMark.length });
   }
 
-  return NextResponse.json({ ok: true, updated, sessions: results });
+  return NextResponse.json({
+    ok: true,
+    wentLive,
+    wentCompleted,
+    wentScheduled,
+    updated,
+    sessions: results,
+  });
 }
