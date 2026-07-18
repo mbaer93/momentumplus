@@ -68,6 +68,8 @@ interface ProfileViewProps {
     ceHours: number | null;
     dateLabel: string;
   }[];
+  /** Referral program: the member's share link + conversions so far. */
+  referral?: { link: string; count: number } | null;
 }
 
 type Tab = "activity" | "sessions" | "certificates" | "preferences";
@@ -82,6 +84,7 @@ export function ProfileView({
   initialPrefs,
   billing,
   certificates,
+  referral = null,
 }: ProfileViewProps) {
   const [tab, setTab] = useState<Tab>("activity");
   const [prefs, setPrefs] = useState<PrefRow[]>(initialPrefs);
@@ -212,6 +215,48 @@ export function ProfileView({
 
         {/* Main */}
         <div>
+          {referral && (
+            <div
+              className="card"
+              style={{ marginBottom: 16, padding: "14px 18px" }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  letterSpacing: 1,
+                  textTransform: "uppercase",
+                  color: "var(--gold)",
+                  fontWeight: 600,
+                  marginBottom: 4,
+                }}
+              >
+                Refer a leader — earn a free month
+              </div>
+              <div style={{ fontSize: 13, color: "var(--mid-gray)", marginBottom: 10 }}>
+                Share your link. When someone joins with it, you get a month
+                free — every time.
+                {referral.count > 0 &&
+                  ` So far: ${referral.count} member${referral.count === 1 ? "" : "s"} joined through you.`}
+              </div>
+              <div
+                style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
+              >
+                <code style={{ fontSize: 12, wordBreak: "break-all" }}>
+                  {referral.link}
+                </code>
+                <button
+                  type="button"
+                  className="btn-mini"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(referral.link);
+                    setMsg("Referral link copied");
+                  }}
+                >
+                  Copy link
+                </button>
+              </div>
+            </div>
+          )}
           <div className="profile-tabs">
             {(
               [

@@ -16,7 +16,7 @@ export const metadata = {
 export default async function JoinPage({
   searchParams,
 }: {
-  searchParams?: { plan?: string; success?: string; canceled?: string };
+  searchParams?: { plan?: string; success?: string; canceled?: string; ref?: string };
 }) {
   const plan = searchParams?.plan === "pro" ? "pro" : "basic";
   const settings = await getStripeSettings();
@@ -70,7 +70,7 @@ export default async function JoinPage({
                 ? "No charge was made — pick up right where you left off."
                 : "Pick your level, tell us who you are, and finish on our secure Stripe checkout."}
             </p>
-            <JoinForm initialPlan={plan} terms={terms} />
+            <JoinForm initialPlan={plan} terms={terms} referralCode={searchParams?.ref} />
           </>
         )}
       </div>
