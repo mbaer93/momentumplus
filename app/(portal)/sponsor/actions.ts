@@ -142,6 +142,13 @@ export async function setTeamRole(
   if (!isSupabaseConfigured()) {
     return { ok: true, message: "Updated (preview mode)." };
   }
+  // Server actions receive raw serialized args — the TS union is not a
+  // runtime guard. Reject anything but the two roles this action may set;
+  // "owner" would otherwise install a second owner and skip the
+  // regular-membership gate below (ownership only moves via transfer).
+  if (role !== "manager" && role !== "member") {
+    return { ok: false, message: "Unknown role." };
+  }
   const auth = await requireStudioActor(sponsorId, "owner");
   if (!auth.ok) return auth;
 
@@ -203,41 +210,80 @@ export async function transferOwnership(
     return { ok: false, message: "They already own this page." };
   }
 
-  // Roles first: target becomes owner; the old owner stays on as a manager
-  // (the primary manager keeps manager standing regardless of membership).
+  // Grant the NEW owner's free membership first — the most failure-prone
+  // step. If it can't be granted, abort before touching roles so the page
+  // is never left owner-less or with an ex-owner who lost their membership
+  // for nothing.
+  const termEnd =
+    (sponsor.expires_at as string | null) ?? new Date().toISOString();
+  const access = await upsertSponsorMembership(toProfileId, termEnd, true);
+  if (access.error) {
+    return {
+      ok: false,
+      message: `Couldn't grant the new owner's membership (${access.error}) — nothing was changed. Try again or ask a Super Admin.`,
+    };
+  }
+
   const { error: promoteError } = await admin
     .from("sponsor_members")
     .update({ role: "owner" })
     .eq("sponsor_id", sponsorId)
     .eq("profile_id", toProfileId);
-  if (promoteError) return { ok: false, message: promoteError.message };
+  if (promoteError) {
+    return {
+      ok: false,
+      message: `Couldn't transfer ownership (${promoteError.message}). Nothing was changed.`,
+    };
+  }
   if (oldOwner) {
-    await admin
+    // Demote the old owner to manager (checked — a silent failure would
+    // leave two owners).
+    const { error: demoteError } = await admin
       .from("sponsor_members")
       .update({ role: "manager" })
       .eq("sponsor_id", sponsorId)
       .eq("profile_id", oldOwner.profileId);
-  }
+    if (demoteError) {
+      // Roll the promotion back so we don't leave two owners.
+      await admin
+        .from("sponsor_members")
+        .update({ role: "member" })
+        .eq("sponsor_id", sponsorId)
+        .eq("profile_id", toProfileId);
+      return {
+        ok: false,
+        message: `Couldn't complete the transfer (${demoteError.message}). Reverted — the current owner is unchanged.`,
+      };
+    }
 
-  // The sponsorship's one free membership follows the owner: end the old
-  // owner's free row, grant (or refresh) the new owner's through term end.
-  const termEnd =
-    (sponsor.expires_at as string | null) ?? new Date().toISOString();
-  if (oldOwner) {
-    await admin
-      .from("memberships")
-      .update({ status: "expired", access_expires_at: new Date().toISOString() })
+    // End the old owner's free membership — but ONLY if they don't still
+    // own another active sponsor page (memberships carry no sponsor_id, so
+    // a blind expire would revoke the free membership they need elsewhere).
+    const { data: otherOwnerSeats } = await admin
+      .from("sponsor_members")
+      .select("sponsor_id, sponsors!inner ( archived_at, expires_at )")
       .eq("profile_id", oldOwner.profileId)
-      .eq("source", "sponsor")
-      .neq("tier", "vip")
-      .eq("status", "active");
-  }
-  const access = await upsertSponsorMembership(toProfileId, termEnd, true);
-  if (access.error) {
-    return {
-      ok: false,
-      message: `Ownership moved, but the free membership couldn't be granted: ${access.error}. A Super Admin can grant it from Admin → Members.`,
-    };
+      .eq("role", "owner")
+      .neq("sponsor_id", sponsorId);
+    const stillOwnsElsewhere = (otherOwnerSeats ?? []).some((r) => {
+      const sp = r.sponsors as unknown as {
+        archived_at: string | null;
+        expires_at: string | null;
+      };
+      return (
+        !sp.archived_at &&
+        (!sp.expires_at || new Date(sp.expires_at) > new Date())
+      );
+    });
+    if (!stillOwnsElsewhere) {
+      await admin
+        .from("memberships")
+        .update({ status: "expired", access_expires_at: new Date().toISOString() })
+        .eq("profile_id", oldOwner.profileId)
+        .eq("source", "sponsor")
+        .neq("tier", "vip")
+        .eq("status", "active");
+    }
   }
 
   refreshSponsorSurfaces();

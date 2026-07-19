@@ -38,12 +38,14 @@ export async function POST(req: NextRequest) {
     .digest("hex")
     .slice(0, 32);
 
+  // Only an ACTIVE member may create rows or trigger alerts. A signed-in
+  // but never-paid / lapsed account (or anonymous visitor) can't — that
+  // was the inbox-bombing vector.
   let authenticated = false;
   try {
-    const {
-      data: { user },
-    } = await createClient().auth.getUser();
-    authenticated = Boolean(user);
+    const { getCurrentMember } = await import("@/lib/current-member");
+    const member = await getCurrentMember();
+    authenticated = Boolean(member?.membershipActive);
   } catch {
     authenticated = false;
   }
@@ -89,6 +91,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, throttled: true });
   }
 
+  // GLOBAL throttle across ALL distinct errors: without this, a member
+  // hitting (or forging) many UNIQUE messages emails Matt once per unique
+  // hash. Cap the alert inbox to one email per throttle window no matter
+  // how many different errors fire. The row + bell notice still record.
+  const { data: recent } = await admin
+    .from("error_reports")
+    .select("last_emailed_at")
+    .not("last_emailed_at", "is", null)
+    .order("last_emailed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const globalLast = recent?.last_emailed_at
+    ? new Date(recent.last_emailed_at as string).getTime()
+    : 0;
+  const emailAllowed = Date.now() - globalLast >= EMAIL_THROTTLE_MS;
+
   // Email every Super Admin (today: Matt).
   const { data: supers } = await admin
     .from("profiles")
@@ -97,7 +115,7 @@ export async function POST(req: NextRequest) {
   const esc = (t: string) =>
     t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   let emailed = 0;
-  for (const s of supers ?? []) {
+  for (const s of emailAllowed ? (supers ?? []) : []) {
     if (!s.email) continue;
     const { data: membership } = await admin
       .from("memberships")

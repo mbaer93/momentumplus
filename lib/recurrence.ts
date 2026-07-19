@@ -15,36 +15,44 @@ export const RECURRENCE_LABEL: Record<Recurrence, string> = {
   monthly: "Repeats monthly",
 };
 
-/** The next occurrence's start, keeping the ET wall time constant. */
-function step(iso: string, recurrence: Recurrence): string {
-  const wall = isoToEasternInput(iso); // "YYYY-MM-DDTHH:mm" ET
+/**
+ * The k-th occurrence of a series (k=0 is the start), keeping the ET wall
+ * time constant. Computed from the START each time — NOT by stepping the
+ * previous occurrence — so a monthly "31st" series clamps to short months
+ * (Feb 28) yet RETURNS to the 31st afterward instead of permanently
+ * drifting to the 28th.
+ */
+function occurrenceAt(startIso: string, recurrence: Recurrence, k: number): string {
+  const wall = isoToEasternInput(startIso); // "YYYY-MM-DDTHH:mm" ET
   const [date, time] = wall.split("T");
   const [y, m, d] = date.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
-  if (recurrence === "weekly") dt.setUTCDate(dt.getUTCDate() + 7);
-  else if (recurrence === "biweekly") dt.setUTCDate(dt.getUTCDate() + 14);
+  if (recurrence === "weekly") dt.setUTCDate(dt.getUTCDate() + 7 * k);
+  else if (recurrence === "biweekly") dt.setUTCDate(dt.getUTCDate() + 14 * k);
   else {
-    // Monthly with end-of-month clamping: a Jan 31 series must hit Feb 28,
-    // not drift to Mar 3 (setUTCMonth alone overflows short months).
-    const day = dt.getUTCDate();
+    // Monthly: anchor on the series start's day-of-month, clamped to the
+    // target month's length.
     dt.setUTCDate(1);
-    dt.setUTCMonth(dt.getUTCMonth() + 1);
+    dt.setUTCMonth(dt.getUTCMonth() + k);
     const daysInTarget = new Date(
       Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0),
     ).getUTCDate();
-    dt.setUTCDate(Math.min(day, daysInTarget));
+    dt.setUTCDate(Math.min(d, daysInTarget));
   }
   const pad = (n: number) => String(n).padStart(2, "0");
   const next = `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}T${time}`;
-  return easternInputToIso(next) ?? iso;
+  return easternInputToIso(next) ?? startIso;
 }
 
-const MAX_STEPS = 520; // ~10 years of weekly — loop backstop, never expected
+const MAX_STEPS = 1200; // generous backstop; never reached in practice
 
 /**
  * The current-or-next occurrence of a series: the first occurrence whose END
  * is still in the future (so an in-progress occurrence counts as "now").
  * Returns null when the series has fully ended (past recurrence_until).
+ *
+ * Fast-forwards near `now` before scanning so an ancient start (years back)
+ * can't exhaust the loop bound and wrongly report the series as ended.
  */
 export function nextOccurrence(
   startIso: string,
@@ -54,12 +62,22 @@ export function nextOccurrence(
   now: number = Date.now(),
 ): string | null {
   const untilMs = untilIso ? new Date(untilIso).getTime() : null;
-  let occurrence = startIso;
-  for (let i = 0; i < MAX_STEPS; i++) {
-    const startMs = new Date(occurrence).getTime();
-    if (untilMs !== null && startMs > untilMs) return null;
-    if (startMs + durationMin * 60_000 >= now) return occurrence;
-    occurrence = step(occurrence, recurrence);
+  const startMs = new Date(startIso).getTime();
+  // Estimate how many whole periods sit between the series start and now, so
+  // we begin scanning at the right neighborhood rather than stepping from an
+  // old start through hundreds of iterations.
+  const periodDays =
+    recurrence === "weekly" ? 7 : recurrence === "biweekly" ? 14 : 30;
+  let k = 0;
+  if (now > startMs) {
+    const elapsedDays = (now - startMs) / (24 * 60 * 60 * 1000);
+    k = Math.max(0, Math.floor(elapsedDays / periodDays) - 1);
+  }
+  for (let i = 0; i < MAX_STEPS; i++, k++) {
+    const occ = occurrenceAt(startIso, recurrence, k);
+    const occMs = new Date(occ).getTime();
+    if (untilMs !== null && occMs > untilMs) return null;
+    if (occMs + durationMin * 60_000 >= now) return occ;
   }
   return null;
 }
@@ -77,13 +95,12 @@ export function expandOccurrences(
 ): string[] {
   const untilMs = untilIso ? new Date(untilIso).getTime() : null;
   const out: string[] = [];
-  let occurrence = startIso;
-  for (let i = 0; i < MAX_STEPS && out.length < 100; i++) {
-    const startMs = new Date(occurrence).getTime();
+  for (let k = 0; k < MAX_STEPS && out.length < 100; k++) {
+    const occ = occurrenceAt(startIso, recurrence, k);
+    const startMs = new Date(occ).getTime();
     if (untilMs !== null && startMs > untilMs) break;
     if (startMs > toMs) break;
-    if (startMs >= fromMs) out.push(occurrence);
-    occurrence = step(occurrence, recurrence);
+    if (startMs >= fromMs) out.push(occ);
   }
   return out;
 }

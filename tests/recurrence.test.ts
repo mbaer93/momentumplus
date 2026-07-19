@@ -43,6 +43,29 @@ test("monthly recurrence clamps to short months instead of drifting", () => {
   assert.equal(next, "2027-03-01T00:00:00.000Z"); // Feb 28, 7:00 PM EST
 });
 
+test("monthly on the 31st clamps short months but returns to the 31st", () => {
+  const janStart = "2027-02-01T00:00:00.000Z"; // Jan 31, 7:00 PM EST
+  // Window spanning Jan–Apr: Feb clamps to 28, but March returns to 31.
+  const from = new Date("2027-01-01T00:00:00Z").getTime();
+  const to = new Date("2027-05-01T00:00:00Z").getTime();
+  const dates = expandOccurrences(janStart, "monthly", null, from, to);
+  // Jan 31, Feb 28, Mar 31, Apr 30 — all 7:00 PM ET. March/April are EDT
+  // (-4, DST began Mar 14) so their UTC is 23:00 the same day.
+  assert.equal(dates[0], "2027-02-01T00:00:00.000Z"); // Jan 31, 7 PM EST
+  assert.equal(dates[1], "2027-03-01T00:00:00.000Z"); // Feb 28, 7 PM EST
+  assert.equal(dates[2], "2027-03-31T23:00:00.000Z"); // Mar 31, 7 PM EDT (returned!)
+  assert.equal(dates[3], "2027-04-30T23:00:00.000Z"); // Apr 30, 7 PM EDT
+});
+
+test("nextOccurrence survives an ancient series start", () => {
+  // A weekly series that started 12 years ago with no end date must still
+  // resolve to an upcoming occurrence, not fall off the loop bound.
+  const start = "2015-01-07T00:00:00.000Z";
+  const now = new Date("2027-01-01T00:00:00Z").getTime();
+  const next = nextOccurrence(start, 90, "weekly", null, now);
+  assert.ok(next && new Date(next).getTime() + 90 * 60_000 >= now);
+});
+
 test("rruleFor formats frequency and UNTIL", () => {
   assert.equal(rruleFor("weekly", null), "FREQ=WEEKLY");
   assert.equal(rruleFor("biweekly", null), "FREQ=WEEKLY;INTERVAL=2");
