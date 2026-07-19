@@ -162,7 +162,13 @@ export async function GET(req: NextRequest) {
     }
 
     const attendedEmails = new Set(
-      participants.filter((p) => p.duration > 0).map((p) => p.email),
+      participants
+        .filter((p) => p.duration > 0)
+        // Lowercase to match the enrollment side (also lowercased below) —
+        // Zoom returns mixed-case emails and a case mismatch left real
+        // attendees marked absent.
+        .map((p) => (p.email ?? "").toLowerCase())
+        .filter(Boolean),
     );
     if (attendedEmails.size === 0) continue;
 

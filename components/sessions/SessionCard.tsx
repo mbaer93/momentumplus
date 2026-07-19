@@ -109,12 +109,14 @@ export function SessionCard({
                 Join Zoom
               </Link>
             ) : (
-              <Link
-                href={`/sessions/${session.slug}`}
+              /* "Add to calendar" — a distinct second action, not a second
+                 button to the same detail page. */
+              <a
+                href={`/api/sessions/${session.slug}/ics`}
                 className="card-btn btn-card-secondary"
               >
-                Details
-              </Link>
+                Add to calendar
+              </a>
             )}
           </>
         )}

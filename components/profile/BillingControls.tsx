@@ -64,7 +64,7 @@ export function BillingControls({ billing }: { billing: BillingInfo }) {
           disabled={pending}
           onClick={() => go(() => startCheckout("basic"))}
         >
-          Subscribe to Basic{billing.basicPrice ? ` — $${billing.basicPrice}/mo` : ""}
+          Subscribe to Momentum+ Member{billing.basicPrice ? ` — $${billing.basicPrice}/mo` : ""}
         </button>
       )}
       {billing.hasCustomer && (

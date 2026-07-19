@@ -357,7 +357,10 @@ export default async function DashboardPage() {
               ))
             ) : (
               <div style={{ padding: 16, fontSize: 13, color: "var(--mid-gray)" }}>
-                Community activity appears here once chat goes live.
+                <Link href="/community" style={{ color: "var(--gold)" }}>
+                  Open the community
+                </Link>{" "}
+                to see what members are discussing.
               </div>
             )}
           </div>

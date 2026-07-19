@@ -69,3 +69,39 @@ export async function upsertSponsorMembership(
   }
   return { error: insertError.message };
 }
+
+/**
+ * Reactivate a seat holder's sponsor access through `termEnd` WITHOUT
+ * changing their tier — used when reinstating a sponsor. A VIP-ticket
+ * holder (tier=vip) comes back as VIP (Basic-level), an admin-linked seat
+ * as Pro, the owner as sponsor. Only when the person is a page rep and has
+ * no prior sponsor row do we mint the owner's free membership.
+ */
+export async function reactivateSponsorMembership(
+  profileId: string,
+  termEnd: string,
+  isRep: boolean,
+): Promise<{ error: string | null }> {
+  const admin = createServiceClient();
+  // Latest sponsor-sourced row of ANY tier (including the expired one the
+  // archive left behind) — reactivate it as-is.
+  const { data: existing } = await admin
+    .from("memberships")
+    .select("id, tier")
+    .eq("profile_id", profileId)
+    .eq("source", "sponsor")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existing) {
+    const { error } = await admin
+      .from("memberships")
+      .update({ status: "active", access_expires_at: termEnd })
+      .eq("id", existing.id);
+    return { error: error?.message ?? null };
+  }
+  // No prior sponsor row. Only the page rep is owed a fresh free membership;
+  // a seat with nothing to restore is left alone (its ticket was one-time).
+  if (!isRep) return { error: null };
+  return upsertSponsorMembership(profileId, termEnd, true);
+}

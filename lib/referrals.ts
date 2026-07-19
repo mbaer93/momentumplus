@@ -60,6 +60,29 @@ export async function getReferralCount(profileId: string): Promise<number> {
   return error ? 0 : (count ?? 0);
 }
 
+/**
+ * One month's worth of a subscription price, in the smallest currency unit.
+ * A monthly price returns its full amount; a term price (interval=month,
+ * count=N, or interval=year) is divided down to a single month so the
+ * referral credit is always ~one month regardless of the referrer's term.
+ */
+export function oneMonthAmount(
+  unitAmount: number,
+  recurring?: { interval?: string; interval_count?: number } | null,
+): number {
+  const interval = recurring?.interval ?? "month";
+  const count = Math.max(1, recurring?.interval_count ?? 1);
+  const months =
+    interval === "year"
+      ? 12 * count
+      : interval === "week"
+        ? Math.max(1, Math.round((count * 7) / 30))
+        : interval === "day"
+          ? 1
+          : count; // month
+  return Math.round(unitAmount / Math.max(1, months));
+}
+
 /** One free month for the referrer: Stripe credit when they pay by card,
     otherwise a one-month access extension. Returns the reward kind. */
 async function grantReferralReward(
@@ -83,7 +106,15 @@ async function grantReferralReward(
       if (stripeReady(settings)) {
         const subs = await stripeRequest<{
           data: {
-            items: { data: { price: { unit_amount: number | null; currency: string } }[] };
+            items: {
+              data: {
+                price: {
+                  unit_amount: number | null;
+                  currency: string;
+                  recurring?: { interval?: string; interval_count?: number } | null;
+                };
+              }[];
+            };
           }[];
         }>(
           settings.secretKey,
@@ -92,12 +123,17 @@ async function grantReferralReward(
         );
         const price = subs.data?.[0]?.items?.data?.[0]?.price;
         if (price?.unit_amount) {
+          // Credit exactly ONE MONTH — never the whole billing period. A
+          // term price (3/6/12-month) has a unit_amount covering the full
+          // term, so divide by how many months that term spans, or the
+          // reward balloons to a full year for an annual subscriber.
+          const monthly = oneMonthAmount(price.unit_amount, price.recurring);
           await stripeRequest(
             settings.secretKey,
             "POST",
             `/customers/${customerId}/balance_transactions`,
             {
-              amount: -price.unit_amount,
+              amount: -monthly,
               currency: price.currency || "usd",
               description: "Momentum+ referral reward — one free month",
             },
@@ -151,6 +187,22 @@ export async function attributeReferral(input: {
       .eq("referral_code", code)
       .maybeSingle();
     if (!referrer || referrer.id === input.referredProfileId) return;
+
+    // Reward only referrers who currently hold access — a lapsed/canceled
+    // account can't sit on a code and farm credits. Combined with the
+    // one-month reward cap, this removes the "pay one cheap month, earn a
+    // full term" economics.
+    const { data: refMemberships } = await admin
+      .from("memberships")
+      .select("status, access_expires_at")
+      .eq("profile_id", referrer.id)
+      .in("status", ["active", "past_due"]);
+    const now = Date.now();
+    const referrerHasAccess = (refMemberships ?? []).some((m) => {
+      const exp = m.access_expires_at as string | null;
+      return exp === null ? m.status === "active" : new Date(exp).getTime() > now;
+    });
+    if (!referrerHasAccess) return;
 
     const { error: insertError } = await admin.from("referrals").insert({
       referrer_profile_id: referrer.id,

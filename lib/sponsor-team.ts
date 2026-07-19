@@ -57,6 +57,9 @@ export interface SponsorSeat {
   /** Holds an active membership NOT comped through a sponsorship — the
       eligibility bar for co-manager. */
   regularMember: boolean;
+  /** Holds a VIP-ticket comp (tier=vip, source=sponsor) — this is what a
+      consumed ticket looks like. */
+  vipTicket: boolean;
 }
 
 /** The sponsor's team, with manager-eligibility resolved. */
@@ -72,28 +75,42 @@ export async function listSponsorTeam(
 
   const ids = seats.map((s) => s.profile_id as string);
   const now = Date.now();
-  const [{ data: profiles }, { data: memberships }] = await Promise.all([
-    admin.from("profiles").select("id, full_name, email").in("id", ids),
-    admin
-      .from("memberships")
-      .select("profile_id, status, access_expires_at, source")
-      .in("profile_id", ids)
-      .neq("source", "sponsor")
-      .in("status", ["active", "past_due", "canceled"]),
-  ]);
+  const [{ data: profiles }, { data: regularRows }, { data: vipRows }] =
+    await Promise.all([
+      admin.from("profiles").select("id, full_name, email").in("id", ids),
+      // A "regular" membership (non-sponsor-comped) is what makes someone
+      // eligible to co-manage.
+      admin
+        .from("memberships")
+        .select("profile_id, status, access_expires_at")
+        .in("profile_id", ids)
+        .neq("source", "sponsor")
+        .in("status", ["active", "past_due", "canceled"]),
+      // A VIP-ticket comp specifically — used to count tickets consumed.
+      admin
+        .from("memberships")
+        .select("profile_id, status, access_expires_at")
+        .in("profile_id", ids)
+        .eq("source", "sponsor")
+        .eq("tier", "vip")
+        .in("status", ["active", "past_due", "canceled"]),
+    ]);
   const byId = new Map(
     (profiles ?? []).map((p) => [
       p.id as string,
       { name: (p.full_name as string) || "", email: (p.email as string) || "" },
     ]),
   );
-  const regular = new Set<string>();
-  for (const m of memberships ?? []) {
-    const exp = m.access_expires_at as string | null;
-    const grants =
-      exp === null ? m.status === "active" : new Date(exp).getTime() > now;
-    if (grants) regular.add(m.profile_id as string);
-  }
+  const grants = (m: { status: string; access_expires_at: string | null }) => {
+    const exp = m.access_expires_at;
+    return exp === null ? m.status === "active" : new Date(exp).getTime() > now;
+  };
+  const regular = new Set(
+    (regularRows ?? []).filter(grants).map((m) => m.profile_id as string),
+  );
+  const vipComp = new Set(
+    (vipRows ?? []).filter(grants).map((m) => m.profile_id as string),
+  );
 
   const roleRank: Record<SponsorRole, number> = { owner: 0, manager: 1, member: 2 };
   return seats
@@ -103,6 +120,7 @@ export async function listSponsorTeam(
       email: byId.get(s.profile_id as string)?.email ?? "",
       role: ((s.role as string) ?? "member") as SponsorRole,
       regularMember: regular.has(s.profile_id as string),
+      vipTicket: vipComp.has(s.profile_id as string),
     }))
     .sort(
       (a, b) =>
@@ -111,9 +129,10 @@ export async function listSponsorTeam(
     );
 }
 
-/** Tickets already consumed: every seat that isn't the owner's. */
+/** VIP tickets consumed: seats actually holding a VIP-ticket comp — NOT
+    co-managers or admin-linked Pro seats, which are non-owner seats too. */
 export function ticketsUsed(team: SponsorSeat[]): number {
-  return team.filter((s) => s.role !== "owner").length;
+  return team.filter((s) => s.vipTicket).length;
 }
 
 export interface SponsorActor {

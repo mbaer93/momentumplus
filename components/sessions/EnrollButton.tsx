@@ -28,12 +28,19 @@ export function EnrollButton({
     setMessage(null);
     setIsError(false);
     startTransition(async () => {
+      const wasEnrolled = enrolled;
       const res = enrolled
         ? await unenrollFromSession(sessionId)
         : await enrollInSession(sessionId);
       if (res.ok) {
-        setEnrolled(!enrolled);
-        if (res.preview) setMessage(res.message ?? null);
+        setEnrolled(!wasEnrolled);
+        // Always confirm the outcome — real (non-preview) enrollment used to
+        // change silently, leaving a first-timer unsure it worked.
+        setMessage(
+          wasEnrolled
+            ? "You're no longer enrolled."
+            : "You're in — we'll remind you. The live room opens 30 min before start.",
+        );
         router.refresh();
       } else {
         setIsError(true);
@@ -63,7 +70,11 @@ export function EnrollButton({
             : undefined
         }
       >
-        {pending ? "…" : enrolled ? "Enrolled — Cancel" : "Enroll"}
+        {pending
+          ? "…"
+          : enrolled
+            ? "✓ Enrolled · tap to cancel"
+            : "Enroll"}
       </button>
       {message && (
         <span

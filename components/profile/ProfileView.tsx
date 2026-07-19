@@ -204,11 +204,34 @@ export function ProfileView({
             </div>
             <div className="profile-kv">
               <div className="k">Status</div>
-              <span style={{ color: "var(--accent-green)", fontWeight: 600 }}>
+              <span
+                style={{
+                  color: member.membershipStatusLabel.includes("Active")
+                    ? "var(--accent-green)"
+                    : "var(--accent-red)",
+                  fontWeight: 600,
+                }}
+              >
                 {member.membershipStatusLabel}
               </span>
             </div>
             <BillingControls billing={billing} />
+            {/* Never leave a member on a dead-end: when self-serve billing
+                isn't live, still show how to move up a plan. */}
+            {!billing.enabled && !billing.isPro && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 8 }}>
+                  Momentum+ Pro unlocks Pro-only sessions, recordings, and
+                  premium resources.
+                </div>
+                <a
+                  className="btn-sm-gold"
+                  href="mailto:hello@momentumplus.co?subject=Upgrade%20to%20Momentum%2B%20Pro"
+                >
+                  Contact us to upgrade
+                </a>
+              </div>
+            )}
           </div>
 
         </div>

@@ -40,8 +40,26 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createServiceClient();
+
+  // Per-member dedup so one person can't inflate a sponsor's numbers by
+  // looping the endpoint (real sponsor IDs are visible in the DOM) or by
+  // navigating a→b→a. One impression per member/sponsor/day; one click per
+  // member/sponsor/minute. Sponsor-facing stats have to be trustworthy.
+  const windowMs = kind === "click" ? 60 * 1000 : 24 * 60 * 60 * 1000;
+  const since = new Date(Date.now() - windowMs).toISOString();
+  const { data: recent } = await admin
+    .from("sponsor_events")
+    .select("sponsor_id")
+    .eq("profile_id", user.id)
+    .eq("kind", kind)
+    .in("sponsor_id", ids)
+    .gte("at", since);
+  const seen = new Set((recent ?? []).map((r) => r.sponsor_id as string));
+  const fresh = Array.from(new Set(ids)).filter((id) => !seen.has(id));
+  if (fresh.length === 0) return NextResponse.json({ ok: true, deduped: true });
+
   const { error } = await admin.from("sponsor_events").insert(
-    ids.map((sponsor_id) => ({
+    fresh.map((sponsor_id) => ({
       sponsor_id,
       profile_id: user.id,
       kind,

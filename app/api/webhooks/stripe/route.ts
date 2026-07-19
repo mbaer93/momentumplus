@@ -306,10 +306,12 @@ export async function POST(req: NextRequest) {
           event.data.object as Parameters<typeof invoiceSubscriptionId>[0],
         );
         if (!subId) break;
-        // past_due + clamp: if an earlier subscription.updated already
-        // stretched access into the unpaid period, pull it back to a 7-day
-        // grace window (same GRACE_DAYS semantics as GHL members). Never
-        // extends an expiry that is already sooner.
+        // past_due with a guaranteed grace window: the member keeps the
+        // LATER of their already-paid period and a 7-day grace, matching the
+        // GHL path (Math.max) and the 7-day promise the dunning emails make.
+        // A renewal failure (paid period ≈ now) therefore still gets the
+        // full 7 days instead of near-zero; an off-cycle failure keeps the
+        // paid time they've already got.
         const { data: row } = await admin
           .from("memberships")
           .select("id, access_expires_at")
@@ -324,7 +326,7 @@ export async function POST(req: NextRequest) {
             .from("memberships")
             .update({
               status: "past_due",
-              access_expires_at: current && current < grace ? current : grace,
+              access_expires_at: current && current > grace ? current : grace,
             })
             .eq("id", row.id);
         }
