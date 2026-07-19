@@ -4055,8 +4055,12 @@ a.course-card:hover {
 /* ---- Join: billing-term cards + price readout ---- */
 .join-terms {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 10px;
+  /* 2×2: equal cells, no orphan card on its own row */
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+@media (max-width: 360px) {
+  .join-terms { grid-template-columns: 1fr; }
 }
 .join-term {
   position: relative;
