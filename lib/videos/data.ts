@@ -19,6 +19,9 @@ export interface VideoItem {
   thumbnailUrl?: string | null;
   sessionId: string | null;
   aiSummary: AiSummary | null;
+  /** True for a teaser the viewer can't watch — shown as a locked upsell
+      card (metadata only; no playback id ever reaches the browser). */
+  locked?: boolean;
 }
 
 const summary = (highlights: string, takeaways: string[]): AiSummary => ({
