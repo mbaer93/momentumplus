@@ -22,6 +22,9 @@ export interface CurrentMember {
   adminTitle: string | null;
   /** False when every membership has lapsed → portal layout sends to /expired. */
   membershipActive: boolean;
+  /** False until the member has given their name — portal requires it on
+      first login (they're sent to the /welcome profile step). */
+  profileComplete: boolean;
   accessExpiresAt: string | null;
 }
 
@@ -41,6 +44,10 @@ export async function requireMember(): Promise<CurrentMember> {
   const member = await getCurrentMember();
   if (!member) redirect("/login");
   if (!member.membershipActive) redirect("/expired");
+  // First login without a name (email-only invites, magic links): the
+  // directory and chat would show a bare email address, so collect the
+  // name before opening the portal.
+  if (!member.profileComplete) redirect("/welcome?step=profile");
   return member;
 }
 
@@ -64,6 +71,7 @@ export const getCurrentMember = requestCache(
       isSponsorManager: true,
       adminTitle: tier === "admin" ? "Momentum+ Team" : null,
       membershipActive: true,
+      profileComplete: true,
       accessExpiresAt: null,
     };
   }
@@ -128,6 +136,7 @@ export const getCurrentMember = requestCache(
     adminTitle:
       effective?.tier === "admin" ? (profile?.admin_title ?? null) : null,
     membershipActive: effective !== null,
+    profileComplete: Boolean(profile?.full_name?.trim()),
     accessExpiresAt: effective?.access_expires_at ?? null,
   };
 });

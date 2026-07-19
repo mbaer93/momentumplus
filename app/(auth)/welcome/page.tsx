@@ -15,9 +15,12 @@ export const metadata = {
 export default async function WelcomePage({
   searchParams,
 }: {
-  searchParams?: { mode?: string };
+  searchParams?: { mode?: string; step?: string };
 }) {
   const mode = searchParams?.mode === "reset" ? "reset" : "welcome";
+  // ?step=profile: an already-passworded member is missing their name —
+  // the portal gate sends them here to finish just the profile step.
+  const startAtProfile = searchParams?.step === "profile";
   let email = "";
   // Recovery links land here too — a long-standing member resetting their
   // password walks the same steps, so the profile form MUST start from
@@ -60,7 +63,12 @@ export default async function WelcomePage({
       <div className="login-logo">Momentum+</div>
       <div className="login-tagline">Premium Member Portal</div>
       <Suspense fallback={<div className="login-card">Loading…</div>}>
-        <WelcomeForm initialProfile={initialProfile} email={email} mode={mode} />
+        <WelcomeForm
+          initialProfile={initialProfile}
+          email={email}
+          mode={mode}
+          startAtProfile={startAtProfile}
+        />
       </Suspense>
     </div>
   );
