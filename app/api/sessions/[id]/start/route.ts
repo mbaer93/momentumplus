@@ -16,8 +16,11 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   const { origin } = new URL(request.url);
+  // Speakers land back in their Studio; admins (who may not have a Studio)
+  // land on the admin sessions list instead.
+  let backBase = `${origin}/speaker`;
   const back = (msg: string) =>
-    NextResponse.redirect(`${origin}/speaker?error=${encodeURIComponent(msg)}`);
+    NextResponse.redirect(`${backBase}?error=${encodeURIComponent(msg)}`);
 
   if (!isSupabaseConfigured()) return back("Preview mode — no live Zoom.");
 
@@ -35,6 +38,7 @@ export async function GET(
   if (!owns.ok) {
     const admin = await requireAdmin("sessions");
     if (!admin.ok) return back("Only the session's speaker can start it.");
+    backBase = `${origin}/admin/sessions`;
   }
 
   const { data: session } = await createServiceClient()

@@ -161,30 +161,45 @@ export async function GET(req: NextRequest) {
       continue; // report may not be ready yet; try again next run
     }
 
+    const present = participants.filter((p) => p.duration > 0);
     const attendedEmails = new Set(
-      participants
-        .filter((p) => p.duration > 0)
+      present
         // Lowercase to match the enrollment side (also lowercased below) —
         // Zoom returns mixed-case emails and a case mismatch left real
         // attendees marked absent.
         .map((p) => (p.email ?? "").toLowerCase())
         .filter(Boolean),
     );
-    if (attendedEmails.size === 0) continue;
+    // Zoom's report often has NO email for guests — which is exactly how
+    // members join the embedded room. Fall back to the display name, which
+    // the portal sets to the member's profile name on join.
+    const attendedNames = new Set(
+      present.map((p) => (p.name ?? "").trim().toLowerCase()).filter(Boolean),
+    );
+    if (attendedEmails.size === 0 && attendedNames.size === 0) continue;
 
-    // Match participants to enrollments by the member's email.
+    // Match participants to enrollments by email first, then by name.
     const { data: enrollments } = await admin
       .from("enrollments")
-      .select("id, profile_id, profiles ( email )")
+      .select("id, profile_id, profiles ( email, full_name )")
       .eq("session_id", session.id)
       .eq("attended", false);
 
     const toMark: string[] = [];
     for (const e of enrollments ?? []) {
-      const email = (
-        e as unknown as { profiles: { email: string } | null }
-      ).profiles?.email?.toLowerCase();
-      if (email && attendedEmails.has(email)) toMark.push(e.id);
+      const p = (
+        e as unknown as {
+          profiles: { email: string; full_name: string | null } | null;
+        }
+      ).profiles;
+      const email = p?.email?.toLowerCase();
+      const name = p?.full_name?.trim().toLowerCase();
+      if (
+        (email && attendedEmails.has(email)) ||
+        (name && attendedNames.has(name))
+      ) {
+        toMark.push(e.id);
+      }
     }
 
     if (toMark.length > 0) {

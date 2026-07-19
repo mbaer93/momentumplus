@@ -18,12 +18,14 @@ const base = {
 
 const START = new Date(base.startsAt).getTime();
 
-test("join window opens 30 minutes before start and closes at end", () => {
+test("join window opens 30 minutes before start and allows a 60-minute overrun", () => {
   assert.equal(isJoinWindowOpen(base, START - 31 * 60 * 1000), false);
   assert.equal(isJoinWindowOpen(base, START - 30 * 60 * 1000), true);
   assert.equal(isJoinWindowOpen(base, START), true);
   assert.equal(isJoinWindowOpen(base, START + 90 * 60 * 1000), true); // exactly at end
-  assert.equal(isJoinWindowOpen(base, START + 91 * 60 * 1000), false);
+  // Sessions run long — the room stays joinable through a 60-minute overrun.
+  assert.equal(isJoinWindowOpen(base, START + 150 * 60 * 1000), true); // end + 60min
+  assert.equal(isJoinWindowOpen(base, START + 151 * 60 * 1000), false);
 });
 
 test("isLive is true only between start and end", () => {

@@ -6,7 +6,7 @@ import { DocIcon, ExternalIcon } from "@/components/icons";
 import { NotesEditor } from "./NotesEditor";
 
 type Tab = "notes" | "resources" | "community";
-type Phase = "loading" | "joined" | "unavailable";
+type Phase = "loading" | "joined" | "unavailable" | "ended";
 
 export function LiveRoom({
   session,
@@ -74,6 +74,19 @@ export function LiveRoom({
           language: "en-US",
           patchJsMedia: true,
         });
+        // When the host ends the meeting (or the member leaves), swap the
+        // dead embed for a designed "session ended" state instead of a
+        // black void.
+        try {
+          (client as unknown as {
+            on: (event: string, cb: (p: { state?: string }) => void) => void;
+          }).on("connection-change", (payload) => {
+            if (!cancelled && payload?.state === "Closed") setPhase("ended");
+          });
+        } catch {
+          /* older SDKs without events keep the previous behavior */
+        }
+
         await client.join({
           sdkKey,
           signature,
@@ -146,14 +159,39 @@ export function LiveRoom({
                 className={`live-ph-badge${phase === "loading" ? " pulsing" : ""}`}
               />
               <div className="live-ph-kicker">
-                {phase === "loading" ? "Connecting" : "Live room"}
+                {phase === "loading"
+                  ? "Connecting"
+                  : phase === "ended"
+                    ? "Session over"
+                    : "Live room"}
               </div>
               <h3>
                 {phase === "loading"
                   ? "Taking your seat…"
-                  : "The room isn't live yet"}
+                  : phase === "ended"
+                    ? "That's a wrap"
+                    : "The room isn't live yet"}
               </h3>
-              <p>{message}</p>
+              <p>
+                {phase === "ended"
+                  ? "The session has ended. The recording lands in the Library with AI takeaways, usually within a couple of days — and your notes are saved."
+                  : message}
+              </p>
+              {phase === "ended" && (
+                <p style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                  <a className="live-host-btn" href={`/sessions/${session.slug}`}>
+                    Back to the session
+                  </a>
+                  <button
+                    type="button"
+                    className="live-fallback"
+                    style={{ cursor: "pointer", background: "none" }}
+                    onClick={() => window.location.reload()}
+                  >
+                    Rejoin
+                  </button>
+                </p>
+              )}
               {phase === "unavailable" && session.zoomJoinUrl && (
                 <p style={{ marginTop: 14 }}>
                   <a
