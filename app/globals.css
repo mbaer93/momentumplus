@@ -1555,6 +1555,9 @@
   border-bottom: 1px solid var(--warm-gray);
   background: #fbfaf8;
 }
+/* Long unbroken values (emails, keys, URLs) fold instead of stretching the
+   row off-screen. */
+.admin-table td { word-break: break-word; }
 .admin-table td {
   padding: 13px 16px;
   border-bottom: 1px solid var(--warm-gray);
@@ -1641,6 +1644,9 @@
 .admin-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .admin-form-actions {
   display: flex;
+  /* Wrap instead of overflowing — these rows hold inputs + buttons + long
+     messages, and phones can't fit them on one line. */
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   margin-top: 6px;
@@ -1895,6 +1901,10 @@
 }
 .msg-group:hover .msg-delete-btn { opacity: 1; }
 .msg-delete-btn:hover { color: var(--accent-red); }
+/* Touch screens have no hover — the delete control must be visible. */
+@media (hover: none) {
+  .msg-delete-btn { opacity: 0.7; }
+}
 .msg-bubble {
   font-size: 14px;
   color: var(--text);
@@ -3807,6 +3817,21 @@ a.course-card:hover {
 
   /* --- Filters / touch targets --- */
   .filter-btn { padding: 9px 16px; }
+  .btn-mini { padding: 10px 14px; min-height: 40px; }
+  .tier-chip { padding: 9px 14px; }
+  .msg-delete-btn { padding: 6px 8px; }
+
+  /* --- Long keys/URLs in Billing & Connections fold, never overflow --- */
+  .admin-pad code {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+
+  /* --- Speaker profile hero stacks --- */
+  .spk-hero {
+    flex-wrap: wrap;
+    padding: 20px 16px;
+  }
 
   /* --- Dashboard next-up banner stacks --- */
   .next-up-banner { flex-direction: column; align-items: flex-start; gap: 14px; }
