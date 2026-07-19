@@ -131,9 +131,10 @@ export function LiveRoom({
             customize: {
               video: {
                 isResizable: false,
-                // Docked, not a floating window: pinned to the stage and
-                // sized to fill it, so the meeting reads as part of the page.
-                popper: { disableDraggable: true },
+                // NOTE: no popper.disableDraggable — the SDK positions the
+                // video panel through its drag layer, and disabling it drops
+                // the panel to the viewport's top-left corner (off-stage).
+                // Anchored + sized to the stage it reads as embedded anyway.
                 viewSizes: { default: { width, height } },
                 // Speaker view: whoever is talking fills the stage; during
                 // a screen share the shared content takes the canvas with
