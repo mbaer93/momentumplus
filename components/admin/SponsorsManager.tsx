@@ -586,212 +586,217 @@ export function SponsorsManager({
                     </div>
                   </td>
                 </tr>
-                {editingId === s.id && (
-                  <tr>
-                    <td colSpan={7} style={{ background: "#fbfaf8" }}>
-                      <div style={{ padding: "6px 4px" }}>
-                        <SponsorFields
-                          value={editForm}
-                          onChange={setEditForm}
-                          idPrefix={`edit-${s.id}`}
-                        />
-                        <div className="admin-form-actions" style={{ marginTop: 4 }}>
-                          <button
-                            type="button"
-                            className="btn-purple"
-                            disabled={pending || !editForm.name.trim()}
-                            onClick={() =>
-                              run(async () => {
-                                const res = await updateSponsor(s.id, editForm);
-                                if (res.ok) setEditingId(null);
-                                return res;
-                              })
-                            }
-                          >
-                            Save changes
-                          </button>
-                        </div>
-                        {/* Two graphics: logo (profile + cards) and the
-                            left-panel sidebar ad creative. */}
-                        <div className="admin-form-actions" style={{ marginTop: 10 }}>
-                          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-                            Logo — sponsor profile and cards; also the
-                            left-panel fallback when no dedicated presented-by
-                            logo is uploaded (PNG/JPG/SVG/WebP, &lt;2 MB):
-                          </span>
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                            ref={(el) => {
-                              fileRefs.current[`${s.id}-logo`] = el;
-                            }}
-                            style={{ fontSize: 12 }}
-                          />
-                          <button
-                            type="button"
-                            className="btn-mini"
-                            disabled={pending}
-                            onClick={() => uploadImage(s.id, "logo")}
-                          >
-                            Upload logo
-                          </button>
-                        </div>
-                        <div className="admin-form-actions" style={{ marginTop: 6 }}>
-                          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-                            Ad graphic — shown on the sponsor&rsquo;s card in
-                            the right-hand rail (roughly 400×300, &lt;2 MB):
-                          </span>
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                            ref={(el) => {
-                              fileRefs.current[`${s.id}-ad`] = el;
-                            }}
-                            style={{ fontSize: 12 }}
-                          />
-                          <button
-                            type="button"
-                            className="btn-mini"
-                            disabled={pending}
-                            onClick={() => uploadImage(s.id, "ad")}
-                          >
-                            Upload ad graphic
-                          </button>
-                          {s.sidebarAdUrl && (
-                            <button
-                              type="button"
-                              className="btn-mini danger"
-                              disabled={pending}
-                              onClick={() => run(() => removeSponsorAd(s.id))}
-                            >
-                              Remove ad
-                            </button>
-                          )}
-                        </div>
-                        {s.sidebarAdUrl && (
-                          <div style={{ marginTop: 8 }}>
-                            <img
-                              src={s.sidebarAdUrl}
-                              alt={`${s.name} ad graphic`}
-                              style={{
-                                maxWidth: 180,
-                                borderRadius: 4,
-                                border: "1px solid var(--border)",
-                              }}
-                            />
-                          </div>
-                        )}
-                        {/* Sponsor team seats — each linked member holds Pro
-                            while they keep a seat with any sponsor. */}
-                        <div style={{ marginTop: 14 }}>
-                          <div className="admin-field" style={{ marginBottom: 6 }}>
-                            <label style={{ fontSize: 13 }}>
-                              Linked members — each gets a Pro membership for
-                              as long as they&apos;re linked (optional; add as
-                              many as the sponsorship includes)
-                            </label>
-                          </div>
-                          {s.seats.length === 0 && (
-                            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
-                              No members linked yet.
-                            </div>
-                          )}
-                          {s.seats.map((seat) => (
-                            <div
-                              key={seat.profileId}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 10,
-                                padding: "6px 0",
-                                borderBottom: "1px solid var(--warm-gray)",
-                              }}
-                            >
-                              <div style={{ flex: 1, fontSize: 13 }}>
-                                <strong>{seat.name || seat.email}</strong>
-                                {seat.name && (
-                                  <span
-                                    style={{
-                                      color: "var(--mid-gray)",
-                                      marginLeft: 8,
-                                      fontSize: 12,
-                                    }}
-                                  >
-                                    {seat.email}
-                                  </span>
-                                )}
-                              </div>
-                              <span
-                                className="admin-status draft"
-                                style={{ fontSize: 10 }}
-                              >
-                                Pro
-                              </span>
-                              <button
-                                type="button"
-                                className="btn-mini danger"
-                                disabled={pending}
-                                onClick={() => {
-                                  if (
-                                    confirm(
-                                      `Unlink ${seat.name || seat.email}? Their sponsor Pro access ends unless another sponsor links them.`,
-                                    )
-                                  ) {
-                                    run(() =>
-                                      unlinkSponsorMember(s.id, seat.profileId),
-                                    );
-                                  }
-                                }}
-                              >
-                                Unlink
-                              </button>
-                            </div>
-                          ))}
-                          <div className="admin-form-actions" style={{ marginTop: 8 }}>
-                            <input
-                              type="email"
-                              placeholder="member@company.com"
-                              value={seatEmail}
-                              onChange={(e) => setSeatEmail(e.target.value)}
-                              style={{ minWidth: 220 }}
-                              aria-label="Email of member to link"
-                            />
-                            <button
-                              type="button"
-                              className="btn-mini"
-                              disabled={pending || !seatEmail.includes("@")}
-                              onClick={() =>
-                                run(async () => {
-                                  const res = await linkSponsorMember(
-                                    s.id,
-                                    seatEmail,
-                                  );
-                                  if (res.ok) setSeatEmail("");
-                                  return res;
-                                })
-                              }
-                            >
-                              Link member
-                            </button>
-                          </div>
-                        </div>
-                        {msg && (
-                          <div
-                            className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
-                            style={{ marginTop: 8 }}
-                          >
-                            {msg.text}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )}
               </Fragment>
             ))}
           </tbody>
         </table>
       </div>
+
+
+      {/* Editor: rendered below the table (not inside a row) so it's
+          fully usable on phones, where the table scrolls sideways. */}
+      {editSeed && (
+        <div className="card" style={{ marginTop: 14, padding: "14px 16px", background: "#fbfaf8" }}>
+          <div className="admin-row-title" style={{ marginBottom: 8 }}>
+            Editing {editSeed.name}
+          </div>
+          <div style={{ padding: "6px 4px" }}>
+              <SponsorFields
+                value={editForm}
+                onChange={setEditForm}
+                idPrefix={`edit-${editSeed.id}`}
+              />
+              <div className="admin-form-actions" style={{ marginTop: 4 }}>
+                <button
+                  type="button"
+                  className="btn-purple"
+                  disabled={pending || !editForm.name.trim()}
+                  onClick={() =>
+                    run(async () => {
+                      const res = await updateSponsor(editSeed.id, editForm);
+                      if (res.ok) setEditingId(null);
+                      return res;
+                    })
+                  }
+                >
+                  Save changes
+                </button>
+              </div>
+              {/* Two graphics: logo (profile + cards) and the
+                  left-panel sidebar ad creative. */}
+              <div className="admin-form-actions" style={{ marginTop: 10 }}>
+                <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                  Logo — sponsor profile and cards; also the
+                  left-panel fallback when no dedicated presented-by
+                  logo is uploaded (PNG/JPG/SVG/WebP, &lt;2 MB):
+                </span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  ref={(el) => {
+                    fileRefs.current[`${editSeed.id}-logo`] = el;
+                  }}
+                  style={{ fontSize: 12 }}
+                />
+                <button
+                  type="button"
+                  className="btn-mini"
+                  disabled={pending}
+                  onClick={() => uploadImage(editSeed.id, "logo")}
+                >
+                  Upload logo
+                </button>
+              </div>
+              <div className="admin-form-actions" style={{ marginTop: 6 }}>
+                <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                  Ad graphic — shown on the sponsor&rsquo;s card in
+                  the right-hand rail (roughly 400×300, &lt;2 MB):
+                </span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  ref={(el) => {
+                    fileRefs.current[`${editSeed.id}-ad`] = el;
+                  }}
+                  style={{ fontSize: 12 }}
+                />
+                <button
+                  type="button"
+                  className="btn-mini"
+                  disabled={pending}
+                  onClick={() => uploadImage(editSeed.id, "ad")}
+                >
+                  Upload ad graphic
+                </button>
+                {editSeed.sidebarAdUrl && (
+                  <button
+                    type="button"
+                    className="btn-mini danger"
+                    disabled={pending}
+                    onClick={() => run(() => removeSponsorAd(editSeed.id))}
+                  >
+                    Remove ad
+                  </button>
+                )}
+              </div>
+              {editSeed.sidebarAdUrl && (
+                <div style={{ marginTop: 8 }}>
+                  <img
+                    src={editSeed.sidebarAdUrl}
+                    alt={`${editSeed.name} ad graphic`}
+                    style={{
+                      maxWidth: 180,
+                      borderRadius: 4,
+                      border: "1px solid var(--border)",
+                    }}
+                  />
+                </div>
+              )}
+              {/* Sponsor team seats — each linked member holds Pro
+                  while they keep a seat with any sponsor. */}
+              <div style={{ marginTop: 14 }}>
+                <div className="admin-field" style={{ marginBottom: 6 }}>
+                  <label style={{ fontSize: 13 }}>
+                    Linked members — each gets a Pro membership for
+                    as long as they&apos;re linked (optional; add as
+                    many as the sponsorship includes)
+                  </label>
+                </div>
+                {editSeed.seats.length === 0 && (
+                  <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                    No members linked yet.
+                  </div>
+                )}
+                {editSeed.seats.map((seat) => (
+                  <div
+                    key={seat.profileId}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "6px 0",
+                      borderBottom: "1px solid var(--warm-gray)",
+                    }}
+                  >
+                    <div style={{ flex: 1, fontSize: 13 }}>
+                      <strong>{seat.name || seat.email}</strong>
+                      {seat.name && (
+                        <span
+                          style={{
+                            color: "var(--mid-gray)",
+                            marginLeft: 8,
+                            fontSize: 12,
+                          }}
+                        >
+                          {seat.email}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className="admin-status draft"
+                      style={{ fontSize: 10 }}
+                    >
+                      Pro
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-mini danger"
+                      disabled={pending}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Unlink ${seat.name || seat.email}? Their sponsor Pro access ends unless another sponsor links them.`,
+                          )
+                        ) {
+                          run(() =>
+                            unlinkSponsorMember(editSeed.id, seat.profileId),
+                          );
+                        }
+                      }}
+                    >
+                      Unlink
+                    </button>
+                  </div>
+                ))}
+                <div className="admin-form-actions" style={{ marginTop: 8 }}>
+                  <input
+                    type="email"
+                    placeholder="member@company.com"
+                    value={seatEmail}
+                    onChange={(e) => setSeatEmail(e.target.value)}
+                    style={{ minWidth: 220 }}
+                    aria-label="Email of member to link"
+                  />
+                  <button
+                    type="button"
+                    className="btn-mini"
+                    disabled={pending || !seatEmail.includes("@")}
+                    onClick={() =>
+                      run(async () => {
+                        const res = await linkSponsorMember(
+                          editSeed.id,
+                          seatEmail,
+                        );
+                        if (res.ok) setSeatEmail("");
+                        return res;
+                      })
+                    }
+                  >
+                    Link member
+                  </button>
+                </div>
+              </div>
+              {msg && (
+                <div
+                  className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+                  style={{ marginTop: 8 }}
+                >
+                  {msg.text}
+                </div>
+              )}
+            </div>
+        </div>
+      )}
 
       {pastSponsors.length > 0 && (
         <div style={{ marginTop: 28 }}>
