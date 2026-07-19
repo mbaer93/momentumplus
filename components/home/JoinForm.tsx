@@ -26,6 +26,9 @@ export function JoinForm({
   const planTerms: [number, number | null][] = [1, 3, 6, 12]
     .filter((m) => m === 1 || (terms?.[plan]?.[String(m)] ?? null) !== null)
     .map((m) => [m, m === 1 ? (terms?.[plan]?.["1"] ?? null) : (terms?.[plan]?.[String(m)] ?? null)]);
+  const planName = plan === "pro" ? "Momentum+ Pro" : "Momentum+ Member";
+  const selectedTotal = planTerms.find(([m]) => m === months)?.[1] ?? null;
+  const perMonth = selectedTotal != null ? Math.round(selectedTotal / months) : null;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -65,35 +68,55 @@ export function JoinForm({
           </button>
         ))}
       </div>
-      {(() => {
-        const usd = planTerms.find(([m]) => m === months)?.[1] ?? null;
-        return (
-          <p className="join-price-line">
-            {usd
-              ? `${plan === "pro" ? "Momentum+ Pro" : "Momentum+ Member"} — $${usd}${
-                  months === 1 ? "/month" : ` every ${months} months`
-                }, renews automatically. Cancel anytime from your profile.`
-              : "Final price is shown on the secure Stripe checkout before you pay."}
-          </p>
-        );
-      })()}
       {planTerms.length > 1 && (
-        <div className="admin-field">
-          <label htmlFor="join-term">Billing term</label>
-          <select
-            id="join-term"
-            value={months}
-            onChange={(e) => setMonths(Number(e.target.value))}
-          >
-            {planTerms.map(([m, usd]) => (
-              <option key={m} value={m}>
-                {m === 1 ? "Monthly" : `Every ${m} months`}
-                {usd ? ` — $${usd}${m === 1 ? "/mo" : ` per ${m} mo`}` : ""}
-              </option>
-            ))}
-          </select>
+        <div className="join-terms" role="radiogroup" aria-label="Billing term">
+          {planTerms.map(([m, usd]) => {
+            const per = usd != null ? Math.round(usd / m) : null;
+            const monthlyRef = terms?.[plan]?.["1"] ?? null;
+            const save =
+              usd != null && monthlyRef != null ? monthlyRef * m - usd : 0;
+            return (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={months === m}
+                className={`join-term${months === m ? " active" : ""}`}
+                onClick={() => setMonths(m)}
+              >
+                {save > 0 && <span className="join-term-tag">Save ${save}</span>}
+                <span className="join-term-name">
+                  {m === 1 ? "Monthly" : `${m} months`}
+                </span>
+                {per != null && (
+                  <span className="join-term-per">${per}/mo</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
+      <div className="join-price-box">
+        {selectedTotal != null ? (
+          <>
+            <div className="join-price-head">
+              <span className="join-price-amount">${perMonth}</span>
+              <span className="join-price-unit">/mo</span>
+            </div>
+            <p className="join-price-note">
+              {planName} —{" "}
+              {months === 1
+                ? `$${selectedTotal} billed monthly`
+                : `$${selectedTotal} billed every ${months} months`}
+              . Renews automatically; cancel anytime from your profile.
+            </p>
+          </>
+        ) : (
+          <p className="join-price-note">
+            Your price is confirmed on the secure Stripe checkout before you pay.
+          </p>
+        )}
+      </div>
       <div className="admin-field">
         <label htmlFor="join-name">Your name</label>
         <input
