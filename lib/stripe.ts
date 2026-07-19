@@ -24,6 +24,10 @@ export interface StripeSettings {
   prices: { basic?: string; pro?: string };
   /** Stripe product ids per plan (so term prices attach without a lookup). */
   productIds?: { basic?: string; pro?: string };
+  /** Which Stripe mode the stored price/product ids belong to. When the
+      connected key's mode differs, those ids don't resolve and pricing is
+      recreated fresh in the current mode. */
+  pricesLivemode?: boolean;
   /** Display prices (USD/month) captured when the products were created. */
   displayPrices?: { basic?: number; pro?: number };
   /** Optional longer billing terms: Stripe price ids keyed by months (3/6/12). */

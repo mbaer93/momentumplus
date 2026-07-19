@@ -144,45 +144,67 @@ export async function saveAllPricing(
     },
   };
 
-  // Archive a superseded price — best-effort, never fails the save.
+  // Stored ids belong to whichever mode created them. If the connected key
+  // is now a different mode (live↔test), those ids don't resolve — treat
+  // everything as absent and recreate in the current mode.
+  const modeSwitched =
+    settings.pricesLivemode !== undefined &&
+    settings.pricesLivemode !== settings.livemode;
+
+  // Archive a superseded price — best-effort, never fails the save. Skipped
+  // across a mode switch (the old id lives in the other mode).
   const archive = async (priceId?: string | null) => {
-    if (!priceId) return;
+    if (!priceId || modeSwitched) return;
     try {
       await stripeRequest(key, "POST", `/prices/${priceId}`, { active: false });
     } catch {
       /* leaving an old price active is harmless — checkout uses the new id */
     }
   };
-  // Resolve (or create) the plan's Stripe product.
-  const ensureProduct = async (plan: "basic" | "pro"): Promise<string> => {
-    if (next.productIds?.[plan]) return next.productIds[plan] as string;
-    const existingPrice = settings.prices[plan];
-    if (existingPrice) {
-      const p = await stripeRequest<{ product: string }>(
-        key,
-        "GET",
-        `/prices/${existingPrice}`,
-      );
-      next.productIds![plan] = p.product;
-      return p.product;
+  // Resolve (or create) the plan's Stripe product in the CURRENT mode.
+  // Returns { product, fresh } — fresh=true means the old ids were unusable
+  // (missing or wrong mode), so every price must be recreated.
+  const ensureProduct = async (
+    plan: "basic" | "pro",
+  ): Promise<{ product: string; fresh: boolean }> => {
+    if (!modeSwitched && next.productIds?.[plan]) {
+      try {
+        await stripeRequest(key, "GET", `/products/${next.productIds[plan]}`);
+        return { product: next.productIds[plan] as string, fresh: false };
+      } catch {
+        /* stored product id doesn't resolve here — recreate below */
+      }
+    }
+    if (!modeSwitched && settings.prices[plan]) {
+      try {
+        const p = await stripeRequest<{ product: string }>(
+          key,
+          "GET",
+          `/prices/${settings.prices[plan]}`,
+        );
+        next.productIds![plan] = p.product;
+        return { product: p.product, fresh: false };
+      } catch {
+        /* price id from another mode — recreate below */
+      }
     }
     const product = await stripeRequest<{ id: string }>(key, "POST", "/products", {
       name: PLAN_PRODUCT_NAME[plan],
       "metadata[momentum_plan]": plan,
     });
     next.productIds![plan] = product.id;
-    return product.id;
+    return { product: product.id, fresh: true };
   };
 
   const changes: string[] = [];
   try {
     for (const plan of ["basic", "pro"] as const) {
-      const product = await ensureProduct(plan);
+      const { product, fresh } = await ensureProduct(plan);
       const label = plan === "basic" ? "Member" : "Pro";
 
-      // Monthly.
+      // Monthly. Recreate when the amount changed OR the old ids are stale.
       const monthly = input[plan].monthly;
-      if (!next.prices[plan] || next.displayPrices?.[plan] !== monthly) {
+      if (fresh || !next.prices[plan] || next.displayPrices?.[plan] !== monthly) {
         const price = await stripeRequest<{ id: string }>(key, "POST", "/prices", {
           product,
           currency: "usd",
@@ -201,7 +223,7 @@ export async function saveAllPricing(
         const total = input[plan].terms[m];
         const current = next.termDisplay?.[plan]?.[m];
         if (total && total > 0) {
-          if (current === total) continue;
+          if (!fresh && current === total) continue;
           const price = await stripeRequest<{ id: string }>(key, "POST", "/prices", {
             product,
             currency: "usd",
@@ -223,6 +245,8 @@ export async function saveAllPricing(
         }
       }
     }
+    // Record the mode these ids now belong to.
+    next.pricesLivemode = settings.livemode;
   } catch (e) {
     // Persist whatever succeeded so a mid-run failure isn't fully lost.
     await saveStripeSettings(next);
