@@ -26,22 +26,30 @@ export function WelcomeForm({
   initialProfile,
   email,
   mode = "welcome",
+  startAtProfile = false,
 }: {
   initialProfile: WelcomeInitialProfile;
   email: string;
   /** "reset" = an existing member changing a forgotten password: no
       onboarding copy, no profile step — just the new password. */
   mode?: "welcome" | "reset";
+  /** Jump straight to the profile step — used when a signed-in member
+      (password already set) is missing their name. */
+  startAtProfile?: boolean;
 }) {
   const router = useRouter();
   const configured = isSupabaseConfigured();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2>(startAtProfile ? 2 : 1);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   // Start from the EXISTING profile — recovery-link visitors are members
   // with real data, and this form must never blank it out.
+  const [existingFirst = "", ...existingRest] = initialProfile.full_name
+    .trim()
+    .split(/\s+/);
   const [profile, setProfile] = useState({
-    full_name: initialProfile.full_name,
+    first_name: existingFirst,
+    last_name: existingRest.join(" "),
     company: initialProfile.company,
     title: initialProfile.title,
     phone: initialProfile.phone,
@@ -88,14 +96,14 @@ export function WelcomeForm({
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!profile.full_name.trim()) {
-      setError("Tell us your name so members know who you are.");
+    if (!profile.first_name.trim() || !profile.last_name.trim()) {
+      setError("Please enter both your first and last name — that's how members will know you.");
       return;
     }
     setLoading(true);
     try {
       const res = await updateProfile({
-        full_name: profile.full_name,
+        full_name: `${profile.first_name.trim()} ${profile.last_name.trim()}`,
         phone: profile.phone,
         company: profile.company,
         title: profile.title,
@@ -137,17 +145,33 @@ export function WelcomeForm({
         </p>
         {error && <div className="login-error">{error}</div>}
         <form onSubmit={saveProfile}>
-          <div className="login-field">
-            <label htmlFor="wf-name">Full name</label>
-            <input
-              id="wf-name"
-              required
-              value={profile.full_name}
-              onChange={(e) =>
-                setProfile({ ...profile, full_name: e.target.value })
-              }
-              placeholder="Jane Rivers"
-            />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div className="login-field">
+              <label htmlFor="wf-first">First name</label>
+              <input
+                id="wf-first"
+                required
+                autoComplete="given-name"
+                value={profile.first_name}
+                onChange={(e) =>
+                  setProfile({ ...profile, first_name: e.target.value })
+                }
+                placeholder="Jane"
+              />
+            </div>
+            <div className="login-field">
+              <label htmlFor="wf-last">Last name</label>
+              <input
+                id="wf-last"
+                required
+                autoComplete="family-name"
+                value={profile.last_name}
+                onChange={(e) =>
+                  setProfile({ ...profile, last_name: e.target.value })
+                }
+                placeholder="Rivers"
+              />
+            </div>
           </div>
           <div className="login-field">
             <label htmlFor="wf-company">Company</label>

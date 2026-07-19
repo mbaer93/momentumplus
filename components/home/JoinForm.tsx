@@ -29,7 +29,8 @@ export function JoinForm({
   const planName = plan === "pro" ? "Momentum+ Pro" : "Momentum+ Member";
   const selectedTotal = planTerms.find(([m]) => m === months)?.[1] ?? null;
   const perMonth = selectedTotal != null ? Math.round(selectedTotal / months) : null;
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [existing, setExisting] = useState(false);
@@ -41,7 +42,13 @@ export function JoinForm({
     setExisting(false);
     startTransition(async () => {
       try {
-        const res = await startPublicCheckout({ plan, email, name, months, ref: referralCode });
+        const res = await startPublicCheckout({
+          plan,
+          email,
+          name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+          months,
+          ref: referralCode,
+        });
         if (res.ok && res.url) {
           window.location.href = res.url;
           return;
@@ -125,18 +132,33 @@ export function JoinForm({
           "Your price is confirmed on the secure Stripe checkout before you pay."
         )}
       </p>
-      <div className="admin-field">
-        <label htmlFor="join-name">Your name</label>
-        <input
-          id="join-name"
-          name="name"
-          type="text"
-          autoComplete="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="First and last name"
-          required
-        />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="admin-field">
+          <label htmlFor="join-first">First name</label>
+          <input
+            id="join-first"
+            name="given-name"
+            type="text"
+            autoComplete="given-name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="Jane"
+            required
+          />
+        </div>
+        <div className="admin-field">
+          <label htmlFor="join-last">Last name</label>
+          <input
+            id="join-last"
+            name="family-name"
+            type="text"
+            autoComplete="family-name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Rivers"
+            required
+          />
+        </div>
       </div>
       <div className="admin-field">
         <label htmlFor="join-email">Email</label>
