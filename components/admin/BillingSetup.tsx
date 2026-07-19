@@ -4,16 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   connectStripe,
-  createStripeProducts,
-  createTermPrices,
   saveWebhookSecret,
   setupStripeWebhook,
 } from "@/app/(portal)/admin/billing/actions";
 
 /*
- * Guided Stripe setup for the Super Admin. Three steps, each with in-place
- * instructions, so connecting a Stripe account never requires code or
- * environment changes.
+ * Stripe connection setup for the Super Admin: connect the account and turn
+ * on the payment-sync webhook. Prices themselves live in the PricingManager
+ * grid above — this is just the plumbing.
  */
 
 export interface BillingStatus {
@@ -52,16 +50,7 @@ function StepBadge({ done, n }: { done: boolean; n: number }) {
 export function BillingSetup({ status }: { status: BillingStatus }) {
   const router = useRouter();
   const [key, setKey] = useState("");
-  const [basicPrice, setBasicPrice] = useState(
-    status.basicPrice ? String(status.basicPrice) : "",
-  );
-  const [proPrice, setProPrice] = useState(
-    status.proPrice ? String(status.proPrice) : "",
-  );
   const [manualSecret, setManualSecret] = useState("");
-  const [termPlan, setTermPlan] = useState<"basic" | "pro">("basic");
-  const [termMonths, setTermMonths] = useState<3 | 6 | 12>(3);
-  const [termTotal, setTermTotal] = useState("");
   const [showManual, setShowManual] = useState(false);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -79,7 +68,8 @@ export function BillingSetup({ status }: { status: BillingStatus }) {
     });
   }
 
-  const step = !status.connected ? 1 : !status.productsCreated ? 2 : !status.webhookConfigured ? 3 : 4;
+  // Two-step connection flow now (pricing moved to the grid above).
+  const step = !status.connected ? 1 : !status.webhookConfigured ? 2 : 3;
 
   return (
     <div style={{ maxWidth: 760 }}>
@@ -141,122 +131,13 @@ export function BillingSetup({ status }: { status: BillingStatus }) {
         </div>
       </div>
 
-      {/* Step 2 */}
+      {/* Step 2 — webhook */}
       <div
         className="admin-form"
         style={{ maxWidth: "none", marginBottom: 16, opacity: step < 2 ? 0.55 : 1 }}
       >
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <StepBadge done={status.productsCreated} n={2} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
-              Create the membership products
-            </div>
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)", margin: "6px 0 10px" }}>
-              Type the monthly price for each plan and we&apos;ll create both
-              products in your Stripe account automatically. <strong>Basic</strong>{" "}
-              is standard membership; <strong>Pro</strong> unlocks everything,
-              including Pro-only sessions, recordings, courses, and resources.
-              (You can adjust prices later in Stripe → Product catalog.)
-            </div>
-            <div className="admin-form-actions" style={{ marginTop: 0 }}>
-              <label style={{ fontSize: 12.5 }}>
-                Basic $/month{" "}
-                <input
-                  type="number"
-                  min={1}
-                  value={basicPrice}
-                  onChange={(e) => setBasicPrice(e.target.value)}
-                  style={{ width: 90 }}
-                />
-              </label>
-              <label style={{ fontSize: 12.5 }}>
-                Pro $/month{" "}
-                <input
-                  type="number"
-                  min={1}
-                  value={proPrice}
-                  onChange={(e) => setProPrice(e.target.value)}
-                  style={{ width: 90 }}
-                />
-              </label>
-              <button
-                type="button"
-                className="btn-purple"
-                disabled={
-                  pending ||
-                  !status.connected ||
-                  !(Number(basicPrice) > 0) ||
-                  !(Number(proPrice) > 0)
-                }
-                onClick={() =>
-                  run(() =>
-                    createStripeProducts(Number(basicPrice), Number(proPrice)),
-                  )
-                }
-              >
-                {status.productsCreated ? "Re-create products" : "Create products"}
-              </button>
-            </div>
-            {status.productsCreated && (
-              <div style={{ fontSize: 12.5, color: "var(--accent-green)", marginTop: 6 }}>
-                Basic ${status.basicPrice}/mo and Pro ${status.proPrice}/mo are live
-                in Stripe.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Optional longer terms */}
-      <div className="admin-form" style={{ maxWidth: "none", marginBottom: 14 }}>
-        <div className="admin-field" style={{ marginBottom: 4 }}>
-          <label style={{ fontSize: 13 }}>
-            Longer billing terms (optional) — let members pay every 3, 6, or
-            12 months. Enter the TOTAL charged per term; access always runs
-            to the end of the paid term and renews automatically.
-          </label>
-        </div>
-        <div className="admin-field-row" style={{ gridTemplateColumns: "1fr 1fr 1fr auto" }}>
-          <div className="admin-field" style={{ marginBottom: 0 }}>
-            <label htmlFor="term-plan">Plan</label>
-            <select id="term-plan" value={termPlan} onChange={(e) => setTermPlan(e.target.value as "basic" | "pro")}>
-              <option value="basic">Momentum+ Member</option>
-              <option value="pro">Momentum+ Pro User</option>
-            </select>
-          </div>
-          <div className="admin-field" style={{ marginBottom: 0 }}>
-            <label htmlFor="term-months">Term</label>
-            <select id="term-months" value={termMonths} onChange={(e) => setTermMonths(Number(e.target.value) as 3 | 6 | 12)}>
-              <option value={3}>3 months</option>
-              <option value={6}>6 months</option>
-              <option value={12}>12 months</option>
-            </select>
-          </div>
-          <div className="admin-field" style={{ marginBottom: 0 }}>
-            <label htmlFor="term-total">Total for the term ($)</label>
-            <input id="term-total" type="number" min={1} value={termTotal} onChange={(e) => setTermTotal(e.target.value)} placeholder="e.g. 534" />
-          </div>
-          <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <button
-              type="button"
-              className="btn-mini"
-              disabled={pending || !(Number(termTotal) > 0)}
-              onClick={() => run(() => createTermPrices({ plan: termPlan, months: termMonths, totalUsd: Number(termTotal) }))}
-            >
-              Create term
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Step 3 */}
-      <div
-        className="admin-form"
-        style={{ maxWidth: "none", marginBottom: 16, opacity: step < 3 ? 0.55 : 1 }}
-      >
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <StepBadge done={status.webhookConfigured} n={3} />
+          <StepBadge done={status.webhookConfigured} n={2} />
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
               Turn on automatic membership updates
@@ -323,15 +204,16 @@ export function BillingSetup({ status }: { status: BillingStatus }) {
       </div>
 
       {/* Done */}
-      {step === 4 && (
+      {step === 3 && (
         <div className="admin-hint" style={{ borderColor: "var(--accent-green)" }}>
-          <strong>Billing is live.</strong> Members can now subscribe and change
-          plans from their Profile page (and from the renewal page when a
-          membership lapses). Two follow-ups inside Stripe when you have a
-          minute: turn on the <strong>Customer portal</strong> (Settings →
-          Billing → Customer portal → Save) so members can update cards and
-          cancel themselves, and add your logo under Settings → Branding so the
-          checkout page looks like Momentum+.
+          <strong>Stripe is connected and syncing.</strong> Set or adjust
+          prices in the grid above, then members can subscribe and change plans
+          from their Profile page (and the renewal page when a membership
+          lapses). Two follow-ups inside Stripe when you have a minute: turn on
+          the <strong>Customer portal</strong> (Settings → Billing → Customer
+          portal → Save) so members can update cards and cancel themselves, and
+          add your logo under Settings → Branding so checkout looks like
+          Momentum+.
         </div>
       )}
     </div>

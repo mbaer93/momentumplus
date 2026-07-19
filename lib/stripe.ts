@@ -22,6 +22,8 @@ export interface StripeSettings {
   livemode: boolean;
   /** Stripe price ids per self-serve plan. */
   prices: { basic?: string; pro?: string };
+  /** Stripe product ids per plan (so term prices attach without a lookup). */
+  productIds?: { basic?: string; pro?: string };
   /** Display prices (USD/month) captured when the products were created. */
   displayPrices?: { basic?: number; pro?: number };
   /** Optional longer billing terms: Stripe price ids keyed by months (3/6/12). */
