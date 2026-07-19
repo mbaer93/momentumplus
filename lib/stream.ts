@@ -197,6 +197,29 @@ export async function sendCommunityMessage(
   await channel.sendMessage({ text, user_id: "momentum-team" });
 }
 
+/**
+ * Make sure a member exists as a Stream user (id + display name). DMing
+ * someone who has never opened chat otherwise fails channel creation with
+ * "please create the user objects". Best-effort — returns false when
+ * Stream is off or the upsert fails.
+ */
+export async function ensureStreamUser(
+  userId: string,
+  name: string,
+): Promise<boolean> {
+  const apiKey = process.env.NEXT_PUBLIC_STREAM_API_KEY;
+  const secret = process.env.STREAM_API_SECRET;
+  if (!apiKey || !secret) return false;
+  try {
+    const { StreamChat } = await import("stream-chat");
+    const client = StreamChat.getInstance(apiKey, secret);
+    await client.upsertUser({ id: userId, name });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Stream role metadata derived from the membership tier (badges in chat). */
 export function streamRoleForTier(tier: Tier): {
   memberTier: Tier;
