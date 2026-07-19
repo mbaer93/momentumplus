@@ -4,8 +4,13 @@ import {
   type AdminMemberRow,
 } from "@/components/admin/MembersManager";
 import { BulkAddMembers } from "@/components/admin/BulkAddMembers";
+import {
+  OrphanAccounts,
+  type OrphanAccount,
+} from "@/components/admin/OrphanAccounts";
 import { ArrowLeftIcon } from "@/components/icons";
 import { tierLabel } from "@/lib/access";
+import { allRows } from "@/lib/db-utils";
 import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -169,6 +174,7 @@ export default async function AdminMembersPage({
   let totalCount = 0;
 
   let members = PREVIEW_MEMBERS;
+  let orphans: OrphanAccount[] = [];
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
@@ -246,6 +252,29 @@ export default async function AdminMembersPage({
         } satisfies AdminMemberRow;
       });
     }
+
+    // Accounts holding NO membership row are invisible to the
+    // memberships-based table above, yet still reserve their email on
+    // /join. Surface them so they can be granted a plan or deleted.
+    const [profileRows, membershipRows] = await Promise.all([
+      allRows<{ id: string; full_name: string | null; email: string | null }>(
+        (from, to) =>
+          admin.from("profiles").select("id, full_name, email").range(from, to),
+      ),
+      allRows<{ profile_id: string }>((from, to) =>
+        admin.from("memberships").select("profile_id").range(from, to),
+      ),
+    ]);
+    const withMembership = new Set(
+      membershipRows.rows.map((r) => r.profile_id),
+    );
+    orphans = profileRows.rows
+      .filter((p) => !withMembership.has(p.id))
+      .map((p) => ({
+        profileId: p.id,
+        name: p.full_name ?? "",
+        email: p.email ?? "",
+      }));
   }
 
   return (
@@ -308,6 +337,8 @@ export default async function AdminMembersPage({
         members={members}
         viewerIsSuper={access?.role === "super"}
       />
+
+      {access?.role === "super" && <OrphanAccounts orphans={orphans} />}
 
       {isSupabaseConfigured() && totalCount > PAGE_SIZE && (
         <div
