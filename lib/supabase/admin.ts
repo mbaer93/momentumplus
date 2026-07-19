@@ -13,5 +13,12 @@ export function createServiceClient() {
   }
   return createSupabaseClient(SUPABASE_URL, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    // Next.js patches global fetch and can cache GETs in the Data Cache.
+    // Settings/membership reads must always be live (a price or access
+    // change has to show up immediately), so opt every query out of it.
+    global: {
+      fetch: (input, init) =>
+        fetch(input as RequestInfo, { ...init, cache: "no-store" }),
+    },
   });
 }
