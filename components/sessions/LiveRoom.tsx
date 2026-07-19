@@ -12,10 +12,13 @@ export function LiveRoom({
   session,
   displayName,
   memberEmail = "",
+  canHost = false,
 }: {
   session: SessionDetail;
   displayName: string;
   memberEmail?: string;
+  /** Admin or the session's own speaker: shows the host-start shortcut. */
+  canHost?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("notes");
   const [phase, setPhase] = useState<Phase>("loading");
@@ -111,6 +114,16 @@ export function LiveRoom({
             {session.speaker.name} · Live on Momentum+
           </div>
         </div>
+        {canHost && session.zoomMeetingId && (
+          <a
+            className="live-host-btn"
+            href={`/api/sessions/${session.id}/start`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Start as host
+          </a>
+        )}
         {session.zoomJoinUrl && (
           <a
             className="live-fallback"
@@ -129,7 +142,17 @@ export function LiveRoom({
           <div id="zoom-embed-root" ref={rootRef} />
           {phase !== "joined" && (
             <div className="live-placeholder">
-              <h3>{phase === "loading" ? "Joining…" : "Live room"}</h3>
+              <span
+                className={`live-ph-badge${phase === "loading" ? " pulsing" : ""}`}
+              />
+              <div className="live-ph-kicker">
+                {phase === "loading" ? "Connecting" : "Live room"}
+              </div>
+              <h3>
+                {phase === "loading"
+                  ? "Taking your seat…"
+                  : "The room isn't live yet"}
+              </h3>
               <p>{message}</p>
               {phase === "unavailable" && session.zoomJoinUrl && (
                 <p style={{ marginTop: 14 }}>
@@ -141,6 +164,14 @@ export function LiveRoom({
                   >
                     Open in Zoom app instead
                   </a>
+                </p>
+              )}
+              {canHost && phase === "unavailable" && !session.zoomMeetingId && (
+                <p className="live-ph-hint">
+                  Host note (members don&apos;t see this): this session has no
+                  Zoom meeting attached — it was likely published before Zoom
+                  was connected. Hit <strong>Publish</strong> on it again in
+                  Admin → Sessions and the meeting is created automatically.
                 </p>
               )}
             </div>

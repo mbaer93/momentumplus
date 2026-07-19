@@ -5,6 +5,9 @@ import { requireMember } from "@/lib/current-member";
 import { endMs, isJoinWindowOpen } from "@/lib/sessions/view";
 import { dateLabel, timeLabel } from "@/lib/sessions/view";
 import { LiveRoom } from "@/components/sessions/LiveRoom";
+import { speakerOwnsSession } from "@/lib/speaker-tools";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
@@ -83,11 +86,23 @@ export default async function LiveSessionPage({
     );
   }
 
+  // Hosts run the meeting from the full Zoom client (the embedded room is
+  // the participant view). Admins and the session's own speaker get a
+  // "Start as host" shortcut; the start route re-checks both server-side.
+  let canHost = member.isAdmin;
+  if (!canHost && member.isSpeaker && isSupabaseConfigured()) {
+    const {
+      data: { user },
+    } = await createClient().auth.getUser();
+    if (user) canHost = (await speakerOwnsSession(user.id, session.id)).ok;
+  }
+
   return (
     <LiveRoom
       session={session}
       displayName={member.name}
       memberEmail={member.email}
+      canHost={canHost}
     />
   );
 }
