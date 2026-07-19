@@ -347,6 +347,14 @@ export function CommunityView({
       if (!handle) return;
       setDmPickerOpen(false);
       try {
+        // Make sure the other member exists on Stream first — someone who
+        // has never opened chat has no user object yet, and channel
+        // creation fails without it.
+        await fetch("/api/community/members", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: other.id }),
+        }).catch(() => {});
         const channel = handle.client.channel("messaging", {
           members: [handle.userId, other.id],
         });

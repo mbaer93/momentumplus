@@ -34,6 +34,15 @@ test("expandOccurrences lists series dates inside a window", () => {
   ]);
 });
 
+test("monthly recurrence clamps to short months instead of drifting", () => {
+  // Jan 31, 7:00 PM EST series: February has no 31st — the next occurrence
+  // must be Feb 28, not overflow into Mar 3.
+  const janStart = "2027-02-01T00:00:00.000Z"; // Jan 31, 7:00 PM EST
+  const afterFirst = new Date("2027-02-05T00:00:00Z").getTime();
+  const next = nextOccurrence(janStart, 90, "monthly", null, afterFirst);
+  assert.equal(next, "2027-03-01T00:00:00.000Z"); // Feb 28, 7:00 PM EST
+});
+
 test("rruleFor formats frequency and UNTIL", () => {
   assert.equal(rruleFor("weekly", null), "FREQ=WEEKLY");
   assert.equal(rruleFor("biweekly", null), "FREQ=WEEKLY;INTERVAL=2");

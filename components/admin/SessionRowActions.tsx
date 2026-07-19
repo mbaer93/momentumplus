@@ -17,6 +17,7 @@ export function SessionRowActions({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [publishing, setPublishing] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   function onCancel() {
@@ -44,16 +45,24 @@ export function SessionRowActions({
   }
 
   async function onPublish() {
+    // In-flight guard: a double-click here would otherwise create TWO Zoom
+    // meetings for the same session.
+    if (publishing) return;
+    setPublishing(true);
     setNote(null);
-    const res = await fetch(`/api/sessions/${sessionId}/publish`, {
-      method: "POST",
-    });
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    if (res.ok) {
-      router.refresh();
-      setNote("Published.");
-    } else {
-      setNote(data.error ?? "Publish failed");
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/publish`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.ok) {
+        router.refresh();
+        setNote("Published.");
+      } else {
+        setNote(data.error ?? "Publish failed");
+      }
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -66,13 +75,14 @@ export function SessionRowActions({
         type="button"
         className="btn-mini"
         onClick={onPublish}
+        disabled={publishing}
         title={
           hasMeeting
             ? "Re-publish (meeting already created)"
             : "Publish & create Zoom meeting"
         }
       >
-        Publish
+        {publishing ? "Publishing…" : "Publish"}
       </button>
       <button
         type="button"

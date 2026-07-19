@@ -99,7 +99,7 @@ export function ProfileView({
     admin_title: profile.adminTitle,
   });
   const [pending, startTransition] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   function togglePref(key: string, channel: "email" | "sms" | "in_app") {
     setPrefs((prev) =>
@@ -113,7 +113,7 @@ export function ProfileView({
     setMsg(null);
     startTransition(async () => {
       const res = await saveNotificationPrefs(prefs);
-      setMsg(res.message ?? (res.ok ? "Saved" : "Error"));
+      setMsg({ text: res.message ?? (res.ok ? "Saved" : "Error"), ok: res.ok });
     });
   }
 
@@ -122,7 +122,7 @@ export function ProfileView({
     setMsg(null);
     startTransition(async () => {
       const res = await updateProfile(form);
-      setMsg(res.message ?? (res.ok ? "Saved" : "Error"));
+      setMsg({ text: res.message ?? (res.ok ? "Saved" : "Error"), ok: res.ok });
     });
   }
 
@@ -249,7 +249,7 @@ export function ProfileView({
                   className="btn-mini"
                   onClick={() => {
                     void navigator.clipboard.writeText(referral.link);
-                    setMsg("Referral link copied");
+                    setMsg({ text: "Referral link copied", ok: true });
                   }}
                 >
                   Copy link
@@ -511,9 +511,16 @@ export function ProfileView({
                       />
                     </div>
                   )}
-                  <button type="submit" className="btn-primary" disabled={pending}>
-                    {pending ? "Saving…" : "Save profile"}
-                  </button>
+                  <div className="admin-form-actions">
+                    <button type="submit" className="btn-primary" disabled={pending}>
+                      {pending ? "Saving…" : "Save profile"}
+                    </button>
+                    {msg && (
+                      <span className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}>
+                        {msg.text}
+                      </span>
+                    )}
+                  </div>
                 </form>
               </div>
 
@@ -676,8 +683,8 @@ export function ProfileView({
                     SMS is strictly opt-in and requires a phone number.
                   </span>
                   {msg && (
-                    <span style={{ fontSize: 12.5, color: "var(--accent-green)" }}>
-                      {msg}
+                    <span className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}>
+                      {msg.text}
                     </span>
                   )}
                 </div>

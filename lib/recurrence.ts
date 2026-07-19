@@ -23,7 +23,17 @@ function step(iso: string, recurrence: Recurrence): string {
   const dt = new Date(Date.UTC(y, m - 1, d));
   if (recurrence === "weekly") dt.setUTCDate(dt.getUTCDate() + 7);
   else if (recurrence === "biweekly") dt.setUTCDate(dt.getUTCDate() + 14);
-  else dt.setUTCMonth(dt.getUTCMonth() + 1);
+  else {
+    // Monthly with end-of-month clamping: a Jan 31 series must hit Feb 28,
+    // not drift to Mar 3 (setUTCMonth alone overflows short months).
+    const day = dt.getUTCDate();
+    dt.setUTCDate(1);
+    dt.setUTCMonth(dt.getUTCMonth() + 1);
+    const daysInTarget = new Date(
+      Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0),
+    ).getUTCDate();
+    dt.setUTCDate(Math.min(day, daysInTarget));
+  }
   const pad = (n: number) => String(n).padStart(2, "0");
   const next = `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}T${time}`;
   return easternInputToIso(next) ?? iso;

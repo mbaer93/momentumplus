@@ -24,6 +24,9 @@ const STATUSES: SessionStatus[] = [
   "scheduled",
   "live",
   "completed",
+  // Cancelled keeps the session visible to members with an honest
+  // "Cancelled" state; archived hides it entirely.
+  "cancelled",
   "archived",
 ];
 

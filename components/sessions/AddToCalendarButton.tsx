@@ -52,6 +52,9 @@ export function AddToCalendarButton({
     "https://calendar.google.com/calendar/render?action=TEMPLATE" +
     `&text=${encodeURIComponent(fullTitle)}` +
     `&dates=${stamp(start)}/${stamp(end)}` +
+    // Anchor the event (and any recurrence) to Eastern wall time, so a
+    // 7 PM ET series doesn't shift an hour at DST changes.
+    "&ctz=America/New_York" +
     `&details=${encodeURIComponent(details)}` +
     `&location=${encodeURIComponent(joinUrl ?? "Momentum+ (online)")}` +
     (rrule ? `&recur=${encodeURIComponent(`RRULE:${rrule}`)}` : "");

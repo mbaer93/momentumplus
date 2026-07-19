@@ -67,8 +67,12 @@ function etDayKey(iso: string | Date): string {
 export function CalendarView({ events }: { events: CalendarEvent[] }) {
   const router = useRouter();
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth()); // 0-based
+  // Open on the EASTERN current month — for a viewer in another timezone
+  // near midnight ET, the browser-local month can differ and would open a
+  // month where the "today" ring isn't visible.
+  const [etNowYear, etNowMonth] = etDayKey(now).split("-").map(Number);
+  const [year, setYear] = useState(etNowYear);
+  const [month, setMonth] = useState(etNowMonth); // 0-based
 
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
