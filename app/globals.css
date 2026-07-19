@@ -1484,14 +1484,19 @@
 }
 #zoom-embed-root { width: 100%; height: 100%; }
 .live-placeholder {
+  /* Overlay the whole stage — as a flex sibling of the (empty) Zoom embed
+     root it was pushed right of center. */
+  position: absolute;
+  inset: 0;
   text-align: center;
   color: rgba(255, 255, 255, 0.65);
-  max-width: 460px;
   padding: 40px 32px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
 }
+.live-placeholder p { max-width: 440px; }
 .live-ph-badge {
   width: 52px;
   height: 52px;

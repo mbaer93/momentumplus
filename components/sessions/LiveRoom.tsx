@@ -6,7 +6,22 @@ import { DocIcon, ExternalIcon } from "@/components/icons";
 import { NotesEditor } from "./NotesEditor";
 
 type Tab = "notes" | "resources" | "community";
-type Phase = "loading" | "joined" | "unavailable" | "ended";
+type Phase = "loading" | "joined" | "waiting" | "unavailable" | "ended";
+
+/** Zoom's embedded SDK rejects with a plain object, not an Error — pull out
+    the human reason and whether it just means "host hasn't started yet". */
+function joinFailure(err: unknown): { text: string; notStarted: boolean } {
+  const e = (err ?? {}) as {
+    reason?: string;
+    message?: string;
+    errorCode?: number;
+  };
+  const text =
+    e.reason || e.message || "Couldn't start the embedded room.";
+  const notStarted =
+    e.errorCode === 3008 || /not started|not begin/i.test(text);
+  return { text, notStarted };
+}
 
 export function LiveRoom({
   session,
@@ -23,14 +38,28 @@ export function LiveRoom({
   const [tab, setTab] = useState<Tab>("notes");
   const [phase, setPhase] = useState<Phase>("loading");
   const [message, setMessage] = useState<string>("Connecting to the live room…");
+  // Bumping `attempt` re-runs the join: automatically while waiting for the
+  // host to start the meeting, or manually via the Try again button.
+  const [attempt, setAttempt] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
-  const startedRef = useRef(false);
+  const handledAttempt = useRef(-1);
+  const initedRef = useRef(false);
 
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    // Guards React strict-mode double-invoke without blocking retries.
+    if (handledAttempt.current >= attempt) return;
+    handledAttempt.current = attempt;
 
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const retrySoon = () => {
+      // Auto-retry every 20s while the host hasn't started the meeting —
+      // members who arrive early get connected the moment it begins.
+      retryTimer = setTimeout(() => {
+        if (!cancelled) setAttempt((a) => a + 1);
+      }, 20_000);
+    };
 
     async function join() {
       try {
@@ -69,22 +98,26 @@ export function LiveRoom({
         const client = ZoomMtgEmbedded.createClient();
         if (!rootRef.current || cancelled) return;
 
-        await client.init({
-          zoomAppRoot: rootRef.current,
-          language: "en-US",
-          patchJsMedia: true,
-        });
-        // When the host ends the meeting (or the member leaves), swap the
-        // dead embed for a designed "session ended" state instead of a
-        // black void.
-        try {
-          (client as unknown as {
-            on: (event: string, cb: (p: { state?: string }) => void) => void;
-          }).on("connection-change", (payload) => {
-            if (!cancelled && payload?.state === "Closed") setPhase("ended");
+        // The client is a page-singleton: init once, join per attempt.
+        if (!initedRef.current) {
+          await client.init({
+            zoomAppRoot: rootRef.current,
+            language: "en-US",
+            patchJsMedia: true,
           });
-        } catch {
-          /* older SDKs without events keep the previous behavior */
+          initedRef.current = true;
+          // When the host ends the meeting (or the member leaves), swap the
+          // dead embed for a designed "session ended" state instead of a
+          // black void.
+          try {
+            (client as unknown as {
+              on: (event: string, cb: (p: { state?: string }) => void) => void;
+            }).on("connection-change", (payload) => {
+              if (payload?.state === "Closed") setPhase("ended");
+            });
+          } catch {
+            /* older SDKs without events keep the previous behavior */
+          }
         }
 
         await client.join({
@@ -100,13 +133,17 @@ export function LiveRoom({
 
         if (!cancelled) setPhase("joined");
       } catch (err) {
-        if (!cancelled) {
-          setPhase("unavailable");
+        if (cancelled) return;
+        const failure = joinFailure(err);
+        if (failure.notStarted) {
+          setPhase("waiting");
           setMessage(
-            err instanceof Error
-              ? `Couldn't start the embedded room: ${err.message}`
-              : "Couldn't start the embedded room.",
+            "The host hasn't started the session yet. Stay here — you'll be connected automatically the moment it begins.",
           );
+          retrySoon();
+        } else {
+          setPhase("unavailable");
+          setMessage(`Couldn't start the embedded room: ${failure.text}`);
         }
       }
     }
@@ -114,8 +151,9 @@ export function LiveRoom({
     void join();
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [session.id, displayName, memberEmail]);
+  }, [attempt, session.id, displayName, memberEmail]);
 
   return (
     <div className="live-wrap">
@@ -156,21 +194,27 @@ export function LiveRoom({
           {phase !== "joined" && (
             <div className="live-placeholder">
               <span
-                className={`live-ph-badge${phase === "loading" ? " pulsing" : ""}`}
+                className={`live-ph-badge${
+                  phase === "loading" || phase === "waiting" ? " pulsing" : ""
+                }`}
               />
               <div className="live-ph-kicker">
                 {phase === "loading"
                   ? "Connecting"
-                  : phase === "ended"
-                    ? "Session over"
-                    : "Live room"}
+                  : phase === "waiting"
+                    ? "Waiting for the host"
+                    : phase === "ended"
+                      ? "Session over"
+                      : "Live room"}
               </div>
               <h3>
                 {phase === "loading"
                   ? "Taking your seat…"
-                  : phase === "ended"
-                    ? "That's a wrap"
-                    : "The room isn't live yet"}
+                  : phase === "waiting"
+                    ? "Starting soon"
+                    : phase === "ended"
+                      ? "That's a wrap"
+                      : "The room isn't live yet"}
               </h3>
               <p>
                 {phase === "ended"
@@ -192,16 +236,30 @@ export function LiveRoom({
                   </button>
                 </p>
               )}
-              {phase === "unavailable" && session.zoomJoinUrl && (
-                <p style={{ marginTop: 14 }}>
-                  <a
+              {phase === "unavailable" && (
+                <p style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
                     className="live-fallback"
-                    href={session.zoomJoinUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    style={{ cursor: "pointer", background: "none" }}
+                    onClick={() => {
+                      setPhase("loading");
+                      setMessage("Connecting to the live room…");
+                      setAttempt((a) => a + 1);
+                    }}
                   >
-                    Open in Zoom app instead
-                  </a>
+                    Try again
+                  </button>
+                  {session.zoomJoinUrl && (
+                    <a
+                      className="live-fallback"
+                      href={session.zoomJoinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open in Zoom app instead
+                    </a>
+                  )}
                 </p>
               )}
               {canHost && phase === "unavailable" && !session.zoomMeetingId && (
