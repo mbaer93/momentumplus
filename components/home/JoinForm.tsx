@@ -68,13 +68,14 @@ export function JoinForm({
           </button>
         ))}
       </div>
-      {planTerms.length > 1 && (
+      {planTerms.length > 1 ? (
         <div className="join-terms" role="radiogroup" aria-label="Billing term">
           {planTerms.map(([m, usd]) => {
             const per = usd != null ? Math.round(usd / m) : null;
             const monthlyRef = terms?.[plan]?.["1"] ?? null;
             const save =
               usd != null && monthlyRef != null ? monthlyRef * m - usd : 0;
+            const best = m === 12;
             return (
               <button
                 key={m}
@@ -84,39 +85,46 @@ export function JoinForm({
                 className={`join-term${months === m ? " active" : ""}`}
                 onClick={() => setMonths(m)}
               >
-                {save > 0 && <span className="join-term-tag">Save ${save}</span>}
+                {best && <span className="join-term-flag">Best value</span>}
                 <span className="join-term-name">
-                  {m === 1 ? "Monthly" : `${m} months`}
+                  {m === 1 ? "Monthly" : `${m} Months`}
                 </span>
                 {per != null && (
-                  <span className="join-term-per">${per}/mo</span>
+                  <span className="join-term-per">
+                    <strong>${per}</strong>/mo
+                  </span>
                 )}
+                {m > 1 && usd != null ? (
+                  <span className="join-term-total">${usd} total</span>
+                ) : (
+                  <span className="join-term-total">billed monthly</span>
+                )}
+                <span className={`join-term-save${save > 0 ? "" : " none"}`}>
+                  {save > 0 ? `Save $${save}` : " "}
+                </span>
               </button>
             );
           })}
         </div>
-      )}
-      <div className="join-price-box">
+      ) : selectedTotal != null ? (
+        <div className="join-price-solo">
+          <span className="join-price-amount">${perMonth}</span>
+          <span className="join-price-unit">/mo</span>
+        </div>
+      ) : null}
+      <p className="join-price-summary">
         {selectedTotal != null ? (
           <>
-            <div className="join-price-head">
-              <span className="join-price-amount">${perMonth}</span>
-              <span className="join-price-unit">/mo</span>
-            </div>
-            <p className="join-price-note">
-              {planName} —{" "}
-              {months === 1
-                ? `$${selectedTotal} billed monthly`
-                : `$${selectedTotal} billed every ${months} months`}
-              . Renews automatically; cancel anytime from your profile.
-            </p>
+            <strong>{planName}</strong> —{" "}
+            {months === 1
+              ? `$${selectedTotal}/month`
+              : `$${selectedTotal} every ${months} months ($${perMonth}/mo)`}
+            . Renews automatically; cancel anytime from your profile.
           </>
         ) : (
-          <p className="join-price-note">
-            Your price is confirmed on the secure Stripe checkout before you pay.
-          </p>
+          "Your price is confirmed on the secure Stripe checkout before you pay."
         )}
-      </div>
+      </p>
       <div className="admin-field">
         <label htmlFor="join-name">Your name</label>
         <input
