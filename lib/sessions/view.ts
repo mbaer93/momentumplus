@@ -5,6 +5,11 @@ import type { SessionDetail } from "@/lib/types";
 
 export const JOIN_WINDOW_BEFORE_MS = 30 * 60 * 1000; // reveal 30 min before start
 
+/** Sessions routinely run past their scheduled end — keep the room joinable
+    for this long after so late refreshes don't hit "this session has ended"
+    while the host is mid-sentence. */
+export const JOIN_WINDOW_OVERRUN_MS = 60 * 60 * 1000;
+
 const TZ = "America/New_York"; // TSLS is a Tri-State (ET) program
 
 export function startMs(session: Pick<SessionDetail, "startsAt">): number {
@@ -26,7 +31,8 @@ export function isJoinWindowOpen(
   now: number = Date.now(),
 ): boolean {
   return (
-    now >= startMs(session) - JOIN_WINDOW_BEFORE_MS && now <= endMs(session)
+    now >= startMs(session) - JOIN_WINDOW_BEFORE_MS &&
+    now <= endMs(session) + JOIN_WINDOW_OVERRUN_MS
   );
 }
 
