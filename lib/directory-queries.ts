@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canAccess } from "@/lib/access";
 import { RAIL_TIERS, normalizeSponsorTier } from "@/lib/sponsor-tiers";
-import { sponsorActive } from "@/lib/sponsor-lifecycle";
+import { sponsorActive, speakerLive } from "@/lib/sponsor-lifecycle";
 import type { Tier } from "@/lib/types";
 import {
   resources as placeholderResources,
@@ -121,9 +121,57 @@ export async function listSpeakers(): Promise<SpeakerProfile[]> {
     data = rows;
   }
 
-  // Archived or season-expired speakers are admin-only (Past Speakers) —
-  // hidden from the member directory. Filtered per-request, not in the
-  // cached query, so the cache can't serve a stale list past an expiry.
+  // Members only see LIVE speakers: not archived, not season-expired, and
+  // not pre-season (new speakers stay hidden until October 1 of the year
+  // they join). Filtered per-request, not in the cached query, so the
+  // cache can't serve a stale list across a season boundary.
+  return data
+    .filter((row) =>
+      speakerLive({
+        archivedAt: row.archived_at ?? null,
+        expiresAt: row.expires_at ?? null,
+      }),
+    )
+    .map(mapSpeakerRow);
+}
+
+function mapSpeakerRow(row: SpeakerRow): SpeakerProfile {
+  const i = hashIndex(row.id, BANNERS.length);
+  return {
+    id: row.id,
+    name: row.name,
+    title: row.title ?? "",
+    initials: initialsOf(row.name),
+    avatarBg: AV_BGS[i],
+    avatarColor: i === 0 ? "#D4AE75" : "#fff",
+    bannerGradient: BANNERS[i],
+    industries: row.industries ?? [],
+    bio: row.bio ?? "",
+    memberSince: new Date(row.created_at).toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    }),
+    sessionCount: 0,
+    sessionSlugs: [],
+    headshotUrl: row.headshot_url ?? null,
+    website: row.website ?? null,
+  } satisfies SpeakerProfile;
+}
+
+export async function getSpeaker(id: string): Promise<SpeakerProfile | null> {
+  const all = await listSpeakers();
+  return all.find((s) => s.id === id) ?? null;
+}
+
+/**
+ * Admin variant: includes PRE-SEASON speakers (hidden from members until
+ * October 1) so sessions for the upcoming season can be assigned to them.
+ * Archived/expired speakers stay out, same as the member list.
+ */
+export async function listSpeakersForAdmin(): Promise<SpeakerProfile[]> {
+  if (!isSupabaseConfigured()) return placeholderSpeakers;
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return listSpeakers();
+  const data = await cachedSpeakerRows();
   return data
     .filter((row) =>
       sponsorActive({
@@ -131,33 +179,7 @@ export async function listSpeakers(): Promise<SpeakerProfile[]> {
         expiresAt: row.expires_at ?? null,
       }),
     )
-    .map((row) => {
-    const i = hashIndex(row.id, BANNERS.length);
-    return {
-      id: row.id,
-      name: row.name,
-      title: row.title ?? "",
-      initials: initialsOf(row.name),
-      avatarBg: AV_BGS[i],
-      avatarColor: i === 0 ? "#D4AE75" : "#fff",
-      bannerGradient: BANNERS[i],
-      industries: row.industries ?? [],
-      bio: row.bio ?? "",
-      memberSince: new Date(row.created_at).toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      }),
-      sessionCount: 0,
-      sessionSlugs: [],
-      headshotUrl: row.headshot_url ?? null,
-      website: row.website ?? null,
-    } satisfies SpeakerProfile;
-  });
-}
-
-export async function getSpeaker(id: string): Promise<SpeakerProfile | null> {
-  const all = await listSpeakers();
-  return all.find((s) => s.id === id) ?? null;
+    .map(mapSpeakerRow);
 }
 
 export async function listResources(viewerTier: Tier): Promise<ResourceItem[]> {

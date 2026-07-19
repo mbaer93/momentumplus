@@ -37,6 +37,23 @@ export function sponsorActive(
   return true;
 }
 
+/**
+ * A speaker is LIVE — listed in the directory, visible to members, able to
+ * post — only during their season: from October 1 of the year they join
+ * (their expires_at minus one year) until expires_at. Before that they're
+ * onboarded and can build their page, but members don't see them.
+ */
+export function speakerLive(
+  s: SponsorLifecycleRow,
+  now: Date = new Date(),
+): boolean {
+  if (!sponsorActive(s, now)) return false;
+  if (!s.expiresAt) return true; // legacy rows without lifecycle columns
+  const seasonStart = new Date(s.expiresAt);
+  seasonStart.setUTCFullYear(seasonStart.getUTCFullYear() - 1);
+  return now >= seasonStart;
+}
+
 
 /**
  * Term end for a supporter who joins at `joined`: October 1 of the FOLLOWING

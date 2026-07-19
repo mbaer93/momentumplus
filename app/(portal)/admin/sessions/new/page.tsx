@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { SessionForm } from "@/components/admin/SessionForm";
 import { ArrowLeftIcon } from "@/components/icons";
-import { listSpeakers } from "@/lib/directory-queries";
+import { listSpeakersForAdmin } from "@/lib/directory-queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewSessionPage() {
-  const speakers = (await listSpeakers()).map((s) => ({
+  const speakers = (await listSpeakersForAdmin()).map((s) => ({
     id: s.id,
     name: s.name,
   }));

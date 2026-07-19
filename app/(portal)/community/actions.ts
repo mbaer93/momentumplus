@@ -34,10 +34,21 @@ export async function askSpeakerQuestion(
   const admin = createServiceClient();
   const { data: speaker } = await admin
     .from("speakers")
-    .select("id, name, profile_id")
+    .select("id, name, profile_id, expires_at, archived_at")
     .eq("id", speakerId)
     .maybeSingle();
   if (!speaker) return { ok: false, message: "That speaker wasn't found." };
+  // Pre-season/archived speakers aren't visible to members — don't let a
+  // hand-crafted request message them either.
+  const { speakerLive } = await import("@/lib/sponsor-lifecycle");
+  if (
+    !speakerLive({
+      archivedAt: (speaker.archived_at as string | null) ?? null,
+      expiresAt: (speaker.expires_at as string | null) ?? null,
+    })
+  ) {
+    return { ok: false, message: "That speaker isn't available right now." };
+  }
 
   const snippet = q.length > 180 ? `${q.slice(0, 177)}…` : q;
 

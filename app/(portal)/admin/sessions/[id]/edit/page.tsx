@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getSession } from "@/lib/sessions/queries";
 import { SessionForm } from "@/components/admin/SessionForm";
 import { ArrowLeftIcon } from "@/components/icons";
-import { listSpeakers } from "@/lib/directory-queries";
+import { listSpeakersForAdmin } from "@/lib/directory-queries";
 import { isoToEasternInput } from "@/lib/eastern-time";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export default async function EditSessionPage({
 }) {
   const session = await getSession(params.id);
   if (!session) notFound();
-  const speakers = (await listSpeakers()).map((s) => ({
+  const speakers = (await listSpeakersForAdmin()).map((s) => ({
     id: s.id,
     name: s.name,
   }));
