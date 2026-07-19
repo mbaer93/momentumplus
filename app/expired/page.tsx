@@ -1,5 +1,10 @@
+import { redirect } from "next/navigation";
 import { RenewButtons } from "@/components/billing/RenewButtons";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
+import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { emailPattern } from "@/lib/db-utils";
 
 export const metadata = {
   title: "Renew your membership | Momentum+",
@@ -13,6 +18,42 @@ export const metadata = {
  * the legacy monthly/3/6/12 plans are gone.
  */
 export default async function ExpiredPage() {
+  // Self-heal wrong-door arrivals: a signed-in user with an OPEN speaker or
+  // sponsor invite has no membership YET because their onboarding hasn't
+  // run — send them to it instead of asking them to pay. (Invite emails can
+  // land on the generic welcome flow when the email template drops the
+  // per-invite redirect.)
+  if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const {
+      data: { user },
+    } = await createClient().auth.getUser();
+    if (user) {
+      const admin = createServiceClient();
+      const email = (user.email ?? "").toLowerCase();
+      const [{ data: speakerInvite }, { data: sponsorInvite }] =
+        await Promise.all([
+          email
+            ? admin
+                .from("speaker_invites")
+                .select("id")
+                .ilike("email", emailPattern(email))
+                .is("completed_at", null)
+                .limit(1)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+          admin
+            .from("sponsor_invites")
+            .select("id")
+            .eq("invited_profile_id", user.id)
+            .is("completed_at", null)
+            .limit(1)
+            .maybeSingle(),
+        ]);
+      if (speakerInvite) redirect("/speaker-onboarding");
+      if (sponsorInvite) redirect("/sponsor-onboarding");
+    }
+  }
+
   // No Stripe and no GHL renewal page configured → the only honest CTA is
   // "email us", not a button that opens a blank tab.
   const renewUrl = process.env.NEXT_PUBLIC_GHL_RENEW_URL || null;

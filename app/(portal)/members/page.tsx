@@ -88,6 +88,30 @@ export default async function MembersPage({
         tierByProfile.set(m.profile_id, m.tier as string);
       }
     }
+    // Pre-season speakers are hidden until October 1 of the year they
+    // join — they hold a Speaker membership for portal access, but the
+    // community doesn't see them yet.
+    const speakerProfiles = Array.from(tierByProfile.entries())
+      .filter(([, tier]) => tier === "speaker")
+      .map(([id]) => id);
+    if (speakerProfiles.length > 0) {
+      const { speakerLive } = await import("@/lib/sponsor-lifecycle");
+      const { data: speakerRows } = await admin
+        .from("speakers")
+        .select("profile_id, expires_at, archived_at")
+        .in("profile_id", speakerProfiles);
+      for (const s of speakerRows ?? []) {
+        if (
+          s.profile_id &&
+          !speakerLive({
+            archivedAt: (s.archived_at as string | null) ?? null,
+            expiresAt: (s.expires_at as string | null) ?? null,
+          })
+        ) {
+          tierByProfile.delete(s.profile_id as string);
+        }
+      }
+    }
     const ids = Array.from(tierByProfile.keys());
     rows = [];
     // Page through profiles (PostgREST caps responses at 1,000 rows).

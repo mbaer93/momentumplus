@@ -36,6 +36,33 @@ export async function POST() {
       return NextResponse.json({ error: "Not signed in" }, { status: 401 });
     }
     userId = user.id;
+
+    // Pre-season speakers are hidden from the community until October 1 of
+    // the year they join — no chat until their season starts.
+    if (member.tier === "speaker" && !member.isAdmin) {
+      const { createServiceClient } = await import("@/lib/supabase/admin");
+      const { speakerLive } = await import("@/lib/sponsor-lifecycle");
+      const { data: sp } = await createServiceClient()
+        .from("speakers")
+        .select("expires_at, archived_at")
+        .eq("profile_id", user.id)
+        .maybeSingle();
+      if (
+        sp &&
+        !speakerLive({
+          archivedAt: (sp.archived_at as string | null) ?? null,
+          expiresAt: (sp.expires_at as string | null) ?? null,
+        })
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Community opens for speakers on October 1, when your season begins. Until then you can build your speaker page in the Speaker Studio.",
+          },
+          { status: 403 },
+        );
+      }
+    }
   }
 
   const token = generateStreamUserToken(
