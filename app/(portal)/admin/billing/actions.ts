@@ -32,6 +32,10 @@ function refresh() {
   revalidatePath("/admin/billing");
   revalidatePath("/profile");
   revalidatePath("/expired");
+  // Public pricing surfaces read the same settings — bust them too so a
+  // price change shows on the marketing/signup pages immediately.
+  revalidatePath("/");
+  revalidatePath("/join");
 }
 
 /** Step 1: validate the pasted secret key against Stripe and store it. */
