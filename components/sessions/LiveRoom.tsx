@@ -44,6 +44,23 @@ export function LiveRoom({
   const rootRef = useRef<HTMLDivElement>(null);
   const handledAttempt = useRef(-1);
   const initedRef = useRef(false);
+  const clientRef = useRef<{
+    updateVideoOptions?: (v: {
+      viewSizes?: { default?: { width: number; height: number } };
+    }) => void;
+  } | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const resizeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Disconnect the stage observer only when the room unmounts (the join
+  // effect re-runs per attempt, but the observer lives page-long).
+  useEffect(
+    () => () => {
+      observerRef.current?.disconnect();
+      if (resizeTimer.current) clearTimeout(resizeTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     // Guards React strict-mode double-invoke without blocking retries.
@@ -100,12 +117,62 @@ export function LiveRoom({
 
         // The client is a page-singleton: init once, join per attempt.
         if (!initedRef.current) {
+          // Size the meeting to FILL the stage (the SDK defaults to a small
+          // floating widget). viewSizes is init-only, so measure now; the
+          // stage is the flex area between the sidebar and the notes panel.
+          const stage = rootRef.current.parentElement;
+          const rect = stage?.getBoundingClientRect();
+          const width = Math.max(320, Math.floor(rect?.width ?? 960));
+          const height = Math.max(240, Math.floor(rect?.height ?? 540));
           await client.init({
             zoomAppRoot: rootRef.current,
             language: "en-US",
             patchJsMedia: true,
+            customize: {
+              video: {
+                isResizable: false,
+                // Docked, not a floating window: pinned to the stage and
+                // sized to fill it, so the meeting reads as part of the page.
+                popper: { disableDraggable: true },
+                viewSizes: { default: { width, height } },
+                // Speaker view: whoever is talking fills the stage; during
+                // a screen share the shared content takes the canvas with
+                // the video strip alongside.
+                defaultViewType: "speaker" as unknown as NonNullable<
+                  NonNullable<
+                    Parameters<typeof client.init>[0]["customize"]
+                  >["video"]
+                >["defaultViewType"],
+              },
+            },
           });
           initedRef.current = true;
+          clientRef.current = client as typeof clientRef.current;
+          // Follow the stage size: device rotations, window resizes, and
+          // responsive breakpoints re-render the meeting to fit (debounced —
+          // updateVideoOptions triggers a full SDK re-render).
+          if (stage && typeof ResizeObserver !== "undefined") {
+            const ro = new ResizeObserver(() => {
+              if (resizeTimer.current) clearTimeout(resizeTimer.current);
+              resizeTimer.current = setTimeout(() => {
+                const r = stage.getBoundingClientRect();
+                try {
+                  clientRef.current?.updateVideoOptions?.({
+                    viewSizes: {
+                      default: {
+                        width: Math.max(320, Math.floor(r.width)),
+                        height: Math.max(240, Math.floor(r.height)),
+                      },
+                    },
+                  });
+                } catch {
+                  /* SDK mid-transition — the next resize event retries */
+                }
+              }, 250);
+            });
+            ro.observe(stage);
+            observerRef.current = ro;
+          }
           // When the host ends the meeting (or the member leaves), swap the
           // dead embed for a designed "session ended" state instead of a
           // black void.
