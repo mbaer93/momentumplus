@@ -235,10 +235,10 @@ export default async function MembersPage({
                   ) : (
                     <Link
                       className="resource-link"
-                      href="/community"
-                      title="This member hasn't shared contact info — say hello in the community"
+                      href={`/community?dm=${m.id}`}
+                      title="Opens a direct message with this member"
                     >
-                      Message in Community
+                      Message
                     </Link>
                   )}
                   {m.phone && <span className="resource-tag">{m.phone}</span>}

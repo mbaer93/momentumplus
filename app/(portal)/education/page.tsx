@@ -65,11 +65,7 @@ export default async function EducationPage() {
                 {unlocked && c.completedCount > 0
                   ? ` · ${c.completedCount} completed`
                   : ""}
-                {!unlocked
-                  ? c.minAccess === "pro_only"
-                    ? " · Momentum+ Pro exclusive"
-                    : " · Available to VIP and annual members"
-                  : ""}
+                {!unlocked ? " · Momentum+ Pro exclusive" : ""}
               </div>
               {unlocked && (
                 <div className="progress-track">

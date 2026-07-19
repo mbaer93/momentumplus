@@ -81,7 +81,10 @@ export async function unenrollFromSession(
     .eq("session_id", sessionId)
     .eq("profile_id", user.id);
 
-  if (error) return { ok: false, message: error.message };
+  // Never surface a raw Postgres/RLS string to a member.
+  if (error) {
+    return { ok: false, message: "Couldn't update your enrollment — refresh and try again." };
+  }
 
   revalidatePath(`/sessions/${sessionId}`);
   revalidatePath("/sessions");
@@ -112,6 +115,8 @@ export async function saveSessionNote(
     { onConflict: "session_id,profile_id" },
   );
 
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    return { ok: false, message: "Couldn't save your note — refresh and try again." };
+  }
   return { ok: true, message: "Saved" };
 }

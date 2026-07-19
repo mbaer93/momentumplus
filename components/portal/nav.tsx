@@ -49,10 +49,14 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Rooted Focus", href: "/rooted-focus", icon: TargetIcon },
       { label: "Library", href: "/library", icon: LibraryIcon },
       { label: "Education", href: "/education", icon: EducationIcon },
+      // Unreleased — hidden from members (admins can preview) so a first-run
+      // explore doesn't dead-end on a "Coming soon" teaser. Flip adminOnly
+      // off when the program ships.
       {
         label: "Aspire2Achieve Full Focus",
         href: "/aspire2achieve",
         icon: StarIcon,
+        adminOnly: true,
       },
     ],
   },

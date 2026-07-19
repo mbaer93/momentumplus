@@ -393,6 +393,30 @@ export function CommunityView({
     }
   }
 
+  // Deep link from the Member Directory ("Message" on a member): /community
+  // ?dm=<profileId> opens the conversation with that person directly once
+  // chat is connected, instead of making them re-search by name.
+  const dmDeepLinkDone = useRef(false);
+  useEffect(() => {
+    if (!live || dmDeepLinkDone.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const targetId = params.get("dm");
+    if (!targetId) return;
+    dmDeepLinkDone.current = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/community/members");
+        const data = (await res.json()) as { members?: DirectoryMember[] };
+        const members = data.members ?? [];
+        setDirectory(members);
+        const target = members.find((m) => m.id === targetId);
+        if (target) await startDm(target);
+      } catch {
+        /* fall back to the manual picker */
+      }
+    })();
+  }, [live, startDm]);
+
   const send = useCallback(async () => {
     let text = draft.trim();
     if (!text || !canPost) return;
