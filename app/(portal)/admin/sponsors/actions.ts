@@ -198,11 +198,16 @@ export async function linkSponsorMember(
   const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
+  // Season-bound expiry (not null): if the sponsorship simply lapses at the
+  // season end and nobody archives it, the reconcile sweep can still revoke
+  // this Pro comp. A null expiry would grant Pro forever.
+  const termEnd = seasonEnd().toISOString();
   const res = await provisionMember({
     email,
     tier: "pro",
-    months: null, // ongoing — revoked when their last sponsor seat is removed
+    months: null,
     source: "sponsor",
+    accessExpiresAt: termEnd,
   });
   if (!res.ok) return { ok: false, message: res.message };
 
@@ -664,10 +669,12 @@ export async function reinstateSponsor(
     .eq("id", sponsorId);
   if (error) return { ok: false, message: error.message };
 
-  // Restore each seat's sponsor-granted access through the new term. The
-  // rep (whoever completed the sponsor invite) holds the sponsor tier;
-  // comped seat members stay Pro.
-  const { upsertSponsorMembership } = await import("@/lib/sponsor-membership");
+  // Restore each seat's access through the new term AT THE TIER THEY HAD —
+  // a VIP-ticket holder comes back as VIP, an admin-linked seat as Pro, the
+  // owner as sponsor. (The old code upgraded ticket holders to Pro.)
+  const { reactivateSponsorMembership } = await import(
+    "@/lib/sponsor-membership"
+  );
   const [{ data: seats }, { data: repInvites }] = await Promise.all([
     admin
       .from("sponsor_members")
@@ -684,7 +691,7 @@ export async function reinstateSponsor(
   );
   for (const seat of seats ?? []) {
     const id = seat.profile_id as string;
-    await upsertSponsorMembership(id, termEnd, reps.has(id));
+    await reactivateSponsorMembership(id, termEnd, reps.has(id));
   }
 
   revalidatePath("/admin/sponsors");
