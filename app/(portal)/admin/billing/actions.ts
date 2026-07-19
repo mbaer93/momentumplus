@@ -61,23 +61,34 @@ export async function connectStripe(secretKey: string): Promise<BillingResult> {
     }>(key, "GET", "/account");
 
     const existing = await getStripeSettings();
+    const livemode = key.includes("_live_");
+    // Webhook endpoints live in ONE Stripe mode. Carrying the old signing
+    // secret across a live↔test switch would silently drop every payment
+    // event (checkout completes, but no account/email) — so a mode switch
+    // marks the webhook as needing setup again.
+    const sameMode = existing ? existing.livemode === livemode : true;
     const settings: StripeSettings = {
+      ...existing, // keep price ids, display amounts, term config, mode markers
       secretKey: key,
       accountName:
         account.settings?.dashboard?.display_name ??
         account.business_profile?.name ??
         account.email ??
         account.id,
-      livemode: key.includes("_live_"),
+      livemode,
       prices: existing?.prices ?? {},
-      displayPrices: existing?.displayPrices,
-      webhookSecret: existing?.webhookSecret,
-      webhookEndpointId: existing?.webhookEndpointId,
+      webhookSecret: sameMode ? existing?.webhookSecret : undefined,
+      webhookEndpointId: sameMode ? existing?.webhookEndpointId : undefined,
       connectedAt: new Date().toISOString(),
     };
     await saveStripeSettings(settings);
     refresh();
-    return { ok: true, message: `Connected to ${settings.accountName}.` };
+    return {
+      ok: true,
+      message: sameMode
+        ? `Connected to ${settings.accountName}.`
+        : `Connected to ${settings.accountName} (${livemode ? "live" : "test"} mode). Different mode than before — redo Step 2 so payments sync, and re-save pricing.`,
+    };
   } catch (e) {
     return {
       ok: false,
