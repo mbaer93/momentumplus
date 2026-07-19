@@ -2214,6 +2214,25 @@
   cursor: pointer;
 }
 .recording-play-btn:hover { background: rgba(255, 255, 255, 0.35); transform: scale(1.08); }
+/* Locked recording: dimmed thumb with a lock, so members see the upsell. */
+.recording-card.locked .recording-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 22, 34, 0.55);
+}
+.recording-lock {
+  z-index: 1;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
 .recording-duration {
   position: absolute;
   bottom: 10px;

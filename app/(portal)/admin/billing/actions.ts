@@ -82,125 +82,165 @@ export async function connectStripe(secretKey: string): Promise<BillingResult> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// One-stop pricing: set every plan/term at once.
+// ---------------------------------------------------------------------------
+
+export interface PlanPricing {
+  /** Monthly price in dollars (required, > 0). */
+  monthly: number;
+  /** Total charged per term, in dollars, keyed by months. 0/absent = not
+      offered (an existing term at that length is retired). */
+  terms: Record<"3" | "6" | "12", number | null>;
+}
+export interface PricingInput {
+  basic: PlanPricing;
+  pro: PlanPricing;
+}
+
+const PLAN_PRODUCT_NAME: Record<"basic" | "pro", string> = {
+  basic: "Momentum+ Member Membership",
+  pro: "Momentum+ Pro Membership",
+};
+
 /**
- * Step 2: create the two membership products in the connected Stripe account.
- * Prices are typed in by the Super Admin — never guessed.
+ * Set all self-serve prices (Member + Pro, monthly and 3/6/12-month terms)
+ * in one save. Stripe prices are IMMUTABLE, so a changed amount creates a
+ * NEW price on the same product and archives the old one — existing
+ * subscribers keep their price; new checkouts use the new one. Unchanged
+ * cells are left alone; a cleared term is archived and removed.
  */
-export async function createStripeProducts(
-  basicUsd: number,
-  proUsd: number,
+export async function saveAllPricing(
+  input: PricingInput,
 ): Promise<BillingResult> {
   const early = await guardSuper();
   if (early) return early;
   const settings = await getStripeSettings();
   if (!settings?.secretKey) {
-    return { ok: false, message: "Connect your Stripe key first (Step 1)." };
+    return { ok: false, message: "Connect your Stripe key first." };
   }
-  if (!(basicUsd > 0) || !(proUsd > 0)) {
-    return { ok: false, message: "Enter a monthly price (in dollars) for both plans." };
-  }
-
-  try {
-    const plans: { plan: "basic" | "pro"; name: string; usd: number }[] = [
-      { plan: "basic", name: "Momentum+ Basic Membership", usd: basicUsd },
-      { plan: "pro", name: "Momentum+ Pro Membership", usd: proUsd },
-    ];
-    const prices: StripeSettings["prices"] = { ...settings.prices };
-    for (const p of plans) {
-      const product = await stripeRequest<{ id: string }>(
-        settings.secretKey,
-        "POST",
-        "/products",
-        { name: p.name, "metadata[momentum_plan]": p.plan },
-      );
-      const price = await stripeRequest<{ id: string }>(
-        settings.secretKey,
-        "POST",
-        "/prices",
-        {
-          product: product.id,
-          currency: "usd",
-          unit_amount: Math.round(p.usd * 100),
-          "recurring[interval]": "month",
-          "metadata[momentum_plan]": p.plan,
-        },
-      );
-      prices[p.plan] = price.id;
+  for (const plan of ["basic", "pro"] as const) {
+    if (!(input[plan].monthly > 0)) {
+      return {
+        ok: false,
+        message: `Enter a monthly price for ${plan === "basic" ? "Member" : "Pro"} (it anchors every term).`,
+      };
     }
-    await saveStripeSettings({
-      ...settings,
-      prices,
-      displayPrices: { basic: basicUsd, pro: proUsd },
-    });
-    refresh();
-    return {
-      ok: true,
-      message: `Products created: Basic $${basicUsd}/mo and Pro $${proUsd}/mo.`,
-    };
-  } catch (e) {
-    return { ok: false, message: `Stripe error: ${(e as Error).message}` };
   }
-}
 
-/**
- * Optional longer terms: creates 3/6/12-month prices (total charged per
- * term) on the existing products. Members then pick their term at checkout
- * and access always runs to the end of the paid term.
- */
-export async function createTermPrices(input: {
-  plan: "basic" | "pro";
-  months: 3 | 6 | 12;
-  totalUsd: number;
-}): Promise<BillingResult> {
-  const early = await guardSuper();
-  if (early) return early;
-  const settings = await getStripeSettings();
-  const monthlyPriceId = settings?.prices[input.plan];
-  if (!settings?.secretKey || !monthlyPriceId) {
-    return { ok: false, message: "Create the monthly plans first (Step 2)." };
-  }
-  if (!(input.totalUsd > 0) || ![3, 6, 12].includes(input.months)) {
-    return { ok: false, message: "Enter the total price for that term." };
-  }
+  const key = settings.secretKey;
+  const next: StripeSettings = {
+    ...settings,
+    prices: { ...settings.prices },
+    productIds: { ...(settings.productIds ?? {}) },
+    displayPrices: { ...(settings.displayPrices ?? {}) },
+    termPrices: {
+      basic: { ...(settings.termPrices?.basic ?? {}) },
+      pro: { ...(settings.termPrices?.pro ?? {}) },
+    },
+    termDisplay: {
+      basic: { ...(settings.termDisplay?.basic ?? {}) },
+      pro: { ...(settings.termDisplay?.pro ?? {}) },
+    },
+  };
+
+  // Archive a superseded price — best-effort, never fails the save.
+  const archive = async (priceId?: string | null) => {
+    if (!priceId) return;
+    try {
+      await stripeRequest(key, "POST", `/prices/${priceId}`, { active: false });
+    } catch {
+      /* leaving an old price active is harmless — checkout uses the new id */
+    }
+  };
+  // Resolve (or create) the plan's Stripe product.
+  const ensureProduct = async (plan: "basic" | "pro"): Promise<string> => {
+    if (next.productIds?.[plan]) return next.productIds[plan] as string;
+    const existingPrice = settings.prices[plan];
+    if (existingPrice) {
+      const p = await stripeRequest<{ product: string }>(
+        key,
+        "GET",
+        `/prices/${existingPrice}`,
+      );
+      next.productIds![plan] = p.product;
+      return p.product;
+    }
+    const product = await stripeRequest<{ id: string }>(key, "POST", "/products", {
+      name: PLAN_PRODUCT_NAME[plan],
+      "metadata[momentum_plan]": plan,
+    });
+    next.productIds![plan] = product.id;
+    return product.id;
+  };
+
+  const changes: string[] = [];
   try {
-    const monthly = await stripeRequest<{ product: string }>(
-      settings.secretKey,
-      "GET",
-      `/prices/${monthlyPriceId}`,
-    );
-    const price = await stripeRequest<{ id: string }>(
-      settings.secretKey,
-      "POST",
-      "/prices",
-      {
-        product: monthly.product,
-        currency: "usd",
-        unit_amount: Math.round(input.totalUsd * 100),
-        "recurring[interval]": "month",
-        "recurring[interval_count]": input.months,
-        "metadata[momentum_plan]": input.plan,
-        "metadata[momentum_months]": input.months,
-      },
-    );
-    const termPrices = { ...(settings.termPrices ?? {}) };
-    termPrices[input.plan] = {
-      ...(termPrices[input.plan] ?? {}),
-      [String(input.months)]: price.id,
-    };
-    const termDisplay = { ...(settings.termDisplay ?? {}) };
-    termDisplay[input.plan] = {
-      ...(termDisplay[input.plan] ?? {}),
-      [String(input.months)]: input.totalUsd,
-    };
-    await saveStripeSettings({ ...settings, termPrices, termDisplay });
+    for (const plan of ["basic", "pro"] as const) {
+      const product = await ensureProduct(plan);
+      const label = plan === "basic" ? "Member" : "Pro";
+
+      // Monthly.
+      const monthly = input[plan].monthly;
+      if (!next.prices[plan] || next.displayPrices?.[plan] !== monthly) {
+        const price = await stripeRequest<{ id: string }>(key, "POST", "/prices", {
+          product,
+          currency: "usd",
+          unit_amount: Math.round(monthly * 100),
+          "recurring[interval]": "month",
+          "metadata[momentum_plan]": plan,
+        });
+        await archive(next.prices[plan]);
+        next.prices[plan] = price.id;
+        next.displayPrices![plan] = monthly;
+        changes.push(`${label} monthly → $${monthly}/mo`);
+      }
+
+      // Terms.
+      for (const m of ["3", "6", "12"] as const) {
+        const total = input[plan].terms[m];
+        const current = next.termDisplay?.[plan]?.[m];
+        if (total && total > 0) {
+          if (current === total) continue;
+          const price = await stripeRequest<{ id: string }>(key, "POST", "/prices", {
+            product,
+            currency: "usd",
+            unit_amount: Math.round(total * 100),
+            "recurring[interval]": "month",
+            "recurring[interval_count]": Number(m),
+            "metadata[momentum_plan]": plan,
+            "metadata[momentum_months]": m,
+          });
+          await archive(next.termPrices?.[plan]?.[m]);
+          next.termPrices![plan]![m] = price.id;
+          next.termDisplay![plan]![m] = total;
+          changes.push(`${label} ${m}-month → $${total}`);
+        } else if (current != null) {
+          await archive(next.termPrices?.[plan]?.[m]);
+          delete next.termPrices![plan]![m];
+          delete next.termDisplay![plan]![m];
+          changes.push(`${label} ${m}-month removed`);
+        }
+      }
+    }
+  } catch (e) {
+    // Persist whatever succeeded so a mid-run failure isn't fully lost.
+    await saveStripeSettings(next);
     refresh();
     return {
-      ok: true,
-      message: `${input.months}-month ${input.plan} term created at $${input.totalUsd} per term.`,
+      ok: false,
+      message: `Stripe error partway through: ${(e as Error).message}. Saved changes: ${changes.join(", ") || "none"}.`,
     };
-  } catch (e) {
-    return { ok: false, message: `Stripe error: ${(e as Error).message}` };
   }
+
+  await saveStripeSettings(next);
+  refresh();
+  return {
+    ok: true,
+    message: changes.length
+      ? `Pricing saved — ${changes.join(", ")}.`
+      : "No changes — prices already match.",
+  };
 }
 
 /** Step 3 (automatic): register our webhook endpoint in Stripe. */

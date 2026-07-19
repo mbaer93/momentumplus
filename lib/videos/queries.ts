@@ -94,7 +94,12 @@ const VIDEO_LIST_SELECT =
 
 export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
   if (!isSupabaseConfigured()) {
-    return placeholderVideos.filter((v) => canAccess(viewerTier, v.minAccess));
+    // Preview: show all, marking above-tier ones as locked teasers.
+    return placeholderVideos.map((v) => ({
+      ...v,
+      locked: !canAccess(viewerTier, v.minAccess),
+      muxPlaybackId: canAccess(viewerTier, v.minAccess) ? v.muxPlaybackId : null,
+    }));
   }
   const supabase = createClient();
   // Archived items (speaker archived with their season) stay out of the
@@ -115,8 +120,38 @@ export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
   }
   // An outage is not an empty library — surface it to the error boundary.
   if (error) throw new Error(`Couldn't load the library: ${error.message}`);
-  if (!data) return [];
-  return (data as unknown as VideoRow[]).map(mapRow);
+  const accessible = (data as unknown as VideoRow[] | null)?.map(mapRow) ?? [];
+  const teasers = await lockedVideoTeasers(new Set(accessible.map((v) => v.id)));
+  return [...accessible, ...teasers];
+}
+
+/*
+ * Above-tier recordings are hidden from under-tier members at the RLS layer,
+ * so a Basic member never learns Pro content exists. Fetch published videos'
+ * METADATA ONLY (never the Mux playback id) through the service role and
+ * append locked teaser cards — the upsell — for any the member can't see.
+ */
+async function lockedVideoTeasers(
+  visibleIds: Set<string>,
+): Promise<VideoItem[]> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+  try {
+    const { createServiceClient } = await import("@/lib/supabase/admin");
+    // Deliberately NO mux_playback_id — a teaser must not be playable.
+    const { data } = await createServiceClient()
+      .from("videos")
+      .select(
+        "id, title, category, thumbnail_url, duration_sec, min_access, published_at, sessions ( speakers ( name ) )",
+      )
+      .is("archived_at", null)
+      .not("published_at", "is", null)
+      .order("published_at", { ascending: false });
+    return (data as unknown as VideoRow[] | null ?? [])
+      .filter((row) => !visibleIds.has(row.id) && row.min_access !== "all_members")
+      .map((row) => ({ ...mapRow(row), muxPlaybackId: null, locked: true }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getVideo(

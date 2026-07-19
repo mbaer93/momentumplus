@@ -3,6 +3,7 @@ import {
   BillingSetup,
   type BillingStatus,
 } from "@/components/admin/BillingSetup";
+import { PricingManager, type PricingInitial } from "@/components/admin/PricingManager";
 import { ArrowLeftIcon } from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { getStripeSettings } from "@/lib/stripe";
@@ -25,6 +26,15 @@ export default async function AdminBillingPage() {
     webhookConfigured: Boolean(settings?.webhookSecret),
     webhookUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co"}/api/webhooks/stripe`,
   };
+
+  const pricingFor = (plan: "basic" | "pro"): PricingInitial => ({
+    monthly: settings?.displayPrices?.[plan] ?? null,
+    terms: {
+      "3": settings?.termDisplay?.[plan]?.["3"] ?? null,
+      "6": settings?.termDisplay?.[plan]?.["6"] ?? null,
+      "12": settings?.termDisplay?.[plan]?.["12"] ?? null,
+    },
+  });
 
   return (
     <div className="admin-pad">
@@ -50,7 +60,21 @@ export default async function AdminBillingPage() {
           your access if you need changes here.
         </div>
       ) : (
-        <BillingSetup status={status} />
+        <>
+          <PricingManager
+            connected={status.connected}
+            livemode={status.livemode}
+            basic={pricingFor("basic")}
+            pro={pricingFor("pro")}
+          />
+          <div className="section-header" style={{ marginTop: 8 }}>
+            <div>
+              <h3 style={{ fontSize: 15 }}>Stripe connection</h3>
+              <p>Connect the account and turn on payment sync — set once.</p>
+            </div>
+          </div>
+          <BillingSetup status={status} />
+        </>
       )}
     </div>
   );
