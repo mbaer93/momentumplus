@@ -14,6 +14,11 @@ export interface IcsEvent {
   /** RFC 5545 recurrence rule (e.g. "FREQ=WEEKLY") — the whole series
       imports in one event. Built via rruleFor() in lib/recurrence.ts. */
   rrule?: string;
+  /** Pin the event to a wall-clock timezone (DTSTART;TZID=…). Without it,
+      times are UTC — fine for one-offs, but a recurring 7 PM ET series
+      would drift an hour at every DST change. Only America/New_York ships
+      a VTIMEZONE definition today. */
+  tzid?: string;
   /** DTSTAMP override — tests pin it for deterministic output. */
   stamp?: Date;
 }
@@ -22,6 +27,44 @@ export interface IcsEvent {
 function toIcsUtc(date: Date): string {
   return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 }
+
+// ICS local wall time in a named zone: 20260218T110000 (no Z).
+function toIcsLocal(date: Date, tzid: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tzid,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  const hour = get("hour") === "24" ? "00" : get("hour"); // midnight quirk
+  return `${get("year")}${get("month")}${get("day")}T${hour}${get("minute")}${get("second")}`;
+}
+
+// US Eastern with the standard 2007+ DST rules — enough forever forward.
+const VTIMEZONE_NEW_YORK = [
+  "BEGIN:VTIMEZONE",
+  "TZID:America/New_York",
+  "BEGIN:DAYLIGHT",
+  "TZOFFSETFROM:-0500",
+  "TZOFFSETTO:-0400",
+  "TZNAME:EDT",
+  "DTSTART:19700308T020000",
+  "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU",
+  "END:DAYLIGHT",
+  "BEGIN:STANDARD",
+  "TZOFFSETFROM:-0400",
+  "TZOFFSETTO:-0500",
+  "TZNAME:EST",
+  "DTSTART:19701101T020000",
+  "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU",
+  "END:STANDARD",
+  "END:VTIMEZONE",
+];
 
 // Escape per RFC 5545 §3.3.11 (commas, semicolons, backslashes, newlines).
 function escapeText(value: string): string {
@@ -52,6 +95,8 @@ export function buildIcs(event: IcsEvent): string {
   // Real DTSTAMP: calendar clients reconcile re-imports by it, and a 1970
   // stamp makes some refuse to update a changed event.
   const stamp = toIcsUtc(event.stamp ?? new Date());
+  // Only zones we carry a VTIMEZONE for may be referenced by TZID.
+  const tzid = event.tzid === "America/New_York" ? event.tzid : null;
 
   const lines: string[] = [
     "BEGIN:VCALENDAR",
@@ -59,11 +104,16 @@ export function buildIcs(event: IcsEvent): string {
     "PRODID:-//Momentum+//Sessions//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
+    ...(tzid ? VTIMEZONE_NEW_YORK : []),
     "BEGIN:VEVENT",
     `UID:${event.uid}`,
     `DTSTAMP:${stamp}`,
-    `DTSTART:${toIcsUtc(event.start)}`,
-    `DTEND:${toIcsUtc(end)}`,
+    tzid
+      ? `DTSTART;TZID=${tzid}:${toIcsLocal(event.start, tzid)}`
+      : `DTSTART:${toIcsUtc(event.start)}`,
+    tzid
+      ? `DTEND;TZID=${tzid}:${toIcsLocal(end, tzid)}`
+      : `DTEND:${toIcsUtc(end)}`,
     `SUMMARY:${escapeText(event.title)}`,
   ];
 

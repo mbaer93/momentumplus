@@ -51,6 +51,9 @@ export default async function ProfilePage() {
   let savedPrefs: Partial<PrefRow>[] = [];
   let referral: { link: string; count: number } | null = null;
   let hasStripeCustomer = false;
+  // Honest status: past_due and canceled members are still in the portal
+  // (grace semantics) — "Active" must not paper over that.
+  let membershipStatusLabel = "● Active";
 
   if (isSupabaseConfigured()) {
     const supabase = createClient();
@@ -98,6 +101,24 @@ export default async function ProfilePage() {
         hasStripeCustomer = Boolean(p.stripe_customer_id);
       }
       savedPrefs = (prefRows ?? []) as Partial<PrefRow>[];
+
+      const { data: membershipRows } = await supabase
+        .from("memberships")
+        .select("tier, status, access_expires_at")
+        .eq("profile_id", user.id);
+      const { effectiveMembership } = await import("@/lib/membership");
+      const eff = effectiveMembership(
+        (membershipRows ?? []) as {
+          tier: import("@/lib/types").Tier;
+          status: import("@/lib/types").MembershipStatus;
+          access_expires_at: string | null;
+        }[],
+      );
+      if (eff?.status === "past_due") {
+        membershipStatusLabel = "● Past due — payment needed";
+      } else if (eff?.status === "canceled") {
+        membershipStatusLabel = "● Canceled — access until period end";
+      }
 
       // Referral program: mint the code on first visit; count conversions.
       if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -217,7 +238,7 @@ export default async function ProfilePage() {
         initials: member.initials,
         tierLabel: member.tierLabel,
         accessExpiresAt: member.accessExpiresAt,
-        membershipStatusLabel: "● Active",
+        membershipStatusLabel,
         isAdmin: member.isAdmin,
       }}
       profile={{

@@ -125,7 +125,11 @@ export default async function AdminAnalyticsPage() {
           .from("enrollments")
           .select("session_id, attended, profiles ( full_name, email )")
           .in("session_id", sessionIds)
+          // Stable paging needs a unique tiebreaker — ordering by
+          // session_id alone lets rows shuffle between pages, silently
+          // skipping or double-counting enrollments.
           .order("session_id")
+          .order("id")
           .range(from, from + 999);
         if (!pageRows?.length) break;
         enrollmentRows.push(

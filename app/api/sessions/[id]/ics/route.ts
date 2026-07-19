@@ -30,6 +30,9 @@ export async function GET(
     rrule: session.recurrence
       ? rruleFor(session.recurrence, session.recurrenceUntil)
       : undefined,
+    // Pin to Eastern wall time so a 7 PM ET series stays 7 PM ET across
+    // DST changes (sessions are an ET program).
+    tzid: "America/New_York",
   });
 
   return new NextResponse(ics, {

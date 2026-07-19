@@ -52,22 +52,59 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return [];
-  const { data } = await supabase
+  type EnrolledSession = {
+    id: string;
+    title: string;
+    starts_at: string | null;
+    duration_min?: number | null;
+    recurrence?: string | null;
+    recurrence_until?: string | null;
+  };
+  let res = await supabase
     .from("enrollments")
-    .select("sessions ( id, title, starts_at )")
+    .select(
+      "sessions ( id, title, starts_at, duration_min, recurrence, recurrence_until )",
+    )
     .eq("profile_id", user.id);
-  const rows = (data ?? [])
+  if (res.error && /recurrence|duration_min/.test(res.error.message)) {
+    res = (await supabase
+      .from("enrollments")
+      .select("sessions ( id, title, starts_at )")
+      .eq("profile_id", user.id)) as typeof res;
+  }
+  const { nextOccurrence } = await import("@/lib/recurrence");
+  const rows = (res.data ?? [])
     .map((r) => {
-      const s = r.sessions as
-        | { id: string; title: string; starts_at: string | null }
-        | { id: string; title: string; starts_at: string | null }[]
+      const s = r.sessions as unknown as
+        | EnrolledSession
+        | EnrolledSession[]
         | null;
       return Array.isArray(s) ? s[0] : s;
     })
+    .map((s) => {
+      if (!s?.starts_at) return null;
+      // A recurring series counts as upcoming at its NEXT occurrence — the
+      // raw starts_at is the series start, which is soon in the past.
+      const rec =
+        s.recurrence === "weekly" ||
+        s.recurrence === "biweekly" ||
+        s.recurrence === "monthly"
+          ? s.recurrence
+          : null;
+      const effective = rec
+        ? nextOccurrence(
+            s.starts_at,
+            s.duration_min ?? 60,
+            rec,
+            s.recurrence_until ?? null,
+          )
+        : s.starts_at;
+      if (!effective) return null;
+      return { id: s.id, title: s.title, starts_at: effective };
+    })
     .filter(
       (s): s is { id: string; title: string; starts_at: string } =>
-        Boolean(s?.starts_at) &&
-        new Date(s!.starts_at as string).getTime() > Date.now(),
+        Boolean(s) && new Date(s!.starts_at).getTime() > Date.now(),
     )
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
     .slice(0, 4);
