@@ -37,6 +37,35 @@ export function sponsorActive(
   return true;
 }
 
+/** The next October 1 (ET) after `now` — where the season flips. */
+export function upcomingSeasonStart(now: Date = new Date()): Date {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(now);
+  const get = (t: string) =>
+    Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const pastBoundary = get("month") >= 10;
+  return new Date(Date.UTC(get("year") + (pastBoundary ? 1 : 0), 9, 1, 4, 0, 0));
+}
+
+/**
+ * Does this speaker/sponsor term run into NEXT season (the upcoming
+ * October 1 through the October 1 after)? Terms all end on an October 1,
+ * so "expires after the next boundary" is exactly "belongs to next
+ * season" — the pre-season cohort, none of the current one.
+ */
+export function inNextSeason(
+  s: SponsorLifecycleRow,
+  now: Date = new Date(),
+): boolean {
+  if (s.archivedAt) return false;
+  if (!s.expiresAt) return false; // no-term legacy rows live in the present
+  return new Date(s.expiresAt) > upcomingSeasonStart(now);
+}
+
 /**
  * A speaker is LIVE — listed in the directory, visible to members, able to
  * post — only during their season: from October 1 of the year they join
@@ -53,6 +82,13 @@ export function speakerLive(
   seasonStart.setUTCFullYear(seasonStart.getUTCFullYear() - 1);
   return now >= seasonStart;
 }
+
+/**
+ * Sponsors follow the identical season rule (Matt, 2026-07-20): onboard any
+ * time, build the page during the prep period, but members don't see the
+ * listing, rail ad, or profile until October 1 of the joining year.
+ */
+export const sponsorLive = speakerLive;
 
 
 /**

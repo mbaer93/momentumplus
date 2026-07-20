@@ -53,8 +53,10 @@ export async function completeSponsorOnboarding(
   if (!businessName) {
     return { ok: false, message: "Tell us the business name." };
   }
-  if (!repName) {
-    return { ok: false, message: "Tell us your name." };
+  // First AND last name are required before access is granted (applies to
+  // members, speakers, and sponsor reps alike).
+  if (repName.split(/\s+/).length < 2) {
+    return { ok: false, message: "Please enter your first and last name." };
   }
 
   const admin = createServiceClient();

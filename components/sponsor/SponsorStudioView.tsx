@@ -8,6 +8,7 @@ import {
   setTeamRole,
   transferOwnership,
   updateSponsorPage,
+  uploadOwnSponsorImage,
 } from "@/app/(portal)/sponsor/actions";
 import type { SponsorSeat } from "@/lib/sponsor-team";
 
@@ -57,6 +58,8 @@ export function SponsorStudioView({
   const [offer, setOffer] = useState(sponsor.offer);
   const [website, setWebsite] = useState(sponsor.website);
   const [ticketEmails, setTicketEmails] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [adFile, setAdFile] = useState<File | null>(null);
   const [transferTo, setTransferTo] = useState("");
 
   const remaining = Math.max(0, ticketAllotment - ticketsUsed);
@@ -171,13 +174,66 @@ export function SponsorStudioView({
               />
             </div>
           </div>
+          <div className="admin-field-row">
+            <div className="admin-field">
+              <label htmlFor="sp-logo-up">Logo (PNG/JPG/SVG/WebP, 2 MB)</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  id="sp-logo-up"
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  className="btn-mini"
+                  disabled={pending || !logoFile}
+                  onClick={() =>
+                    run(async () => {
+                      const fd = new FormData();
+                      fd.append("file", logoFile as File);
+                      const res = await uploadOwnSponsorImage(sponsor.id, "logo", fd);
+                      if (res.ok) setLogoFile(null);
+                      return res;
+                    })
+                  }
+                >
+                  Upload logo
+                </button>
+              </div>
+            </div>
+            <div className="admin-field">
+              <label htmlFor="sp-ad-up">Ad artwork (eligible tiers)</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  id="sp-ad-up"
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  onChange={(e) => setAdFile(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  className="btn-mini"
+                  disabled={pending || !adFile}
+                  onClick={() =>
+                    run(async () => {
+                      const fd = new FormData();
+                      fd.append("file", adFile as File);
+                      const res = await uploadOwnSponsorImage(sponsor.id, "ad", fd);
+                      if (res.ok) setAdFile(null);
+                      return res;
+                    })
+                  }
+                >
+                  Upload artwork
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="admin-form-actions">
             <button type="submit" className="btn-purple" disabled={pending}>
               {pending ? "Saving…" : "Save page"}
             </button>
-            <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-              Logos and ad artwork are handled by the Momentum+ team.
-            </span>
           </div>
         </form>
       </div>

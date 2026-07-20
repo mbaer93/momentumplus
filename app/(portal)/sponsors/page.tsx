@@ -3,19 +3,34 @@ import { SponsorMark } from "@/components/sponsors/SponsorMark";
 import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
 import { SPONSOR_INTEREST_URL } from "@/lib/links";
 import { requireMember } from "@/lib/current-member";
-import { listSponsors } from "@/lib/directory-queries";
+import {
+  listSponsors,
+  listSponsorsNextSeason,
+} from "@/lib/directory-queries";
+import { upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import {
   SPONSOR_TIERS,
   sponsorTierRank,
 } from "@/lib/sponsor-tiers";
+import { SeasonToggle } from "@/components/directory/SeasonToggle";
 import { SponsorWebsiteLink } from "@/components/sponsors/SponsorWebsiteLink";
 
 export const dynamic = "force-dynamic";
 
-export default async function SponsorsPage() {
+export default async function SponsorsPage({
+  searchParams,
+}: {
+  searchParams?: { season?: string };
+}) {
   const member = await requireMember();
-  const sponsors = await listSponsors();
   const isAdmin = member.isAdmin;
+  const canPreview =
+    isAdmin || member.isSpeaker || member.isSponsorManager;
+  const nextView = canPreview && searchParams?.season === "next";
+  const boundaryYear = upcomingSeasonStart().getUTCFullYear();
+  const sponsors = nextView
+    ? await listSponsorsNextSeason()
+    : await listSponsors();
 
   // Momentum+ Sponsor gets the hero card; every other tier renders as its
   // own labeled section, in hierarchy order, only when it has sponsors.
@@ -41,6 +56,14 @@ export default async function SponsorsPage() {
         </div>
         {isAdmin && <AdminAddChip href="/admin/sponsors" label="Add sponsor" />}
       </div>
+
+      {canPreview && (
+        <SeasonToggle
+          base="/sponsors"
+          next={nextView}
+          nextLabel={`Oct 1, ${boundaryYear} – Oct 1, ${boundaryYear + 1}`}
+        />
+      )}
 
       {sponsors.length === 0 && (
         <div className="sessions-empty" style={{ marginTop: 20 }}>

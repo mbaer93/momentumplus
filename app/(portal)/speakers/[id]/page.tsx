@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeftIcon, ExternalIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
-import { getSpeaker } from "@/lib/directory-queries";
+import { getSpeaker, listSpeakersForAdmin } from "@/lib/directory-queries";
 import { listSessions } from "@/lib/sessions/queries";
 import { dateLabel } from "@/lib/sessions/view";
 
@@ -13,8 +13,15 @@ export default async function SpeakerDetailPage({
 }: {
   params: { id: string };
 }) {
-  await requireMember();
-  const speaker = await getSpeaker(params.id);
+  const member = await requireMember();
+  let speaker = await getSpeaker(params.id);
+  // Pre-season speakers are hidden from members until October 1, but the
+  // preview audience (admins, speakers, sponsor managers — the same set the
+  // next-season toggle serves) can still open their profile pages.
+  if (!speaker && (member.isAdmin || member.isSpeaker || member.isSponsorManager)) {
+    speaker =
+      (await listSpeakersForAdmin()).find((s) => s.id === params.id) ?? null;
+  }
   if (!speaker) notFound();
 
   // Sessions by this speaker (matched by placeholder slugs, speaker id, or

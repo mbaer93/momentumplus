@@ -55,6 +55,70 @@ async function requireStudioActor(
   };
 }
 
+const SPONSOR_IMAGE_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/svg+xml": "svg",
+  "image/webp": "webp",
+};
+
+/**
+ * Managers upload their own logo and ad artwork (same rules and storage
+ * paths as the admin uploads, so either side can replace the other's).
+ */
+export async function uploadOwnSponsorImage(
+  sponsorId: string,
+  kind: "logo" | "ad",
+  formData: FormData,
+): Promise<StudioResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, message: "Uploaded (preview mode)." };
+  }
+  const auth = await requireStudioActor(sponsorId, "manager");
+  if (!auth.ok) return auth;
+
+  const label = kind === "logo" ? "Logo" : "Ad artwork";
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "No file received — choose an image and try again." };
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    return {
+      ok: false,
+      message: `${label} is ${mb} MB — the limit is 2 MB. Compress or resize the image and try again.`,
+    };
+  }
+  const ext = SPONSOR_IMAGE_TYPES[file.type];
+  if (!ext) {
+    return {
+      ok: false,
+      message: `That file type (${file.type || "unknown"}) isn't supported — upload a PNG, JPG, SVG, or WebP.`,
+    };
+  }
+
+  const admin = createServiceClient();
+  await admin.storage
+    .createBucket("sponsor-logos", { public: true })
+    .catch(() => undefined);
+  const path = kind === "logo" ? `${sponsorId}.${ext}` : `${sponsorId}-ad.${ext}`;
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const { error: uploadError } = await admin.storage
+    .from("sponsor-logos")
+    .upload(path, bytes, { contentType: file.type, upsert: true });
+  if (uploadError) return { ok: false, message: uploadError.message };
+  const { data: pub } = admin.storage.from("sponsor-logos").getPublicUrl(path);
+  const url = `${pub.publicUrl}?v=${Date.now()}`;
+  const { error } = await admin
+    .from("sponsors")
+    .update(kind === "logo" ? { logo_url: url } : { sidebar_ad_url: url })
+    .eq("id", sponsorId);
+  if (error) return { ok: false, message: error.message };
+  refreshSponsorSurfaces();
+  revalidatePath("/", "layout");
+  return { ok: true, message: `${label} uploaded.` };
+}
+
 export async function updateSponsorPage(
   sponsorId: string,
   input: {
