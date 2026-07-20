@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getPendingSponsorInvite } from "./actions";
 import { SponsorOnboardingForm } from "./SponsorOnboardingForm";
-import { sponsorTierLabel } from "@/lib/sponsor-tiers";
+import { RAIL_TIERS, normalizeSponsorTier, sponsorTierLabel } from "@/lib/sponsor-tiers";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,7 @@ export default async function SponsorOnboardingPage() {
           initialBusinessName={invite.businessName ?? ""}
           needsPassword={Boolean(invite.needsPassword)}
           ticketAllotment={invite.ticketAllotment ?? 0}
+          adEligible={RAIL_TIERS.has(normalizeSponsorTier(invite.tier ?? "partner"))}
         />
       ) : (
         <div className="login-card">

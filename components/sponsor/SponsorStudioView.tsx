@@ -12,8 +12,11 @@ import {
   uploadOwnSponsorImage,
 } from "@/app/(portal)/sponsor/actions";
 import type { SponsorSeat } from "@/lib/sponsor-team";
+import { RAIL_TIERS } from "@/lib/sponsor-tiers";
 
 interface StudioSponsor {
+  /** Normalized tier key — gates tier-dependent features like ad uploads. */
+  tier: string;
   id: string;
   name: string;
   tierLabel: string;
@@ -239,8 +242,9 @@ export function SponsorStudioView({
                 </button>
               </div>
             </div>
+            {RAIL_TIERS.has(sponsor.tier) && (
             <div className="admin-field">
-              <label htmlFor="sp-ad-up">Ad artwork (eligible tiers)</label>
+              <label htmlFor="sp-ad-up">Ad artwork</label>
               <div style={{ marginBottom: 6 }}>
                 {sponsor.sidebarAdUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
@@ -251,8 +255,9 @@ export function SponsorStudioView({
                   />
                 ) : (
                   <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
-                    No ad artwork yet. Ad placements run for the top sponsor
-                    tiers and are activated by the Momentum+ team.
+                    No ad artwork yet — your tier includes member-page ad
+                    placements, activated by the Momentum+ team once artwork
+                    is up.
                   </span>
                 )}
               </div>
@@ -281,6 +286,7 @@ export function SponsorStudioView({
                 </button>
               </div>
             </div>
+            )}
           </div>
           <div className="admin-form-actions">
             <button type="submit" className="btn-purple" disabled={pending}>
@@ -352,24 +358,30 @@ export function SponsorStudioView({
           </div>
         ))}
 
-        {isOwner && team.some((s) => s.role !== "owner") && (
+        {isOwner && team.some((s) => s.role === "manager") && (
           <div style={{ marginTop: 14 }}>
             <div className="admin-field" style={{ maxWidth: 420 }}>
               <label htmlFor="sp-transfer">Transfer ownership</label>
+              {/* Managers only (Matt, 2026-07-20): a VIP-ticket guest must
+                  not inherit the page and its free membership. */}
               <select
                 id="sp-transfer"
                 value={transferTo}
                 onChange={(e) => setTransferTo(e.target.value)}
               >
-                <option value="">Choose a team member…</option>
+                <option value="">Choose a manager…</option>
                 {team
-                  .filter((s) => s.role !== "owner")
+                  .filter((s) => s.role === "manager")
                   .map((s) => (
                     <option key={s.profileId} value={s.profileId}>
                       {s.name || s.email}
                     </option>
                   ))}
               </select>
+              <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                Ownership can only pass to a current manager — promote your
+                successor first.
+              </span>
             </div>
             <button
               type="button"

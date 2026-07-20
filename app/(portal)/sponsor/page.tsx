@@ -3,7 +3,7 @@ import { SponsorStudioView } from "@/components/sponsor/SponsorStudioView";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
 import { sponsorLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
-import { sponsorTierLabel } from "@/lib/sponsor-tiers";
+import { normalizeSponsorTier, sponsorTierLabel } from "@/lib/sponsor-tiers";
 import {
   listSponsorTeam,
   sponsorProTickets,
@@ -120,6 +120,7 @@ export default async function SponsorStudioPage({
     <SponsorStudioView
       sponsor={{
         id: sponsor.id as string,
+        tier: normalizeSponsorTier((sponsor.tier as string) ?? "partner"),
         name: sponsor.name as string,
         tierLabel: sponsorTierLabel((sponsor.tier as string) ?? "partner"),
         tagline: (sponsor.tagline as string) ?? "",
