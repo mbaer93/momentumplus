@@ -169,6 +169,24 @@ export default async function AdminSponsorsPage({
     }
   }
 
+  // Member picker for "Link member" — every profile with an email, so the
+  // admin searches by name/email instead of typing an exact address.
+  let memberOptions: { name: string; email: string }[] = [];
+  if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { data: profileRows } = await createServiceClient()
+      .from("profiles")
+      .select("full_name, email")
+      .not("email", "is", null)
+      .order("full_name")
+      .limit(3000);
+    memberOptions = (profileRows ?? [])
+      .filter((p) => p.email)
+      .map((p) => ({
+        name: (p.full_name as string) ?? "",
+        email: p.email as string,
+      }));
+  }
+
   return (
     <div className="admin-pad">
       <Link href="/admin" className="sess-back">
@@ -192,6 +210,7 @@ export default async function AdminSponsorsPage({
         pendingInvites={pendingInvites}
         presentedByLogoUrl={await getPresentedByLogoUrl()}
         initialEditId={searchParams?.edit}
+        memberOptions={memberOptions}
       />
       <SponsorTicketSettings
         counts={
