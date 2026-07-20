@@ -44,7 +44,11 @@ export async function completeSpeakerOnboarding(
   if (!user) return { ok: false, message: "Please sign in first." };
 
   const displayName = input.displayName.trim();
-  if (!displayName) return { ok: false, message: "Tell us your name." };
+  // First AND last name are required before access is granted (Matt's
+  // rule, applies to members, speakers, and sponsors alike).
+  if (displayName.split(/\s+/).length < 2) {
+    return { ok: false, message: "Please enter your first and last name." };
+  }
 
   const admin = createServiceClient();
   const { data: invite } = await admin

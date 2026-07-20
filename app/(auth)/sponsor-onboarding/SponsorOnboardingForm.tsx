@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { completeSponsorOnboarding } from "./actions";
+import { uploadOwnSponsorImage } from "@/app/(portal)/sponsor/actions";
 import { PASSWORD_HINT, checkPassword } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -27,8 +28,15 @@ export function SponsorOnboardingForm({
     website: "",
     offer: "",
   });
-  const [rep, setRep] = useState({ repName: "", repTitle: "", repPhone: "" });
+  const [rep, setRep] = useState({
+    repFirst: "",
+    repLast: "",
+    repTitle: "",
+    repPhone: "",
+  });
   const [ticketEmails, setTicketEmails] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [adFile, setAdFile] = useState<File | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -57,12 +65,32 @@ export function SponsorOnboardingForm({
       }
       const res = await completeSponsorOnboarding({
         ...business,
-        ...rep,
+        repTitle: rep.repTitle,
+        repPhone: rep.repPhone,
+        repName: `${rep.repFirst.trim()} ${rep.repLast.trim()}`.trim(),
         ticketEmails,
       });
       if (!res.ok) {
         setError(res.message ?? "Something went wrong — try again.");
         return;
+      }
+      // Artwork rides along with setup: the rep is seated as owner by the
+      // completion above, so the studio upload action authorizes them. A
+      // failed upload never blocks onboarding — they can retry in the
+      // Studio.
+      if (res.sponsorId) {
+        for (const [file, kind] of [
+          [logoFile, "logo"],
+          [adFile, "ad"],
+        ] as const) {
+          if (file) {
+            const fd = new FormData();
+            fd.append("file", file);
+            await uploadOwnSponsorImage(res.sponsorId, kind, fd).catch(
+              () => undefined,
+            );
+          }
+        }
       }
       // Land in the new Sponsor Studio — it shows the page, team, and
       // remaining VIP tickets they just set up.
@@ -148,17 +176,53 @@ export function SponsorOnboardingForm({
             placeholder="e.g. Free consultation for Momentum+ members"
           />
         </div>
-
         <div className="login-field">
-          <label htmlFor="sp-rep-name">Your name</label>
+          <label htmlFor="sp-logo">
+            Your logo (PNG/JPG/SVG/WebP, under 2 MB)
+          </label>
           <input
-            id="sp-rep-name"
-            required
-            autoComplete="name"
-            value={rep.repName}
-            onChange={(e) => setRep({ ...rep, repName: e.target.value })}
-            placeholder="First and last name"
+            id="sp-logo"
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+            onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
           />
+        </div>
+        <div className="login-field">
+          <label htmlFor="sp-ad">
+            Ad artwork (optional — shown in member-page ad placements for
+            eligible tiers; PNG/JPG/SVG/WebP, under 2 MB)
+          </label>
+          <input
+            id="sp-ad"
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+            onChange={(e) => setAdFile(e.target.files?.[0] ?? null)}
+          />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className="login-field">
+            <label htmlFor="sp-rep-first">First name</label>
+            <input
+              id="sp-rep-first"
+              required
+              autoComplete="given-name"
+              value={rep.repFirst}
+              onChange={(e) => setRep({ ...rep, repFirst: e.target.value })}
+              placeholder="Jane"
+            />
+          </div>
+          <div className="login-field">
+            <label htmlFor="sp-rep-last">Last name</label>
+            <input
+              id="sp-rep-last"
+              required
+              autoComplete="family-name"
+              value={rep.repLast}
+              onChange={(e) => setRep({ ...rep, repLast: e.target.value })}
+              placeholder="Rivers"
+            />
+          </div>
         </div>
         <div className="login-field">
           <label htmlFor="sp-rep-title">Your title / role</label>

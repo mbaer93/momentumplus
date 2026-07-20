@@ -15,8 +15,12 @@ export function SpeakerOnboardingForm({
   needsPassword: boolean;
 }) {
   const router = useRouter();
+  // Prefill first/last from the invite's display name (split on the first
+  // space) — both are required before the speaker gets access.
+  const [initFirst = "", ...initRest] = initialName.trim().split(/\s+/);
   const [form, setForm] = useState({
-    displayName: initialName,
+    firstName: initFirst,
+    lastName: initRest.join(" "),
     speakerTitle: "",
     bio: "",
     industries: "",
@@ -55,7 +59,11 @@ export function SpeakerOnboardingForm({
         const { error: pwError } = await supabase.auth.updateUser({ password });
         if (pwError) throw pwError;
       }
-      const res = await completeSpeakerOnboarding(form);
+      const res = await completeSpeakerOnboarding({
+        ...form,
+        displayName:
+          `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+      });
       if (!res.ok) {
         setError(res.message ?? "Something went wrong — try again.");
         return;
@@ -82,16 +90,29 @@ export function SpeakerOnboardingForm({
       </p>
       {error && <div className="login-error">{error}</div>}
       <form onSubmit={submit}>
-        <div className="login-field">
-          <label htmlFor="sk-name">Your name (as shown on your speaker page)</label>
-          <input
-            id="sk-name"
-            required
-            autoComplete="name"
-            value={form.displayName}
-            onChange={(e) => set("displayName", e.target.value)}
-            placeholder="First and last name"
-          />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className="login-field">
+            <label htmlFor="sk-first">First name</label>
+            <input
+              id="sk-first"
+              required
+              autoComplete="given-name"
+              value={form.firstName}
+              onChange={(e) => set("firstName", e.target.value)}
+              placeholder="Jane"
+            />
+          </div>
+          <div className="login-field">
+            <label htmlFor="sk-last">Last name</label>
+            <input
+              id="sk-last"
+              required
+              autoComplete="family-name"
+              value={form.lastName}
+              onChange={(e) => set("lastName", e.target.value)}
+              placeholder="Rivers"
+            />
+          </div>
         </div>
         <div className="login-field">
           <label htmlFor="sk-title">Professional title</label>
