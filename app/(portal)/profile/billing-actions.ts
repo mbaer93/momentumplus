@@ -17,7 +17,12 @@ const SITE = () => process.env.NEXT_PUBLIC_SITE_URL ?? "";
  * Signed-in user (membership may be lapsed — renewals must work) + connected
  * Stripe, resolving/creating their Stripe customer.
  */
-async function billingContext(): Promise<
+async function billingContext(opts?: {
+  /** The customer PORTAL (cancel, update card) needs only the secret key —
+      never lock existing subscribers out of it because prices are unset or
+      mode-mismatched. Checkout keeps the full readiness gate. */
+  portalOnly?: boolean;
+}): Promise<
   | { ok: true; userId: string; email: string; name: string; customerId: string | null; settings: NonNullable<Awaited<ReturnType<typeof getStripeSettings>>> }
   | { ok: false; message: string }
 > {
@@ -25,7 +30,10 @@ async function billingContext(): Promise<
     return { ok: false, message: "Billing activates once the site is connected." };
   }
   const settings = await getStripeSettings();
-  if (!stripeReady(settings)) {
+  const usable = opts?.portalOnly
+    ? Boolean(settings?.secretKey)
+    : stripeReady(settings);
+  if (!usable || !settings) {
     return { ok: false, message: "Online billing isn't set up yet — contact the team." };
   }
   const supabase = createClient();
@@ -165,7 +173,7 @@ export async function startCheckout(
 
 /** Open the Stripe customer portal (update card, switch plan, cancel). */
 export async function openBillingPortal(): Promise<BillingActionResult> {
-  const ctx = await billingContext();
+  const ctx = await billingContext({ portalOnly: true });
   if (!ctx.ok) return { ok: false, message: ctx.message };
   if (!ctx.customerId) {
     return {

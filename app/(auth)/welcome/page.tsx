@@ -4,7 +4,6 @@ import { WelcomeForm } from "./WelcomeForm";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { emailPattern } from "@/lib/db-utils";
 
 export const metadata = {
   title: "Welcome | Momentum+",
@@ -53,26 +52,14 @@ export default async function WelcomePage({
         mode !== "reset" &&
         process.env.SUPABASE_SERVICE_ROLE_KEY
       ) {
+        // Same profile-id-OR-email rule as the onboarding pages themselves —
+        // diverging keys once trapped people in a redirect loop.
         const admin = createServiceClient();
-        const [{ data: speakerInvite }, { data: sponsorInvite }] =
-          await Promise.all([
-            email
-              ? admin
-                  .from("speaker_invites")
-                  .select("id")
-                  .ilike("email", emailPattern(email))
-                  .is("completed_at", null)
-                  .limit(1)
-                  .maybeSingle()
-              : Promise.resolve({ data: null }),
-            admin
-              .from("sponsor_invites")
-              .select("id")
-              .eq("invited_profile_id", user.id)
-              .is("completed_at", null)
-              .limit(1)
-              .maybeSingle(),
-          ]);
+        const { findOpenInvite } = await import("@/lib/invite-lookup");
+        const [speakerInvite, sponsorInvite] = await Promise.all([
+          findOpenInvite(admin, "speaker_invites", user),
+          findOpenInvite(admin, "sponsor_invites", user),
+        ]);
         if (speakerInvite) redirect("/speaker-onboarding");
         if (sponsorInvite) redirect("/sponsor-onboarding");
       }

@@ -60,14 +60,13 @@ export async function completeSponsorOnboarding(
   }
 
   const admin = createServiceClient();
-  const { data: invite } = await admin
-    .from("sponsor_invites")
-    .select("id, tier, email")
-    .eq("invited_profile_id", user.id)
-    .is("completed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { findOpenInvite } = await import("@/lib/invite-lookup");
+  const invite = await findOpenInvite<{
+    id: string;
+    tier: string | null;
+    email: string | null;
+    sponsor_id: string | null;
+  }>(admin, "sponsor_invites", user, "id, tier, email, sponsor_id");
   if (!invite) {
     return {
       ok: false,
@@ -78,7 +77,7 @@ export async function completeSponsorOnboarding(
 
   // Host Sponsor (the platform's own business) has no term — everyone else
   // runs through October 1 of next year.
-  const tier = normalizeSponsorTier(invite.tier);
+  const tier = normalizeSponsorTier(invite.tier ?? "");
   const termEnd = tier === "host" ? null : seasonEnd().toISOString();
 
   // 1) The sponsor page entry (hidden from the rail until the team
@@ -93,25 +92,51 @@ export async function completeSponsorOnboarding(
     rail_active: false,
     expires_at: termEnd,
   };
-  let { data: sponsor, error: sponsorError } = await admin
-    .from("sponsors")
-    .insert(sponsorRow)
-    .select("id")
-    .single();
-  if (sponsorError && sponsorError.message.includes("description")) {
-    // Pre-migration fallback: the column arrives with 0033.
-    const { description: _drop, ...legacy } = sponsorRow;
-    ({ data: sponsor, error: sponsorError } = await admin
+  // A retry after a failed later step (access grant, etc.) must UPDATE the
+  // page it already created, not mint a second one — the invite carries the
+  // sponsor id from the moment the row exists.
+  let sponsorId: string | null = invite.sponsor_id ?? null;
+  if (sponsorId) {
+    let { error: updateError } = await admin
       .from("sponsors")
-      .insert(legacy)
+      .update(sponsorRow)
+      .eq("id", sponsorId);
+    if (updateError && updateError.message.includes("description")) {
+      const { description: _drop, ...legacy } = sponsorRow;
+      ({ error: updateError } = await admin
+        .from("sponsors")
+        .update(legacy)
+        .eq("id", sponsorId));
+    }
+    if (updateError) {
+      return { ok: false, message: updateError.message };
+    }
+  } else {
+    let { data: sponsor, error: sponsorError } = await admin
+      .from("sponsors")
+      .insert(sponsorRow)
       .select("id")
-      .single());
-  }
-  if (sponsorError || !sponsor) {
-    return {
-      ok: false,
-      message: sponsorError?.message ?? "Couldn't save the business.",
-    };
+      .single();
+    if (sponsorError && sponsorError.message.includes("description")) {
+      // Pre-migration fallback: the column arrives with 0033.
+      const { description: _drop, ...legacy } = sponsorRow;
+      ({ data: sponsor, error: sponsorError } = await admin
+        .from("sponsors")
+        .insert(legacy)
+        .select("id")
+        .single());
+    }
+    if (sponsorError || !sponsor) {
+      return {
+        ok: false,
+        message: sponsorError?.message ?? "Couldn't save the business.",
+      };
+    }
+    sponsorId = sponsor.id as string;
+    await admin
+      .from("sponsor_invites")
+      .update({ sponsor_id: sponsorId })
+      .eq("id", invite.id);
   }
 
   // 2) The rep's profile details.
@@ -130,7 +155,7 @@ export async function completeSponsorOnboarding(
   const { error: seatError } = await admin
     .from("sponsor_members")
     .upsert(
-      { sponsor_id: sponsor.id, profile_id: user.id, role: "owner" },
+      { sponsor_id: sponsorId, profile_id: user.id, role: "owner" },
       { onConflict: "sponsor_id,profile_id" },
     );
   if (seatError && /role/.test(seatError.message)) {
@@ -138,7 +163,7 @@ export async function completeSponsorOnboarding(
     await admin
       .from("sponsor_members")
       .upsert(
-        { sponsor_id: sponsor.id, profile_id: user.id },
+        { sponsor_id: sponsorId, profile_id: user.id },
         { onConflict: "sponsor_id,profile_id" },
       );
   }
@@ -156,7 +181,7 @@ export async function completeSponsorOnboarding(
   // 4) Close out the invite.
   await admin
     .from("sponsor_invites")
-    .update({ completed_at: new Date().toISOString(), sponsor_id: sponsor.id })
+    .update({ completed_at: new Date().toISOString(), sponsor_id: sponsorId })
     .eq("id", invite.id);
 
   // 5) VIP access tickets, if the rep listed emails. Best-effort — a bad
@@ -170,10 +195,7 @@ export async function completeSponsorOnboarding(
   if (ticketEmails.length > 0) {
     try {
       const { inviteTicketUsers } = await import("@/lib/sponsor-team");
-      const summary = await inviteTicketUsers(
-        { id: sponsor.id as string },
-        ticketEmails,
-      );
+      const summary = await inviteTicketUsers({ id: sponsorId }, ticketEmails);
       const bits: string[] = [];
       if (summary.invited.length > 0) {
         bits.push(`${summary.invited.length} VIP invite${summary.invited.length === 1 ? "" : "s"} sent`);
@@ -189,7 +211,7 @@ export async function completeSponsorOnboarding(
   revalidatePath("/sponsors");
   revalidatePath("/admin/sponsors");
   revalidateTag("sponsors");
-  return { ok: true, sponsorId: sponsor.id, message: ticketNote || undefined };
+  return { ok: true, sponsorId, message: ticketNote || undefined };
 }
 
 /** Whether the signed-in user has a pending sponsor invite (drives the
@@ -216,14 +238,18 @@ export async function getPendingSponsorInvite(): Promise<{
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { pending: false };
-  const { data: invite } = await createServiceClient()
-    .from("sponsor_invites")
-    .select("tier, business_name, account_created")
-    .eq("invited_profile_id", user.id)
-    .is("completed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { findOpenInvite } = await import("@/lib/invite-lookup");
+  const invite = await findOpenInvite<{
+    id: string;
+    tier: string | null;
+    business_name: string | null;
+    account_created: boolean | null;
+  }>(
+    createServiceClient(),
+    "sponsor_invites",
+    user,
+    "id, tier, business_name, account_created",
+  );
   if (!invite) return { pending: false };
   const { getTicketCounts } = await import("@/lib/sponsor-team");
   const counts = await getTicketCounts();

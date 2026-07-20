@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   archiveSpeaker,
+  cancelSpeakerInvite,
   inviteSpeaker,
   reinstateSpeaker,
   setSpeakerOngoing,
@@ -18,6 +19,7 @@ export interface PastSpeakerRow {
 }
 
 export interface PendingSpeakerInvite {
+  id: string;
   email: string;
   displayName: string;
   createdAt: string;
@@ -150,13 +152,42 @@ export function SpeakerLifecyclePanel({
         )}
         {pendingInvites.length > 0 && (
           <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--mid-gray)" }}>
-            Waiting on:{" "}
-            {pendingInvites
-              .map(
-                (i) =>
-                  `${i.email}${i.displayName ? ` (${i.displayName})` : ""} — invited ${dateLabel(i.createdAt)}`,
-              )
-              .join(" · ")}
+            <div style={{ marginBottom: 4 }}>Waiting on:</div>
+            {pendingInvites.map((i) => (
+              <div
+                key={i.id}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  marginBottom: 4,
+                }}
+              >
+                <span>
+                  {i.email}
+                  {i.displayName ? ` (${i.displayName})` : ""} — invited{" "}
+                  {dateLabel(i.createdAt)}
+                </span>
+                <button
+                  type="button"
+                  className="btn-mini danger"
+                  style={{ padding: "2px 8px", fontSize: 10.5 }}
+                  disabled={pending}
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `Cancel the speaker invite for ${i.email}? Their login (if created) stays — they just won't be routed into speaker setup anymore.`,
+                      )
+                    ) {
+                      run(() => cancelSpeakerInvite(i.id));
+                    }
+                  }}
+                >
+                  Cancel invite
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

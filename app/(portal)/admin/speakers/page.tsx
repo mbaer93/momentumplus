@@ -113,10 +113,11 @@ export default async function AdminSpeakersPage({
 
     const { data: invites } = await admin
       .from("speaker_invites")
-      .select("email, display_name, created_at")
+      .select("id, email, display_name, created_at")
       .is("completed_at", null)
       .order("created_at", { ascending: false });
     pendingInvites = (invites ?? []).map((i) => ({
+      id: i.id as string,
       email: i.email as string,
       displayName: (i.display_name as string) ?? "",
       createdAt: i.created_at as string,

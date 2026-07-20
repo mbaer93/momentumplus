@@ -680,6 +680,47 @@ export async function inviteSponsorRep(
     : await admin.from("sponsor_invites").insert(inviteRow);
   if (error) return { ok: false, message: error.message };
 
+  // Existing accounts get no Supabase invite email — without our own email
+  // the invite silently dies unless the admin remembers to chase it.
+  let existingNote = "";
+  if (!invited && !accountCreated) {
+    const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const { sponsorTierLabel } = await import("@/lib/sponsor-tiers");
+    try {
+      const { sendEmailViaGhl } = await import("@/lib/notifications");
+      const res = await sendEmailViaGhl({
+        email,
+        subject: `[Momentum+] Set up ${businessName.trim() || "your business"}'s sponsor page`,
+        html: `
+  <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1a2332;">
+    <div style="background:#0B1622;padding:18px 22px;border-radius:4px 4px 0 0;">
+      <span style="font-family:Georgia,serif;font-size:20px;color:#F8F6F1;">Momentum<span style="color:#B8965A;">+</span></span>
+    </div>
+    <div style="border:1px solid #E8E4DC;border-top:none;padding:22px;border-radius:0 0 4px 4px;">
+      <p style="margin:0 0 12px;font-size:14px;">Hello,</p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.6;">
+        ${businessName.trim() ? `<strong>${esc(businessName.trim())}</strong> is` : "You&rsquo;re"} joining
+        Momentum+ as a ${esc(sponsorTierLabel(tier))}. Sign in with this email
+        address and a short setup builds your sponsor page — logo, offer, and
+        your team&rsquo;s access come with it.
+      </p>
+      <p style="margin:0 0 6px;">
+        <a href="${site}/sponsor-onboarding" style="display:inline-block;background:#B8965A;color:#0B1622;font-weight:bold;font-size:14px;padding:12px 22px;border-radius:4px;text-decoration:none;">Set up your sponsor page</a>
+      </p>
+    </div>
+  </div>`,
+      });
+      existingNote = res.sent
+        ? ` We emailed them the setup link.`
+        : ` (The setup email couldn't be sent — ${res.reason ?? "unknown"} — so send them momentumplus.co/sponsor-onboarding yourself.)`;
+    } catch {
+      existingNote =
+        " (The setup email couldn't be sent — send them momentumplus.co/sponsor-onboarding yourself.)";
+    }
+  }
+
   revalidatePath("/admin/sponsors");
   return {
     ok: true,
@@ -688,8 +729,31 @@ export async function inviteSponsorRep(
       ? `Invite sent to ${email} — the email walks them through adding their business and their own details.`
       : loginLink
         ? `Account created but the invite email failed to send — copy the sign-in link below and send it to ${email} yourself.`
-        : `${email} already has a Momentum+ account — they'll see the sponsor setup form at momentumplus.co/sponsor-onboarding the next time they sign in (send them that link).`,
+        : `${email} already has a Momentum+ account — they'll be routed to sponsor setup next time they sign in.${existingNote}`,
   };
+}
+
+/**
+ * Withdraw a pending sponsor invite. Stale invites are worse than clutter:
+ * the /welcome and /expired self-heals route that email into sponsor
+ * onboarding on every login. The auth account (if one was created) is
+ * untouched. If onboarding already created a sponsor page (a retry that
+ * stalled), the page stays and can be archived/deleted from the table.
+ */
+export async function cancelSponsorInvite(inviteId: string): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Invite cancelled (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  const { error } = await createServiceClient()
+    .from("sponsor_invites")
+    .delete()
+    .eq("id", inviteId)
+    .is("completed_at", null);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/sponsors");
+  return { ok: true, message: "Invite cancelled — that email now logs in as a regular account." };
 }
 
 /**
