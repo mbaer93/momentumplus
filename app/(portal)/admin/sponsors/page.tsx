@@ -8,7 +8,7 @@ import { ArrowLeftIcon } from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { sponsors as placeholderSponsors } from "@/lib/directory-data";
 import { getPresentedByLogoUrl } from "@/lib/presented-by";
-import { getTicketCounts } from "@/lib/sponsor-team";
+import { allSponsorProTickets, getTicketCounts } from "@/lib/sponsor-team";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -18,12 +18,24 @@ export const dynamic = "force-dynamic";
     (override column arrives with migration 0041 — absent means null). */
 async function sponsorOverrideRows(
   rows: AdminSponsorRow[],
-): Promise<{ id: string; name: string; tier: string; ticketOverride: number | null }[]> {
+): Promise<
+  {
+    id: string;
+    name: string;
+    tier: string;
+    ticketOverride: number | null;
+    proTickets: number;
+    proTicketsUsed: number;
+  }[]
+> {
   const overrides = new Map<string, number | null>();
+  let proTickets: Record<string, { total: number; used: number }> = {};
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const { data } = await createServiceClient()
-      .from("sponsors")
-      .select("id, ticket_override");
+    const [{ data }, pro] = await Promise.all([
+      createServiceClient().from("sponsors").select("id, ticket_override"),
+      allSponsorProTickets(),
+    ]);
+    proTickets = pro;
     for (const r of data ?? []) {
       overrides.set(
         r.id as string,
@@ -36,6 +48,8 @@ async function sponsorOverrideRows(
     name: r.name,
     tier: r.tier,
     ticketOverride: overrides.get(r.id) ?? null,
+    proTickets: proTickets[r.id]?.total ?? 0,
+    proTicketsUsed: proTickets[r.id]?.used ?? 0,
   }));
 }
 

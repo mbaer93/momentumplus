@@ -81,6 +81,33 @@ export async function saveSponsorTicketOverride(
   };
 }
 
+/** Per-sponsor grant of FULL Momentum+ Pro tickets (one year each) that the
+    sponsor hands out from their Studio — like the VIP override, but Pro. */
+export async function saveSponsorProTickets(
+  sponsorId: string,
+  total: number,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  const { setSponsorProTickets } = await import("@/lib/sponsor-team");
+  const value =
+    Number.isFinite(total) && total > 0 ? Math.floor(total) : 0;
+  const { error } = await setSponsorProTickets(sponsorId, value);
+  if (error) return { ok: false, message: error };
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsor");
+  return {
+    ok: true,
+    message:
+      value === 0
+        ? "Pro tickets cleared for this sponsor."
+        : `This sponsor can now hand out ${value} full Momentum+ Pro membership${value === 1 ? "" : "s"} (1 year each) from their Studio.`,
+  };
+}
+
 export async function createSponsor(input: SponsorInput): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Created (preview mode)." };

@@ -3,6 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { upsertSponsorMembership } from "@/lib/sponsor-membership";
 import {
+  inviteProTicketUsers,
   inviteTicketUsers,
   listSponsorTeam,
   resolveSponsorActor,
@@ -193,6 +194,46 @@ export async function sendTicketInvites(
   }
   parts.push(
     `${summary.remaining} ticket${summary.remaining === 1 ? "" : "s"} remaining.`,
+  );
+  refreshSponsorSurfaces();
+  return { ok: summary.failed.length === 0, message: parts.join(" ") };
+}
+
+/** Hand out the sponsor's admin-granted Momentum+ Pro tickets — a full Pro
+    membership for one year per person. Owner (or Super Admin) only. */
+export async function sendProTicketInvites(
+  sponsorId: string,
+  emailsText: string,
+): Promise<StudioResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, message: "Invited (preview mode)." };
+  }
+  const auth = await requireStudioActor(sponsorId, "owner");
+  if (!auth.ok) return auth;
+
+  const emails = emailsText
+    .split(/[\s,;]+/)
+    .map((e) => e.trim())
+    .filter(Boolean);
+  if (emails.length === 0) {
+    return { ok: false, message: "Add at least one email address." };
+  }
+
+  const summary = await inviteProTicketUsers({ id: sponsorId }, emails);
+  const parts: string[] = [];
+  if (summary.invited.length > 0) {
+    parts.push(
+      `${summary.invited.length} Pro invite${summary.invited.length === 1 ? "" : "s"} sent (1 year each).`,
+    );
+  }
+  if (summary.existing.length > 0) {
+    parts.push(`${summary.existing.length} already on the team.`);
+  }
+  for (const f of summary.failed) {
+    parts.push(`${f.email}: ${f.reason}.`);
+  }
+  parts.push(
+    `${summary.remaining} Pro ticket${summary.remaining === 1 ? "" : "s"} remaining.`,
   );
   refreshSponsorSurfaces();
   return { ok: summary.failed.length === 0, message: parts.join(" ") };

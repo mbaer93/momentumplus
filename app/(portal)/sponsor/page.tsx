@@ -5,6 +5,7 @@ import { requireMember } from "@/lib/current-member";
 import { sponsorTierLabel } from "@/lib/sponsor-tiers";
 import {
   listSponsorTeam,
+  sponsorProTickets,
   sponsorTicketAllotment,
   ticketsUsed,
   type SponsorRole,
@@ -106,9 +107,10 @@ export default async function SponsorStudioPage({
     );
   }
 
-  const [team, allotment] = await Promise.all([
+  const [team, allotment, proTickets] = await Promise.all([
     listSponsorTeam(sponsorId),
     sponsorTicketAllotment(sponsorId),
+    sponsorProTickets(sponsorId),
   ]);
   const used = ticketsUsed(team);
   const canOwn = isSuperAdmin || viewerRole === "owner";
@@ -138,6 +140,8 @@ export default async function SponsorStudioPage({
       isSuperAdmin={isSuperAdmin}
       ticketAllotment={allotment}
       ticketsUsed={used}
+      proTicketAllotment={proTickets.total}
+      proTicketsUsed={proTickets.used}
     />
   );
 }
