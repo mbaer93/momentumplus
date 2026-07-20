@@ -178,7 +178,7 @@ export function EntityManager({
         setMsg(res.message ? { text: res.message, ok: res.ok } : null);
         if (res.ok) router.refresh();
       } catch {
-        setMsg({ text: "That didn't save — please try again.", ok: false });
+        setMsg({ text: "That didn't save — refresh this page and try again (the app may have just been updated).", ok: false });
       }
     });
   }

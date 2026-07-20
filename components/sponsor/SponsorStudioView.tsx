@@ -86,7 +86,7 @@ export function SponsorStudioView({
           router.refresh();
         }
       } catch {
-        setMsg({ ok: false, text: "That didn't save — try again." });
+        setMsg({ ok: false, text: "That didn't save — refresh this page and try again (the app may have just been updated)." });
       }
     });
   }

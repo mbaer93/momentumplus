@@ -88,7 +88,7 @@ export function PricingManager({
         setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "Saved." : "Error") });
         if (res.ok) router.refresh();
       } catch {
-        setMsg({ ok: false, text: "That didn't save — try again." });
+        setMsg({ ok: false, text: "That didn't save — refresh this page and try again (the app may have just been updated)." });
       }
     });
   }

@@ -116,6 +116,10 @@ export async function createZoomMeeting(
         approval_type: 2,
         auto_recording: "cloud",
         meeting_authentication: false,
+        // Cameras start available and on at join (the browser still asks
+        // permission) — members should be seen, not just heard.
+        host_video: true,
+        participant_video: true,
       },
     }),
     cache: "no-store",
@@ -163,7 +167,12 @@ export async function updateZoomMeeting(
       ...(input.agenda !== undefined && { agenda: input.agenda }),
       // Keep settings in policy on every touch — heals meetings created
       // before the no-waiting-room default.
-      settings: { waiting_room: false, join_before_host: false },
+      settings: {
+        waiting_room: false,
+        join_before_host: false,
+        host_video: true,
+        participant_video: true,
+      },
     }),
     cache: "no-store",
   });
