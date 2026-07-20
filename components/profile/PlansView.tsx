@@ -39,6 +39,9 @@ export interface PlansViewProps {
   isPro: boolean;
   hasCustomer: boolean;
   tierLabel: string;
+  /** The avatar menu's Billing entry couldn't open the Stripe portal and
+      fell back here — say why instead of arriving silently. */
+  billingNotice?: boolean;
 }
 
 function TermPicker({
@@ -100,6 +103,7 @@ export function PlansView({
   isPro,
   hasCustomer,
   tierLabel,
+  billingNotice = false,
 }: PlansViewProps) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -165,6 +169,13 @@ export function PlansView({
 
   return (
     <>
+      {billingNotice && (
+        <div className="admin-hint" style={{ marginBottom: 14, maxWidth: 720 }}>
+          {hasCustomer
+            ? "We couldn't open your billing portal just now — try again in a moment. If it keeps happening, contact the Momentum+ team."
+            : "No billing profile on this account yet — choose a plan below, and billing management (card, invoices, cancellation) unlocks after your first payment."}
+        </div>
+      )}
       {msg && (
         <div className="admin-form-msg err" style={{ marginBottom: 14 }}>
           {msg}

@@ -2645,6 +2645,9 @@
 }
 .plan-card { padding: 22px; position: relative; }
 .plan-card.best { border-color: var(--gold); }
+/* .card clips overflow, so the badge sits inside the corner here instead
+   of straddling the top edge like on the public pricing page. */
+.plan-card .pricing-best-tag { top: 14px; right: 14px; }
 .plan-card-name {
   font-family: var(--font-serif);
   font-size: 18px;

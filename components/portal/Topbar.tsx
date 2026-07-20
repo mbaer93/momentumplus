@@ -181,9 +181,10 @@ export function Topbar({
                 startBilling(async () => {
                   try {
                     const res = await openBillingPortal();
-                    window.location.href = res.ok && res.url ? res.url : "/upgrade";
+                    window.location.href =
+                      res.ok && res.url ? res.url : "/upgrade?billing=unavailable";
                   } catch {
-                    window.location.href = "/upgrade";
+                    window.location.href = "/upgrade?billing=unavailable";
                   }
                 })
               }
