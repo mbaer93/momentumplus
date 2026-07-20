@@ -6,13 +6,13 @@
 -- Multiple NULL session_ids are allowed (manual uploads are unaffected —
 -- UNIQUE treats NULLs as distinct).
 
--- Remove any duplicates that already slipped in: keep the earliest row
--- per session (by created_at, id as tiebreak).
+-- Remove any duplicates that already slipped in: keep one row per session
+-- (lowest id — videos has no created_at column, and id is deterministic).
 delete from videos v
 using videos keep
 where v.session_id is not null
   and keep.session_id = v.session_id
-  and (keep.created_at, keep.id) < (v.created_at, v.id);
+  and keep.id < v.id;
 
 alter table videos
   add constraint videos_session_id_unique unique (session_id);
