@@ -34,19 +34,16 @@ export interface NavSection {
 }
 
 // Mirrors the sidebar in mockup/momentum-plus-v5.html. Routes follow SPEC.md §5.
+// Four groups (Matt, 2026-07-20): Learn / Connect / Partners & More /
+// My Profile — a flat wall of equal-weight tabs made nothing stand out.
 export const NAV_SECTIONS: NavSection[] = [
   {
-    label: "Main",
+    label: "Learn",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: DashboardIcon },
-      { label: "Community", href: "/community", icon: CommunityIcon },
       { label: "Sessions", href: "/sessions", icon: SessionsIcon },
-    ],
-  },
-  {
-    label: "Content",
-    items: [
       { label: "Rooted Focus", href: "/rooted-focus", icon: TargetIcon },
+      { label: "Calendar", href: "/calendar", icon: CalendarIcon },
       { label: "Library", href: "/library", icon: LibraryIcon },
       { label: "Education", href: "/education", icon: EducationIcon },
       // Unreleased — hidden from members (admins can preview) so a first-run
@@ -61,17 +58,11 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Explore",
+    label: "Connect",
     items: [
+      { label: "Community", href: "/community", icon: CommunityIcon },
       { label: "Members", href: "/members", icon: UsersIcon },
       { label: "Speakers", href: "/speakers", icon: SpeakersIcon },
-      { label: "Resources", href: "/resources", icon: ResourcesIcon },
-      { label: "Sponsors", href: "/sponsors", icon: SponsorsIcon },
-      {
-        label: "Additional Services",
-        href: "/services",
-        icon: BriefcaseIcon,
-      },
       // Placeholder while the networking-group integration is worked out —
       // admins only until it's real.
       {
@@ -80,11 +71,22 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: UsersIcon,
         adminOnly: true,
       },
-      { label: "Calendar", href: "/calendar", icon: CalendarIcon },
     ],
   },
   {
-    label: "Account",
+    label: "Partners & More",
+    items: [
+      { label: "Sponsors", href: "/sponsors", icon: SponsorsIcon },
+      { label: "Resources", href: "/resources", icon: ResourcesIcon },
+      {
+        label: "Additional Services",
+        href: "/services",
+        icon: BriefcaseIcon,
+      },
+    ],
+  },
+  {
+    label: "My Profile",
     items: [
       { label: "My Profile", href: "/profile", icon: ProfileIcon },
       {
