@@ -111,6 +111,10 @@ export const NAV_SECTIONS: NavSection[] = [
 
 // Map a pathname to the topbar title.
 export function titleForPath(pathname: string): string {
+  // Not in the sidebar — reached from the avatar menu and upsell links.
+  if (pathname === "/upgrade" || pathname.startsWith("/upgrade/")) {
+    return "Plans & Upgrades";
+  }
   const all = NAV_SECTIONS.flatMap((s) => s.items);
   const match = all.find(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),

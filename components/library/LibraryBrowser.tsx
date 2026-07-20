@@ -58,7 +58,7 @@ export function LibraryBrowser({
             {/* Locked recordings link to the upgrade path (a real /library
                 page would 404 for them) and never render a play button. */}
             <Link
-              href={v.locked ? "/profile" : `/library/${v.id}`}
+              href={v.locked ? "/upgrade" : `/library/${v.id}`}
               className={`recording-card${v.locked ? " locked" : ""}`}
             >
               <div className="recording-thumb" style={{ background: v.gradient }}>

@@ -197,6 +197,7 @@ export default async function PortalLayout({
           userInitials={member.initials}
           upcoming={upcoming}
           notifications={notifications}
+          showUpgrade={showUpgrade}
         />
         <div className="content-area">
           {/* Sponsor rail renders on portal pages except community, profile,
