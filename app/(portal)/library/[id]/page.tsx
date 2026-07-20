@@ -21,15 +21,30 @@ export default async function VideoDetailPage({
   if (!video) notFound();
 
   // The viewer's private note on this recording (owner-only via RLS).
+  // A session recording CARRIES OVER the notes the member took during the
+  // live session — until they save a library-specific note, they see the
+  // notes they wrote in the room instead of an empty box.
   let initialNote = "";
   if (isSupabaseConfigured()) {
     const supabase = createClient();
-    const { data: note } = await supabase
-      .from("video_notes")
-      .select("body")
-      .eq("video_id", video.id)
-      .maybeSingle();
-    initialNote = note?.body ?? "";
+    const [{ data: note }, sessionNote] = await Promise.all([
+      supabase
+        .from("video_notes")
+        .select("body")
+        .eq("video_id", video.id)
+        .maybeSingle(),
+      video.sessionId
+        ? supabase
+            .from("session_notes")
+            .select("body")
+            .eq("session_id", video.sessionId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    initialNote =
+      note?.body ??
+      (sessionNote.data as { body?: string } | null)?.body ??
+      "";
   }
 
   // Signed playback token so recording URLs can't leave the portal.
