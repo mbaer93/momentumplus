@@ -4,7 +4,39 @@
 
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { seasonEnd, sponsorLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { RAIL_TIERS, SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
+
+/** What members actually see right now — a pre-season sponsor looks identical
+    to a live one in this table otherwise, and "why can't members see them?"
+    has no on-screen answer. */
+function visibility(s: { archivedAt?: string | null; expiresAt?: string | null }): {
+  text: string;
+  cls: string;
+  title: string;
+} {
+  if (
+    !sponsorLive({ archivedAt: s.archivedAt ?? null, expiresAt: s.expiresAt ?? null })
+  ) {
+    const goLive = upcomingSeasonStart().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    return {
+      text: `Live ${goLive}`,
+      cls: "draft",
+      title: `Pre-season: hidden from members until ${goLive}. The sponsor can build their page in the meantime.`,
+    };
+  }
+  return s.expiresAt
+    ? { text: "Live", cls: "completed", title: "Visible to members now." }
+    : {
+        text: "Live · ongoing",
+        cls: "completed",
+        title: "Visible to members now, with no end date.",
+      };
+}
 import {
   archiveSponsor,
   cancelSponsorInvite,
@@ -517,6 +549,7 @@ export function SponsorsManager({
               <th>Sponsor</th>
               <th>Logo</th>
               <th>Tier</th>
+              <th>Visible</th>
               <th>Rail</th>
               <th>Impr.</th>
               <th>Clicks</th>
@@ -553,6 +586,16 @@ export function SponsorsManager({
                   </td>
                   <td style={{ textTransform: "capitalize" }}>
                     {sponsorTierLabel(s.tier)}
+                  </td>
+                  <td>
+                    {(() => {
+                      const v = visibility(s);
+                      return (
+                        <span className={`admin-status ${v.cls}`} title={v.title}>
+                          {v.text}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td>
                     {RAIL_TIERS.has(s.tier) ? (
@@ -907,11 +950,23 @@ export function SponsorsManager({
                           className="btn-mini"
                           disabled={pending}
                           onClick={() => {
-                            if (
-                              confirm(
-                                `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through next October 1.`,
-                              )
-                            ) {
+                            // Honest outcome: Host Sponsors come back
+                            // ongoing (no end date, live now); everyone else
+                            // gets the season term and may still be
+                            // pre-season-hidden until Oct 1.
+                            const backLive =
+                              s.tier === "host" ||
+                              sponsorLive({
+                                archivedAt: null,
+                                expiresAt: seasonEnd().toISOString(),
+                              });
+                            const text =
+                              s.tier === "host"
+                                ? `Reinstate ${s.name}? Host Sponsors return ONGOING — visible to members right away, with no end date.`
+                                : backLive
+                                  ? `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through next October 1.`
+                                  : `Reinstate ${s.name} as a sponsor? Their reps' Pro access is restored through next October 1, but members won't see the page until ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season).`;
+                            if (confirm(text)) {
                               run(() => reinstateSponsor(s.id));
                             }
                           }}

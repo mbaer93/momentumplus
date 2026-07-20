@@ -18,18 +18,23 @@ export function SessionRowActions({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [publishing, setPublishing] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  // ok:false renders red — success and failure used to look identical here.
+  const [note, setNote] = useState<{ text: string; ok: boolean } | null>(null);
 
   function onCancel() {
     if (
       !confirm(
-        "Cancel this session? Members will see it marked Cancelled and enrollment closes. They are NOT notified automatically — send an announcement if they should hear about it.",
+        "Cancel this session? Members will see it marked Cancelled and enrollment closes, and the Zoom meeting is deleted so old calendar invites stop working. They are NOT notified automatically — send an announcement if they should hear about it.",
       )
     )
       return;
     startTransition(async () => {
       const res = await cancelSession(sessionId);
-      setNote(res.message ?? null);
+      setNote(
+        res.message
+          ? { text: res.message, ok: res.ok && !res.warning }
+          : null,
+      );
       if (res.ok) router.refresh();
     });
   }
@@ -38,9 +43,11 @@ export function SessionRowActions({
     if (!confirm("Delete this session? This cannot be undone.")) return;
     startTransition(async () => {
       const res = await deleteSession(sessionId);
-      setNote(res.preview ? res.message ?? null : null);
+      setNote(
+        res.preview && res.message ? { text: res.message, ok: true } : null,
+      );
       if (res.ok) router.refresh();
-      else setNote(res.message ?? "Delete failed");
+      else setNote({ text: res.message ?? "Delete failed", ok: false });
     });
   }
 
@@ -54,12 +61,22 @@ export function SessionRowActions({
       const res = await fetch(`/api/sessions/${sessionId}/publish`, {
         method: "POST",
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        zoomSkipped?: boolean;
+      };
       if (res.ok) {
         router.refresh();
-        setNote("Published.");
+        setNote(
+          data.zoomSkipped
+            ? {
+                text: "Published — but NO Zoom meeting was created because Zoom isn't connected. Connect Zoom in Admin → Connections, then hit Publish again.",
+                ok: false,
+              }
+            : { text: "Published.", ok: true },
+        );
       } else {
-        setNote(data.error ?? "Publish failed");
+        setNote({ text: data.error ?? "Publish failed", ok: false });
       }
     } finally {
       setPublishing(false);
@@ -102,7 +119,15 @@ export function SessionRowActions({
         Delete
       </button>
       {note && (
-        <span style={{ fontSize: 11, color: "var(--mid-gray)" }}>{note}</span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: note.ok ? 400 : 600,
+            color: note.ok ? "var(--mid-gray)" : "#b3261e",
+          }}
+        >
+          {note.text}
+        </span>
       )}
     </div>
   );

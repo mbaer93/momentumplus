@@ -22,6 +22,9 @@ interface StudioSponsor {
   offer: string;
   website: string;
   archived: boolean;
+  /** Set when the page is still pre-season (hidden from members): the date
+      it goes live. Null once live, ongoing, or archived. */
+  goLiveLabel: string | null;
   expiresLabel: string | null;
 }
 
@@ -115,6 +118,13 @@ export function SponsorStudioView({
         <div className="admin-hint">
           This sponsorship is archived — the page is hidden from members until
           the Momentum+ team reinstates it.
+        </div>
+      )}
+      {sponsor.goLiveLabel && (
+        <div className="admin-hint">
+          Your page goes live to members on <strong>{sponsor.goLiveLabel}</strong>{" "}
+          — until then only your team and the Momentum+ team can see it. Build
+          it out now and it appears automatically.
         </div>
       )}
       {msg && (

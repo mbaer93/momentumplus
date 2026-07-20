@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { emailPattern } from "@/lib/db-utils";
-import { seasonEnd } from "@/lib/sponsor-lifecycle";
+import { seasonEnd, speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -380,9 +380,20 @@ export async function archiveSpeaker(id: string): Promise<AdminResult> {
     .from("speakers")
     .update({ archived_at: nowIso, featured: false })
     .eq("id", id)
-    .select("profile_id")
+    .select("profile_id, resource_id")
     .maybeSingle();
   if (error) return { ok: false, message: error.message };
+
+  // Their business resource comes down too — archiving promised to take
+  // "the speaker AND their content" out of member view, but the promo link
+  // used to stay on /resources forever.
+  if (speaker?.resource_id) {
+    await admin
+      .from("resources")
+      .update({ active: false })
+      .eq("id", speaker.resource_id);
+    revalidatePath("/resources");
+  }
 
   // Their sessions leave member view…
   const { data: sessions } = await admin
@@ -433,7 +444,7 @@ export async function archiveSpeaker(id: string): Promise<AdminResult> {
   return {
     ok: true,
     message:
-      "Speaker archived — their profile, sessions, and library items are hidden from members. Reinstate anytime.",
+      "Speaker archived — their profile, sessions, library items, and business resource are hidden from members. Reinstate anytime.",
   };
 }
 
@@ -462,9 +473,17 @@ export async function reinstateSpeaker(id: string): Promise<AdminResult> {
     .from("speakers")
     .update({ archived_at: null, expires_at: termEnd })
     .eq("id", id)
-    .select("profile_id")
+    .select("profile_id, resource_id")
     .maybeSingle();
   if (error) return { ok: false, message: error.message };
+
+  if (speaker?.resource_id) {
+    await admin
+      .from("resources")
+      .update({ active: true })
+      .eq("id", speaker.resource_id);
+    revalidatePath("/resources");
+  }
 
   const { data: sessions } = await admin
     .from("sessions")
@@ -531,8 +550,18 @@ export async function reinstateSpeaker(id: string): Promise<AdminResult> {
       message: `Speaker profile and library items are back, but ${accessWarning}`,
     };
   }
+  // Honesty about visibility: a reinstate outside the live season puts them
+  // back on the roster but members still can't see them until October 1.
+  const liveNow = speakerLive({ archivedAt: null, expiresAt: termEnd });
+  const endLabel = new Date(termEnd).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
   return {
     ok: true,
-    message: `Speaker reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Library items restored; re-publish any upcoming sessions from Admin → Sessions.`,
+    message: liveNow
+      ? `Speaker reinstated — visible to members again, through ${endLabel}. Library items and business resource restored; re-publish any upcoming sessions from Admin → Sessions.`
+      : `Speaker reinstated through ${endLabel} — they return to member view on ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (until then they can prep in their Studio). Library items and business resource restored; re-publish any upcoming sessions from Admin → Sessions.`,
   };
 }

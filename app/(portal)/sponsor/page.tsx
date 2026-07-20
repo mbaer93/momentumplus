@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SponsorStudioView } from "@/components/sponsor/SponsorStudioView";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
+import { sponsorLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { sponsorTierLabel } from "@/lib/sponsor-tiers";
 import {
   listSponsorTeam,
@@ -126,6 +127,21 @@ export default async function SponsorStudioPage({
         offer: (sponsor.offer as string) ?? "",
         website: (sponsor.website as string) ?? "",
         archived: Boolean(sponsor.archived_at),
+        // Pre-season truth: the page exists but members can't see it yet —
+        // without this the Studio says "live through ..." while the listing,
+        // profile, and rail are all hidden until October 1.
+        goLiveLabel:
+          !sponsor.archived_at &&
+          !sponsorLive({
+            archivedAt: sponsor.archived_at as string | null,
+            expiresAt: sponsor.expires_at as string | null,
+          })
+            ? upcomingSeasonStart().toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })
+            : null,
         expiresLabel: sponsor.expires_at
           ? new Date(sponsor.expires_at as string).toLocaleDateString("en-US", {
               month: "long",
