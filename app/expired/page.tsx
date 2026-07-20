@@ -4,7 +4,6 @@ import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { emailPattern } from "@/lib/db-utils";
 
 export const metadata = {
   title: "Renew your membership | Momentum+",
@@ -28,27 +27,14 @@ export default async function ExpiredPage() {
       data: { user },
     } = await createClient().auth.getUser();
     if (user) {
+      // Same profile-id-OR-email rule as the onboarding pages themselves —
+      // diverging keys once trapped people in a redirect loop.
       const admin = createServiceClient();
-      const email = (user.email ?? "").toLowerCase();
-      const [{ data: speakerInvite }, { data: sponsorInvite }] =
-        await Promise.all([
-          email
-            ? admin
-                .from("speaker_invites")
-                .select("id")
-                .ilike("email", emailPattern(email))
-                .is("completed_at", null)
-                .limit(1)
-                .maybeSingle()
-            : Promise.resolve({ data: null }),
-          admin
-            .from("sponsor_invites")
-            .select("id")
-            .eq("invited_profile_id", user.id)
-            .is("completed_at", null)
-            .limit(1)
-            .maybeSingle(),
-        ]);
+      const { findOpenInvite } = await import("@/lib/invite-lookup");
+      const [speakerInvite, sponsorInvite] = await Promise.all([
+        findOpenInvite(admin, "speaker_invites", user),
+        findOpenInvite(admin, "sponsor_invites", user),
+      ]);
       if (speakerInvite) redirect("/speaker-onboarding");
       if (sponsorInvite) redirect("/sponsor-onboarding");
     }
@@ -134,7 +120,7 @@ export default async function ExpiredPage() {
         <p className="renew-note">
           Renewed and still seeing this page? Access syncs automatically within
           a few minutes of payment. Questions:{" "}
-          <a href="mailto:matt@socialdrivemedia.com">contact support</a>.
+          <a href="mailto:hello@momentumplus.co">contact support</a>.
         </p>
       </div>
     </div>

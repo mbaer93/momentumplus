@@ -78,6 +78,9 @@ export default async function UpgradePage({
         terms={terms}
         stripePlan={stripePlan}
         isPro={isPro(member.tier)}
+        // Stripe subscribers are handled by stripePlan; this guards everyone
+        // else whose access is already covered (comp, GHL, import).
+        hasActiveMembership={member.membershipActive && !stripePlan}
         hasCustomer={hasCustomer}
         tierLabel={member.tierLabel}
         billingNotice={searchParams?.billing === "unavailable"}

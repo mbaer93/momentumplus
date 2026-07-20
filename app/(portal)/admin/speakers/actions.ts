@@ -52,6 +52,26 @@ function refresh() {
   revalidateTag("speakers");
 }
 
+/**
+ * Withdraw a pending speaker invite. Stale invites are worse than clutter:
+ * the /welcome and /expired self-heals route that email into speaker
+ * onboarding on every login, so an abandoned test invite can lock a later
+ * REGULAR member out of the portal entirely. The auth account (if one was
+ * created) is untouched — it simply signs in as a normal account.
+ */
+export async function cancelSpeakerInvite(inviteId: string): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+  const { error } = await createServiceClient()
+    .from("speaker_invites")
+    .delete()
+    .eq("id", inviteId)
+    .is("completed_at", null);
+  if (error) return { ok: false, message: error.message };
+  refresh();
+  return { ok: true, message: "Invite cancelled — that email now logs in as a regular account." };
+}
+
 export async function createSpeaker(input: SpeakerInput): Promise<AdminResult> {
   const early = await guard();
   if (early) return early;
@@ -239,6 +259,46 @@ export async function inviteSpeaker(
     : await admin.from("speaker_invites").insert(row);
   if (error) return { ok: false, message: error.message };
 
+  // Existing accounts get no Supabase invite email — without our own email
+  // the invite silently dies unless the admin remembers to chase it.
+  let existingNote = "";
+  if (!invited && !accountCreated) {
+    const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    try {
+      const { sendEmailViaGhl } = await import("@/lib/notifications");
+      const res = await sendEmailViaGhl({
+        email,
+        subject: "[Momentum+] You're invited to speak",
+        html: `
+  <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1a2332;">
+    <div style="background:#0B1622;padding:18px 22px;border-radius:4px 4px 0 0;">
+      <span style="font-family:Georgia,serif;font-size:20px;color:#F8F6F1;">Momentum<span style="color:#B8965A;">+</span></span>
+    </div>
+    <div style="border:1px solid #E8E4DC;border-top:none;padding:22px;border-radius:0 0 4px 4px;">
+      <p style="margin:0 0 12px;font-size:14px;">Hi${displayName.trim() ? ` ${esc(displayName.trim().split(/\s+/)[0])}` : ""},</p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.6;">
+        You&rsquo;ve been invited to speak on Momentum+. Sign in with this
+        email address and a short setup builds your speaker page, personal
+        profile, and business resource — you also get full Pro-level access
+        through the season.
+      </p>
+      <p style="margin:0 0 6px;">
+        <a href="${site}/speaker-onboarding" style="display:inline-block;background:#B8965A;color:#0B1622;font-weight:bold;font-size:14px;padding:12px 22px;border-radius:4px;text-decoration:none;">Set up your speaker page</a>
+      </p>
+    </div>
+  </div>`,
+      });
+      existingNote = res.sent
+        ? ` We emailed them the setup link.`
+        : ` (The setup email couldn't be sent — ${res.reason ?? "unknown"} — so send them momentumplus.co/speaker-onboarding yourself.)`;
+    } catch {
+      existingNote =
+        " (The setup email couldn't be sent — send them momentumplus.co/speaker-onboarding yourself.)";
+    }
+  }
+
   revalidatePath("/admin/speakers");
   return {
     ok: true,
@@ -247,7 +307,7 @@ export async function inviteSpeaker(
       ? `Invite sent to ${email} — the email walks them through building their speaker page.`
       : loginLink
         ? `Account created but the invite email failed — copy the sign-in link below and send it to ${email} yourself.`
-        : `${email} already has a Momentum+ account — they'll see the speaker setup form at momentumplus.co/speaker-onboarding next time they sign in (send them that link).`,
+        : `${email} already has a Momentum+ account — they'll be routed to speaker setup next time they sign in.${existingNote}`,
   };
 }
 

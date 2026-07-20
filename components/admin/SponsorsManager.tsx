@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { RAIL_TIERS, SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
 import {
   archiveSponsor,
+  cancelSponsorInvite,
   createSponsor,
   deleteSponsor,
   inviteSponsorRep,
@@ -170,6 +171,7 @@ export function SponsorsManager({
   pastSponsors?: AdminSponsorRow[];
   /** Sponsor onboarding invites that haven't been completed yet. */
   pendingInvites?: {
+    id: string;
     email: string;
     tier: string;
     businessName: string;
@@ -375,13 +377,42 @@ export function SponsorsManager({
         )}
         {pendingInvites.length > 0 && (
           <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--mid-gray)" }}>
-            Waiting on:{" "}
-            {pendingInvites
-              .map(
-                (i) =>
-                  `${i.email}${i.businessName ? ` (${i.businessName})` : ""} — ${sponsorTierLabel(i.tier)}`,
-              )
-              .join(" · ")}
+            <div style={{ marginBottom: 4 }}>Waiting on:</div>
+            {pendingInvites.map((i) => (
+              <div
+                key={i.id}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  marginBottom: 4,
+                }}
+              >
+                <span>
+                  {i.email}
+                  {i.businessName ? ` (${i.businessName})` : ""} —{" "}
+                  {sponsorTierLabel(i.tier)}
+                </span>
+                <button
+                  type="button"
+                  className="btn-mini danger"
+                  style={{ padding: "2px 8px", fontSize: 10.5 }}
+                  disabled={pending}
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `Cancel the sponsor invite for ${i.email}? Their login (if created) stays — they just won't be routed into sponsor setup anymore.`,
+                      )
+                    ) {
+                      run(() => cancelSponsorInvite(i.id));
+                    }
+                  }}
+                >
+                  Cancel invite
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

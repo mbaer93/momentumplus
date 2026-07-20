@@ -51,14 +51,12 @@ export async function completeSpeakerOnboarding(
   }
 
   const admin = createServiceClient();
-  const { data: invite } = await admin
-    .from("speaker_invites")
-    .select("id")
-    .eq("invited_profile_id", user.id)
-    .is("completed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { findOpenInvite } = await import("@/lib/invite-lookup");
+  const invite = await findOpenInvite<{ id: string }>(
+    admin,
+    "speaker_invites",
+    user,
+  );
   if (!invite) {
     return {
       ok: false,
@@ -201,14 +199,17 @@ export async function getPendingSpeakerInvite(): Promise<{
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { pending: false };
-  const { data: invite } = await createServiceClient()
-    .from("speaker_invites")
-    .select("display_name, account_created")
-    .eq("invited_profile_id", user.id)
-    .is("completed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { findOpenInvite } = await import("@/lib/invite-lookup");
+  const invite = await findOpenInvite<{
+    id: string;
+    display_name: string | null;
+    account_created: boolean | null;
+  }>(
+    createServiceClient(),
+    "speaker_invites",
+    user,
+    "id, display_name, account_created",
+  );
   if (!invite) return { pending: false };
   return {
     pending: true,

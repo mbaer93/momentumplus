@@ -37,6 +37,11 @@ export interface PlansViewProps {
   stripePlan: "basic" | "pro" | null;
   /** Viewer holds pro-level access (paid Pro, sponsor, or admin). */
   isPro: boolean;
+  /** Viewer holds ANY active membership (paid or comp). Same rule as the
+      profile's BillingControls: never sell Basic to someone whose access is
+      already covered — a second checkout double-bills for nothing (their
+      higher/equal grant already wins). */
+  hasActiveMembership: boolean;
   hasCustomer: boolean;
   tierLabel: string;
   /** The avatar menu's Billing entry couldn't open the Stripe portal and
@@ -101,6 +106,7 @@ export function PlansView({
   terms,
   stripePlan,
   isPro,
+  hasActiveMembership,
   hasCustomer,
   tierLabel,
   billingNotice = false,
@@ -164,7 +170,9 @@ export function PlansView({
         ? { label: "Switch to Member", plan: "basic" as const }
         : isPro
           ? { label: `Included with your ${tierLabel} access`, disabled: true }
-          : { label: "Choose Member", plan: "basic" as const };
+          : hasActiveMembership
+            ? { label: `Covered by your ${tierLabel} access`, disabled: true }
+            : { label: "Choose Member", plan: "basic" as const };
   const proCta: Cta =
     stripePlan === "pro"
       ? { label: "Your current plan", disabled: true }

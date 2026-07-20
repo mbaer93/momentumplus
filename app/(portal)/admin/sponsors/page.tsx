@@ -75,7 +75,7 @@ export default async function AdminSponsorsPage({
   }));
 
   let pastRows: AdminSponsorRow[] = [];
-  let pendingInvites: { email: string; tier: string; businessName: string; createdAt: string }[] = [];
+  let pendingInvites: { id: string; email: string; tier: string; businessName: string; createdAt: string }[] = [];
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
     const [{ data: sponsors }, { data: events }, { data: seatRows }, { data: inviteRows }] =
@@ -103,11 +103,12 @@ export default async function AdminSponsorsPage({
           .select("sponsor_id, profile_id, profiles ( full_name, email )"),
         admin
           .from("sponsor_invites")
-          .select("email, tier, business_name, created_at")
+          .select("id, email, tier, business_name, created_at")
           .is("completed_at", null)
           .order("created_at", { ascending: false }),
       ]);
     pendingInvites = (inviteRows ?? []).map((i) => ({
+      id: i.id as string,
       email: i.email as string,
       tier: i.tier as string,
       businessName: (i.business_name as string) ?? "",
