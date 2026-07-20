@@ -1,17 +1,32 @@
 import Image from "next/image";
 import Link from "next/link";
 import { requireMember } from "@/lib/current-member";
-import { listSpeakers } from "@/lib/directory-queries";
+import {
+  listSpeakers,
+  listSpeakersNextSeason,
+} from "@/lib/directory-queries";
 import { listSessions } from "@/lib/sessions/queries";
+import { upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
+import { SeasonToggle } from "@/components/directory/SeasonToggle";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 
 export const dynamic = "force-dynamic";
 
-export default async function SpeakersPage() {
+export default async function SpeakersPage({
+  searchParams,
+}: {
+  searchParams?: { season?: string };
+}) {
   const member = await requireMember();
+  // Next-season preview is for the people planning it — admins, speakers,
+  // sponsor managers. Members always get the live season.
+  const canPreview =
+    member.isAdmin || member.isSpeaker || member.isSponsorManager;
+  const nextView = canPreview && searchParams?.season === "next";
+  const boundaryYear = upcomingSeasonStart().getUTCFullYear();
   const [speakers, sessions] = await Promise.all([
-    listSpeakers(),
+    nextView ? listSpeakersNextSeason() : listSpeakers(),
     listSessions(),
   ]);
   // Real per-speaker session counts (the directory rows don't carry them) —
@@ -34,9 +49,18 @@ export default async function SpeakersPage() {
           <AdminAddChip href="/admin/speakers" label="Add speaker" />
         )}
       </div>
+      {canPreview && (
+        <SeasonToggle
+          base="/speakers"
+          next={nextView}
+          nextLabel={`Oct 1, ${boundaryYear} – Oct 1, ${boundaryYear + 1}`}
+        />
+      )}
       {speakers.length === 0 && (
         <div className="sessions-empty" style={{ marginTop: 20 }}>
-          Speaker profiles will appear here as they&apos;re added.
+          {nextView
+            ? "No speakers confirmed for next season yet — they appear here as they complete onboarding."
+            : "Speaker profiles will appear here as they're added."}
         </div>
       )}
       <BodyAd variant="tile" />

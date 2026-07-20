@@ -3,7 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canAccess } from "@/lib/access";
 import { RAIL_TIERS, normalizeSponsorTier } from "@/lib/sponsor-tiers";
-import { sponsorActive, speakerLive } from "@/lib/sponsor-lifecycle";
+import {
+  inNextSeason,
+  sponsorActive,
+  speakerLive,
+} from "@/lib/sponsor-lifecycle";
 import type { Tier } from "@/lib/types";
 import {
   resources as placeholderResources,
@@ -288,7 +292,11 @@ export async function listSponsors(): Promise<SponsorItem[]> {
         expiresAt: row.expires_at ?? null,
       }),
     )
-    .map((row) => ({
+    .map(mapSponsorRow);
+}
+
+function mapSponsorRow(row: SponsorRow): SponsorItem {
+  return {
     id: row.id,
     name: row.name,
     tier: normalizeSponsorTier(row.tier),
@@ -302,7 +310,43 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     logoUrl: row.logo_url ?? null,
     sidebarAdUrl: row.sidebar_ad_url ?? null,
     railActive: Boolean(row.rail_active),
-  }));
+  };
+}
+
+/**
+ * NEXT-SEASON previews (admins, speakers, sponsor managers): everyone whose
+ * term runs past the upcoming October 1 — i.e., the roster the portal will
+ * show once the season flips. Terms all end on an October 1, so this is
+ * exactly the pre-season cohort plus nobody from the current season.
+ */
+export async function listSpeakersNextSeason(): Promise<SpeakerProfile[]> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return [];
+  }
+  const data = await cachedSpeakerRows();
+  return data
+    .filter((row) =>
+      inNextSeason({
+        archivedAt: row.archived_at ?? null,
+        expiresAt: row.expires_at ?? null,
+      }),
+    )
+    .map(mapSpeakerRow);
+}
+
+export async function listSponsorsNextSeason(): Promise<SponsorItem[]> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return [];
+  }
+  const data = await cachedSponsorRows();
+  return data
+    .filter((row) =>
+      inNextSeason({
+        archivedAt: row.archived_at ?? null,
+        expiresAt: row.expires_at ?? null,
+      }),
+    )
+    .map(mapSponsorRow);
 }
 
 export async function getSponsor(id: string): Promise<SponsorItem | null> {
