@@ -1,6 +1,6 @@
 "use server";
 
-import { getStripeSettings, stripeReady, stripeRequest } from "@/lib/stripe";
+import { getStripeSettings, priceForTerm, stripeReady, stripeRequest } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -74,10 +74,12 @@ async function ensureCustomer(
 /** Start a Stripe Checkout for Basic or Pro; returns the redirect URL. */
 export async function startCheckout(
   plan: "basic" | "pro",
+  /** Billing term in months: 1 (default), 3, 6, or 12 when configured. */
+  months: number = 1,
 ): Promise<BillingActionResult> {
   const ctx = await billingContext();
   if (!ctx.ok) return { ok: false, message: ctx.message };
-  const price = ctx.settings.prices[plan];
+  const price = priceForTerm(ctx.settings, plan, [1, 3, 6, 12].includes(months) ? months : 1);
   if (!price) return { ok: false, message: "That plan isn't available yet." };
 
   try {

@@ -15,7 +15,7 @@ import type { SponsorItem } from "@/lib/directory-data";
  * clicks are sent individually via sendBeacon so navigation isn't blocked.
  */
 
-const HIDDEN_PREFIXES = ["/community", "/profile", "/admin"];
+const HIDDEN_PREFIXES = ["/community", "/profile", "/admin", "/upgrade"];
 
 function hiddenFor(pathname: string): boolean {
   if (HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`)))
@@ -77,9 +77,8 @@ export function SponsorRail({
   return (
     <aside className="sponsor-rail">
       {showUpgrade && (
-        /* Upgrade path for members below Pro — plan controls live on
-           /profile, same destination as the Library's locked-card link. */
-        <Link href="/profile" className="rail-upgrade-card">
+        /* Upgrade path for members below Pro — straight to the plans page. */
+        <Link href="/upgrade" className="rail-upgrade-card">
           <span className="rail-upgrade-kicker">Momentum+ Pro</span>
           <span className="rail-upgrade-title">Get the full experience</span>
           <span className="rail-upgrade-sub">

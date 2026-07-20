@@ -2636,6 +2636,42 @@
 .rail-become-sub { font-size: 11px; color: var(--mid-gray); margin-top: 4px; line-height: 1.45; }
 .rail-become-link { display: inline-block; font-size: 11px; font-weight: 600; color: var(--gold); margin-top: 10px; }
 
+/* ===== PLANS & UPGRADES (/upgrade) ===== */
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 16px;
+  max-width: 860px;
+}
+.plan-card { padding: 22px; position: relative; }
+.plan-card.best { border-color: var(--gold); }
+.plan-card-name {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.plan-card-price { font-size: 13.5px; font-weight: 700; color: var(--gold); margin-top: 4px; }
+.plan-card-list { list-style: none; margin: 14px 0; padding: 0; }
+.plan-card-list li {
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 6px 0 6px 22px;
+  position: relative;
+  border-bottom: 1px solid var(--cream);
+}
+.plan-card-list li::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 12px;
+  width: 10px;
+  height: 5px;
+  border-left: 2px solid var(--gold);
+  border-bottom: 2px solid var(--gold);
+  transform: rotate(-45deg);
+}
+
 /* Sponsor wordmarks (styled text stand-ins for logos) */
 .wm { text-align: center; }
 .wm-main { font-family: var(--font-serif); font-size: 15px; font-weight: 700; color: var(--navy); line-height: 1.2; }

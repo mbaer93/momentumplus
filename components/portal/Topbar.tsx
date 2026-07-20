@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BellIcon, SearchIcon, SettingsIcon } from "@/components/icons";
 import { markNotificationsRead } from "@/app/(portal)/community/actions";
+import { openBillingPortal } from "@/app/(portal)/profile/billing-actions";
 import { titleForPath } from "./nav";
 import { MobileNavToggle } from "./PortalNav";
 
@@ -27,15 +28,19 @@ interface TopbarProps {
   userInitials: string;
   upcoming?: TopbarUpcoming[];
   notifications?: TopbarNotification[];
+  /** Member is below Pro — the account menu leads with the upgrade link. */
+  showUpgrade?: boolean;
 }
 
 export function Topbar({
   userInitials,
   upcoming = [],
   notifications = [],
+  showUpgrade = false,
 }: TopbarProps) {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<"bell" | "avatar" | null>(null);
+  const [billingPending, startBilling] = useTransition();
   // Cleared locally the moment the bell opens; the server marks rows read.
   const [seen, setSeen] = useState(false);
   const unreadCount = seen ? 0 : notifications.filter((n) => n.unread).length;
@@ -158,6 +163,33 @@ export function Topbar({
             <Link href="/profile" className="topbar-menu-item">
               My profile
             </Link>
+            <Link
+              href="/upgrade"
+              className="topbar-menu-item"
+              style={showUpgrade ? { color: "var(--gold)", fontWeight: 600 } : undefined}
+            >
+              {showUpgrade ? "Upgrade membership" : "Plans & upgrades"}
+            </Link>
+            <button
+              type="button"
+              className="topbar-menu-item topbar-menu-btn"
+              disabled={billingPending}
+              onClick={() =>
+                // Straight to the Stripe portal (card, plan, cancel). If the
+                // member has no billing profile yet, land on /upgrade where
+                // the full picture (plans + billing status) lives.
+                startBilling(async () => {
+                  try {
+                    const res = await openBillingPortal();
+                    window.location.href = res.ok && res.url ? res.url : "/upgrade";
+                  } catch {
+                    window.location.href = "/upgrade";
+                  }
+                })
+              }
+            >
+              {billingPending ? "Opening billing…" : "Billing"}
+            </button>
             <form action="/auth/signout" method="post" style={{ margin: 0 }}>
               <button type="submit" className="topbar-menu-item topbar-menu-btn">
                 Log out

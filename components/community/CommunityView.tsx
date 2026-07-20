@@ -649,7 +649,7 @@ export function CommunityView({
                 {active.description}
               </div>
               <Link
-                href="/profile"
+                href="/upgrade"
                 className="btn-gold"
                 style={{ marginTop: 6, padding: "9px 16px", fontSize: 13 }}
               >
