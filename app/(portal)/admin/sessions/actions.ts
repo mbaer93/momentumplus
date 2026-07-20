@@ -228,7 +228,7 @@ export async function cancelSession(id: string): Promise<AdminResult> {
     .from("sessions")
     .update({ status: "cancelled" })
     .eq("id", id)
-    .select("zoom_meeting_id")
+    .select("zoom_meeting_id, starts_at, duration_min")
     .maybeSingle();
   if (error) {
     if (/invalid input value for enum/i.test(error.message)) {
@@ -241,10 +241,21 @@ export async function cancelSession(id: string): Promise<AdminResult> {
     return { ok: false, message: error.message };
   }
 
-  // Close the Zoom room too — cancelling used to leave the meeting live, so
-  // members holding the old join URL or calendar invite could still walk in.
+  // Close the Zoom room too — but ONLY for sessions that haven't ended.
+  // Cancelling a PAST session used to delete its Zoom meeting and clear the
+  // link, destroying the platform's pointer to the cloud recording before
+  // it could be imported to the Library.
+  const endedAlready = Boolean(
+    updated?.starts_at &&
+      new Date(updated.starts_at as string).getTime() +
+        ((updated.duration_min as number | null) ?? 60) * 60000 <
+        Date.now(),
+  );
   let zoomNote = "";
-  if (updated?.zoom_meeting_id) {
+  if (updated?.zoom_meeting_id && endedAlready) {
+    zoomNote =
+      " This session already ended, so its Zoom meeting and recording link were left intact.";
+  } else if (updated?.zoom_meeting_id) {
     try {
       const { deleteZoomMeeting, isZoomConfigured } = await import("@/lib/zoom");
       const { isZoomReady } = await import("@/lib/service-config");
