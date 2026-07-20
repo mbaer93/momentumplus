@@ -6,6 +6,9 @@
  */
 
 export const SPONSOR_TIERS = [
+  // The platform host (Sierra's business) — one-of-a-kind tier with NO end
+  // date: onboarding/reinstating a host sponsor never sets an expiry.
+  { value: "host", label: "Host Sponsor" },
   { value: "momentum_plus", label: "Momentum+ Sponsor" },
   { value: "title", label: "Title Sponsor" },
   { value: "platinum", label: "Platinum Sponsor" },

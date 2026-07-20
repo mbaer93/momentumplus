@@ -76,13 +76,16 @@ export async function completeSponsorOnboarding(
     };
   }
 
-  const termEnd = seasonEnd().toISOString();
+  // Host Sponsor (the platform's own business) has no term — everyone else
+  // runs through October 1 of next year.
+  const tier = normalizeSponsorTier(invite.tier);
+  const termEnd = tier === "host" ? null : seasonEnd().toISOString();
 
   // 1) The sponsor page entry (hidden from the rail until the team
   //    activates it; tier was chosen by the admin at invite time).
   const sponsorRow = {
     name: businessName,
-    tier: normalizeSponsorTier(invite.tier),
+    tier,
     tagline: input.tagline.trim() || null,
     description: input.description.trim() || null,
     offer: input.offer.trim() || null,
