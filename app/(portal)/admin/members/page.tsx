@@ -11,12 +11,13 @@ import {
 import { ArrowLeftIcon } from "@/components/icons";
 import { tierLabel } from "@/lib/access";
 import { allRows } from "@/lib/db-utils";
+import { effectiveMembership } from "@/lib/membership";
 import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { redirect } from "next/navigation";
-import type { Tier } from "@/lib/types";
+import type { Membership, Tier } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
     firstLoginLabel: "Jun 3, 2026",
     lastLoginLabel: "Jul 10, 2026",
     neverLoggedIn: false,
+    otherMemberships: [],
     ...PREVIEW_PROFILE_DEFAULTS,
   },
   {
@@ -59,6 +61,7 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
     firstLoginLabel: null,
     lastLoginLabel: null,
     neverLoggedIn: true,
+    otherMemberships: [],
     ...PREVIEW_PROFILE_DEFAULTS,
   },
   {
@@ -75,6 +78,7 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
     firstLoginLabel: "May 18, 2026",
     lastLoginLabel: "Jul 14, 2026",
     neverLoggedIn: false,
+    otherMemberships: [],
     ...PREVIEW_PROFILE_DEFAULTS,
   },
 ];
@@ -178,64 +182,78 @@ export default async function AdminMembersPage({
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
-    // Memberships first, then auth activity for exactly those profiles.
-    // Search matches name or email; pagination replaces the old silent
-    // 200-row cap that made older members unmanageable from the UI.
+    // ONE ROW PER PERSON: paginate profiles (that hold at least one
+    // membership) with their membership rows nested. A member with several
+    // grants — say a Stripe subscription plus a speaker/sponsor/admin comp
+    // — used to appear once per grant with different levels, which read as
+    // a duplicate account. Search matches name or email.
     let query = admin
-      .from("memberships")
+      .from("profiles")
       .select(
-        "id, profile_id, tier, status, access_expires_at, source, profiles!inner ( full_name, email, title, company, phone, admin_role, admin_perms )",
+        "id, full_name, email, title, company, phone, admin_role, admin_perms, memberships!inner ( id, tier, status, access_expires_at, source, created_at )",
         { count: "exact" },
       );
     if (q) {
-      query = query.or(`full_name.ilike.*${q}*,email.ilike.*${q}*`, {
-        foreignTable: "profiles",
-      });
+      query = query.or(`full_name.ilike.*${q}*,email.ilike.*${q}*`);
     }
     const { data, count } = await query
       .order("created_at", { ascending: false })
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
     totalCount = count ?? 0;
     const authActivity = await fetchAuthActivity(
-      Array.from(new Set((data ?? []).map((r) => r.profile_id as string))),
+      (data ?? []).map((r) => r.id as string),
     );
     if (data) {
-      members = data.map((row) => {
-        const p = (
-          row as unknown as {
-            profiles: {
-              full_name: string;
-              email: string;
-              title: string | null;
-              company: string | null;
-              phone: string | null;
-              admin_role: "super" | "standard" | null;
-              admin_perms: Record<string, boolean> | null;
-            } | null;
-          }
-        ).profiles;
-        const activity = authActivity.get(row.profile_id);
+      interface MRow {
+        id: string;
+        tier: string;
+        status: string;
+        access_expires_at: string | null;
+        source: string;
+        created_at: string | null;
+      }
+      const expiresLabel = (iso: string | null) =>
+        iso
+          ? new Date(iso).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "Ongoing";
+      members = data.map((p) => {
+        const rows =
+          ((p as unknown as { memberships: MRow[] }).memberships ?? []);
+        // The grant that actually governs their access (portal picks the
+        // most privileged active one); if everything lapsed, show the
+        // newest row so the person stays manageable.
+        const effective =
+          (effectiveMembership(
+            rows as unknown as (Pick<
+              Membership,
+              "tier" | "status" | "access_expires_at"
+            > &
+              MRow)[],
+          ) as MRow | null) ??
+          [...rows].sort((a, b) =>
+            (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+          )[0];
+        const others = rows.filter((r) => r.id !== effective.id);
+        const activity = authActivity.get(p.id as string);
         const invitedDate = shortDate(activity?.invitedAt);
         const joinedDate = shortDate(activity?.createdAt);
         const neverLoggedIn = Boolean(
           activity && !activity.lastSignInAt && !activity.confirmedAt,
         );
         return {
-          membershipId: row.id,
-          profileId: row.profile_id,
-          name: p?.full_name || "—",
-          email: p?.email ?? "",
-          tier: row.tier,
-          tierLabel: tierLabel(row.tier as Tier),
-          status: row.status,
-          expiresLabel: row.access_expires_at
-            ? new Date(row.access_expires_at).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })
-            : "Ongoing",
-          source: row.source,
+          membershipId: effective.id,
+          profileId: p.id as string,
+          name: (p.full_name as string) || "—",
+          email: (p.email as string) ?? "",
+          tier: effective.tier,
+          tierLabel: tierLabel(effective.tier as Tier),
+          status: effective.status,
+          expiresLabel: expiresLabel(effective.access_expires_at),
+          source: effective.source,
           invitedLabel: invitedDate
             ? `Invited ${invitedDate}`
             : joinedDate
@@ -244,11 +262,18 @@ export default async function AdminMembersPage({
           firstLoginLabel: shortDate(activity?.confirmedAt),
           lastLoginLabel: shortDate(activity?.lastSignInAt),
           neverLoggedIn,
-          profileTitle: p?.title ?? "",
-          profileCompany: p?.company ?? "",
-          profilePhone: p?.phone ?? "",
-          adminRole: p?.admin_role ?? null,
-          adminPerms: p?.admin_perms ?? {},
+          profileTitle: (p.title as string) ?? "",
+          profileCompany: (p.company as string) ?? "",
+          profilePhone: (p.phone as string) ?? "",
+          adminRole: (p.admin_role as "super" | "standard" | null) ?? null,
+          adminPerms: (p.admin_perms as Record<string, boolean>) ?? {},
+          otherMemberships: others.map((o) => ({
+            membershipId: o.id,
+            tierLabel: tierLabel(o.tier as Tier),
+            status: o.status,
+            expiresLabel: expiresLabel(o.access_expires_at),
+            source: o.source,
+          })),
         } satisfies AdminMemberRow;
       });
     }
