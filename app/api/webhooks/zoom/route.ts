@@ -95,78 +95,20 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ ok: true, note: "no matching session" });
   }
-  if ((session as { program?: string }).program === "rooted_focus") {
-    return NextResponse.json({ ok: true, note: "rooted focus — not archived" });
-  }
 
-  // One recording per session — re-deliveries and multi-file events must
-  // not create duplicates.
-  const { data: existing } = await admin
-    .from("videos")
-    .select("id")
-    .eq("session_id", session.id)
-    .limit(1)
-    .maybeSingle();
-  if (existing) {
-    return NextResponse.json({ ok: true, note: "video already exists" });
-  }
-
-  // Best MP4: prefer the speaker-view screen share, else the largest file.
-  const mp4s = files.filter(
-    (f) => f.file_type === "MP4" && f.download_url && f.status !== "processing",
+  const { ingestSessionRecording } = await import("@/lib/zoom-recordings");
+  const result = await ingestSessionRecording(
+    admin,
+    session as unknown as import("@/lib/zoom-recordings").IngestSession,
+    files,
+    body.download_token ?? null,
   );
-  const best =
-    mp4s.find((f) => f.recording_type === "shared_screen_with_speaker_view") ??
-    mp4s.sort((a, b) => (b.file_size ?? 0) - (a.file_size ?? 0))[0];
-  if (!best?.download_url) {
-    return NextResponse.json({ ok: true, note: "no MP4 in this delivery" });
-  }
-
-  const inputUrl = body.download_token
-    ? `${best.download_url}?access_token=${body.download_token}`
-    : best.download_url;
-
-  let assetId: string;
-  try {
-    const { createMuxAssetFromUrl } = await import("@/lib/mux");
-    const asset = await createMuxAssetFromUrl(inputUrl);
-    assetId = asset.id;
-  } catch (e) {
+  if (!result.ok && result.status.startsWith("Mux ingest failed")) {
     // Non-200 → Zoom retries the webhook later.
-    return NextResponse.json(
-      { error: `Mux ingest failed: ${(e as Error).message}` },
-      { status: 502 },
-    );
+    return NextResponse.json({ error: result.status }, { status: 502 });
   }
-
-  // Unpublished on purpose: an admin reviews and publishes with one click
-  // (which fires the members' recording_ready notification).
-  const { error: insertError } = await admin.from("videos").insert({
-    title: session.title,
-    category: session.category,
-    session_id: session.id,
-    mux_asset_id: assetId,
-    min_access: session.min_access,
-    published_at: null,
-  });
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.status }, { status: 500 });
   }
-
-  // Tell the admins there's a recording to review.
-  const { listAdminProfileIds } = await import("@/lib/engagement-notify");
-  const adminIds = await listAdminProfileIds();
-  if (adminIds.length) {
-    await admin.from("notifications").insert(
-      adminIds.map((id) => ({
-        profile_id: id,
-        kind: "platform",
-        title: "Session recording ready to review",
-        body: `"${session.title}" imported from Zoom — review and publish it.`,
-        link: "/admin/videos",
-      })),
-    );
-  }
-
-  return NextResponse.json({ ok: true, assetId });
+  return NextResponse.json({ ok: true, note: result.status });
 }

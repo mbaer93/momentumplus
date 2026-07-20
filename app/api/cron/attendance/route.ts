@@ -1,7 +1,8 @@
 import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { getMeetingParticipants } from "@/lib/zoom";
+import { getMeetingParticipants, getMeetingRecordings } from "@/lib/zoom";
+import { ingestSessionRecording, type IngestSession } from "@/lib/zoom-recordings";
 import { isZoomReady } from "@/lib/service-config";
 import { nextOccurrence, type Recurrence } from "@/lib/recurrence";
 
@@ -212,6 +213,60 @@ export async function GET(req: NextRequest) {
     results.push({ sessionId: session.id, matched: toMark.length });
   }
 
+  // --- 3. Recording import fallback ---
+  // The Zoom webhook delivers recordings instantly when configured in the
+  // Zoom dashboard — but that setup step is easy to miss, and without it
+  // recordings never reached the Library. This poller asks the Zoom API
+  // directly for recently-ended sessions that have no Library video yet,
+  // so the pipeline works with NO Zoom dashboard configuration at all.
+  const recordings: { sessionId: string; status: string }[] = [];
+  const endedAwhileAgo = (sessions ?? []).filter((s) => {
+    const end =
+      new Date(s.starts_at as string).getTime() +
+      ((s.duration_min as number | null) ?? 60) * 60000;
+    // Give Zoom time to finish processing the cloud recording.
+    return now - end > 15 * 60 * 1000;
+  });
+  if (endedAwhileAgo.length > 0) {
+    const { data: vids } = await admin
+      .from("videos")
+      .select("session_id")
+      .in(
+        "session_id",
+        endedAwhileAgo.map((s) => s.id as string),
+      );
+    const have = new Set((vids ?? []).map((v) => v.session_id as string));
+    // Bounded per run — the window re-checks stragglers on later passes.
+    const targets = endedAwhileAgo.filter((s) => !have.has(s.id as string)).slice(0, 5);
+    for (const s of targets) {
+      try {
+        const rec = await getMeetingRecordings(s.zoom_meeting_id as string);
+        if (!rec) {
+          recordings.push({ sessionId: s.id as string, status: "no recording available yet" });
+          continue;
+        }
+        const { data: full } = await admin
+          .from("sessions")
+          .select("id, title, category, min_access, program")
+          .eq("id", s.id)
+          .maybeSingle();
+        if (!full) continue;
+        const result = await ingestSessionRecording(
+          admin,
+          full as unknown as IngestSession,
+          rec.files,
+          rec.accessToken,
+        );
+        recordings.push({ sessionId: s.id as string, status: result.status });
+      } catch (e) {
+        recordings.push({
+          sessionId: s.id as string,
+          status: `error: ${(e as Error).message}`,
+        });
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     wentLive,
@@ -219,5 +274,6 @@ export async function GET(req: NextRequest) {
     wentScheduled,
     updated,
     sessions: results,
+    recordings,
   });
 }

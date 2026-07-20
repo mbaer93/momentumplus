@@ -153,6 +153,69 @@ export async function updateSession(
  * state (and can no longer enroll) while notes/enrollment history survive.
  * Members are NOT auto-notified — announce the cancellation separately.
  */
+/**
+ * On-demand Zoom recording import — the same ingest the hourly poller and
+ * the webhook use, triggered from the session row so an admin can pull a
+ * finished session's recording into the Library right now instead of
+ * waiting for the cron.
+ */
+export async function importSessionRecording(id: string): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Imported (preview mode)." };
+  }
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { data: session } = await admin
+    .from("sessions")
+    .select("id, title, category, min_access, program, zoom_meeting_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!session) return { ok: false, message: "Session not found." };
+  if (!session.zoom_meeting_id) {
+    return { ok: false, message: "This session has no Zoom meeting attached." };
+  }
+
+  const { getMeetingRecordings } = await import("@/lib/zoom");
+  let rec;
+  try {
+    rec = await getMeetingRecordings(session.zoom_meeting_id as string);
+  } catch (e) {
+    return { ok: false, message: `Zoom API error: ${(e as Error).message}` };
+  }
+  if (!rec) {
+    return {
+      ok: false,
+      message:
+        "Zoom has no cloud recording for this meeting yet. If the session just ended, Zoom is still processing — try again in 15–30 minutes. If it ended long ago, check that cloud recording is enabled on the Zoom account.",
+    };
+  }
+
+  const { ingestSessionRecording } = await import("@/lib/zoom-recordings");
+  const result = await ingestSessionRecording(
+    admin,
+    {
+      id: session.id as string,
+      title: session.title as string,
+      category: (session.category as string | null) ?? null,
+      min_access: (session.min_access as string | null) ?? null,
+      program: (session.program as string | null) ?? null,
+    },
+    rec.files,
+    rec.accessToken,
+  );
+  revalidatePath("/admin/videos");
+  return {
+    ok: result.ok,
+    message: result.ok
+      ? result.status === "video already exists"
+        ? "Already imported — review it under Admin → Library."
+        : "Recording imported — it's in Admin → Library (unpublished) with Mux processing it now. Publish it to notify members; the AI summary follows automatically."
+      : result.status,
+  };
+}
+
 export async function cancelSession(id: string): Promise<AdminResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Cancelled (preview mode)." };

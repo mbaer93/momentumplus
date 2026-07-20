@@ -3,10 +3,10 @@ import { requireMember } from "@/lib/current-member";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Aspire2Achieve Full Focus | Momentum+" };
+export const metadata = { title: "Aspire2Achieve Growth | Momentum+" };
 
 /*
- * Placeholder: the Aspire2Achieve Full Focus program details are coming from
+ * Placeholder: the Aspire2Achieve Growth program details are coming from
  * Matt — keep this page a tasteful teaser until then.
  */
 export default async function Aspire2AchievePage() {
@@ -16,7 +16,7 @@ export default async function Aspire2AchievePage() {
     <div className="resources-pad">
       <div className="section-header">
         <div>
-          <h2>Aspire2Achieve Full Focus</h2>
+          <h2>Aspire2Achieve Growth</h2>
           <p>A new Momentum+ program</p>
         </div>
       </div>
