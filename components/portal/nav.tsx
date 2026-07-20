@@ -50,7 +50,7 @@ export const NAV_SECTIONS: NavSection[] = [
       // explore doesn't dead-end on a "Coming soon" teaser. Flip adminOnly
       // off when the program ships.
       {
-        label: "Aspire2Achieve Full Focus",
+        label: "Aspire2Achieve Growth",
         href: "/aspire2achieve",
         icon: StarIcon,
         adminOnly: true,
