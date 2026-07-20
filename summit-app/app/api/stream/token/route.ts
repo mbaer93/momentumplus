@@ -1,22 +1,23 @@
 import { NextResponse } from "next/server";
 import { getCurrentMember } from "@/lib/current-member";
-import { createClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
-  channelsForTier,
+  channelsForTicket,
+  EVENT_CHANNELS,
   generateStreamUserToken,
   isStreamConfigured,
-  streamRoleForTier,
 } from "@/lib/stream";
+import { isVipRegistration } from "@/lib/summit";
+import { getMyTicket } from "@/lib/summit-queries";
 
 /*
- * Issues a Stream Chat user token for the signed-in member with tier-based
- * channel grants (SPEC.md §4). The Stream API secret stays server-side.
- * Channel membership is granted server-side here — never trusted from the UI.
+ * Issues a Stream Chat user token for the signed-in attendee with
+ * ticket-based channel grants (VIP ticket unlocks the lounge). The Stream
+ * API secret stays server-side; channel membership is granted here — never
+ * trusted from the UI.
  */
 export async function POST() {
   const member = await getCurrentMember();
-  if (!member || !member.membershipActive) {
+  if (!member) {
     return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   }
   if (!isStreamConfigured()) {
@@ -26,59 +27,21 @@ export async function POST() {
     );
   }
 
-  let userId = "preview-member";
-  if (isSupabaseConfigured()) {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
-    }
-    userId = user.id;
-
-    // Pre-season speakers are hidden from the community until October 1 of
-    // the year they join — no chat until their season starts.
-    if (member.tier === "speaker" && !member.isAdmin) {
-      const { createServiceClient } = await import("@/lib/supabase/admin");
-      const { speakerLive } = await import("@/lib/sponsor-lifecycle");
-      const { data: sp } = await createServiceClient()
-        .from("speakers")
-        .select("expires_at, archived_at")
-        .eq("profile_id", user.id)
-        .maybeSingle();
-      if (
-        sp &&
-        !speakerLive({
-          archivedAt: (sp.archived_at as string | null) ?? null,
-          expiresAt: (sp.expires_at as string | null) ?? null,
-        })
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "Community opens for speakers on October 1, when your season begins. Until then you can build your speaker page in the Speaker Studio.",
-          },
-          { status: 403 },
-        );
-      }
-    }
-  }
+  const ticket = await getMyTicket();
+  const isVip = Boolean(
+    ticket && isVipRegistration(ticket.registrationType),
+  );
+  const channels = channelsForTicket({ isVip, isAdmin: member.isAdmin });
 
   const token = generateStreamUserToken(
-    userId,
+    member.id,
     process.env.STREAM_API_SECRET!,
     { expSeconds: 60 * 60 * 24 },
   );
 
-  const channels = channelsForTier(member.tier);
-
-  // Upsert the Stream user server-side (admins get Stream's admin role and
-  // their title as a custom field), then ADD the user as a member of every
-  // channel their tier allows. Without the membership grant, non-admin
-  // users can't even read the channels — Stream's "user" role only sees
-  // channels it belongs to. Best-effort per step so a hiccup on one channel
-  // doesn't block the rest.
+  // Upsert the Stream user, then ADD them as a member of every channel their
+  // ticket allows — Stream's "user" role only sees channels it belongs to.
+  // Best-effort per step so a hiccup on one channel doesn't block the rest.
   try {
     const { StreamChat } = await import("stream-chat");
     const server = StreamChat.getInstance(
@@ -86,45 +49,40 @@ export async function POST() {
       process.env.STREAM_API_SECRET!,
     );
     const streamUser = {
-      id: userId,
+      id: member.id,
       name: member.name,
       role: member.isAdmin ? "admin" : "user",
-      // Custom field rendered next to the Admin badge in chat.
-      adminTitle: member.isAdmin ? (member.adminTitle ?? "") : "",
+      adminTitle: member.isAdmin ? "TSLS Team" : "",
     };
     const teamUser = {
-      id: "momentum-team",
-      name: "Momentum+ Team",
+      id: "tsls-team",
+      name: "TSLS Team",
       role: "admin",
-      adminTitle: "Momentum+ Team",
+      adminTitle: "TSLS Team",
     };
     await server.upsertUsers([streamUser, teamUser] as unknown as Parameters<
       typeof server.upsertUsers
     >[0]);
 
     const allowedIds = new Set(channels.map((c) => c.id));
-    const { COMMUNITY_CHANNELS } = await import("@/lib/stream");
     await Promise.all(
-      COMMUNITY_CHANNELS.map(async (c) => {
+      EVENT_CHANNELS.map(async (c) => {
         try {
           const channel = server.channel("messaging", c.id, {
-            created_by_id: "momentum-team",
+            created_by_id: "tsls-team",
             ...({ name: c.name } as object),
           });
           await channel.create();
           // Admin-post-only is enforced BY STREAM, not just our UI: frozen
-          // channels reject client-side sends, so a member connecting with
-          // the SDK directly still can't post. Team posts go through the
-          // server (announcement composer + scheduled-posts cron), which
-          // frozen doesn't block.
+          // channels reject client-side sends. Team posts go through the
+          // server, which frozen doesn't block.
           if (c.adminPostOnly) {
             await channel.updatePartial({ set: { frozen: true } });
           }
           if (allowedIds.has(c.id)) {
-            await channel.addMembers([userId]);
+            await channel.addMembers([member.id]);
           } else if (!member.isAdmin) {
-            // Downgraded tier: revoke gated rooms, don't just hide them.
-            await channel.removeMembers([userId]);
+            await channel.removeMembers([member.id]);
           }
         } catch {
           // per-channel best-effort
@@ -139,9 +97,9 @@ export async function POST() {
     {
       apiKey: process.env.NEXT_PUBLIC_STREAM_API_KEY,
       token,
-      userId,
+      userId: member.id,
       userName: member.name,
-      role: streamRoleForTier(member.tier),
+      role: { badge: member.isAdmin ? "Admin" : isVip ? "VIP" : "Attendee" },
       channels: channels.map((c) => ({
         id: c.id,
         name: c.name,

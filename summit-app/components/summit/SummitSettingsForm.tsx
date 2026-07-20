@@ -24,10 +24,9 @@ const FIELDS: { key: keyof SummitSettings; label: string; placeholder?: string }
 
 export function SummitSettingsForm({ initial }: { initial: SummitSettings }) {
   const [values, setValues] = useState<Record<string, string>>(
-    Object.fromEntries(
-      FIELDS.map((f) => [f.key, String(initial[f.key] ?? "")]),
-    ),
+    Object.fromEntries(FIELDS.map((f) => [f.key, String(initial[f.key] ?? "")])),
   );
+  const [announced, setAnnounced] = useState(initial.momentumAnnounced);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -38,6 +37,7 @@ export function SummitSettingsForm({ initial }: { initial: SummitSettings }) {
       const res = await updateSummitSettings({
         ...values,
         eventYear: Number(values.eventYear) || initial.eventYear,
+        momentumAnnounced: announced,
       } as Partial<SummitSettings>);
       setMsg({ text: res.message ?? (res.ok ? "Saved" : "Error"), ok: res.ok });
     });
@@ -45,7 +45,10 @@ export function SummitSettingsForm({ initial }: { initial: SummitSettings }) {
 
   return (
     <form onSubmit={save}>
-      <div className="admin-field-row" style={{ gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+      <div
+        className="admin-field-row"
+        style={{ gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}
+      >
         {FIELDS.map((f) => (
           <div className="admin-field" key={f.key}>
             <label htmlFor={`summit-${f.key}`}>{f.label}</label>
@@ -60,6 +63,31 @@ export function SummitSettingsForm({ initial }: { initial: SummitSettings }) {
           </div>
         ))}
       </div>
+
+      <div className="tsls-card" style={{ marginBottom: 16 }}>
+        <label
+          className="admin-check-row"
+          htmlFor="summit-momentumAnnounced"
+          style={{ fontWeight: 600 }}
+        >
+          <input
+            id="summit-momentumAnnounced"
+            type="checkbox"
+            className="pref-toggle"
+            checked={announced}
+            onChange={(e) => setAnnounced(e.target.checked)}
+          />
+          The Momentum+ gift has been announced on stage
+        </label>
+        <p className="tsls-admin-note" style={{ marginTop: 8, marginBottom: 0 }}>
+          Until this is checked, the app shows nothing about Momentum+
+          anywhere. Flip it during the announcement: the header button and
+          the &quot;your ticket includes Momentum+ access&quot; cards appear
+          for everyone immediately (general = 1 month, VIP = 3 months,
+          member level).
+        </p>
+      </div>
+
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button type="submit" className="btn-sm-gold" disabled={pending}>
           {pending ? "Saving…" : "Save event settings"}

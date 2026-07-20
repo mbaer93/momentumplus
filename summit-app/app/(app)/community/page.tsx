@@ -1,39 +1,44 @@
 import { CommunityView } from "@/components/community/CommunityView";
 import { requireMember } from "@/lib/current-member";
-import { listSpeakers } from "@/lib/directory-queries";
-import { agendaTimeLabel, currentAndNext } from "@/lib/summit";
-import { getSummitSettings, listAgendaItems } from "@/lib/summit-queries";
-import { COMMUNITY_CHANNELS, channelsForTier, isStreamConfigured } from "@/lib/stream";
+import { listEventSpeakers } from "@/lib/event-speakers";
+import { channelsForTicket, EVENT_CHANNELS, isStreamConfigured } from "@/lib/stream";
+import { agendaTimeLabel, currentAndNext, isVipRegistration } from "@/lib/summit";
+import {
+  getMyTicket,
+  getSummitSettings,
+  listAgendaItems,
+} from "@/lib/summit-queries";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
 /*
- * The same community the Momentum+ portal uses (one Stream workspace, one
- * member base) mounted inside the summit shell, so attendees chat without
- * leaving the event companion. Wiring mirrors /(portal)/community/page.tsx;
- * the sidebar card highlights what's happening at the venue instead of the
- * next portal session.
+ * The event's own community — its own Stream app, entirely separate from
+ * Momentum+. Channels are event-scoped; the VIP lounge unlocks with a VIP
+ * ticket. The sidebar card highlights what's happening at the venue.
  */
-export default async function SummitCommunityPage() {
+export default async function CommunityPage() {
   const member = await requireMember();
-  const allowedIds = new Set(channelsForTier(member.tier).map((c) => c.id));
+  const settings = await getSummitSettings();
+  const [ticket, speakers, agenda] = await Promise.all([
+    getMyTicket(),
+    listEventSpeakers(),
+    listAgendaItems(settings.eventYear),
+  ]);
 
-  const channels = COMMUNITY_CHANNELS.map((c) => ({
+  const isVip = Boolean(ticket && isVipRegistration(ticket.registrationType));
+  const allowedIds = new Set(
+    channelsForTicket({ isVip, isAdmin: member.isAdmin }).map((c) => c.id),
+  );
+  const channels = EVENT_CHANNELS.map((c) => ({
     id: c.id,
     name: c.name,
     description: c.description,
     adminPostOnly: Boolean(c.adminPostOnly),
     allowed: allowedIds.has(c.id),
-    lockLabel:
-      c.gate === "vip_plus" ? "Pro & VIP" : c.gate === "pro" ? "Pro" : undefined,
+    lockLabel: c.gate === "vip" ? "VIP" : undefined,
   }));
 
-  const settings = await getSummitSettings();
-  const [speakers, agenda] = await Promise.all([
-    listSpeakers(),
-    listAgendaItems(settings.eventYear),
-  ]);
   const { current, next } = currentAndNext(agenda);
   const highlight = current ?? next;
 
@@ -44,7 +49,7 @@ export default async function SummitCommunityPage() {
         memberName={member.name}
         memberInitials={member.initials}
         isAdmin={member.isAdmin}
-        adminTitle={member.adminTitle}
+        adminTitle={member.isAdmin ? "TSLS Team" : null}
         streamConfigured={isStreamConfigured()}
         preview={!isSupabaseConfigured()}
         speakers={speakers.map((s) => ({ id: s.id, name: s.name }))}

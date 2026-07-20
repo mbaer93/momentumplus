@@ -14,6 +14,7 @@ import {
   agendaTimeLabel,
   currentAndNext,
   isVipRegistration,
+  momentumGiftMonths,
   ticketTypeLabel,
 } from "@/lib/summit";
 import {
@@ -36,7 +37,7 @@ function eventDatesLabel(startDate: string, endDate: string): string {
   return startDate === endDate ? fmt(startDate) : `${fmt(startDate)} – ${fmt(endDate)}`;
 }
 
-export default async function SummitHomePage() {
+export default async function HomePage() {
   const member = await requireMember();
   const settings = await getSummitSettings();
   const [agenda, ticket] = await Promise.all([
@@ -78,7 +79,8 @@ export default async function SummitHomePage() {
       desc: ticket
         ? ticketTypeLabel(ticket.registrationType)
         : "Registration & check-in",
-      badge: ticket && isVipRegistration(ticket.registrationType) ? "VIP" : undefined,
+      badge:
+        ticket && isVipRegistration(ticket.registrationType) ? "VIP" : undefined,
     },
   ];
 
@@ -157,21 +159,32 @@ export default async function SummitHomePage() {
         })}
       </section>
 
-      <section className="tsls-momentum-card">
-        <div>
-          <div className="tsls-momentum-title">
-            Momentum<span>+</span>
+      {/* The Momentum+ gift stays invisible until it's announced on stage —
+          then this card is the reveal. TSLS pushes to Momentum+, never the
+          other way around. */}
+      {settings.momentumAnnounced && ticket && (
+        <section className="tsls-momentum-card">
+          <div>
+            <div className="tsls-momentum-title">
+              Your gift: Momentum<span>+</span>
+            </div>
+            <p>
+              Your {ticketTypeLabel(ticket.registrationType)} ticket includes{" "}
+              {momentumGiftMonths(ticket.registrationType)}{" "}
+              {momentumGiftMonths(ticket.registrationType) === 1
+                ? "month"
+                : "months"}{" "}
+              of Momentum+ member access — sessions, recordings, and a
+              year-round leadership community. Watch your inbox for your
+              invite.
+            </p>
           </div>
-          <p>
-            Your year-round leadership platform — sessions, recordings,
-            courses, and community continue long after the summit.
-          </p>
-        </div>
-        <a href={momentumUrl("/dashboard")} className="tsls-momentum-cta">
-          Open Momentum+
-          <ArrowUpRightIcon size={14} />
-        </a>
-      </section>
+          <a href={momentumUrl("/dashboard")} className="tsls-momentum-cta">
+            Claim your access
+            <ArrowUpRightIcon size={14} />
+          </a>
+        </section>
+      )}
 
       <div className="tsls-footer-links">
         <a href={settings.websiteUrl} target="_blank" rel="noreferrer">

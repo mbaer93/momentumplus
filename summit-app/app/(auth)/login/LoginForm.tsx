@@ -23,7 +23,7 @@ export function LoginForm() {
   const redirectTo = safeRedirect(searchParams.get("redirect"));
   const configured = isSupabaseConfigured();
 
-  const [mode, setMode] = useState<Mode>("password");
+  const [mode, setMode] = useState<Mode>("magic");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -90,7 +90,7 @@ export function LoginForm() {
       setError(
         usable
           ? raw
-          : "We couldn't sign you in. Please try again in a moment, or use the password reset link below.",
+          : "We couldn't sign you in. Please try again in a moment, or request a sign-in link instead.",
       );
     } finally {
       setLoading(false);
@@ -174,7 +174,8 @@ export function LoginForm() {
       </div>
 
       <div className="login-links">
-        <a href={`${process.env.NEXT_PUBLIC_MOMENTUM_URL ?? "https://momentumplus.co"}/reset`}>Forgot your password?</a>
+        {/* No password-reset flow here: accounts are invite-based and the
+            email sign-in link IS the recovery path. */}
       </div>
     </div>
   );

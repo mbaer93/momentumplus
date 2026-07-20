@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AgendaManager } from "@/components/summit/AgendaManager";
 import type { EntityRow } from "@/components/admin/EntityManager";
 import { isoToEasternInput } from "@/lib/eastern-time";
-import { listSpeakersForAdmin } from "@/lib/directory-queries";
 import { AGENDA_KIND_LABELS, agendaTimeLabel, type AgendaKind } from "@/lib/summit";
 import { getSummitSettings } from "@/lib/summit-queries";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -67,10 +66,19 @@ export default async function SummitAdminAgendaPage({
     });
   }
 
-  const speakers = (await listSpeakersForAdmin()).map((s) => ({
-    value: s.id,
-    label: s.name,
-  }));
+  // Speaker options come from the event's own lineup (including hidden
+  // rows — an admin may schedule someone before publishing their profile).
+  let speakers: { value: string; label: string }[] = [];
+  if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { data } = await createServiceClient()
+      .from("event_speakers")
+      .select("id, name")
+      .order("name");
+    speakers = (data ?? []).map((s) => ({
+      value: s.id as string,
+      label: s.name as string,
+    }));
+  }
 
   return (
     <div className="tsls-pad">

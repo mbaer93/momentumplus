@@ -21,9 +21,8 @@ export default function LoginPage() {
             color: "var(--mid-gray)",
           }}
         >
-          Use the same email and password as your Momentum+ account. Registered
-          for the summit but never signed in? Use the invite link from your
-          registration email.
+          Registered for the summit? Sign in with the email you registered
+          with — we&apos;ll send you a one-tap sign-in link.
       </div>
     </div>
   );

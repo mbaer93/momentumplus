@@ -30,6 +30,14 @@ export default async function SummitAdminPage() {
             </span>
           </span>
         </Link>
+        <Link href="/admin/speakers" className="tsls-tile">
+          <span className="tsls-tile-body">
+            <span className="tsls-tile-title">Speakers</span>
+            <span className="tsls-tile-desc">
+              The event lineup — bios, headshots, and topic tags
+            </span>
+          </span>
+        </Link>
         <Link href="/admin/vendors" className="tsls-tile">
           <span className="tsls-tile-body">
             <span className="tsls-tile-title">Vendors</span>

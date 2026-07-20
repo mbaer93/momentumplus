@@ -5,9 +5,10 @@ import { momentumUrl } from "@/lib/momentum";
 import { getSummitSettings } from "@/lib/summit-queries";
 
 /*
- * The signed-in shell: sticky event header, tab navigation (bottom bar on
- * phones), and the one-tap jump to the Momentum+ platform — which is a
- * separate deployment on its own domain.
+ * The signed-in shell: sticky event header and tab navigation (bottom bar
+ * on phones). The Momentum+ button appears ONLY after the on-stage
+ * announcement (settings.momentumAnnounced) — until then the app pushes
+ * nothing about Momentum+ (Matt, 2026-07-20).
  */
 
 export const dynamic = "force-dynamic";
@@ -35,9 +36,11 @@ export default async function AppLayout({
               Admin
             </Link>
           )}
-          <a href={momentumUrl("/dashboard")} className="tsls-momentum-btn">
-            Momentum<span>+</span>
-          </a>
+          {settings.momentumAnnounced && (
+            <a href={momentumUrl("/dashboard")} className="tsls-momentum-btn">
+              Momentum<span>+</span>
+            </a>
+          )}
         </div>
       </header>
       <SummitTabBar />

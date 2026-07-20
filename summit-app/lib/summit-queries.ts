@@ -129,15 +129,15 @@ export async function listAgendaItems(eventYear: number): Promise<AgendaItem[]> 
   const { data, error } = await supabase
     .from("agenda_items")
     .select(
-      "id, title, description, kind, location, track, speaker_id, starts_at, ends_at, vip_only, published, speakers ( name )",
+      "id, title, description, kind, location, track, speaker_id, starts_at, ends_at, vip_only, published, event_speakers ( name )",
     )
     .eq("event_year", eventYear)
     .eq("published", true)
     .order("starts_at");
-  // Pre-migration (0043 not applied yet): empty state, not a crash.
+  // Pre-migration: empty state, not a crash.
   if (error || !data) return [];
   return data.map((row) => {
-    const speaker = row.speakers as unknown as { name?: string } | { name?: string }[] | null;
+    const speaker = row.event_speakers as unknown as { name?: string } | { name?: string }[] | null;
     const speakerName = Array.isArray(speaker)
       ? speaker[0]?.name ?? ""
       : speaker?.name ?? "";
@@ -225,9 +225,8 @@ export async function listVendors(eventYear: number): Promise<VendorItem[]> {
 }
 
 // ---------------------------------------------------------------------------
-// My ticket — the attendee's own row in the import ledger (RLS own-read).
-// Registration stays in the live Google Sheet + import cron; this only reads
-// what that pipeline already recorded.
+// My ticket — the attendee's own row in this app's attendees ledger, filled
+// by the read-only Sheet importer (RLS own-read).
 // ---------------------------------------------------------------------------
 
 export async function getMyTicket(): Promise<SummitTicket | null> {
@@ -244,8 +243,8 @@ export async function getMyTicket(): Promise<SummitTicket | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
   const { data, error } = await supabase
-    .from("import_log")
-    .select("event_year, registration_type, processed_at")
+    .from("attendees")
+    .select("event_year, registration_type, registered_at")
     .eq("profile_id", user.id)
     .order("event_year", { ascending: false })
     .limit(1)
@@ -254,6 +253,6 @@ export async function getMyTicket(): Promise<SummitTicket | null> {
   return {
     eventYear: data.event_year as number,
     registrationType: (data.registration_type as string) ?? "",
-    registeredAt: data.processed_at as string,
+    registeredAt: data.registered_at as string,
   };
 }

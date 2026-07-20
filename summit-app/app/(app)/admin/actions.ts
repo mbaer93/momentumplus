@@ -242,3 +242,84 @@ export async function deleteVendor(id: string): Promise<AdminResult> {
   bust();
   return { ok: true, message: "Vendor deleted." };
 }
+
+// ---------------------------------------------------------------------------
+// Event speakers (the summit's own lineup — not synced from anywhere)
+// ---------------------------------------------------------------------------
+
+export interface SpeakerInput {
+  name: string;
+  title: string;
+  bio: string;
+  headshotUrl: string;
+  website: string;
+  tags: string;
+  sortOrder: string;
+  active: boolean;
+}
+
+function speakerRow(input: SpeakerInput) {
+  const sort = Number.parseInt(input.sortOrder, 10);
+  return {
+    name: input.name.trim(),
+    title: input.title.trim() || null,
+    bio: input.bio.trim() || null,
+    headshot_url: input.headshotUrl.trim() || null,
+    website: input.website.trim() || null,
+    tags: input.tags.trim() || null,
+    sort_order: Number.isFinite(sort) ? sort : 0,
+    active: input.active,
+  };
+}
+
+export async function createSpeaker(input: SpeakerInput): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!input.name.trim()) return { ok: false, message: "The speaker needs a name." };
+
+  const { error } = await createServiceClient()
+    .from("event_speakers")
+    .insert(speakerRow(input));
+  if (error) return { ok: false, message: error.message };
+  bust();
+  return { ok: true, message: "Speaker added." };
+}
+
+export async function updateSpeaker(
+  id: string,
+  input: SpeakerInput,
+): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!input.name.trim()) return { ok: false, message: "The speaker needs a name." };
+
+  const { error } = await createServiceClient()
+    .from("event_speakers")
+    .update(speakerRow(input))
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  bust();
+  return { ok: true, message: "Speaker saved." };
+}
+
+export async function deleteSpeaker(id: string): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Deleted (preview mode)." };
+  }
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { error } = await createServiceClient()
+    .from("event_speakers")
+    .delete()
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  bust();
+  return { ok: true, message: "Speaker deleted." };
+}

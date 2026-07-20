@@ -3,6 +3,7 @@ import { requireMember } from "@/lib/current-member";
 import { qrSvg } from "@/lib/qr";
 import {
   isVipRegistration,
+  momentumGiftMonths,
   ticketQrPayload,
   ticketTypeLabel,
 } from "@/lib/summit";
@@ -11,12 +12,15 @@ import { getMyTicket, getSummitSettings } from "@/lib/summit-queries";
 export const dynamic = "force-dynamic";
 
 /*
- * My Ticket — the screen attendees pull up at the door. The ticket record is
- * their own row in the import ledger (fed by the live registration sheet);
- * the QR encodes the same email the sheet keys on, so staff can match it
- * against the registration list. Brightness-friendly: big QR, high contrast.
+ * My Ticket — the screen attendees pull up at the door. The ticket record
+ * comes from this app's attendees ledger (filled by the read-only Sheet
+ * importer); the QR encodes the same email the registration sheet keys on,
+ * so staff can match it against the registration list.
+ *
+ * Momentum+ is mentioned NOWHERE on this screen until the on-stage
+ * announcement flips settings.momentumAnnounced.
  */
-export default async function SummitTicketPage() {
+export default async function TicketPage() {
   const member = await requireMember();
   const settings = await getSummitSettings();
   const ticket = await getMyTicket();
@@ -54,6 +58,7 @@ export default async function SummitTicketPage() {
   }
 
   const vip = isVipRegistration(ticket.registrationType);
+  const giftMonths = momentumGiftMonths(ticket.registrationType);
   const svg = qrSvg(
     ticketQrPayload(ticket, member.email),
     `Check-in code for ${member.name}`,
@@ -100,8 +105,8 @@ export default async function SummitTicketPage() {
           <div>
             <div className="tsls-upgrade-title">VIP Leadership Experience</div>
             <p>
-              Upgrade to the VIP Leadership Experience — includes 3 months of
-              Momentum+ access ($534 value).
+              Upgrade your ticket to the VIP Leadership Experience for the
+              full summit — premium access all day.
             </p>
           </div>
           <a
@@ -113,6 +118,22 @@ export default async function SummitTicketPage() {
             Upgrade my ticket
             <ArrowUpRightIcon size={14} />
           </a>
+        </div>
+      )}
+
+      {settings.momentumAnnounced && (
+        <div className="tsls-upgrade-card" style={{ borderColor: "var(--navy)" }}>
+          <div>
+            <div className="tsls-upgrade-title">
+              Included: {giftMonths} {giftMonths === 1 ? "month" : "months"} of
+              Momentum+
+            </div>
+            <p>
+              As announced on stage — your ticket includes member-level access
+              to Momentum+, the year-round leadership platform. Watch your
+              inbox for your invite.
+            </p>
+          </div>
         </div>
       )}
 

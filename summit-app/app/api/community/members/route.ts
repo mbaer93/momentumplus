@@ -2,43 +2,42 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentMember } from "@/lib/current-member";
 import { allRows } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /*
- * Member directory for starting a direct message. Only members who have
- * COMPLETED registration (set their name) and hold a usable membership are
- * listed — invited-but-never-finished accounts used to show up as an
- * anonymous wall of "Member" rows.
+ * Attendee directory for starting a direct message. Served via the service
+ * role so profile emails/flags never need a client-side read policy. Only
+ * attendees who have a display name are listed.
  */
 
 async function dmDirectory(viewerId: string): Promise<
   { id: string; name: string; detail: string }[]
 > {
   const admin = createServiceClient();
-  // Membership first: the DM list is members-only in both directions.
-  const { rows: memberships } = await allRows<{ profile_id: string }>(
-    (from, to) =>
-      admin
-        .from("memberships")
-        .select("profile_id")
-        .in("status", ["active", "past_due"])
-        .order("profile_id")
-        .range(from, to),
+  const { rows: attendees } = await allRows<{
+    profile_id: string | null;
+    registration_type: string | null;
+  }>((from, to) =>
+    admin
+      .from("attendees")
+      .select("profile_id, registration_type")
+      .order("email")
+      .range(from, to),
   );
-  const memberIds = new Set(memberships.map((m) => m.profile_id));
-  memberIds.delete(viewerId);
-  if (memberIds.size === 0) return [];
+  const ticketByProfile = new Map(
+    attendees
+      .filter((a) => a.profile_id)
+      .map((a) => [a.profile_id as string, a.registration_type ?? ""]),
+  );
 
   const { rows: profiles } = await allRows<{
     id: string;
     full_name: string | null;
-    title: string | null;
-    company: string | null;
+    is_admin: boolean | null;
   }>((from, to) =>
     admin
       .from("profiles")
-      .select("id, full_name, title, company")
+      .select("id, full_name, is_admin")
       .not("full_name", "is", null)
       .neq("full_name", "")
       .order("full_name")
@@ -46,50 +45,45 @@ async function dmDirectory(viewerId: string): Promise<
   );
 
   return profiles
-    .filter((p) => memberIds.has(p.id) && (p.full_name ?? "").trim())
+    .filter(
+      (p) =>
+        p.id !== viewerId &&
+        (ticketByProfile.has(p.id) || p.is_admin) &&
+        (p.full_name ?? "").trim(),
+    )
     .map((p) => ({
       id: p.id,
       name: (p.full_name as string).trim(),
-      detail: [p.title, p.company].filter(Boolean).join(" · "),
+      detail: p.is_admin
+        ? "TSLS Team"
+        : ticketByProfile.get(p.id) || "Attendee",
     }));
 }
 
 export async function GET() {
   const member = await getCurrentMember();
-  if (!member || !member.membershipActive) {
+  if (!member) {
     return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   }
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ members: [] });
   }
-
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
-
-  return NextResponse.json({ members: await dmDirectory(user.id) });
+  return NextResponse.json({ members: await dmDirectory(member.id) });
 }
 
 /**
- * Prepare a DM target: verify they're a listed member, then make sure they
+ * Prepare a DM target: verify they're a listed attendee, then make sure they
  * exist as a Stream user — DMing someone who has never opened chat
  * otherwise fails with "please create the user objects".
  */
 export async function POST(req: NextRequest) {
   const member = await getCurrentMember();
-  if (!member || !member.membershipActive) {
+  if (!member) {
     return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   }
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ ok: true });
   }
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
   let body: { id?: string };
   try {
@@ -98,9 +92,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Bad JSON" }, { status: 400 });
   }
   const targetId = String(body.id ?? "");
-  const target = (await dmDirectory(user.id)).find((m) => m.id === targetId);
+  const target = (await dmDirectory(member.id)).find((m) => m.id === targetId);
   if (!target) {
-    return NextResponse.json({ error: "Not a listed member" }, { status: 404 });
+    return NextResponse.json({ error: "Not a listed attendee" }, { status: 404 });
   }
   const { ensureStreamUser } = await import("@/lib/stream");
   const ok = await ensureStreamUser(target.id, target.name);

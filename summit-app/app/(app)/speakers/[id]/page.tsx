@@ -1,18 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getSpeaker } from "@/lib/directory-queries";
+import { getEventSpeaker } from "@/lib/event-speakers";
 import { agendaTimeLabel } from "@/lib/summit";
 import { getSummitSettings, listAgendaItems } from "@/lib/summit-queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function SummitSpeakerDetailPage({
+export default async function SpeakerDetailPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const speaker = await getSpeaker(params.id);
+  const speaker = await getEventSpeaker(params.id);
   if (!speaker) notFound();
 
   const settings = await getSummitSettings();
@@ -47,7 +47,7 @@ export default async function SummitSpeakerDetailPage({
           <h2 className="tsls-speaker-hero-name">{speaker.name}</h2>
           <div className="tsls-speaker-hero-title">{speaker.title}</div>
           <div className="tsls-speaker-tags">
-            {speaker.industries.map((tag) => (
+            {speaker.tags.map((tag) => (
               <span className="tag-pill" key={tag}>
                 {tag}
               </span>
@@ -64,9 +64,7 @@ export default async function SummitSpeakerDetailPage({
               <div className="tsls-slot-time">{agendaTimeLabel(slot.startsAt)}</div>
               <div>
                 <div className="tsls-slot-title">{slot.title}</div>
-                {slot.location && (
-                  <div className="tsls-slot-loc">{slot.location}</div>
-                )}
+                {slot.location && <div className="tsls-slot-loc">{slot.location}</div>}
               </div>
             </div>
           ))}

@@ -163,3 +163,28 @@ test("qrSvg renders a scannable-looking inline SVG", () => {
   assert.ok(svg.includes('fill="#0B1622"')); // navy modules on white
   assert.ok(svg.length > 500); // actually contains module paths
 });
+
+test("momentumGiftMonths: general = 1, VIP = 3 (member level)", async () => {
+  const { momentumGiftMonths } = await import("../lib/summit");
+  assert.equal(momentumGiftMonths("General Admission"), 1);
+  assert.equal(momentumGiftMonths("VIP Leadership Experience"), 3);
+  assert.equal(momentumGiftMonths(""), 1);
+});
+
+test("mergeSummitSettings: momentumAnnounced defaults false, string round-trip safe", () => {
+  assert.equal(mergeSummitSettings(null).momentumAnnounced, false);
+  assert.equal(
+    mergeSummitSettings({ momentumAnnounced: "false" as unknown as boolean })
+      .momentumAnnounced,
+    false,
+  );
+  assert.equal(
+    mergeSummitSettings({ momentumAnnounced: "true" as unknown as boolean })
+      .momentumAnnounced,
+    true,
+  );
+  assert.equal(
+    mergeSummitSettings({ momentumAnnounced: true }).momentumAnnounced,
+    true,
+  );
+});

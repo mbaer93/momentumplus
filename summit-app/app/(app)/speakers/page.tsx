@@ -1,19 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
-import { listSpeakers } from "@/lib/directory-queries";
-import { listAgendaItems } from "@/lib/summit-queries";
-import { getSummitSettings } from "@/lib/summit-queries";
+import { listEventSpeakers } from "@/lib/event-speakers";
 import { agendaTimeLabel } from "@/lib/summit";
+import { getSummitSettings, listAgendaItems } from "@/lib/summit-queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function SummitSpeakersPage() {
+export default async function SpeakersPage() {
   const settings = await getSummitSettings();
   const [speakers, agenda] = await Promise.all([
-    listSpeakers(),
+    listEventSpeakers(),
     listAgendaItems(settings.eventYear),
   ]);
-  // "On stage at" chip: this speaker's first agenda slot, if scheduled.
   const slotFor = (speakerId: string) =>
     agenda.find((a) => a.speakerId === speakerId) ?? null;
 
@@ -34,11 +32,7 @@ export default async function SummitSpeakersPage() {
         {speakers.map((s) => {
           const slot = slotFor(s.id);
           return (
-            <Link
-              key={s.id}
-              href={`/summit/speakers/${s.id}`}
-              className="tsls-speaker-row"
-            >
+            <Link key={s.id} href={`/speakers/${s.id}`} className="tsls-speaker-row">
               {s.headshotUrl ? (
                 <Image
                   src={s.headshotUrl}

@@ -65,6 +65,12 @@ export interface SummitSettings {
   /** Where an existing attendee upgrades their ticket (e.g. to VIP).
       Falls back to registrationUrl when unset. */
   upgradeUrl: string;
+  /**
+   * The Momentum+ gift is announced ON STAGE at the event — until an admin
+   * flips this, the app shows no Momentum+ anywhere (Matt, 2026-07-20:
+   * "we do not want to push momentum at all until we announce").
+   */
+  momentumAnnounced: boolean;
 }
 
 export const SUMMIT_DEFAULTS: SummitSettings = {
@@ -79,6 +85,7 @@ export const SUMMIT_DEFAULTS: SummitSettings = {
   websiteUrl: "https://thetsls.com",
   registrationUrl: "https://event.tristateleadershipsummit.com/register-general",
   upgradeUrl: "",
+  momentumAnnounced: false,
 };
 
 /** Merge a stored partial settings object over the defaults. */
@@ -97,6 +104,11 @@ export function mergeSummitSettings(
   merged.eventYear = Number.isInteger(year) && year > 2000
     ? year
     : Number(merged.startDate.slice(0, 4)) || SUMMIT_DEFAULTS.eventYear;
+  // The settings form round-trips values as strings; "false" must not
+  // count as announced.
+  merged.momentumAnnounced =
+    merged.momentumAnnounced === true ||
+    (merged.momentumAnnounced as unknown) === "true";
   return merged;
 }
 
@@ -246,6 +258,14 @@ export interface SummitTicket {
 /** VIP Leadership Experience (or any VIP-flavored type from the sheet). */
 export function isVipRegistration(registrationType: string): boolean {
   return registrationType.toLowerCase().includes("vip");
+}
+
+/**
+ * The Momentum+ gift that comes with a ticket (announced at the event):
+ * general registration = 1 month, VIP = 3 months, both at member level.
+ */
+export function momentumGiftMonths(registrationType: string): number {
+  return isVipRegistration(registrationType) ? 3 : 1;
 }
 
 /** Human label for a raw sheet registration type. */
