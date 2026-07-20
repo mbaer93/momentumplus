@@ -294,12 +294,22 @@ export async function sendAnnouncement(
   }
 
   // Emails: sequential (GHL API), journaled one by one so a mid-loop crash
-  // never double-sends on retry.
+  // never double-sends on retry. TIME-BUDGETED for a 350-member audience:
+  // one press can't finish 350 sequential GHL calls inside the function
+  // limit, so the loop stops cleanly and tells the admin to press Send
+  // again — the ledger makes the next press resume-only.
   let emailed = 0;
   let emailFailures = 0;
+  let remainingForBudget = 0;
+  const emailBudgetStart = Date.now();
+  const EMAIL_BUDGET_MS = 240_000;
   if (input.channels.includes("email")) {
     for (const a of audience) {
       if (delivered.get(a.profileId)?.emailed) continue;
+      if (Date.now() - emailBudgetStart > EMAIL_BUDGET_MS) {
+        remainingForBudget++;
+        continue;
+      }
       const res = await sendEmailViaGhl({
         contactId: a.contactId,
         email: a.email,
@@ -328,6 +338,13 @@ export async function sendAnnouncement(
   const parts: string[] = [`Reached ${audience.length} member${audience.length === 1 ? "" : "s"}.`];
   if (input.channels.includes("email")) {
     parts.push(`${emailed} email${emailed === 1 ? "" : "s"} sent this run.`);
+    if (remainingForBudget > 0) {
+      parts.push(
+        ledgerAvailable
+          ? `${remainingForBudget} still to email — press Send again to continue (members already reached are skipped automatically).`
+          : `${remainingForBudget} still to email, but retry-dedupe is unavailable (migration 0031) — pressing Send again MAY re-email members already reached.`,
+      );
+    }
     if (emailFailures > 0) {
       parts.push(
         ledgerAvailable

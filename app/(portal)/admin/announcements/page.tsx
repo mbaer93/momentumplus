@@ -9,6 +9,8 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
+// Server actions on this page fan out per-member work — allow the full window.
+export const maxDuration = 300;
 
 export default async function AdminAnnouncementsPage() {
   let recent: { id: string; title: string; sent_at: string; audience: string }[] = [];

@@ -29,6 +29,9 @@ import {
 /** Sessions are swept for attendance for this long after they end. */
 const ATTENDANCE_WINDOW_DAYS = 3;
 
+// Long-running under load — allow the full function window (Vercel Pro).
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

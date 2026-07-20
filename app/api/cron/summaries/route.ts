@@ -24,6 +24,9 @@ import { isAnthropicReady } from "@/lib/service-config";
  * are supplied via the admin regenerate endpoint below (POST with transcript),
  * and this cron reports what is waiting.
  */
+// Long-running under load — allow the full function window (Vercel Pro).
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -29,6 +29,9 @@ function hmacHex(secret: string, value: string): string {
   return createHmac("sha256", secret).update(value).digest("hex");
 }
 
+// Long-running under load — allow the full function window (Vercel Pro).
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const secret = process.env.ZOOM_WEBHOOK_SECRET_TOKEN;
   if (!secret) {

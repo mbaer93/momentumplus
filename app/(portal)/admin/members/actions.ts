@@ -431,9 +431,21 @@ export async function bulkAddMembers(csv: string): Promise<BulkResult> {
     };
   }
 
+  // Up to 200 sequential invites can outlast the function window under
+  // load — stop before the platform kills the action and let the admin
+  // resume by re-running the SAME paste (provisionMember is idempotent, so
+  // already-added members are skipped, not duplicated).
+  const TIME_BUDGET_MS = 240_000;
+  const startedAt = Date.now();
+
   const results: string[] = [];
   let okCount = 0;
+  let deferred = 0;
   for (const line of lines) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      deferred++;
+      continue;
+    }
     const [email = "", name = "", plan = ""] = line
       .split(/[,\t]/)
       .map((p) => p.trim());
@@ -454,11 +466,19 @@ export async function bulkAddMembers(csv: string): Promise<BulkResult> {
     results.push(res.message ?? `${email}: done.`);
     if (res.ok) okCount++;
   }
+  if (deferred > 0) {
+    results.push(
+      `${deferred} line${deferred === 1 ? "" : "s"} not processed yet (time limit) — paste the same list and run again; members already added are skipped automatically.`,
+    );
+  }
 
   revalidatePath("/admin/members");
   return {
     ok: okCount > 0,
-    message: `${okCount} of ${lines.length} processed successfully.`,
+    message:
+      deferred > 0
+        ? `${okCount} of ${lines.length} processed — ${deferred} remaining. Paste the same list and run again to continue.`
+        : `${okCount} of ${lines.length} processed successfully.`,
     results,
   };
 }
