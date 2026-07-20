@@ -70,14 +70,25 @@ export async function ingestSessionRecording(
   // Unpublished at first — it AUTO-PUBLISHES (summaries cron) once the
   // video is playable AND the AI summary exists, never earlier. Admins can
   // still edit or publish sooner from Admin → Library.
-  const { error: insertError } = await admin.from("videos").insert({
+  // Upsert on session_id (unique since migration 0043): if the webhook and
+  // the poller race past the check above, one insert wins and the other
+  // becomes a no-op instead of a duplicate Library row.
+  const row = {
     title: session.title,
     category: session.category,
     session_id: session.id,
     mux_asset_id: assetId,
     min_access: session.min_access,
     published_at: null,
-  });
+  };
+  let { error: insertError } = await admin
+    .from("videos")
+    .upsert(row, { onConflict: "session_id", ignoreDuplicates: true });
+  if (insertError && /no unique|constraint/i.test(insertError.message)) {
+    // Pre-migration-0043 fallback: plain insert (the check above still
+    // covers the common path).
+    ({ error: insertError } = await admin.from("videos").insert(row));
+  }
   if (insertError) return { ok: false, status: insertError.message };
 
   // Tell the admins there's a recording to review.

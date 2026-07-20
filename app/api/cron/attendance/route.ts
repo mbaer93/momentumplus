@@ -4,7 +4,11 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { getMeetingParticipants, getMeetingRecordings } from "@/lib/zoom";
 import { ingestSessionRecording, type IngestSession } from "@/lib/zoom-recordings";
 import { isZoomReady } from "@/lib/service-config";
-import { nextOccurrence, type Recurrence } from "@/lib/recurrence";
+import {
+  lastOccurrenceStart,
+  nextOccurrence,
+  type Recurrence,
+} from "@/lib/recurrence";
 
 /*
  * Session lifecycle + attendance sync (SPEC.md §4), on one cron:
@@ -137,23 +141,73 @@ export async function GET(req: NextRequest) {
   const windowStart = new Date(
     now - ATTENDANCE_WINDOW_DAYS * 24 * 60 * 60 * 1000,
   ).toISOString();
-  const { data: sessions, error } = await admin
+  interface SweepRow {
+    id: string;
+    zoom_meeting_id: string | null;
+    starts_at: string;
+    duration_min: number | null;
+    status?: string;
+  }
+  // One-off sessions: windowed on starts_at. "cancelled" is included so a
+  // session cancelled AFTER it ran still gets its recording imported (the
+  // ended-guard deliberately preserves its Zoom meeting for exactly this).
+  let sessionsRes = await admin
     .from("sessions")
-    .select("id, zoom_meeting_id, starts_at, duration_min")
+    .select("id, zoom_meeting_id, starts_at, duration_min, status")
     .not("zoom_meeting_id", "is", null)
-    .in("status", ["live", "completed"])
+    .is("recurrence", null)
+    .in("status", ["live", "completed", "cancelled"])
     .gte("starts_at", windowStart)
     .lte("starts_at", cutoff);
+  if (sessionsRes.error && /recurrence/.test(sessionsRes.error.message)) {
+    // Pre-migration-0030 fallback: no recurrence column, original shape.
+    sessionsRes = await admin
+      .from("sessions")
+      .select("id, zoom_meeting_id, starts_at, duration_min, status")
+      .not("zoom_meeting_id", "is", null)
+      .in("status", ["live", "completed", "cancelled"])
+      .gte("starts_at", windowStart)
+      .lte("starts_at", cutoff);
+  }
+  if (sessionsRes.error) {
+    return NextResponse.json({ error: sessionsRes.error.message }, { status: 500 });
+  }
+  const sessions: SweepRow[] = (sessionsRes.data ?? []) as SweepRow[];
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  // Recurring series: their static starts_at leaves the window after the
+  // first occurrence, which silently ended attendance for every later one.
+  // Window them on the CURRENT occurrence instead.
+  const { data: recurringRows } = await admin
+    .from("sessions")
+    .select(
+      "id, zoom_meeting_id, starts_at, duration_min, status, recurrence, recurrence_until",
+    )
+    .not("zoom_meeting_id", "is", null)
+    .not("recurrence", "is", null)
+    .in("status", ["scheduled", "live"]);
+  for (const r of (recurringRows ?? []) as (SweepRow & {
+    recurrence: Recurrence;
+    recurrence_until: string | null;
+  })[]) {
+    const occ = lastOccurrenceStart(
+      r.starts_at,
+      r.recurrence,
+      r.recurrence_until,
+      now,
+    );
+    if (occ && occ >= windowStart && occ <= cutoff) {
+      sessions.push({ ...r, starts_at: occ });
+    }
   }
 
   let updated = 0;
   const results: { sessionId: string; matched: number }[] = [];
 
-  for (const session of sessions ?? []) {
+  for (const session of sessions) {
     if (!session.zoom_meeting_id) continue;
+    // Cancelled sessions are in the sweep only for RECORDING import —
+    // marking attendance on a cancelled session would be wrong data.
+    if (session.status === "cancelled") continue;
 
     let participants;
     try {
@@ -220,7 +274,7 @@ export async function GET(req: NextRequest) {
   // directly for recently-ended sessions that have no Library video yet,
   // so the pipeline works with NO Zoom dashboard configuration at all.
   const recordings: { sessionId: string; status: string }[] = [];
-  const endedAwhileAgo = (sessions ?? []).filter((s) => {
+  const endedAwhileAgo = sessions.filter((s) => {
     const end =
       new Date(s.starts_at as string).getTime() +
       ((s.duration_min as number | null) ?? 60) * 60000;
