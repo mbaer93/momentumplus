@@ -1596,6 +1596,9 @@
   border: 1px solid var(--warm-gray);
   border-radius: 14px;
   overflow: hidden;
+  /* Any window narrower than the table scrolls it sideways instead of
+     crushing the columns (buttons were wrapping mid-word). */
+  overflow-x: auto;
 }
 .admin-table { width: 100%; border-collapse: collapse; }
 .admin-table th {
@@ -1612,6 +1615,13 @@
 /* Long unbroken values (emails, keys, URLs) fold instead of stretching the
    row off-screen. */
 .admin-table td { word-break: break-word; }
+/* …but that's for data, never labels: buttons keep their words whole and
+   stay on one line — the wrap above scrolls when space runs out. */
+.admin-table td button,
+.admin-table td .btn-mini {
+  word-break: normal;
+  white-space: nowrap;
+}
 .admin-table td {
   padding: 13px 16px;
   border-bottom: 1px solid var(--warm-gray);
@@ -1622,7 +1632,8 @@
 .admin-table tr:last-child td { border-bottom: none; }
 .admin-table tr:hover td { background: #fbfaf8; }
 .admin-row-title { font-weight: 600; }
-.admin-actions-cell { display: flex; gap: 8px; align-items: center; }
+/* Actions wrap as WHOLE buttons when a row runs tight — never mid-label. */
+.admin-actions-cell { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .admin-status {
   font-size: 10px;
   font-weight: 600;

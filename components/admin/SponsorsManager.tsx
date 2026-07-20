@@ -163,6 +163,7 @@ export function SponsorsManager({
   pendingInvites = [],
   presentedByLogoUrl,
   initialEditId,
+  memberOptions = [],
 }: {
   sponsors: AdminSponsorRow[];
   /** Archived or term-expired sponsors — admin-only, reinstatable. */
@@ -177,6 +178,8 @@ export function SponsorsManager({
   /** Current site-wide "Presented by" logo (left panel), if uploaded. */
   presentedByLogoUrl?: string | null;
   initialEditId?: string;
+  /** Existing members for the searchable "Link member" picker. */
+  memberOptions?: { name: string; email: string }[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState<SponsorInput>(EMPTY);
@@ -784,14 +787,25 @@ export function SponsorsManager({
                   </div>
                 ))}
                 <div className="admin-form-actions" style={{ marginTop: 8 }}>
+                  {/* Searchable member picker: a datalist filters as the
+                      admin types a name or email; a brand-new email still
+                      works (it invites them through the normal flow). */}
                   <input
                     type="email"
-                    placeholder="member@company.com"
+                    list="link-member-options"
+                    placeholder="Search members by name or email…"
                     value={seatEmail}
                     onChange={(e) => setSeatEmail(e.target.value)}
-                    style={{ minWidth: 220 }}
-                    aria-label="Email of member to link"
+                    style={{ minWidth: 260 }}
+                    aria-label="Member to link (search by name or email)"
                   />
+                  <datalist id="link-member-options">
+                    {memberOptions.map((m) => (
+                      <option key={m.email} value={m.email}>
+                        {m.name || m.email}
+                      </option>
+                    ))}
+                  </datalist>
                   <button
                     type="button"
                     className="btn-mini"
