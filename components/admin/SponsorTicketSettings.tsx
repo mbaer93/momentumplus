@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  saveSponsorProTickets,
   saveSponsorTicketCounts,
   saveSponsorTicketOverride,
 } from "@/app/(portal)/admin/sponsors/actions";
@@ -16,6 +17,9 @@ interface SponsorTicketSettingsProps {
     name: string;
     tier: string;
     ticketOverride: number | null;
+    /** Admin-granted full Momentum+ Pro tickets (one year each). */
+    proTickets: number;
+    proTicketsUsed: number;
   }[];
   isSuperAdmin: boolean;
 }
@@ -39,10 +43,26 @@ export function SponsorTicketSettings({
   const [studioTarget, setStudioTarget] = useState("");
   const [overrideTarget, setOverrideTarget] = useState("");
   const [overrideValue, setOverrideValue] = useState("");
+  const [proTarget, setProTarget] = useState("");
+  const [proValue, setProValue] = useState("");
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const overrideSponsor = sponsors.find((s) => s.id === overrideTarget) ?? null;
+  const proSponsor = sponsors.find((s) => s.id === proTarget) ?? null;
+
+  function runProTickets(value: number) {
+    if (!proTarget) return;
+    setMsg(null);
+    startTransition(async () => {
+      const res = await saveSponsorProTickets(proTarget, value);
+      setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "Saved." : "Error") });
+      if (res.ok) {
+        setProValue("");
+        router.refresh();
+      }
+    });
+  }
 
   function runOverride(value: number | null) {
     if (!overrideTarget) return;
@@ -198,6 +218,69 @@ export function SponsorTicketSettings({
               {overrideSponsor.ticketOverride !== null
                 ? ` · current override ${overrideSponsor.ticketOverride}`
                 : " · no override"}
+            </div>
+          )}
+        </div>
+      )}
+
+      {sponsors.length > 0 && (
+        <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+          <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>
+            Momentum+ Pro tickets
+          </div>
+          <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+            Give a business a number of FULL Momentum+ Pro memberships — one
+            year each — that they hand out from their Sponsor Studio. Separate
+            from VIP tickets; 0 = none.
+          </p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div className="admin-field" style={{ minWidth: 220 }}>
+              <label htmlFor="pro-sponsor">Sponsor</label>
+              <select
+                id="pro-sponsor"
+                value={proTarget}
+                onChange={(e) => {
+                  setProTarget(e.target.value);
+                  const s = sponsors.find((x) => x.id === e.target.value);
+                  setProValue(s && s.proTickets > 0 ? String(s.proTickets) : "");
+                }}
+              >
+                <option value="">Choose a sponsor…</option>
+                {sponsors.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                    {s.proTickets > 0 ? ` (${s.proTickets} Pro)` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="admin-field" style={{ width: 120 }}>
+              <label htmlFor="pro-count">Pro tickets</label>
+              <input
+                id="pro-count"
+                type="number"
+                min={0}
+                max={999}
+                value={proValue}
+                onChange={(e) => setProValue(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={pending || !proTarget || proValue === ""}
+              onClick={() => runProTickets(Number(proValue))}
+            >
+              Set Pro tickets
+            </button>
+          </div>
+          {proSponsor && (
+            <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 6 }}>
+              {proSponsor.name} · {proSponsor.proTickets} granted ·{" "}
+              {proSponsor.proTicketsUsed} used ·{" "}
+              {Math.max(0, proSponsor.proTickets - proSponsor.proTicketsUsed)}{" "}
+              remaining
             </div>
           )}
         </div>

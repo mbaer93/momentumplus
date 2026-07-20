@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  sendProTicketInvites,
   sendTicketInvites,
   setTeamRole,
   transferOwnership,
@@ -32,6 +33,9 @@ interface SponsorStudioViewProps {
   isSuperAdmin: boolean;
   ticketAllotment: number;
   ticketsUsed: number;
+  /** Admin-granted full Momentum+ Pro tickets (one year each). */
+  proTicketAllotment?: number;
+  proTicketsUsed?: number;
 }
 
 const ROLE_LABEL: Record<SponsorSeat["role"], string> = {
@@ -48,6 +52,8 @@ export function SponsorStudioView({
   isSuperAdmin,
   ticketAllotment,
   ticketsUsed,
+  proTicketAllotment = 0,
+  proTicketsUsed = 0,
 }: SponsorStudioViewProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -58,11 +64,13 @@ export function SponsorStudioView({
   const [offer, setOffer] = useState(sponsor.offer);
   const [website, setWebsite] = useState(sponsor.website);
   const [ticketEmails, setTicketEmails] = useState("");
+  const [proEmails, setProEmails] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [adFile, setAdFile] = useState<File | null>(null);
   const [transferTo, setTransferTo] = useState("");
 
   const remaining = Math.max(0, ticketAllotment - ticketsUsed);
+  const proRemaining = Math.max(0, proTicketAllotment - proTicketsUsed);
 
   function run(
     fn: () => Promise<{ ok: boolean; message?: string }>,
@@ -340,6 +348,56 @@ export function SponsorStudioView({
           </div>
         )}
       </div>
+
+      {/* ---- Momentum+ Pro tickets (owner only; admin-granted) ---- */}
+      {isOwner && proTicketAllotment > 0 && (
+        <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Momentum+ Pro tickets</h3>
+          <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 12 }}>
+            The Momentum+ team has granted your sponsorship {proTicketAllotment}{" "}
+            full Momentum+ Pro membership{proTicketAllotment === 1 ? "" : "s"} —
+            one year of everything Pro includes, free, for people you choose.{" "}
+            {proRemaining} remaining. Each person gets an email invite to set up
+            their own profile.
+          </p>
+          {proRemaining > 0 ? (
+            <form
+              className="admin-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                run(
+                  () => sendProTicketInvites(sponsor.id, proEmails),
+                  () => setProEmails(""),
+                );
+              }}
+            >
+              <div className="admin-field">
+                <label htmlFor="sp-pro-tickets">Email addresses</label>
+                <textarea
+                  id="sp-pro-tickets"
+                  value={proEmails}
+                  onChange={(e) => setProEmails(e.target.value)}
+                  placeholder={"one@example.com\ntwo@example.com"}
+                  rows={3}
+                />
+              </div>
+              <div className="admin-form-actions">
+                <button
+                  type="submit"
+                  className="btn-purple"
+                  disabled={pending || !proEmails.trim()}
+                >
+                  {pending ? "Sending…" : "Send Pro invites"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+              All Pro tickets are in use.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ---- VIP tickets (owner only) ---- */}
       {isOwner && (
