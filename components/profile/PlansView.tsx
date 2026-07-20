@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { openBillingPortal, startCheckout } from "@/app/(portal)/profile/billing-actions";
 import type { TermMap } from "@/components/home/JoinForm";
 
@@ -109,6 +109,13 @@ export function PlansView({
   const [msg, setMsg] = useState<string | null>(null);
   const [basicMonths, setBasicMonths] = useState(1);
   const [proMonths, setProMonths] = useState(1);
+  const msgRef = useRef<HTMLDivElement | null>(null);
+
+  // The error banner sits above the cards — scroll it into view, or a
+  // failed checkout looks like the button silently did nothing.
+  useEffect(() => {
+    if (msg) msgRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [msg]);
 
   function go(fn: () => Promise<{ ok: boolean; url?: string; message?: string }>) {
     setMsg(null);
@@ -177,7 +184,7 @@ export function PlansView({
         </div>
       )}
       {msg && (
-        <div className="admin-form-msg err" style={{ marginBottom: 14 }}>
+        <div ref={msgRef} className="admin-form-msg err" style={{ marginBottom: 14 }}>
           {msg}
         </div>
       )}
@@ -235,7 +242,7 @@ export function PlansView({
                 }
               }}
             >
-              {p.cta.label}
+              {pending && !p.cta.disabled ? "Opening secure checkout…" : p.cta.label}
             </button>
             {!p.cta.disabled && stripePlan && (
               <p style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 8 }}>

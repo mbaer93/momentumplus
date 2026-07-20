@@ -50,10 +50,9 @@ async function billingContext(): Promise<
   };
 }
 
-async function ensureCustomer(
+async function createFreshCustomer(
   ctx: Extract<Awaited<ReturnType<typeof billingContext>>, { ok: true }>,
 ): Promise<string> {
-  if (ctx.customerId) return ctx.customerId;
   const customer = await stripeRequest<{ id: string }>(
     ctx.settings.secretKey,
     "POST",
@@ -71,6 +70,19 @@ async function ensureCustomer(
   return customer.id;
 }
 
+async function ensureCustomer(
+  ctx: Extract<Awaited<ReturnType<typeof billingContext>>, { ok: true }>,
+): Promise<string> {
+  if (ctx.customerId) return ctx.customerId;
+  return createFreshCustomer(ctx);
+}
+
+/** A stored customer id from the other Stripe mode (test-phase leftovers)
+    doesn't resolve against the live key — Stripe says "No such customer". */
+function isStaleCustomer(e: unknown): boolean {
+  return /no such customer/i.test((e as Error).message ?? "");
+}
+
 /** Start a Stripe Checkout for Basic or Pro; returns the redirect URL. */
 export async function startCheckout(
   plan: "basic" | "pro",
@@ -83,7 +95,7 @@ export async function startCheckout(
   if (!price) return { ok: false, message: "That plan isn't available yet." };
 
   try {
-    const customerId = await ensureCustomer(ctx);
+    let customerId = await ensureCustomer(ctx);
     // One live subscription per member: switching plans happens in the
     // billing portal (prorated) — a second checkout would double-bill.
     // For a past-due member the portal is also where they fix their card,
@@ -117,24 +129,34 @@ export async function startCheckout(
         };
       }
     }
-    const session = await stripeRequest<{ url: string }>(
-      ctx.settings.secretKey,
-      "POST",
-      "/checkout/sessions",
-      {
-        mode: "subscription",
-        customer: customerId,
-        "line_items[0][price]": price,
-        "line_items[0][quantity]": 1,
-        success_url: `${SITE()}/profile?billing=success`,
-        cancel_url: `${SITE()}/profile?billing=canceled`,
-        "metadata[profile_id]": ctx.userId,
-        "metadata[plan]": plan,
-        "subscription_data[metadata][profile_id]": ctx.userId,
-        "subscription_data[metadata][plan]": plan,
-        allow_promotion_codes: true,
-      },
-    );
+    const createSession = (cust: string) =>
+      stripeRequest<{ url: string }>(
+        ctx.settings.secretKey,
+        "POST",
+        "/checkout/sessions",
+        {
+          mode: "subscription",
+          customer: cust,
+          "line_items[0][price]": price,
+          "line_items[0][quantity]": 1,
+          success_url: `${SITE()}/profile?billing=success`,
+          cancel_url: `${SITE()}/profile?billing=canceled`,
+          "metadata[profile_id]": ctx.userId,
+          "metadata[plan]": plan,
+          "subscription_data[metadata][profile_id]": ctx.userId,
+          "subscription_data[metadata][plan]": plan,
+          allow_promotion_codes: true,
+        },
+      );
+    let session: { url: string };
+    try {
+      session = await createSession(customerId);
+    } catch (e) {
+      if (!isStaleCustomer(e)) throw e;
+      // Test-mode leftover: mint a live-mode customer and retry once.
+      customerId = await createFreshCustomer(ctx);
+      session = await createSession(customerId);
+    }
     return { ok: true, url: session.url };
   } catch (e) {
     return { ok: false, message: `Couldn't start checkout: ${(e as Error).message}` };
@@ -160,6 +182,18 @@ export async function openBillingPortal(): Promise<BillingActionResult> {
     );
     return { ok: true, url: session.url };
   } catch (e) {
+    if (isStaleCustomer(e)) {
+      // Test-mode leftover id: clear it so /upgrade reports the truth
+      // ("no billing profile yet") and checkout mints a live one.
+      await createServiceClient()
+        .from("profiles")
+        .update({ stripe_customer_id: null })
+        .eq("id", ctx.userId);
+      return {
+        ok: false,
+        message: "No billing profile yet — subscribe to a plan first.",
+      };
+    }
     return {
       ok: false,
       message: `Couldn't open the billing portal: ${(e as Error).message}. (The Super Admin may need to enable the Customer portal in Stripe → Settings → Billing.)`,
