@@ -134,8 +134,13 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         model: WHITNEY_MODEL,
-        // Whitney is brief by design — short replies, few questions.
-        max_tokens: 500,
+        // Adaptive thinking is what stops the circling: Whitney privately
+        // reviews the whole thread (what's been asked, what shifted) before
+        // choosing her next question, instead of pattern-matching the last
+        // message. Thinking shares max_tokens, so the cap leaves room for
+        // it — her visible replies stay short by prompt design.
+        max_tokens: 2000,
+        thinking: { type: "adaptive" },
         system: await getWhitneyPrompt(),
         messages: history,
       }),
