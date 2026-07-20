@@ -10,6 +10,7 @@ import {
   ProfileIcon,
   ResourcesIcon,
   SessionsIcon,
+  SparkleIcon,
   SpeakersIcon,
   SponsorsIcon,
   StarIcon,
@@ -46,6 +47,13 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Calendar", href: "/calendar", icon: CalendarIcon },
       { label: "Library", href: "/library", icon: LibraryIcon },
       { label: "Education", href: "/education", icon: EducationIcon },
+      // Visible to everyone — non-Pro members land on an upgrade pitch.
+      {
+        label: "Whitney",
+        href: "/whitney",
+        icon: SparkleIcon,
+        badge: { text: "Pro", variant: "gold" },
+      },
       // Unreleased — hidden from members (admins can preview) so a first-run
       // explore doesn't dead-end on a "Coming soon" teaser. Flip adminOnly
       // off when the program ships.
