@@ -211,9 +211,11 @@ export async function deleteSponsor(sponsorId: string): Promise<SponsorResult> {
 
 /**
  * Attach a member to a sponsor. They get (or keep) an ongoing Pro membership
- * for as long as they hold a seat with at least one sponsor. New emails are
- * invited through the normal first-login flow. Seat counts per sponsorship
- * tier aren't enforced yet — those rules are still being decided.
+ * for as long as they hold a seat with at least one sponsor, a MANAGER seat
+ * (an admin-linked person is the business's own staff — they review the
+ * page and add artwork; Matt, 2026-07-20), and a welcome email with a
+ * button to their Sponsor Studio. New emails are invited through the normal
+ * first-login flow. Seat counts per sponsorship tier aren't enforced yet.
  */
 export async function linkSponsorMember(
   sponsorId: string,
@@ -241,27 +243,107 @@ export async function linkSponsorMember(
   const admin = createServiceClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("id")
+    .select("id, full_name")
     .ilike("email", emailPattern(email))
     .maybeSingle();
   if (!profile) return { ok: false, message: "Could not find that member." };
 
-  const { error } = await admin
+  // Manager seat so the Studio (and its artwork uploads) opens for them.
+  // An existing owner/manager seat keeps its role.
+  const { data: seat } = await admin
     .from("sponsor_members")
-    .upsert(
-      { sponsor_id: sponsorId, profile_id: profile.id },
-      { onConflict: "sponsor_id,profile_id" },
-    );
-  if (error) return { ok: false, message: error.message };
+    .select("role")
+    .eq("sponsor_id", sponsorId)
+    .eq("profile_id", profile.id)
+    .maybeSingle();
+  let seatError: { message: string } | null = null;
+  if (!seat) {
+    ({ error: seatError } = await admin
+      .from("sponsor_members")
+      .insert({ sponsor_id: sponsorId, profile_id: profile.id, role: "manager" }));
+    if (seatError && /role/.test(seatError.message)) {
+      // Pre-migration-0039 fallback: seat without a role column.
+      ({ error: seatError } = await admin
+        .from("sponsor_members")
+        .insert({ sponsor_id: sponsorId, profile_id: profile.id }));
+    }
+  } else if (((seat as { role?: string }).role ?? "member") === "member") {
+    ({ error: seatError } = await admin
+      .from("sponsor_members")
+      .update({ role: "manager" })
+      .eq("sponsor_id", sponsorId)
+      .eq("profile_id", profile.id));
+  }
+  if (seatError) return { ok: false, message: seatError.message };
+
+  // Welcome email: a button into their Sponsor Studio to review the page —
+  // best-effort, the link already succeeded.
+  let emailNote = "";
+  try {
+    const { data: sponsor } = await admin
+      .from("sponsors")
+      .select("name, logo_url")
+      .eq("id", sponsorId)
+      .maybeSingle();
+    const sponsorName = (sponsor?.name as string) ?? "your business";
+    const missingArt = !sponsor?.logo_url;
+    const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const firstName =
+      ((profile.full_name as string) ?? "").trim().split(/\s+/)[0] || "there";
+    const html = `
+  <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1a2332;">
+    <div style="background:#0B1622;padding:18px 22px;border-radius:4px 4px 0 0;">
+      <span style="font-family:Georgia,serif;font-size:20px;color:#F8F6F1;">Momentum<span style="color:#B8965A;">+</span></span>
+    </div>
+    <div style="border:1px solid #E8E4DC;border-top:none;padding:22px;border-radius:0 0 4px 4px;">
+      <p style="margin:0 0 12px;font-size:14px;">Hi ${esc(firstName)},</p>
+      <p style="margin:0 0 12px;font-size:14px;line-height:1.6;">
+        You&rsquo;ve been added to <strong>${esc(sponsorName)}</strong>&rsquo;s
+        sponsorship on Momentum+. That comes with full Momentum+ Pro access
+        while the sponsorship runs — and you can manage the business&rsquo;s
+        page.
+      </p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.6;">
+        Take a minute to review your business profile${
+          missingArt
+            ? " — it doesn&rsquo;t have a logo yet, and pages with artwork get far more attention"
+            : ""
+        }. You can update the description, member offer, logo, and ad artwork
+        anytime.
+      </p>
+      <p style="margin:0 0 6px;">
+        <a href="${site}/sponsor" style="display:inline-block;background:#B8965A;color:#0B1622;font-weight:bold;font-size:14px;padding:12px 22px;border-radius:4px;text-decoration:none;">Review your business profile</a>
+      </p>
+      <p style="margin:14px 0 0;font-size:11.5px;color:#9ca3af;">
+        Sign in with this email address to open your Sponsor Studio.
+      </p>
+    </div>
+  </div>`;
+    const { sendEmailViaGhl } = await import("@/lib/notifications");
+    const sendRes = await sendEmailViaGhl({
+      email,
+      subject: `[Momentum+] You're on ${sponsorName}'s sponsor team`,
+      html,
+    });
+    emailNote = sendRes.sent
+      ? " We emailed them a link to review the business page."
+      : ` (Heads up: the welcome email couldn't be sent — ${sendRes.reason ?? "unknown"}.)`;
+  } catch {
+    emailNote = " (Heads up: the welcome email couldn't be sent.)";
+  }
 
   revalidatePath("/admin/sponsors");
   revalidateTag("sponsors");
   revalidateTag("presented-by");
   return {
     ok: true,
-    message: res.invited
-      ? `${email} invited and linked — they hold Pro while sponsoring.`
-      : `${email} linked — they hold Pro while sponsoring.`,
+    message:
+      (res.invited
+        ? `${email} invited and linked — they hold Pro while sponsoring and can manage the business page.`
+        : `${email} linked — they hold Pro while sponsoring and can manage the business page.`) +
+      emailNote,
   };
 }
 
