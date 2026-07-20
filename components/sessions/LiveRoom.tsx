@@ -307,6 +307,8 @@ export function LiveRoom({
           <div className="live-title">{session.title}</div>
           <div className="live-sub">
             {session.speaker.name} · Live on Momentum+
+            {viewerIsSpeaker &&
+              " · You host this session — joining here starts it under your name"}
           </div>
         </div>
         {phase === "joined" && (
@@ -327,7 +329,7 @@ export function LiveRoom({
             rel="noopener noreferrer"
             title={
               viewerIsSpeaker
-                ? "Opens Zoom with host controls — you run this session"
+                ? "Opens the Zoom app with full host controls — heads up: the Zoom app shows the shared account name, while hosting right here in the room shows YOUR name"
                 : "The speaker is the intended host — start only if they can't"
             }
             onClick={(e) => {
