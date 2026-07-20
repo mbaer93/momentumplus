@@ -24,7 +24,10 @@ export function LibraryBrowser({
       <div className="section-header">
         <div>
           <h2>Session Library</h2>
-          <p>Access recordings of all past sessions</p>
+          <p>
+            Recordings of every past session, with AI takeaways and your
+            private notes
+          </p>
         </div>
         <div
           className="filter-row"

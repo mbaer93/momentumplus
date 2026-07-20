@@ -1,5 +1,6 @@
 import { Greeting } from "@/components/portal/Greeting";
 import { BodyAd } from "@/components/sponsors/BodyAd";
+import { GettingStarted } from "@/components/dashboard/GettingStarted";
 import { TestimonialAsk } from "@/components/dashboard/TestimonialAsk";
 import { hasTestimonial } from "./testimonial-actions";
 import Link from "next/link";
@@ -68,6 +69,9 @@ export default async function DashboardPage() {
     durationLabel: string;
   } | null = null;
   let memberSinceDays = placeholderStats.memberSinceDays;
+  // Getting-started tour signals (server truth; visit-steps live client-side).
+  let hasEnrollment = false;
+  let prefsSaved = false;
 
   if (preview) {
     nextUp = placeholderNextSession;
@@ -98,7 +102,7 @@ export default async function DashboardPage() {
     } = await supabase.auth.getUser();
     let newMessages = 0;
     if (user) {
-      const [{ data: p }, unread] = await Promise.all([
+      const [{ data: p }, unread, { count: prefsCount }] = await Promise.all([
         supabase
           .from("profiles")
           .select("created_at")
@@ -106,8 +110,13 @@ export default async function DashboardPage() {
           .maybeSingle(),
         // Real unread count from Stream — this stat was hardcoded to 0.
         import("@/lib/stream").then((m) => m.getUnreadTotal(user.id)),
+        supabase
+          .from("notification_prefs")
+          .select("key", { count: "exact", head: true })
+          .eq("profile_id", user.id),
       ]);
       newMessages = unread;
+      prefsSaved = (prefsCount ?? 0) > 0;
       if (p?.created_at) {
         memberSinceDays = Math.max(
           1,
@@ -125,6 +134,7 @@ export default async function DashboardPage() {
       memberSinceDays,
     };
     enrolledUpcoming = future.filter((s) => s.isEnrolled).length;
+    hasEnrollment = sessions.some((s) => s.isEnrolled || s.attended);
 
     const next = future.find((s) => s.isEnrolled) ?? future[0];
     if (next) {
@@ -199,6 +209,10 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* First-steps guided tour — walks a new member through the portal;
+          disappears once every step is done (or they skip it). */}
+      <GettingStarted enrolled={hasEnrollment} prefsSaved={prefsSaved} />
 
       {/* Next Up Banner */}
       {nextUp ? (

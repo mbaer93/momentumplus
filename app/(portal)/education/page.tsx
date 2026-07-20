@@ -17,7 +17,10 @@ export default async function EducationPage() {
       <div className="section-header">
         <div>
           <h2>Education</h2>
-          <p>Structured learning tracks built from the session library</p>
+          <p>
+            Step-by-step courses with lessons, tests, and certificates —
+            looking for a single session recording? That&apos;s the Library.
+          </p>
         </div>
         {member.isAdmin && (
           <AdminAddChip href="/admin/education" label="Manage courses" />
