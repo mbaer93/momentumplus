@@ -20,6 +20,8 @@ import { redirect } from "next/navigation";
 import type { Membership, Tier } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+// Server actions on this page fan out per-member work — allow the full window.
+export const maxDuration = 300;
 
 const PREVIEW_PROFILE_DEFAULTS = {
   profileTitle: "",

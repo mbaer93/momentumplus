@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -353,9 +354,48 @@ export async function sendSessionNotice(
     </div>
   </div>`;
 
+  // Delivery ledger: each recipient gets a notifications row (their in-app
+  // bell) whose link encodes THIS notice — re-sending the same notice skips
+  // members already reached, so a timeout or double-click never re-emails
+  // all 350 enrollees.
+  const noticeHash = createHash("sha256")
+    .update(`${sessionId}|${subject}|${message}`)
+    .digest("hex")
+    .slice(0, 16);
+  const noticeLink = `/sessions/${sessionId}?notice=${noticeHash}`;
+  const alreadySent = new Set<string>();
+  if (recipients.length > 0) {
+    const { data: markers } = await admin
+      .from("notifications")
+      .select("profile_id")
+      .eq("kind", "speaker_notice")
+      .eq("link", noticeLink)
+      .in(
+        "profile_id",
+        recipients.map((r) => r.profileId),
+      );
+    for (const m of markers ?? []) alreadySent.add(m.profile_id as string);
+  }
+
+  // Sequential GHL sends across a big roster can outlast the function
+  // window — stop before the platform kills the action mid-send and tell
+  // the speaker how to resume.
+  const EMAIL_BUDGET_MS = 240_000;
+  const startedAt = Date.now();
+
   const { sendEmailViaGhl } = await import("@/lib/notifications");
   let sent = 0;
+  let skipped = 0;
+  let remainingForBudget = 0;
   for (const r of recipients) {
+    if (alreadySent.has(r.profileId)) {
+      skipped++;
+      continue;
+    }
+    if (Date.now() - startedAt > EMAIL_BUDGET_MS) {
+      remainingForBudget++;
+      continue;
+    }
     const res = await sendEmailViaGhl({
       contactId: contactIds.get(r.profileId) ?? null,
       email: r.email,
@@ -363,15 +403,30 @@ export async function sendSessionNotice(
       html,
     });
     if (res.sent) sent++;
+    // Marker AFTER the attempt: a crash mid-run re-tries the unmarked tail
+    // on the next send instead of silently dropping it. The row is also the
+    // member's bell notification for this notice.
+    await admin.from("notifications").insert({
+      profile_id: r.profileId,
+      kind: "speaker_notice",
+      title: `Notice from ${ctx.speaker.name}`,
+      body: subject,
+      link: noticeLink,
+    });
   }
 
+  const reached = sent + skipped;
   return {
     ok: true,
     recipients: recipients.length,
     message:
       recipients.length === 0
         ? "No one is enrolled in that session yet."
-        : `Notice sent to ${sent} of ${recipients.length} enrolled member${recipients.length === 1 ? "" : "s"}.`,
+        : remainingForBudget > 0
+          ? `Notice sent to ${reached} of ${recipients.length} so far — ${remainingForBudget} still to send. Press Send again to continue; members already reached are skipped automatically.`
+          : skipped > 0
+            ? `Notice sent to ${sent} more member${sent === 1 ? "" : "s"} (${skipped} had already received it).`
+            : `Notice sent to ${sent} of ${recipients.length} enrolled member${recipients.length === 1 ? "" : "s"}.`,
   };
 }
 

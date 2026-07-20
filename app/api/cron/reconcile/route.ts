@@ -15,9 +15,18 @@ import { isGhlReady } from "@/lib/service-config";
  * 2. Drift check — for GHL-sourced rows expiring soon, confirm the GHL
  *    contact still exists; vanished contacts are reported for review (billing
  *    truth stays in GHL — we flag rather than guess).
+ * 3. Notification retention — the notifications table only ever grew (it
+ *    doubles as the bell feed AND several dedupe ledgers). At 350 members ×
+ *    reminders/announcements/recordings that's unbounded growth, so prune:
+ *    read rows after 30 days, everything after 120. Old rows are only dedupe
+ *    markers for events that can no longer fire (past sessions, long-sent
+ *    announcements), so deleting them cannot re-trigger sends.
  *
  * Protected by CRON_SECRET (Authorization: Bearer <CRON_SECRET>).
  */
+// Long-running under load — allow the full function window (Vercel Pro).
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -62,10 +71,30 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 3. Notification retention sweep.
+  const readCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const hardCutoff = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
+  let prunedRead = 0;
+  let prunedOld = 0;
+  const { data: readPruned } = await admin
+    .from("notifications")
+    .delete()
+    .not("read_at", "is", null)
+    .lt("created_at", readCutoff)
+    .select("id");
+  prunedRead = readPruned?.length ?? 0;
+  const { data: oldPruned } = await admin
+    .from("notifications")
+    .delete()
+    .lt("created_at", hardCutoff)
+    .select("id");
+  prunedOld = oldPruned?.length ?? 0;
+
   return NextResponse.json({
     ok: true,
     expiredCount: expired?.length ?? 0,
     ghlChecked: ghlReady,
     missingContacts,
+    prunedNotifications: { read: prunedRead, old: prunedOld },
   });
 }

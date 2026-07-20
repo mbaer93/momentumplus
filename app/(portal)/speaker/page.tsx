@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
+// Server actions on this page fan out per-member work — allow the full window.
+export const maxDuration = 300;
 
 export const metadata = { title: "Speaker Studio | Momentum+" };
 

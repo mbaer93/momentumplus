@@ -23,6 +23,9 @@ import {
  * Unmapped registration types are skipped and reported — tier rules are
  * configured, never guessed.
  */
+// Long-running under load — allow the full function window (Vercel Pro).
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,10 +56,22 @@ export async function GET(req: NextRequest) {
     alreadyImported: 0,
     skippedUnmappedTypes: [] as string[],
     errors: [] as string[],
+    /** Rows left for the next run — the per-run cap keeps one run inside
+        the function limit and Supabase's invite-email rate; the 30-minute
+        cadence drains the rest (350 October registrants ≈ a few hours). */
+    deferredToNextRun: 0,
   };
+
+  // Cap ATTEMPTED rows per run (already-imported skips are free).
+  const MAX_IMPORTS_PER_RUN = 40;
+  let attempted = 0;
 
   for (const row of rows) {
     if (row.processed) continue;
+    if (attempted >= MAX_IMPORTS_PER_RUN) {
+      summary.deferredToNextRun++;
+      continue;
+    }
 
     try {
       // Idempotency ledger: one import per email per event year.
@@ -84,6 +99,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Invite (magic-link) or find the existing member.
+      attempted++;
       let profileId: string | null = null;
       const { data: invited, error: inviteError } =
         await admin.auth.admin.inviteUserByEmail(row.email, {
@@ -101,6 +117,26 @@ export async function GET(req: NextRequest) {
           .ilike("email", emailPattern(row.email))
           .maybeSingle();
         profileId = profile?.id ?? null;
+        if (!profileId) {
+          // Same email-outage ladder as the shared provisioning path: when
+          // Supabase throttles invite emails (exactly what happens during a
+          // 350-person burst), the account still gets created and the
+          // welcome email can be re-sent later — the member is never lost.
+          const { findAuthUserIdByEmail, createAccountWithoutEmail } =
+            await import("@/lib/onboarding");
+          profileId = await findAuthUserIdByEmail(row.email);
+          if (!profileId) {
+            try {
+              const created = await createAccountWithoutEmail(
+                row.email,
+                row.name,
+              );
+              profileId = created.profileId;
+            } catch {
+              profileId = null;
+            }
+          }
+        }
       }
       if (!profileId) {
         summary.errors.push(`${redactEmail(row.email)}: could not invite or find profile`);
