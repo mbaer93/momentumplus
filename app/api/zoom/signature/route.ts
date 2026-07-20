@@ -3,14 +3,20 @@ import { getSession } from "@/lib/sessions/queries";
 import { isJoinWindowOpen } from "@/lib/sessions/view";
 import { generateZoomSignature } from "@/lib/zoom-signature";
 import { getZoomCreds } from "@/lib/service-config";
+import { speakerOwnsSession } from "@/lib/speaker-tools";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /*
  * Issues a short-lived Zoom Meeting SDK join signature for the embedded live
  * room (SPEC.md §4). Enforced server-side:
- *   - the caller must be enrolled in the session, and
+ *   - the caller must be enrolled in the session (the session's own speaker
+ *     may join without enrolling), and
  *   - the join window must be open (30 min before start → end).
+ * The session's SPEAKER gets a HOST signature (role 1): hosting through the
+ * embedded room shows their real name to attendees — the Zoom-app start URL
+ * can only ever show the shared Zoom account's profile name.
  * The SDK secret never leaves the server.
  */
 export async function POST(req: NextRequest) {
@@ -31,8 +37,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
+  // The session's own speaker hosts through the embed under their own name.
+  let isSpeakerHost = false;
+  if (isSupabaseConfigured()) {
+    const {
+      data: { user },
+    } = await createClient().auth.getUser();
+    if (user) {
+      isSpeakerHost = (await speakerOwnsSession(user.id, session.id)).ok;
+    }
+  }
+
   // getSession resolves the viewer's enrollment via RLS-scoped queries.
-  if (!session.isEnrolled) {
+  if (!session.isEnrolled && !isSpeakerHost) {
     return NextResponse.json(
       { error: "You must be enrolled to join this session." },
       { status: 403 },
@@ -58,7 +75,9 @@ export async function POST(req: NextRequest) {
     sdkKey: zoom.sdkClientId,
     sdkSecret: zoom.sdkClientSecret,
     meetingNumber: session.zoomMeetingId,
-    role: 0, // attendee
+    // Host for the session's speaker (their join starts the meeting and
+    // displays THEIR name); attendee for everyone else.
+    role: isSpeakerHost ? 1 : 0,
   });
 
   // Most Zoom accounts force meeting passcodes; the SDK join fails without
