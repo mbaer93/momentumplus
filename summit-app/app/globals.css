@@ -1,6 +1,65 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Minimal reset (replaces Tailwind preflight — this app doesn't use Tailwind;
+   the stylesheet is copied from the Momentum+ design system, SPEC.md §6). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: currentColor;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure,
+blockquote,
+dl,
+dd,
+ol,
+ul {
+  margin: 0;
+  padding: 0;
+}
+ol,
+ul {
+  list-style: none;
+}
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+}
+button,
+[role="button"] {
+  cursor: pointer;
+}
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+table {
+  border-collapse: collapse;
+}
 
 /*
  * Momentum+ design system — ported verbatim from mockup/momentum-plus-v5.html.
@@ -34,20 +93,18 @@
   --font-body: var(--font-inter), "Inter", sans-serif;
 }
 
-@layer base {
-  html,
-  body {
-    height: 100%;
-  }
-  body {
-    font-family: var(--font-body);
-    background: var(--cream);
-    color: var(--text);
-  }
-  a {
-    text-decoration: none;
-    color: inherit;
-  }
+html,
+body {
+  height: 100%;
+}
+body {
+  font-family: var(--font-body);
+  background: var(--cream);
+  color: var(--text);
+}
+a {
+  text-decoration: none;
+  color: inherit;
 }
 
 /* ===== SCROLLBAR ===== */
@@ -4469,3 +4526,711 @@ a.course-card:hover {
     margin-left: auto;
   }
 }
+
+/* ============================================================
+   TSLS SUMMIT COMPANION (/summit) — standalone event-app shell,
+   separate from the Momentum+ portal chrome. Same design tokens
+   (SPEC.md §6); phone-first with a bottom tab bar.
+   ============================================================ */
+
+.tsls-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+}
+.tsls-header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--navy);
+  color: var(--white);
+}
+.tsls-brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.tsls-brand-name {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 1px;
+}
+.tsls-brand-sub {
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.65);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tsls-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.tsls-header-admin {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #cbb8e0;
+  border: 1px solid rgba(203, 184, 224, 0.5);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+.tsls-momentum-btn {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--navy);
+  background: var(--gold);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+.tsls-momentum-btn span { color: var(--white); }
+.tsls-momentum-btn:hover { background: var(--gold-light); }
+
+/* --- Tab navigation: top row on desktop, bottom bar on phones --- */
+.tsls-tabbar {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  background: var(--navy-2);
+  padding: 0 10px;
+}
+.tsls-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.66);
+  border-bottom: 2px solid transparent;
+}
+.tsls-tab:hover { color: var(--white); }
+.tsls-tab.active { color: var(--gold-light); border-bottom-color: var(--gold); }
+.tsls-main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; }
+.tsls-pad { padding: 24px 20px 56px; }
+
+@media (max-width: 900px) {
+  .tsls-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    justify-content: space-around;
+    gap: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 -6px 20px rgba(11, 22, 34, 0.25);
+  }
+  .tsls-tab {
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 8px;
+    font-size: 10.5px;
+    border-bottom: none;
+    border-radius: 4px;
+    flex: 1;
+    text-align: center;
+  }
+  .tsls-tab.active { color: var(--gold-light); background: rgba(184, 150, 90, 0.14); }
+  /* Content never hides behind the bottom bar */
+  .tsls-main { padding-bottom: 76px; }
+}
+
+/* --- Page headers (gold rule, like the portal's section headers) --- */
+.tsls-page-header { margin-bottom: 18px; }
+.tsls-page-header h2 {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  color: var(--text);
+  padding-bottom: 8px;
+  position: relative;
+}
+.tsls-page-header h2::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 42px;
+  height: 2px;
+  background: var(--gold);
+}
+.tsls-page-header p { font-size: 13px; color: var(--mid-gray); margin-top: 6px; }
+.tsls-page-header a { color: var(--gold); }
+.tsls-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--mid-gray);
+  margin-bottom: 14px;
+}
+.tsls-back:hover { color: var(--gold); }
+.tsls-empty {
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 22px;
+  font-size: 13.5px;
+  color: var(--mid-gray);
+  line-height: 1.6;
+}
+.tsls-empty a { color: var(--gold); }
+
+/* --- Home hero --- */
+.tsls-hero {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-3) 100%);
+  color: var(--white);
+  border-radius: 4px;
+  padding: 26px 22px;
+  margin-bottom: 16px;
+}
+.tsls-hero-kicker {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  margin-bottom: 8px;
+}
+.tsls-hero-title {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+.tsls-hero-tagline { font-size: 13.5px; color: rgba(255, 255, 255, 0.75); }
+.tsls-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.tsls-hero-venue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--gold-light);
+}
+.tsls-hero-venue:hover { color: var(--gold); }
+
+/* --- Happening now / up next --- */
+.tsls-now-card {
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  border-left: 3px solid var(--gold);
+  border-radius: 4px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.tsls-now-row { display: flex; align-items: flex-start; gap: 12px; padding: 6px 0; }
+.tsls-now-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--mid-gray);
+  border: 1px solid var(--warm-gray);
+  border-radius: 3px;
+  padding: 4px 7px;
+  margin-top: 2px;
+}
+.tsls-now-badge.live {
+  color: var(--white);
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+}
+.tsls-now-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.tsls-now-meta { font-size: 12px; color: var(--mid-gray); margin-top: 2px; }
+.tsls-now-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* --- Quick tiles --- */
+.tsls-tile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tsls-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 14px;
+  transition: border-color 0.15s ease;
+}
+.tsls-tile:hover { border-color: var(--gold); }
+.tsls-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: var(--gold-pale);
+  color: var(--gold);
+}
+.tsls-tile-body { min-width: 0; }
+.tsls-tile-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tsls-tile-desc {
+  display: block;
+  font-size: 11.5px;
+  color: var(--mid-gray);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .tsls-tile-grid { grid-template-columns: 1fr; }
+}
+
+/* --- Momentum+ crossover card --- */
+.tsls-momentum-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--navy);
+  color: var(--white);
+  border-radius: 4px;
+  padding: 18px 20px;
+  margin-top: 16px;
+}
+.tsls-momentum-title {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  margin-bottom: 4px;
+}
+.tsls-momentum-title span { color: var(--gold); }
+.tsls-momentum-card p {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 380px;
+  line-height: 1.5;
+}
+.tsls-momentum-cta,
+.tsls-gold-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--gold);
+  color: var(--navy);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 11px 16px;
+  flex-shrink: 0;
+}
+.tsls-momentum-cta:hover,
+.tsls-gold-btn:hover { background: var(--gold-light); }
+.tsls-footer-links {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 22px;
+  font-size: 12px;
+}
+.tsls-footer-links a { color: var(--mid-gray); }
+.tsls-footer-links a:hover { color: var(--gold); }
+
+/* --- Badges --- */
+.tsls-vip-badge {
+  font-size: 9.5px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  color: var(--white);
+  background: var(--purple);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+.tsls-live-badge {
+  font-size: 9.5px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--white);
+  background: var(--accent-red);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+.tsls-kind-badge {
+  font-size: 9.5px;
+  letter-spacing: 1px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-radius: 3px;
+  padding: 2px 6px;
+  background: var(--warm-gray);
+  color: var(--text);
+}
+.tsls-kind-badge.keynote { background: rgba(184, 150, 90, 0.2); color: var(--gold); }
+.tsls-kind-badge.panel { background: rgba(58, 107, 150, 0.15); color: var(--accent-blue); }
+.tsls-kind-badge.workshop { background: rgba(58, 112, 85, 0.15); color: var(--accent-green); }
+.tsls-kind-badge.networking { background: rgba(92, 61, 122, 0.12); color: var(--purple); }
+.tsls-track-label { font-size: 11px; color: var(--mid-gray); letter-spacing: 0.4px; }
+
+/* --- Agenda timeline --- */
+.tsls-agenda-day { margin-bottom: 26px; }
+.tsls-agenda-day-label {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.tsls-agenda-list { list-style: none; margin: 0; padding: 0; }
+.tsls-agenda-item {
+  display: flex;
+  gap: 14px;
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.tsls-agenda-item.live { border-left: 3px solid var(--accent-red); }
+.tsls-agenda-item.past { opacity: 0.62; }
+.tsls-agenda-item.vip { border-left: 3px solid var(--purple); }
+.tsls-agenda-item.vip.live { border-left-color: var(--accent-red); }
+.tsls-agenda-time {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  width: 74px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tsls-agenda-time .end { font-weight: 400; font-size: 11px; color: var(--mid-gray); }
+.tsls-agenda-body { min-width: 0; flex: 1; }
+.tsls-agenda-toprow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.tsls-agenda-title { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.tsls-agenda-speaker { font-size: 12.5px; color: var(--gold); margin-top: 2px; }
+.tsls-agenda-speaker a:hover { color: var(--gold-light); }
+.tsls-agenda-desc {
+  font-size: 12.5px;
+  color: var(--mid-gray);
+  line-height: 1.55;
+  margin-top: 5px;
+}
+.tsls-agenda-loc {
+  font-size: 11.5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--mid-gray);
+  margin-top: 7px;
+}
+
+/* --- Vendors --- */
+.tsls-vendor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .tsls-vendor-grid { grid-template-columns: 1fr; } }
+.tsls-vendor-card {
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+.tsls-vendor-head { display: flex; align-items: center; gap: 12px; }
+.tsls-vendor-logo { border-radius: 4px; flex-shrink: 0; background: var(--cream); }
+.tsls-vendor-mark {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--navy-3);
+  color: var(--gold-light);
+  font-family: var(--font-serif);
+  font-size: 15px;
+  text-transform: uppercase;
+}
+.tsls-vendor-name { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.tsls-vendor-tagline { font-size: 12px; color: var(--mid-gray); margin-top: 1px; }
+.tsls-booth-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10.5px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  padding: 3px 8px;
+}
+.tsls-vendor-desc {
+  font-size: 12.5px;
+  color: var(--mid-gray);
+  line-height: 1.55;
+  margin-top: 10px;
+}
+.tsls-vendor-offer {
+  margin-top: 10px;
+  background: var(--gold-pale);
+  border-radius: 4px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.tsls-vendor-offer span {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 2px;
+}
+.tsls-vendor-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 12px;
+}
+.tsls-vendor-link {
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--gold);
+}
+
+/* --- Speakers --- */
+.tsls-speaker-list { display: flex; flex-direction: column; gap: 8px; }
+.tsls-speaker-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 12px 14px;
+  transition: border-color 0.15s ease;
+}
+.tsls-speaker-row:hover { border-color: var(--gold); }
+.tsls-speaker-av {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+}
+.tsls-speaker-info { min-width: 0; }
+.tsls-speaker-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.tsls-speaker-title {
+  font-size: 12px;
+  color: var(--mid-gray);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tsls-speaker-slot { font-size: 11.5px; color: var(--gold); margin-top: 3px; }
+.tsls-speaker-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.tsls-speaker-hero-av {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 26px;
+  overflow: hidden;
+}
+.tsls-speaker-hero-name { font-family: var(--font-serif); font-size: 22px; color: var(--text); }
+.tsls-speaker-hero-title { font-size: 13px; color: var(--mid-gray); margin-top: 3px; }
+.tsls-speaker-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tsls-card {
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.tsls-card h3 {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.tsls-bio { font-size: 13.5px; line-height: 1.65; color: var(--text); white-space: pre-line; }
+.tsls-slot-row { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--warm-gray); }
+.tsls-slot-row:last-child { border-bottom: none; }
+.tsls-slot-time { flex-shrink: 0; width: 74px; font-size: 12.5px; font-weight: 600; color: var(--gold); }
+.tsls-slot-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.tsls-slot-loc { font-size: 11.5px; color: var(--mid-gray); margin-top: 2px; }
+.tsls-outline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 10px 16px;
+}
+.tsls-outline-btn:hover { background: var(--gold-pale); }
+
+/* --- Ticket --- */
+.tsls-ticket {
+  position: relative;
+  max-width: 380px;
+  margin: 0 auto 16px;
+  background: var(--white);
+  border: 1px solid var(--warm-gray);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(11, 22, 34, 0.08);
+}
+.tsls-ticket-head {
+  background: var(--navy);
+  color: var(--white);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tsls-ticket.vip .tsls-ticket-head {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--purple) 130%);
+}
+.tsls-ticket-event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--gold-light);
+}
+.tsls-ticket-type { font-size: 11.5px; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255, 255, 255, 0.85); text-align: right; }
+.tsls-ticket-qr { padding: 22px 44px 10px; }
+.tsls-ticket-qr svg { display: block; width: 100%; height: auto; }
+.tsls-ticket-holder { text-align: center; padding: 0 20px 16px; }
+.tsls-ticket-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.tsls-ticket-email { font-size: 12px; color: var(--mid-gray); margin-top: 2px; }
+.tsls-ticket-rip {
+  border-top: 2px dashed var(--warm-gray);
+  position: relative;
+  margin: 0 12px;
+}
+.tsls-ticket-rip::before,
+.tsls-ticket-rip::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 1px solid var(--warm-gray);
+}
+.tsls-ticket-rip::before { left: -22px; }
+.tsls-ticket-rip::after { right: -22px; }
+.tsls-ticket-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 14px 20px 18px;
+  font-size: 12px;
+  color: var(--mid-gray);
+}
+.tsls-ticket-venue { display: inline-flex; align-items: center; gap: 5px; }
+.tsls-upgrade-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 380px;
+  margin: 0 auto 14px;
+  background: var(--gold-pale);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  padding: 16px 18px;
+}
+.tsls-upgrade-title {
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.tsls-upgrade-card p { font-size: 12.5px; color: var(--text); line-height: 1.5; max-width: 340px; }
+.tsls-ticket-note {
+  max-width: 380px;
+  margin: 0 auto;
+  font-size: 11.5px;
+  color: var(--mid-gray);
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* --- Community inside the summit shell --- */
+.tsls-community .chat-wrap {
+  height: calc(100dvh - var(--header-height) - 42px);
+}
+@media (max-width: 900px) {
+  .tsls-community .chat-wrap {
+    height: calc(100dvh - var(--header-height) - 76px);
+  }
+}
+
+/* --- Summit admin --- */
+.tsls-admin-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 640px) { .tsls-admin-links { grid-template-columns: 1fr; } }
+.tsls-admin-note { font-size: 12.5px; color: var(--mid-gray); line-height: 1.6; margin-bottom: 14px; }

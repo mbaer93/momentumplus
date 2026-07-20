@@ -19,3 +19,21 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+
+  summit-app:
+    name: Summit Companion · Lint · Typecheck · Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: summit-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: summit-app/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
