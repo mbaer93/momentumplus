@@ -24,7 +24,12 @@ export default async function SpeakerStudioPage({
   const member = await requireMember();
 
   let speaker = null;
-  let resource = { title: "", description: "", url: "" };
+  let resource = {
+    title: "",
+    description: "",
+    url: "",
+    imageUrl: null as string | null,
+  };
   let sessions: StudioSession[] = [];
   let videos: StudioVideo[] = [];
 
@@ -47,7 +52,7 @@ export default async function SpeakerStudioPage({
       speaker.resourceId
         ? admin
             .from("resources")
-            .select("title, description, url")
+            .select("title, description, url, image_url")
             .eq("id", speaker.resourceId)
             .maybeSingle()
         : Promise.resolve({ data: null }),
@@ -89,6 +94,7 @@ export default async function SpeakerStudioPage({
         title: (resourceRow.title as string) ?? "",
         description: (resourceRow.description as string) ?? "",
         url: (resourceRow.url as string) ?? "",
+        imageUrl: (resourceRow.image_url as string | null) ?? null,
       };
     }
   } else {
@@ -126,6 +132,7 @@ export default async function SpeakerStudioPage({
         bio: speaker.bio,
         industries: speaker.industries.join(", "),
         expiresAt: speaker.expiresAt,
+        headshotUrl: speaker.headshotUrl,
       }}
       resource={resource}
       sessions={sessions}

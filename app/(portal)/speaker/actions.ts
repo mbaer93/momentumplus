@@ -114,6 +114,105 @@ export async function updateOwnResource(input: {
   return { ok: true, message: "Resource page saved." };
 }
 
+const IMAGE_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+function imageFrom(
+  formData: FormData,
+): { file: File; ext: string } | { message: string } {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { message: "No file received — choose an image and try again." };
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    return {
+      message: `That image is ${mb} MB — the limit is 4 MB. Compress or resize it and try again.`,
+    };
+  }
+  const ext = IMAGE_TYPES[file.type];
+  if (!ext) {
+    return {
+      message: `That file type (${file.type || "unknown"}) isn't supported — use PNG, JPG, or WebP.`,
+    };
+  }
+  return { file, ext };
+}
+
+/** Upload their own headshot — shown on their speaker-directory page. */
+export async function uploadOwnHeadshot(
+  formData: FormData,
+): Promise<StudioResult> {
+  const ctx = await requireSpeaker();
+  if ("preview" in ctx) return { ok: true, message: "Uploaded (preview mode)." };
+  if ("error" in ctx) return { ok: false, message: ctx.error };
+  const img = imageFrom(formData);
+  if ("message" in img) return { ok: false, message: img.message };
+
+  const admin = createServiceClient();
+  await admin.storage
+    .createBucket("speaker-headshots", { public: true })
+    .catch(() => undefined);
+  const path = `${ctx.speaker.id}.${img.ext}`;
+  const bytes = Buffer.from(await img.file.arrayBuffer());
+  const { error: uploadError } = await admin.storage
+    .from("speaker-headshots")
+    .upload(path, bytes, { contentType: img.file.type, upsert: true });
+  if (uploadError) return { ok: false, message: uploadError.message };
+  const { data: pub } = admin.storage
+    .from("speaker-headshots")
+    .getPublicUrl(path);
+  const { error } = await admin
+    .from("speakers")
+    .update({ headshot_url: `${pub.publicUrl}?v=${Date.now()}` })
+    .eq("id", ctx.speaker.id);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/speakers");
+  revalidatePath("/speaker");
+  revalidateTag("speakers");
+  return { ok: true, message: "Headshot uploaded." };
+}
+
+/** Upload the logo/image shown on their business-resource card. */
+export async function uploadOwnResourceLogo(
+  formData: FormData,
+): Promise<StudioResult> {
+  const ctx = await requireSpeaker();
+  if ("preview" in ctx) return { ok: true, message: "Uploaded (preview mode)." };
+  if ("error" in ctx) return { ok: false, message: ctx.error };
+  if (!ctx.speaker.resourceId) {
+    return {
+      ok: false,
+      message: "Save your resource page first — then add the logo.",
+    };
+  }
+  const img = imageFrom(formData);
+  if ("message" in img) return { ok: false, message: img.message };
+
+  const admin = createServiceClient();
+  await admin.storage
+    .createBucket(SHARE_BUCKET, { public: true })
+    .catch(() => undefined);
+  const path = `logo-${ctx.speaker.resourceId}.${img.ext}`;
+  const bytes = Buffer.from(await img.file.arrayBuffer());
+  const { error: uploadError } = await admin.storage
+    .from(SHARE_BUCKET)
+    .upload(path, bytes, { contentType: img.file.type, upsert: true });
+  if (uploadError) return { ok: false, message: uploadError.message };
+  const { data: pub } = admin.storage.from(SHARE_BUCKET).getPublicUrl(path);
+  const { error } = await admin
+    .from("resources")
+    .update({ image_url: `${pub.publicUrl}?v=${Date.now()}` })
+    .eq("id", ctx.speaker.resourceId);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/resources");
+  revalidatePath("/speaker");
+  return { ok: true, message: "Logo uploaded." };
+}
+
 const SHARE_BUCKET = "resource-images"; // existing public bucket
 const SHARE_TYPES: Record<string, string> = {
   "application/pdf": "pdf",
