@@ -1,7 +1,10 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { WelcomeForm } from "./WelcomeForm";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { emailPattern } from "@/lib/db-utils";
 
 export const metadata = {
   title: "Welcome | Momentum+",
@@ -40,6 +43,39 @@ export default async function WelcomePage({
     } = await supabase.auth.getUser();
     if (user) {
       email = user.email ?? "";
+
+      // Invite links land here regardless of what KIND of invite they were
+      // (the email template's redirect is fixed). Speakers and sponsor reps
+      // have their own onboarding that also grants their access — route
+      // them there instead of the generic member walkthrough. Password
+      // resets stay here (mode=reset).
+      if (
+        mode !== "reset" &&
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      ) {
+        const admin = createServiceClient();
+        const [{ data: speakerInvite }, { data: sponsorInvite }] =
+          await Promise.all([
+            email
+              ? admin
+                  .from("speaker_invites")
+                  .select("id")
+                  .ilike("email", emailPattern(email))
+                  .is("completed_at", null)
+                  .limit(1)
+                  .maybeSingle()
+              : Promise.resolve({ data: null }),
+            admin
+              .from("sponsor_invites")
+              .select("id")
+              .eq("invited_profile_id", user.id)
+              .is("completed_at", null)
+              .limit(1)
+              .maybeSingle(),
+          ]);
+        if (speakerInvite) redirect("/speaker-onboarding");
+        if (sponsorInvite) redirect("/sponsor-onboarding");
+      }
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name, company, title, phone, industry, bio")
