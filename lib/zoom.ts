@@ -202,6 +202,51 @@ export async function deleteZoomMeeting(meetingId: string): Promise<void> {
   }
 }
 
+/**
+ * ZAK (Zoom Access Key) for the meeting-owner account. The Web Meeting SDK
+ * can only START a meeting as host when the join carries a ZAK — a role-1
+ * signature alone joins with host rank but cannot start the meeting.
+ * Handed out solely to the session's own speaker via the signature route.
+ */
+export async function getHostZak(): Promise<string | null> {
+  try {
+    const token = await getZoomAccessToken();
+    const res = await fetch(`${ZOOM_API_BASE}/users/me/zak`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { token?: string };
+    return json.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Live status of a meeting: "started" while in progress, "waiting"
+ * otherwise, null when Zoom is unreachable or the meeting is gone. Used to
+ * VERIFY a client's "the host ended the meeting" claim before completing a
+ * session — client-side disconnect reasons are localized and fire on plan
+ * cutoffs and host connection blips too.
+ */
+export async function getMeetingStatus(
+  meetingId: string,
+): Promise<string | null> {
+  try {
+    const token = await getZoomAccessToken();
+    const res = await fetch(
+      `${ZOOM_API_BASE}/meetings/${encodeURIComponent(meetingId)}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { status?: string };
+    return json.status ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface ZoomRecordingFile {
   file_type?: string;
   file_size?: number;

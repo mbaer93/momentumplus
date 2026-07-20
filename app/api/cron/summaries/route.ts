@@ -67,6 +67,55 @@ export async function GET(req: NextRequest) {
     )) {
       try {
         const asset = await getMuxAsset(v.mux_asset_id as string);
+
+        // Errored asset (Zoom's download token expired before Mux fetched
+        // the file — the poller path's token lives ~1h): re-mint a fresh
+        // token and re-ingest, otherwise the video is stuck on "Recording
+        // processing" forever.
+        if (
+          asset.status === "errored" &&
+          (v as { session_id?: string | null }).session_id
+        ) {
+          const { data: sess } = await admin
+            .from("sessions")
+            .select("zoom_meeting_id")
+            .eq("id", (v as { session_id: string }).session_id)
+            .maybeSingle();
+          if (sess?.zoom_meeting_id) {
+            const { getMeetingRecordings } = await import("@/lib/zoom");
+            const rec = await getMeetingRecordings(
+              sess.zoom_meeting_id as string,
+            ).catch(() => null);
+            const mp4s = (rec?.files ?? []).filter(
+              (f) =>
+                f.file_type === "MP4" &&
+                f.download_url &&
+                f.status !== "processing",
+            );
+            const best =
+              mp4s.find(
+                (f) =>
+                  f.recording_type === "shared_screen_with_speaker_view",
+              ) ?? mp4s.sort((a, b) => (b.file_size ?? 0) - (a.file_size ?? 0))[0];
+            if (rec && best?.download_url) {
+              const { createMuxAssetFromUrl } = await import("@/lib/mux");
+              const fresh = await createMuxAssetFromUrl(
+                `${best.download_url}?access_token=${rec.accessToken}`,
+              );
+              await admin
+                .from("videos")
+                .update({ mux_asset_id: fresh.id })
+                .eq("id", v.id);
+              videoResults.push({
+                id: v.id,
+                title: v.title,
+                status: "errored asset re-ingested",
+              });
+            }
+          }
+          continue;
+        }
+
         const playbackId = asset.playback_ids?.[0]?.id ?? null;
         const patch: Record<string, unknown> = {};
         if (!v.mux_playback_id && playbackId) patch.mux_playback_id = playbackId;
@@ -176,7 +225,7 @@ export async function GET(req: NextRequest) {
     const { data: videos } = await admin
       .from("videos")
       .select(
-        "id, title, mux_playback_id, published_at, session_id, ai_summaries!video_id ( id ), sessions ( ai_summaries ( id ) )",
+        "id, title, min_access, mux_playback_id, published_at, session_id, ai_summaries!video_id ( id ), sessions ( ai_summaries ( id ) )",
       )
       .not("session_id", "is", null)
       .is("published_at", null)
@@ -188,9 +237,9 @@ export async function GET(req: NextRequest) {
       const row = v as unknown as {
         id: string;
         title: string;
+        min_access: string | null;
         ai_summaries: unknown;
         sessions: { ai_summaries: unknown } | null;
-        __summaryReady?: boolean;
       };
       if (!has(row.ai_summaries) && !has(row.sessions?.ai_summaries)) continue;
       const { error: pubError } = await admin
@@ -207,6 +256,9 @@ export async function GET(req: NextRequest) {
           title: "New recording in the Library",
           body: row.title,
           link: `/library/${row.id}`,
+          // Only members whose tier can actually open it — a bell that
+          // 404s on click is worse than no bell.
+          minAccess: (row.min_access as never) ?? null,
         });
       } catch {
         // Notification is best-effort; the recording is live either way.

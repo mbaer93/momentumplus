@@ -80,6 +80,15 @@ export async function POST(req: NextRequest) {
     role: isSpeakerHost ? 1 : 0,
   });
 
+  // Starting a meeting from the Web SDK requires a ZAK on top of the role-1
+  // signature — without it the speaker joins with host rank but the meeting
+  // never starts and members wait forever.
+  let zak: string | null = null;
+  if (isSpeakerHost) {
+    const { getHostZak } = await import("@/lib/zoom");
+    zak = await getHostZak();
+  }
+
   // Most Zoom accounts force meeting passcodes; the SDK join fails without
   // one. Only handed out here — after the enrollment + join-window checks.
   let passcode: string | null = null;
@@ -98,6 +107,7 @@ export async function POST(req: NextRequest) {
       sdkKey: zoom.sdkClientId,
       meetingNumber: session.zoomMeetingId,
       passcode,
+      zak,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

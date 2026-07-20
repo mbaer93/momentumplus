@@ -1,7 +1,9 @@
+import { canAccess } from "@/lib/access";
 import { allRows } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { PrefKey } from "@/lib/notifications";
+import type { AccessLevel, Tier } from "@/lib/types";
 
 /**
  * Profile ids of everyone who can open the admin panel — an ACTIVE
@@ -34,6 +36,9 @@ export async function notifyMembersInApp(input: {
   title: string;
   body: string;
   link: string;
+  /** Gate the fan-out by the content's access level — a member whose tier
+      can't open the recording must not get a bell that 404s on click. */
+  minAccess?: AccessLevel | null;
 }): Promise<void> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
   try {
@@ -44,10 +49,10 @@ export async function notifyMembersInApp(input: {
     // dedupe query).
     const [{ rows: memberships }, { rows: prefs }, { rows: already }] =
       await Promise.all([
-        allRows<{ profile_id: string }>((from, to) =>
+        allRows<{ profile_id: string; tier: string }>((from, to) =>
           admin
             .from("memberships")
-            .select("profile_id")
+            .select("profile_id, tier")
             .in("status", ["active", "past_due"])
             .order("profile_id")
             .range(from, to),
@@ -75,9 +80,19 @@ export async function notifyMembersInApp(input: {
       prefs.filter((p) => p.in_app === false).map((p) => p.profile_id),
     );
     const done = new Set(already.map((n) => n.profile_id));
-    const targets = Array.from(
-      new Set(memberships.map((m) => m.profile_id)),
-    ).filter((id) => !optedOut.has(id) && !done.has(id));
+    // A person qualifies if ANY of their active grants clears the gate
+    // (matches how the portal itself resolves access).
+    const eligible = new Set(
+      memberships
+        .filter(
+          (m) =>
+            !input.minAccess || canAccess(m.tier as Tier, input.minAccess),
+        )
+        .map((m) => m.profile_id),
+    );
+    const targets = Array.from(eligible).filter(
+      (id) => !optedOut.has(id) && !done.has(id),
+    );
 
     if (targets.length === 0) return;
     const CHUNK = 500;

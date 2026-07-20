@@ -66,6 +66,7 @@ export async function createVideo(input: VideoInput): Promise<AdminResult> {
   if (input.published && created) {
     const { notifyMembersInApp } = await import("@/lib/engagement-notify");
     await notifyMembersInApp({
+      minAccess: input.minAccess,
       key: "recording_ready",
       title: "New recording in the Library",
       body: input.title,
@@ -102,6 +103,7 @@ export async function updateVideo(
   if (input.published && !existing?.published_at) {
     const { notifyMembersInApp } = await import("@/lib/engagement-notify");
     await notifyMembersInApp({
+      minAccess: input.minAccess,
       key: "recording_ready",
       title: "New recording in the Library",
       body: input.title,
@@ -225,6 +227,7 @@ export async function finalizeVideoUpload(
     if (input.published && created) {
       const { notifyMembersInApp } = await import("@/lib/engagement-notify");
       await notifyMembersInApp({
+        minAccess: input.minAccess,
         key: "recording_ready",
         title: "New recording in the Library",
         body: input.title.trim(),

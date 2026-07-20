@@ -150,12 +150,15 @@ export function LiveRoom({
           return;
         }
 
-        const { signature, sdkKey, meetingNumber, passcode } =
+        const { signature, sdkKey, meetingNumber, passcode, zak } =
           (await res.json()) as {
             signature: string;
             sdkKey: string;
             meetingNumber: string;
             passcode?: string | null;
+            /** Present only for the session's speaker — lets their join
+                START the meeting as host under their own name. */
+            zak?: string | null;
           };
 
         // Zoom Meeting SDK (component view) — loaded client-side only.
@@ -248,14 +251,13 @@ export function LiveRoom({
             }).on("connection-change", (payload) => {
               if (payload?.state !== "Closed") return;
               if (leftDeliberately.current) return; // we set the phase already
-              const endedByHost = /ended by host|meeting has ended/i.test(
-                payload?.reason ?? "",
-              );
-              if (endedByHost) {
-                void fetch(`/api/sessions/${session.id}/complete`, {
-                  method: "POST",
-                }).catch(() => undefined);
-              }
+              // Report EVERY non-deliberate close — the server verifies with
+              // the Zoom API and only completes the session if the meeting
+              // truly ended (disconnect reasons are localized and fire on
+              // blips too, so the client can't be trusted to distinguish).
+              void fetch(`/api/sessions/${session.id}/complete`, {
+                method: "POST",
+              }).catch(() => undefined);
               setPhase("ended");
             });
           } catch {
@@ -272,6 +274,8 @@ export function LiveRoom({
           password: passcode ?? "",
           // Helps the attendance report match this participant to a member.
           userEmail: memberEmail || undefined,
+          // Speaker only: authorizes STARTING the meeting as host.
+          ...(zak ? { zak } : {}),
         });
 
         leftDeliberately.current = false;

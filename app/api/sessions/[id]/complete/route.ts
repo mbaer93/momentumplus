@@ -36,7 +36,28 @@ export async function POST(
     return NextResponse.json({ ok: true, skipped: "not started" });
   }
 
-  const { error } = await createServiceClient()
+  // VERIFY with Zoom before flipping: the client only knows a localized
+  // disconnect reason, which also fires on plan cutoffs and host connection
+  // blips. If Zoom says the meeting is still running, nothing completes.
+  const service = createServiceClient();
+  const { data: zoomRow } = await service
+    .from("sessions")
+    .select("zoom_meeting_id")
+    .eq("id", session.id)
+    .maybeSingle();
+  if (zoomRow?.zoom_meeting_id) {
+    try {
+      const { getMeetingStatus } = await import("@/lib/zoom");
+      const status = await getMeetingStatus(zoomRow.zoom_meeting_id as string);
+      if (status === "started") {
+        return NextResponse.json({ ok: true, skipped: "meeting still running" });
+      }
+    } catch {
+      // Zoom unreachable — fall through to the time-based guard above.
+    }
+  }
+
+  const { error } = await service
     .from("sessions")
     .update({ status: "completed" })
     .eq("id", session.id)
