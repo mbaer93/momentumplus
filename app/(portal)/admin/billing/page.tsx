@@ -6,7 +6,7 @@ import {
 import { PricingManager, type PricingInitial } from "@/components/admin/PricingManager";
 import { ArrowLeftIcon } from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
-import { getStripeSettings } from "@/lib/stripe";
+import { getStripeSettings, pricesModeMismatch } from "@/lib/stripe";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +61,17 @@ export default async function AdminBillingPage() {
         </div>
       ) : (
         <>
+          {settings && pricesModeMismatch(settings) && (
+            <div className="admin-form-msg err" style={{ marginBottom: 14 }}>
+              Your Stripe key is in {settings.livemode ? "live" : "test"} mode,
+              but the saved prices were created in{" "}
+              {settings.livemode ? "test" : "live"} mode — Stripe can&apos;t
+              charge them, so member checkout is paused. Fix: click Save in the
+              pricing grid below (the amounts don&apos;t need to change) and
+              every price is recreated in {settings.livemode ? "live" : "test"}{" "}
+              mode.
+            </div>
+          )}
           <PricingManager
             connected={status.connected}
             livemode={status.livemode}

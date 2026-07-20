@@ -62,9 +62,25 @@ export async function saveStripeSettings(value: StripeSettings): Promise<void> {
     );
 }
 
-/** True once Sierra's wizard has stored a key + both prices + webhook secret. */
+/**
+ * A live↔test key switch leaves price ids from the other mode in settings —
+ * Stripe rejects them ("No such price"), so every checkout would fail until
+ * pricing is re-saved (which recreates everything in the current mode).
+ */
+export function pricesModeMismatch(s: StripeSettings | null): boolean {
+  return Boolean(
+    s && s.pricesLivemode !== undefined && s.pricesLivemode !== s.livemode,
+  );
+}
+
+/** True once Sierra's wizard has stored a key + both prices + webhook secret.
+    A price/key mode mismatch counts as NOT ready — gating checkout on a
+    clear message beats letting it fail mid-payment. */
 export function stripeReady(s: StripeSettings | null): s is StripeSettings {
-  return Boolean(s?.secretKey && s.prices.basic && s.prices.pro && s.webhookSecret);
+  return (
+    Boolean(s?.secretKey && s.prices.basic && s.prices.pro && s.webhookSecret) &&
+    !pricesModeMismatch(s)
+  );
 }
 
 // ---------------------------------------------------------------------------
