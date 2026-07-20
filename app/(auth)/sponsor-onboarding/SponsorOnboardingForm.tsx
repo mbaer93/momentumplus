@@ -13,12 +13,16 @@ export function SponsorOnboardingForm({
   initialBusinessName,
   needsPassword,
   ticketAllotment = 0,
+  adEligible = false,
 }: {
   tierLabel: string;
   initialBusinessName: string;
   needsPassword: boolean;
   /** Free VIP access tickets included with this sponsor tier. */
   ticketAllotment?: number;
+  /** Rail-ad tiers only (Matt, 2026-07-20): lower tiers don't see an ad
+      upload for artwork that would never be shown anywhere. */
+  adEligible?: boolean;
 }) {
   const router = useRouter();
   const [business, setBusiness] = useState({
@@ -230,18 +234,21 @@ export function SponsorOnboardingForm({
             onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
           />
         </div>
-        <div className="login-field">
-          <label htmlFor="sp-ad">
-            Ad artwork (optional — shown in member-page ad placements for
-            eligible tiers; PNG/JPG/SVG/WebP, under 2 MB)
-          </label>
-          <input
-            id="sp-ad"
-            type="file"
-            accept="image/png,image/jpeg,image/svg+xml,image/webp"
-            onChange={(e) => setAdFile(e.target.files?.[0] ?? null)}
-          />
-        </div>
+        {adEligible && (
+          <div className="login-field">
+            <label htmlFor="sp-ad">
+              Ad artwork (optional — your tier includes member-page ad
+              placements, activated by the Momentum+ team; PNG/JPG/SVG/WebP,
+              under 2 MB)
+            </label>
+            <input
+              id="sp-ad"
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp"
+              onChange={(e) => setAdFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div className="login-field">

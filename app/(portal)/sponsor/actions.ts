@@ -314,6 +314,16 @@ export async function transferOwnership(
   if (target.role === "owner") {
     return { ok: false, message: "They already own this page." };
   }
+  // Ownership passes only to a current MANAGER (Matt, 2026-07-20) —
+  // otherwise a VIP-ticket guest could inherit the page and its free
+  // membership, skipping the manager-eligibility rule entirely.
+  if (target.role !== "manager") {
+    return {
+      ok: false,
+      message:
+        "Ownership can only be transferred to a current manager. Promote them to manager first (they need their own Momentum+ membership), then transfer.",
+    };
+  }
 
   // Grant the NEW owner's free membership first — the most failure-prone
   // step. If it can't be granted, abort before touching roles so the page

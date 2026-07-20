@@ -87,13 +87,14 @@ export async function listSponsorTeam(
         .neq("source", "sponsor")
         .in("status", ["active", "past_due", "canceled"]),
       // A VIP-ticket comp specifically — used to count tickets consumed.
+      // ALL statuses, including expired: tickets are consumed forever
+      // (Matt, 2026-07-20), so a guest whose 3 months lapsed still counts.
       admin
         .from("memberships")
         .select("profile_id, status, access_expires_at")
         .in("profile_id", ids)
         .eq("source", "sponsor")
-        .eq("tier", "vip")
-        .in("status", ["active", "past_due", "canceled"]),
+        .eq("tier", "vip"),
     ]);
   const byId = new Map(
     (profiles ?? []).map((p) => [
@@ -108,9 +109,9 @@ export async function listSponsorTeam(
   const regular = new Set(
     (regularRows ?? []).filter(grants).map((m) => m.profile_id as string),
   );
-  const vipComp = new Set(
-    (vipRows ?? []).filter(grants).map((m) => m.profile_id as string),
-  );
+  // Deliberately NOT filtered by grants(): a ticket stays consumed after the
+  // guest's access lapses — VIP tickets are per-person, not rotating seats.
+  const vipComp = new Set((vipRows ?? []).map((m) => m.profile_id as string));
 
   const roleRank: Record<SponsorRole, number> = { owner: 0, manager: 1, member: 2 };
   return seats
@@ -129,8 +130,9 @@ export async function listSponsorTeam(
     );
 }
 
-/** VIP tickets consumed: seats actually holding a VIP-ticket comp — NOT
-    co-managers or admin-linked Pro seats, which are non-owner seats too. */
+/** VIP tickets consumed — permanently, like Pro tickets (Matt, 2026-07-20):
+    every seat that ever received a VIP-ticket comp counts, active or lapsed.
+    Co-managers and admin-linked Pro seats never count. */
 export function ticketsUsed(team: SponsorSeat[]): number {
   return team.filter((s) => s.vipTicket).length;
 }
