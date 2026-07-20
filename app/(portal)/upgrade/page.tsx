@@ -14,7 +14,11 @@ export const dynamic = "force-dynamic";
  * out through Stripe, plan switches and cancellation go through the
  * customer portal (see PlansView).
  */
-export default async function UpgradePage() {
+export default async function UpgradePage({
+  searchParams,
+}: {
+  searchParams?: { billing?: string };
+}) {
   const member = await requireMember();
   const settings = await getStripeSettings();
   const terms = {
@@ -76,6 +80,7 @@ export default async function UpgradePage() {
         isPro={isPro(member.tier)}
         hasCustomer={hasCustomer}
         tierLabel={member.tierLabel}
+        billingNotice={searchParams?.billing === "unavailable"}
       />
     </div>
   );
