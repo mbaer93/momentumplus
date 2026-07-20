@@ -4469,3 +4469,336 @@ a.course-card:hover {
     margin-left: auto;
   }
 }
+
+/* --- Whitney by SLC (Pro reflective guide) ------------------------------- */
+.whitney-pad {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.whitney-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 18px;
+  height: calc(100vh - 210px);
+  min-height: 440px;
+}
+.whitney-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.whitney-new {
+  background: var(--navy);
+  color: var(--cream);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 600;
+  cursor: pointer;
+}
+.whitney-new:hover {
+  background: var(--navy-2);
+}
+.whitney-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.whitney-list-empty {
+  font-size: 12px;
+  color: var(--mid-gray);
+  line-height: 1.6;
+  padding: 4px 2px;
+}
+.whitney-item {
+  display: flex;
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.whitney-item.active {
+  border-color: var(--gold);
+}
+.whitney-item-open {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 10px 4px 10px 12px;
+  font-size: 12.5px;
+  color: var(--navy);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: inherit;
+}
+.whitney-item-del {
+  background: none;
+  border: none;
+  color: var(--mid-gray);
+  font-size: 15px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+.whitney-item-del:hover {
+  color: #b3564a;
+}
+.whitney-thread {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #fff;
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.whitney-msgs {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--cream);
+}
+.whitney-msg {
+  max-width: 74%;
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.whitney-msg.user {
+  align-self: flex-end;
+  background: var(--navy);
+  color: var(--cream);
+}
+.whitney-msg.whitney {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--warm-gray);
+  color: var(--navy);
+}
+.whitney-msg.typing {
+  color: var(--mid-gray);
+  letter-spacing: 2px;
+}
+.whitney-intro {
+  margin: auto;
+  text-align: center;
+  max-width: 400px;
+  padding: 20px;
+}
+.whitney-intro h3 {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  color: var(--navy);
+  margin-bottom: 8px;
+}
+.whitney-intro p {
+  font-size: 13px;
+  color: var(--mid-gray);
+  line-height: 1.7;
+}
+.whitney-error {
+  padding: 8px 18px 0;
+  font-size: 12.5px;
+  color: #b3564a;
+}
+.whitney-input-row {
+  display: flex;
+  gap: 10px;
+  padding: 12px 12px 6px;
+  border-top: 1px solid var(--warm-gray);
+  background: #fff;
+}
+.whitney-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  line-height: 1.5;
+  color: var(--navy);
+}
+.whitney-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.whitney-send {
+  background: var(--gold);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0 20px;
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 600;
+  cursor: pointer;
+}
+.whitney-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.whitney-note {
+  font-size: 11px;
+  color: var(--mid-gray);
+  padding: 4px 14px 10px;
+  background: #fff;
+}
+.whitney-lock {
+  max-width: 460px;
+  margin: 48px auto 0;
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 36px 32px;
+}
+.whitney-lock h3 {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  color: var(--navy);
+  margin-bottom: 10px;
+}
+.whitney-lock p {
+  font-size: 13.5px;
+  color: var(--mid-gray);
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+.whitney-lock-cta {
+  display: inline-block;
+  background: var(--gold);
+  color: #fff;
+  border-radius: 4px;
+  padding: 11px 24px;
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.whitney-lock-cta:hover {
+  background: var(--gold-light);
+}
+/* Admin editor */
+.whitney-admin-warn {
+  font-size: 13px;
+  color: #b3564a;
+  margin-bottom: 12px;
+}
+.whitney-admin-warn a {
+  color: var(--gold);
+  font-weight: 600;
+}
+.whitney-admin-status {
+  font-size: 13px;
+  color: var(--mid-gray);
+  line-height: 1.6;
+  margin-bottom: 14px;
+  max-width: 720px;
+}
+.whitney-admin-textarea {
+  width: 100%;
+  max-width: 860px;
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 14px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--navy);
+  background: #fff;
+}
+.whitney-admin-textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.whitney-admin-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.whitney-admin-save {
+  background: var(--gold);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 600;
+  cursor: pointer;
+}
+.whitney-admin-save:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.whitney-admin-reset {
+  background: none;
+  border: 1px solid var(--warm-gray);
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--mid-gray);
+  cursor: pointer;
+}
+.whitney-admin-note {
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+.whitney-admin-note.ok {
+  color: #4a7c59;
+}
+.whitney-admin-note.err {
+  color: #b3564a;
+}
+@media (max-width: 900px) {
+  .whitney-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .whitney-side {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .whitney-new {
+    flex-shrink: 0;
+  }
+  .whitney-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+  }
+  .whitney-item {
+    flex-shrink: 0;
+    max-width: 180px;
+  }
+  .whitney-thread {
+    height: calc(100vh - 300px);
+    min-height: 380px;
+  }
+}

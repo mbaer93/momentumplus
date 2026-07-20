@@ -10,6 +10,7 @@ import {
   ResourcesIcon,
   SessionsIcon,
   SettingsIcon,
+  SparkleIcon,
   SpeakersIcon,
   SponsorsIcon,
 } from "@/components/icons";
@@ -103,6 +104,13 @@ const SECTIONS: {
     icon: EducationIcon,
     title: "Education",
     desc: "Courses and learning tracks built from the library.",
+    area: "content",
+  },
+  {
+    href: "/admin/whitney",
+    icon: SparkleIcon,
+    title: "Whitney",
+    desc: "Edit the instructions behind the Pro members' reflective guide.",
     area: "content",
   },
   {
