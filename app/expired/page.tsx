@@ -17,6 +17,10 @@ export const metadata = {
  * the legacy monthly/3/6/12 plans are gone.
  */
 export default async function ExpiredPage() {
+  // Sponsor reps and speakers whose comped season ended get an explanation,
+  // not just the generic "pick a plan" paywall.
+  let endedNote: string | null = null;
+
   // Self-heal wrong-door arrivals: a signed-in user with an OPEN speaker or
   // sponsor invite has no membership YET because their onboarding hasn't
   // run — send them to it instead of asking them to pay. (Invite emails can
@@ -37,6 +41,52 @@ export default async function ExpiredPage() {
       ]);
       if (speakerInvite) redirect("/speaker-onboarding");
       if (sponsorInvite) redirect("/sponsor-onboarding");
+
+      const { sponsorActive } = await import("@/lib/sponsor-lifecycle");
+      const [{ data: speakerRow }, { data: seatRows }] = await Promise.all([
+        admin
+          .from("speakers")
+          .select("expires_at, archived_at")
+          .eq("profile_id", user.id)
+          .maybeSingle(),
+        admin
+          .from("sponsor_members")
+          .select("sponsors ( name, expires_at, archived_at )")
+          .eq("profile_id", user.id),
+      ]);
+      if (
+        speakerRow &&
+        !sponsorActive({
+          archivedAt: (speakerRow.archived_at as string | null) ?? null,
+          expiresAt: (speakerRow.expires_at as string | null) ?? null,
+        })
+      ) {
+        endedNote =
+          "Your speaker season has ended, which is why your access stopped — that's the normal October 1 rollover, not a billing problem. If you're speaking again next season, the Momentum+ team can reinstate you. You're also welcome to stay in the community year-round with a plan below.";
+      } else {
+        const endedSponsor = (seatRows ?? [])
+          .map(
+            (r) =>
+              (r as unknown as {
+                sponsors: {
+                  name: string;
+                  expires_at: string | null;
+                  archived_at: string | null;
+                } | null;
+              }).sponsors,
+          )
+          .find(
+            (s) =>
+              s &&
+              !sponsorActive({
+                archivedAt: s.archived_at,
+                expiresAt: s.expires_at,
+              }),
+          );
+        if (endedSponsor) {
+          endedNote = `Your access came with ${endedSponsor.name}'s sponsorship, which has ended. To renew the sponsorship, email the Momentum+ team at hello@momentumplus.co — or continue personally with a plan below.`;
+        }
+      }
     }
   }
 
@@ -54,7 +104,21 @@ export default async function ExpiredPage() {
         </div>
         <div className="renew-tagline">The Year-Round Leadership Community</div>
 
-        <h1 className="renew-headline">Your membership has lapsed</h1>
+        <h1 className="renew-headline">
+          {endedNote ? "Your season has ended" : "Your membership has lapsed"}
+        </h1>
+        {endedNote && (
+          <p
+            className="renew-sub"
+            style={{
+              border: "1px solid var(--gold, #B8965A)",
+              borderRadius: 4,
+              padding: "12px 16px",
+            }}
+          >
+            {endedNote}
+          </p>
+        )}
         <p className="renew-sub">
           Keep the momentum going — pick the plan that fits and you&apos;ll be
           back in the room in minutes. Your learning history, notes, and

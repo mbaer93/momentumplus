@@ -96,7 +96,7 @@ export default async function SponsorStudioPage({
   const { data: sponsor } = await admin
     .from("sponsors")
     .select(
-      "id, name, tier, tagline, description, offer, website, expires_at, archived_at",
+      "id, name, tier, tagline, description, offer, website, expires_at, archived_at, logo_url, sidebar_ad_url",
     )
     .eq("id", sponsorId)
     .maybeSingle();
@@ -127,6 +127,8 @@ export default async function SponsorStudioPage({
         offer: (sponsor.offer as string) ?? "",
         website: (sponsor.website as string) ?? "",
         archived: Boolean(sponsor.archived_at),
+        logoUrl: (sponsor.logo_url as string | null) ?? null,
+        sidebarAdUrl: (sponsor.sidebar_ad_url as string | null) ?? null,
         // Pre-season truth: the page exists but members can't see it yet —
         // without this the Studio says "live through ..." while the listing,
         // profile, and rail are all hidden until October 1.

@@ -54,6 +54,10 @@ export default async function DashboardPage() {
   // --- Assemble dashboard data: real queries when configured, mockup
   // fixtures in preview mode (no credentials) only. --------------------------
   let stats = placeholderStats;
+  // "You have N sessions" must mean ENROLLED sessions — the banner used to
+  // count the whole catalog, telling members they "have" sessions they never
+  // signed up for (and contradicting the enrolled-only bell).
+  let enrolledUpcoming = placeholderStats.upcomingSessions;
   let upcoming: UpcomingRow[] = [];
   let nextUp: {
     id: string;
@@ -120,6 +124,7 @@ export default async function DashboardPage() {
       newMessages,
       memberSinceDays,
     };
+    enrolledUpcoming = future.filter((s) => s.isEnrolled).length;
 
     const next = future.find((s) => s.isEnrolled) ?? future[0];
     if (next) {
@@ -166,9 +171,11 @@ export default async function DashboardPage() {
         <div className="welcome-text">
           <Greeting name={firstName} />
           <p>
-            {stats.upcomingSessions > 0
-              ? `You have ${stats.upcomingSessions} upcoming session${stats.upcomingSessions === 1 ? "" : "s"} on the calendar.`
-              : "Welcome to your leadership home base."}
+            {enrolledUpcoming > 0
+              ? `You're enrolled in ${enrolledUpcoming} upcoming session${enrolledUpcoming === 1 ? "" : "s"}.`
+              : stats.upcomingSessions > 0
+                ? `${stats.upcomingSessions} session${stats.upcomingSessions === 1 ? "" : "s"} coming up on the calendar — grab a seat.`
+                : "Welcome to your leadership home base."}
           </p>
           <div className="welcome-meta">
             <div className="welcome-meta-item">

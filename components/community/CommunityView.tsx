@@ -768,6 +768,16 @@ export function CommunityView({
             </span>
           </div>
         )}
+        {activeId === "speaker-qa" && !activeDm && canPost && speakers.length === 0 && (
+          /* Empty roster (pre-season): without this, a member's "question
+             for our speakers" posted here notified NO ONE while looking
+             like it went somewhere. */
+          <div className="chat-preview-note">
+            The speaker roster opens October 1 — until then, messages here
+            are seen by the community and the Momentum+ team, not sent to a
+            speaker.
+          </div>
+        )}
         <div className="chat-input-area">
           <div className="chat-input-box">
             <input

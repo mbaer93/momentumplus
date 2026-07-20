@@ -62,7 +62,7 @@ export default async function CoursePage({
             </p>
           </div>
           <div className="admin-banner-actions">
-            <Link href="/profile" className="btn-sm-gold">
+            <Link href="/upgrade" className="btn-sm-gold">
               View membership options
             </Link>
           </div>
