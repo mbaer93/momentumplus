@@ -6,6 +6,7 @@ import { RAIL_TIERS, normalizeSponsorTier } from "@/lib/sponsor-tiers";
 import {
   inNextSeason,
   sponsorActive,
+  sponsorLive,
   speakerLive,
 } from "@/lib/sponsor-lifecycle";
 import type { Tier } from "@/lib/types";
@@ -282,9 +283,29 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     data = rows;
   }
 
-  // Archived or term-expired sponsors are admin-only (Past Sponsors) —
-  // members never see them. Filtered here (not in the cached query) so the
-  // 5-minute cache can't serve a stale "active" list past an expiry moment.
+  // Members only see LIVE sponsors: not archived, not term-expired, and —
+  // same as speakers — not pre-season (a sponsor onboarding mid-year stays
+  // hidden until October 1). Filtered per-request, not in the cached query,
+  // so the cache can't serve a stale list across a season boundary.
+  return data
+    .filter((row) =>
+      sponsorLive({
+        archivedAt: row.archived_at ?? null,
+        expiresAt: row.expires_at ?? null,
+      }),
+    )
+    .map(mapSponsorRow);
+}
+
+/**
+ * Admin/preview variant: includes PRE-SEASON sponsors (hidden from members
+ * until October 1) so their profile pages can be previewed while they prep.
+ * Archived/expired sponsors stay out, same as the member list.
+ */
+export async function listSponsorsForAdmin(): Promise<SponsorItem[]> {
+  if (!isSupabaseConfigured()) return placeholderSponsors;
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return listSponsors();
+  const data = await cachedSponsorRows();
   return data
     .filter((row) =>
       sponsorActive({

@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nextOctoberFirst, seasonEnd, sponsorActive } from "../lib/sponsor-lifecycle";
+import {
+  inNextSeason,
+  nextOctoberFirst,
+  seasonEnd,
+  speakerLive,
+  sponsorActive,
+  sponsorLive,
+  upcomingSeasonStart,
+} from "../lib/sponsor-lifecycle";
 
 test("nextOctoberFirst rolls to this year's Oct 1 before it, next year's after", () => {
   const july = new Date("2026-07-17T12:00:00Z");
@@ -35,6 +43,54 @@ test("sponsorActive hides archived and expired sponsors", () => {
   );
 });
 
+
+test("speakers and sponsors stay hidden until October 1 of the joining year", () => {
+  // Joined July 2026 → term ends Oct 1 2027 → season starts Oct 1 2026.
+  const row = { archivedAt: null, expiresAt: "2027-10-01T04:00:00.000Z" };
+  for (const live of [speakerLive, sponsorLive]) {
+    assert.equal(live(row, new Date("2026-07-20T12:00:00Z")), false); // prep
+    assert.equal(live(row, new Date("2026-10-01T04:00:00Z")), true); // season opens
+    assert.equal(live(row, new Date("2027-06-15T12:00:00Z")), true); // mid-season
+    assert.equal(live(row, new Date("2027-10-01T04:00:00Z")), false); // term over
+    assert.equal(
+      live({ ...row, archivedAt: "2026-11-01T00:00:00Z" }, new Date("2027-06-15T12:00:00Z")),
+      false, // archived mid-season
+    );
+    // Legacy rows without a term stay visible.
+    assert.equal(live({ archivedAt: null, expiresAt: null }, new Date("2026-07-20T12:00:00Z")), true);
+  }
+});
+
+test("upcomingSeasonStart / inNextSeason pick out the pre-season cohort", () => {
+  const july = new Date("2026-07-20T12:00:00Z");
+  assert.equal(upcomingSeasonStart(july).toISOString(), "2026-10-01T04:00:00.000Z");
+  // ET still Sep 30 when UTC is already Oct 1 early morning.
+  assert.equal(
+    upcomingSeasonStart(new Date("2026-10-01T03:30:00Z")).toISOString(),
+    "2026-10-01T04:00:00.000Z",
+  );
+  assert.equal(
+    upcomingSeasonStart(new Date("2026-11-02T12:00:00Z")).toISOString(),
+    "2027-10-01T04:00:00.000Z",
+  );
+  // New joiner (term through Oct 2027) is next season; a current-season
+  // supporter (term ends this Oct 1) is not.
+  assert.equal(
+    inNextSeason({ archivedAt: null, expiresAt: "2027-10-01T04:00:00.000Z" }, july),
+    true,
+  );
+  assert.equal(
+    inNextSeason({ archivedAt: null, expiresAt: "2026-10-01T04:00:00.000Z" }, july),
+    false,
+  );
+  assert.equal(
+    inNextSeason(
+      { archivedAt: "2026-07-01T00:00:00Z", expiresAt: "2027-10-01T04:00:00.000Z" },
+      july,
+    ),
+    false,
+  );
+});
 
 test("seasonEnd is always Oct 1 of the year after joining (ET)", () => {
   assert.equal(

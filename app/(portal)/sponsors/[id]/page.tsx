@@ -5,7 +5,7 @@ import { AdminEditChip } from "@/components/admin/AdminChips";
 import { SponsorMark } from "@/components/sponsors/SponsorMark";
 import { SponsorWebsiteLink } from "@/components/sponsors/SponsorWebsiteLink";
 import { requireMember } from "@/lib/current-member";
-import { getSponsor } from "@/lib/directory-queries";
+import { getSponsor, listSponsorsForAdmin } from "@/lib/directory-queries";
 import { sponsorTierLabel } from "@/lib/sponsor-tiers";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,14 @@ export default async function SponsorDetailPage({
   params: { id: string };
 }) {
   const member = await requireMember();
-  const sponsor = await getSponsor(params.id);
+  let sponsor = await getSponsor(params.id);
+  // Pre-season sponsors are hidden from members until October 1, but the
+  // preview audience (admins, speakers, sponsor managers — the same set the
+  // next-season toggle serves) can still open their profile pages.
+  if (!sponsor && (member.isAdmin || member.isSpeaker || member.isSponsorManager)) {
+    sponsor =
+      (await listSponsorsForAdmin()).find((s) => s.id === params.id) ?? null;
+  }
   if (!sponsor) notFound();
 
   return (

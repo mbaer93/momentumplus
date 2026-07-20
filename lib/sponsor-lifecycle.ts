@@ -83,6 +83,13 @@ export function speakerLive(
   return now >= seasonStart;
 }
 
+/**
+ * Sponsors follow the identical season rule (Matt, 2026-07-20): onboard any
+ * time, build the page during the prep period, but members don't see the
+ * listing, rail ad, or profile until October 1 of the joining year.
+ */
+export const sponsorLive = speakerLive;
+
 
 /**
  * Term end for a supporter who joins at `joined`: October 1 of the FOLLOWING

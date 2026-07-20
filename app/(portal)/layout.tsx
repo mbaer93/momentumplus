@@ -10,6 +10,7 @@ import {
   type TopbarUpcoming,
 } from "@/components/portal/Topbar";
 import { SponsorRail } from "@/components/sponsors/SponsorRail";
+import { isPro } from "@/lib/access";
 import { requireMember } from "@/lib/current-member";
 import { listSponsors } from "@/lib/directory-queries";
 import { getPresentedByLogoUrl } from "@/lib/presented-by";
@@ -174,6 +175,9 @@ export default async function PortalLayout({
     presentedBy && !railList.some((s) => s.id === presentedBy.id)
       ? [presentedBy, ...railList].slice(0, 3)
       : railList;
+  // Members below Pro get the upgrade card at the top of the rail. Speakers
+  // are excluded — their comped season isn't an upsell target.
+  const showUpgrade = !isPro(member.tier) && member.tier !== "speaker";
 
   return (
     <PortalNavProvider>
@@ -199,7 +203,7 @@ export default async function PortalLayout({
               admin, and the live room (SPEC.md §5); it self-hides by route. */}
           <div className="with-rail">
             <div className="rail-content">{children}</div>
-            <SponsorRail sponsors={rail} />
+            <SponsorRail sponsors={rail} showUpgrade={showUpgrade} />
           </div>
         </div>
       </div>

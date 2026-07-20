@@ -24,7 +24,14 @@ function hiddenFor(pathname: string): boolean {
   return false;
 }
 
-export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
+export function SponsorRail({
+  sponsors,
+  showUpgrade = false,
+}: {
+  sponsors: SponsorItem[];
+  /** Member is below Pro — lead the rail with the upgrade card. */
+  showUpgrade?: boolean;
+}) {
   const pathname = usePathname();
   const hidden = hiddenFor(pathname);
   const seenPath = useRef<string | null>(null);
@@ -48,7 +55,7 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
     }).catch(() => {});
   }, [pathname, hidden, sponsors]);
 
-  if (hidden || sponsors.length === 0) return null;
+  if (hidden || (sponsors.length === 0 && !showUpgrade)) return null;
 
   function trackClick(id: string) {
     const payload = JSON.stringify({ kind: "click", sponsorIds: [id] });
@@ -69,7 +76,22 @@ export function SponsorRail({ sponsors }: { sponsors: SponsorItem[] }) {
 
   return (
     <aside className="sponsor-rail">
-      <div className="rail-label">Member Partners</div>
+      {showUpgrade && (
+        /* Upgrade path for members below Pro — plan controls live on
+           /profile, same destination as the Library's locked-card link. */
+        <Link href="/profile" className="rail-upgrade-card">
+          <span className="rail-upgrade-kicker">Momentum+ Pro</span>
+          <span className="rail-upgrade-title">Get the full experience</span>
+          <span className="rail-upgrade-sub">
+            Pro-only sessions, the complete recording library, and premium
+            resources.
+          </span>
+          <span className="rail-upgrade-cta">Upgrade your membership</span>
+        </Link>
+      )}
+      {sponsors.length > 0 && (
+        <div className="rail-label">Member Partners</div>
+      )}
       {sponsors.map((s) => (
         /* Rail cards lead to the sponsor's full profile page. */
         <Link
