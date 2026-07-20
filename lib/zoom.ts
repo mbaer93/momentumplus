@@ -166,12 +166,14 @@ export async function updateZoomMeeting(
       ...(input.durationMin !== undefined && { duration: input.durationMin }),
       ...(input.agenda !== undefined && { agenda: input.agenda }),
       // Keep settings in policy on every touch — heals meetings created
-      // before the no-waiting-room default.
+      // before the no-waiting-room default (and guarantees the cloud
+      // recording that feeds the Library).
       settings: {
         waiting_room: false,
         join_before_host: false,
         host_video: true,
         participant_video: true,
+        auto_recording: "cloud",
       },
     }),
     cache: "no-store",
@@ -198,6 +200,34 @@ export async function deleteZoomMeeting(meetingId: string): Promise<void> {
   if (!res.ok && res.status !== 204 && res.status !== 404) {
     throw new Error(`Zoom delete meeting failed: ${res.status} ${await res.text()}`);
   }
+}
+
+export interface ZoomRecordingFile {
+  file_type?: string;
+  file_size?: number;
+  recording_type?: string;
+  download_url?: string;
+  status?: string;
+}
+
+/**
+ * Cloud-recording files for a meeting, plus the S2S token that authorizes
+ * their download URLs (`?access_token=`). Null when Zoom has no recording
+ * (not recorded, still processing, or already purged) — callers retry on
+ * the next cron pass.
+ */
+export async function getMeetingRecordings(
+  meetingId: string,
+): Promise<{ files: ZoomRecordingFile[]; accessToken: string } | null> {
+  const token = await getZoomAccessToken();
+  const res = await fetch(
+    `${ZOOM_API_BASE}/meetings/${encodeURIComponent(meetingId)}/recordings`,
+    { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const json = (await res.json()) as { recording_files?: ZoomRecordingFile[] };
+  const files = json.recording_files ?? [];
+  return files.length > 0 ? { files, accessToken: token } : null;
 }
 
 export interface ZoomParticipant {
