@@ -6,6 +6,8 @@ import {
   sendSessionNotice,
   updateOwnResource,
   updateOwnSpeakerPage,
+  uploadOwnHeadshot,
+  uploadOwnResourceLogo,
   updateOwnVideo,
 } from "@/app/(portal)/speaker/actions";
 
@@ -50,8 +52,14 @@ export function SpeakerStudio({
     bio: string;
     industries: string;
     expiresAt: string | null;
+    headshotUrl: string | null;
   };
-  resource: { title: string; description: string; url: string };
+  resource: {
+    title: string;
+    description: string;
+    url: string;
+    imageUrl: string | null;
+  };
   sessions: StudioSession[];
   videos: StudioVideo[];
   startError: string | null;
@@ -64,6 +72,8 @@ export function SpeakerStudio({
   const [noticeFor, setNoticeFor] = useState<string | null>(null);
   const [notice, setNotice] = useState({ subject: "", message: "", linkUrl: "" });
   const [noticeFile, setNoticeFile] = useState<File | null>(null);
+  const [headshotFile, setHeadshotFile] = useState<File | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   function run(fn: () => Promise<{ ok: boolean; message?: string }>) {
@@ -260,6 +270,43 @@ export function SpeakerStudio({
             onChange={(e) => setPage({ ...page, industries: e.target.value })}
           />
         </div>
+        <div className="admin-field">
+          <label htmlFor="sp-headshot">
+            Headshot — square crop looks best (PNG/JPG/WebP, under 4 MB)
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {speaker.headshotUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={speaker.headshotUrl}
+                alt="Current headshot"
+                style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }}
+              />
+            )}
+            <input
+              id="sp-headshot"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => setHeadshotFile(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={pending || !headshotFile}
+              onClick={() =>
+                run(async () => {
+                  const fd = new FormData();
+                  fd.append("file", headshotFile as File);
+                  const res = await uploadOwnHeadshot(fd);
+                  if (res.ok) setHeadshotFile(null);
+                  return res;
+                })
+              }
+            >
+              {speaker.headshotUrl ? "Replace headshot" : "Upload headshot"}
+            </button>
+          </div>
+        </div>
         <div className="admin-form-actions" style={{ marginTop: 4 }}>
           <button
             type="button"
@@ -308,6 +355,48 @@ export function SpeakerStudio({
             onChange={(e) => setBiz({ ...biz, description: e.target.value })}
             style={{ width: "100%", resize: "vertical" }}
           />
+        </div>
+        <div className="admin-field">
+          <label htmlFor="sp-biz-logo">
+            Logo / card image (PNG/JPG/WebP, under 4 MB)
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {resource.imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={resource.imageUrl}
+                alt="Current logo"
+                style={{ width: 64, height: 48, borderRadius: 4, objectFit: "contain", background: "#fff", border: "1px solid var(--border)" }}
+              />
+            )}
+            <input
+              id="sp-biz-logo"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={pending || !logoFile}
+              onClick={() =>
+                run(async () => {
+                  const fd = new FormData();
+                  fd.append("file", logoFile as File);
+                  const res = await uploadOwnResourceLogo(fd);
+                  if (res.ok) setLogoFile(null);
+                  return res;
+                })
+              }
+            >
+              {resource.imageUrl ? "Replace logo" : "Upload logo"}
+            </button>
+          </div>
+          {!resource.title && (
+            <p style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 4 }}>
+              Save your resource page first — the logo attaches to it.
+            </p>
+          )}
         </div>
         <div className="admin-form-actions" style={{ marginTop: 4 }}>
           <button

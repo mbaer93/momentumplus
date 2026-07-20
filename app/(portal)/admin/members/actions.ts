@@ -240,6 +240,33 @@ export async function setAdminAccess(
     .eq("id", profileId);
   if (error) return { ok: false, message: error.message };
 
+  // An admin's access never lapses out from under them: promotion also
+  // grants (or restores) an ongoing admin-tier membership. Their previous
+  // paid rows are left untouched.
+  const { data: adminRow } = await service
+    .from("memberships")
+    .select("id")
+    .eq("profile_id", profileId)
+    .eq("tier", "admin")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (adminRow) {
+    await service
+      .from("memberships")
+      .update({ status: "active", access_expires_at: null })
+      .eq("id", adminRow.id);
+  } else {
+    await service.from("memberships").insert({
+      profile_id: profileId,
+      tier: "admin",
+      status: "active",
+      access_starts_at: new Date().toISOString(),
+      access_expires_at: null,
+      source: "admin",
+    });
+  }
+
   const { data: tgt } = await service
     .from("profiles")
     .select("email")
