@@ -89,13 +89,18 @@ export default async function LiveSessionPage({
   // Hosts run the meeting from the full Zoom client (the embedded room is
   // the participant view). Admins and the session's own speaker get a
   // "Start as host" shortcut; the start route re-checks both server-side.
-  let canHost = member.isAdmin;
-  if (!canHost && member.isSpeaker && isSupabaseConfigured()) {
+  // The SPEAKER is the intended host — an admin who isn't the speaker gets
+  // a warning before starting (taking host can wrestle it from the speaker).
+  let viewerIsSpeaker = false;
+  if (member.isSpeaker && isSupabaseConfigured()) {
     const {
       data: { user },
     } = await createClient().auth.getUser();
-    if (user) canHost = (await speakerOwnsSession(user.id, session.id)).ok;
+    if (user) {
+      viewerIsSpeaker = (await speakerOwnsSession(user.id, session.id)).ok;
+    }
   }
+  const canHost = member.isAdmin || viewerIsSpeaker;
 
   return (
     <LiveRoom
@@ -103,6 +108,7 @@ export default async function LiveSessionPage({
       displayName={member.name}
       memberEmail={member.email}
       canHost={canHost}
+      viewerIsSpeaker={viewerIsSpeaker}
     />
   );
 }

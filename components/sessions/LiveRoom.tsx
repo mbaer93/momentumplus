@@ -6,7 +6,32 @@ import { DocIcon, ExternalIcon } from "@/components/icons";
 import { NotesEditor } from "./NotesEditor";
 
 type Tab = "notes" | "resources" | "community";
-type Phase = "loading" | "joined" | "waiting" | "unavailable" | "ended";
+type Phase =
+  | "loading"
+  | "joined"
+  | "waiting"
+  | "unavailable"
+  | "ended"
+  | "left";
+
+/** Fit a 16:9 video canvas inside the stage. Sizing the Zoom panel to the
+    stage's arbitrary shape stretched the video, parked it oddly, and pushed
+    the toolbar (mute/camera/share) to the bottom edge where nobody saw it. */
+function fitTo169(rect: { width: number; height: number } | undefined): {
+  width: number;
+  height: number;
+} {
+  const W = Math.max(320, Math.floor(rect?.width ?? 960));
+  // Leave breathing room for the SDK toolbar below the video.
+  const H = Math.max(240, Math.floor((rect?.height ?? 540) - 48));
+  let width = W;
+  let height = Math.floor((W * 9) / 16);
+  if (height > H) {
+    height = H;
+    width = Math.floor((H * 16) / 9);
+  }
+  return { width, height };
+}
 
 /** Zoom's embedded SDK rejects with a plain object, not an Error — pull out
     the human reason and whether it just means "host hasn't started yet". */
@@ -28,12 +53,16 @@ export function LiveRoom({
   displayName,
   memberEmail = "",
   canHost = false,
+  viewerIsSpeaker = false,
 }: {
   session: SessionDetail;
   displayName: string;
   memberEmail?: string;
   /** Admin or the session's own speaker: shows the host-start shortcut. */
   canHost?: boolean;
+  /** The viewer IS this session's speaker — the intended host. Admins who
+      aren't get a warning before starting as host. */
+  viewerIsSpeaker?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("notes");
   const [phase, setPhase] = useState<Phase>("loading");
@@ -48,9 +77,30 @@ export function LiveRoom({
     updateVideoOptions?: (v: {
       viewSizes?: { default?: { width: number; height: number } };
     }) => void;
+    leave?: () => Promise<void> | void;
   } | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
   const resizeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Last applied video size — resize re-renders are SKIPPED unless the stage
+  // genuinely changed (a mid-meeting re-render is what made screen shares
+  // vanish and never come back).
+  const lastSize = useRef<{ width: number; height: number } | null>(null);
+  // Set when WE initiate the exit (Leave button / switching to the Zoom
+  // app) so the SDK's Closed event doesn't overwrite the "left" state with
+  // "session over".
+  const leftDeliberately = useRef(false);
+
+  /** Leave the embedded meeting (used by the Leave button and when opening
+      the Zoom app — staying joined in both places duplicated the person). */
+  const leaveEmbed = (nextPhase: Phase) => {
+    leftDeliberately.current = true;
+    try {
+      void clientRef.current?.leave?.();
+    } catch {
+      /* already disconnected */
+    }
+    setPhase(nextPhase);
+  };
 
   // Disconnect the stage observer only when the room unmounts (the join
   // effect re-runs per attempt, but the observer lives page-long).
@@ -117,13 +167,14 @@ export function LiveRoom({
 
         // The client is a page-singleton: init once, join per attempt.
         if (!initedRef.current) {
-          // Size the meeting to FILL the stage (the SDK defaults to a small
-          // floating widget). viewSizes is init-only, so measure now; the
-          // stage is the flex area between the sidebar and the notes panel.
+          // Fit a 16:9 canvas inside the stage and size the mount box to
+          // match — the SDK panel anchors to it, so the video sits centered
+          // with its toolbar visible right below.
           const stage = rootRef.current.parentElement;
-          const rect = stage?.getBoundingClientRect();
-          const width = Math.max(320, Math.floor(rect?.width ?? 960));
-          const height = Math.max(240, Math.floor(rect?.height ?? 540));
+          const { width, height } = fitTo169(stage?.getBoundingClientRect());
+          lastSize.current = { width, height };
+          rootRef.current.style.width = `${width}px`;
+          rootRef.current.style.height = `${height + 48}px`;
           await client.init({
             zoomAppRoot: rootRef.current,
             language: "en-US",
@@ -156,32 +207,56 @@ export function LiveRoom({
             const ro = new ResizeObserver(() => {
               if (resizeTimer.current) clearTimeout(resizeTimer.current);
               resizeTimer.current = setTimeout(() => {
-                const r = stage.getBoundingClientRect();
+                const next = fitTo169(stage.getBoundingClientRect());
+                const prev = lastSize.current;
+                // Re-rendering the SDK is disruptive (it broke screen
+                // shares mid-meeting) — only do it for a real size change.
+                if (
+                  prev &&
+                  Math.abs(prev.width - next.width) < 24 &&
+                  Math.abs(prev.height - next.height) < 24
+                ) {
+                  return;
+                }
+                lastSize.current = next;
+                if (rootRef.current) {
+                  rootRef.current.style.width = `${next.width}px`;
+                  rootRef.current.style.height = `${next.height + 48}px`;
+                }
                 try {
                   clientRef.current?.updateVideoOptions?.({
-                    viewSizes: {
-                      default: {
-                        width: Math.max(320, Math.floor(r.width)),
-                        height: Math.max(240, Math.floor(r.height)),
-                      },
-                    },
+                    viewSizes: { default: next },
                   });
                 } catch {
                   /* SDK mid-transition — the next resize event retries */
                 }
-              }, 250);
+              }, 400);
             });
             ro.observe(stage);
             observerRef.current = ro;
           }
           // When the host ends the meeting (or the member leaves), swap the
           // dead embed for a designed "session ended" state instead of a
-          // black void.
+          // black void. Ended-by-host also marks the session COMPLETED so
+          // the platform agrees with what just happened in the room.
           try {
             (client as unknown as {
-              on: (event: string, cb: (p: { state?: string }) => void) => void;
+              on: (
+                event: string,
+                cb: (p: { state?: string; reason?: string }) => void,
+              ) => void;
             }).on("connection-change", (payload) => {
-              if (payload?.state === "Closed") setPhase("ended");
+              if (payload?.state !== "Closed") return;
+              if (leftDeliberately.current) return; // we set the phase already
+              const endedByHost = /ended by host|meeting has ended/i.test(
+                payload?.reason ?? "",
+              );
+              if (endedByHost) {
+                void fetch(`/api/sessions/${session.id}/complete`, {
+                  method: "POST",
+                }).catch(() => undefined);
+              }
+              setPhase("ended");
             });
           } catch {
             /* older SDKs without events keep the previous behavior */
@@ -199,6 +274,7 @@ export function LiveRoom({
           userEmail: memberEmail || undefined,
         });
 
+        leftDeliberately.current = false;
         if (!cancelled) setPhase("joined");
       } catch (err) {
         if (cancelled) return;
@@ -233,12 +309,39 @@ export function LiveRoom({
             {session.speaker.name} · Live on Momentum+
           </div>
         </div>
+        {phase === "joined" && (
+          <button
+            type="button"
+            className="live-host-btn"
+            style={{ cursor: "pointer" }}
+            onClick={() => leaveEmbed("left")}
+          >
+            Leave session
+          </button>
+        )}
         {canHost && session.zoomMeetingId && (
           <a
             className="live-host-btn"
             href={`/api/sessions/${session.id}/start`}
             target="_blank"
             rel="noopener noreferrer"
+            title={
+              viewerIsSpeaker
+                ? "Opens Zoom with host controls — you run this session"
+                : "The speaker is the intended host — start only if they can't"
+            }
+            onClick={(e) => {
+              // The speaker hosts their own session; an admin starting it
+              // can wrestle hosting away from them mid-prep.
+              if (
+                !viewerIsSpeaker &&
+                !confirm(
+                  "The session's speaker is the intended host. Starting as host yourself can take hosting away from them — only continue if there's an issue and the speaker can't start it. Start as host anyway?",
+                )
+              ) {
+                e.preventDefault();
+              }
+            }}
           >
             Start as host
           </a>
@@ -249,6 +352,11 @@ export function LiveRoom({
             href={session.zoomJoinUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => {
+              // Staying joined here AND in the Zoom app put the same person
+              // in the meeting twice — leave the embed when they switch.
+              if (phase === "joined") leaveEmbed("left");
+            }}
           >
             Open in Zoom app instead
           </a>
@@ -273,7 +381,9 @@ export function LiveRoom({
                     ? "Waiting for the host"
                     : phase === "ended"
                       ? "Session over"
-                      : "Live room"}
+                      : phase === "left"
+                        ? "Stepped out"
+                        : "Live room"}
               </div>
               <h3>
                 {phase === "loading"
@@ -282,14 +392,18 @@ export function LiveRoom({
                     ? "Starting soon"
                     : phase === "ended"
                       ? "That's a wrap"
-                      : "The room isn't live yet"}
+                      : phase === "left"
+                        ? "You've left the room"
+                        : "The room isn't live yet"}
               </h3>
               <p>
                 {phase === "ended"
                   ? "The session has ended. The recording lands in the Library with AI takeaways, usually within a couple of days — and your notes are saved."
-                  : message}
+                  : phase === "left"
+                    ? "You're out of the meeting here — if you switched to the Zoom app, you're still in the session there. Your notes are saved."
+                    : message}
               </p>
-              {phase === "ended" && (
+              {(phase === "ended" || phase === "left") && (
                 <p style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
                   <a className="live-host-btn" href={`/sessions/${session.slug}`}>
                     Back to the session
