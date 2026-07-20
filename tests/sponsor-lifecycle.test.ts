@@ -90,6 +90,8 @@ test("upcomingSeasonStart / inNextSeason pick out the pre-season cohort", () => 
     ),
     false,
   );
+  // Ongoing supporters (no end date) belong to every season.
+  assert.equal(inNextSeason({ archivedAt: null, expiresAt: null }, july), true);
 });
 
 test("seasonEnd is always Oct 1 of the year after joining (ET)", () => {

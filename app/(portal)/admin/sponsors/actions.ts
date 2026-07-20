@@ -583,6 +583,57 @@ export async function inviteSponsorRep(
   };
 }
 
+/**
+ * Toggle a sponsorship between the season term and ONGOING (no end date).
+ * Ongoing sponsors never come down automatically — and with no season start
+ * to wait for, they're visible to members immediately. Seat holders' comped
+ * access follows the term; VIP-ticket grants keep their own 3-month clock.
+ */
+export async function setSponsorOngoing(
+  sponsorId: string,
+  ongoing: boolean,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const termEnd = ongoing ? null : seasonEnd().toISOString();
+  const { error } = await admin
+    .from("sponsors")
+    .update({ expires_at: termEnd })
+    .eq("id", sponsorId);
+  if (error) return { ok: false, message: error.message };
+
+  const { data: seats } = await admin
+    .from("sponsor_members")
+    .select("profile_id")
+    .eq("sponsor_id", sponsorId);
+  const seatIds = (seats ?? []).map((r) => r.profile_id as string);
+  if (seatIds.length > 0) {
+    await admin
+      .from("memberships")
+      .update({ access_expires_at: termEnd })
+      .in("profile_id", seatIds)
+      .eq("source", "sponsor")
+      .eq("status", "active")
+      .neq("tier", "vip");
+  }
+
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsors");
+  revalidateTag("sponsors");
+  revalidateTag("presented-by");
+  return {
+    ok: true,
+    message: ongoing
+      ? "Ongoing sponsorship — no end date. They're visible to members now, never come down automatically, and their team's access doesn't expire."
+      : `Back on the season clock — this sponsorship and its team's access now end ${new Date(termEnd as string).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`,
+  };
+}
+
 /** Retire a sponsor into the admin-only Past Sponsors archive. */
 export async function archiveSponsor(sponsorId: string): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {

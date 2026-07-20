@@ -251,6 +251,60 @@ export async function inviteSpeaker(
   };
 }
 
+/**
+ * Toggle a speaker between the season term and ONGOING (no end date).
+ * Ongoing speakers never come down automatically — and with no season start
+ * to wait for, they're visible to members immediately. Their Speaker
+ * membership follows the term.
+ */
+export async function setSpeakerOngoing(
+  id: string,
+  ongoing: boolean,
+): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const termEnd = ongoing ? null : seasonEnd().toISOString();
+  const { data: speaker, error } = await admin
+    .from("speakers")
+    .update({ expires_at: termEnd })
+    .eq("id", id)
+    .select("profile_id")
+    .maybeSingle();
+  if (error) return { ok: false, message: error.message };
+
+  let accessWarning = "";
+  if (speaker?.profile_id) {
+    const { error: accessError } = await admin
+      .from("memberships")
+      .update({ access_expires_at: termEnd })
+      .eq("profile_id", speaker.profile_id)
+      .eq("source", "speaker")
+      .eq("status", "active");
+    if (accessError) {
+      accessWarning = membershipWarning(
+        "their portal access could NOT be updated to match",
+        accessError.message,
+      );
+    }
+  }
+
+  refresh();
+  if (accessWarning) {
+    return { ok: false, message: `Speaker term updated, but ${accessWarning}` };
+  }
+  return {
+    ok: true,
+    message: ongoing
+      ? "Ongoing speaker — no season end. They're visible to members now, never come down automatically, and their Studio access doesn't expire."
+      : `Back on the season clock — this speaker and their access now end ${new Date(termEnd as string).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`,
+  };
+}
+
 /** Archive a speaker + their sessions + their library items (member view
     only — nothing is deleted). */
 export async function archiveSpeaker(id: string): Promise<AdminResult> {

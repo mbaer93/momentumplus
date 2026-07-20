@@ -12,6 +12,7 @@ import {
   inviteSponsorRep,
   reinstateSponsor,
   linkSponsorMember,
+  setSponsorOngoing,
   removePresentedByLogo,
   removeSponsorAd,
   toggleRail,
@@ -553,6 +554,30 @@ export function SponsorsManager({
                         }
                       >
                         {editingId === s.id ? "Close" : "Edit"}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-mini"
+                        disabled={pending}
+                        title={
+                          s.expiresAt
+                            ? "Remove the season end — they stay up until you archive them"
+                            : "Put them back on the season clock (ends next October 1)"
+                        }
+                        onClick={() => {
+                          const makeOngoing = Boolean(s.expiresAt);
+                          if (
+                            confirm(
+                              makeOngoing
+                                ? `Make ${s.name} an ongoing sponsor? Their season end date is removed — they become visible to members right away (even before October 1), never come down automatically, and their team's access doesn't expire. You can put them back on the season clock anytime.`
+                                : `Put ${s.name} back on the season clock? Their sponsorship and their team's access will end next October 1.`,
+                            )
+                          ) {
+                            run(() => setSponsorOngoing(s.id, makeOngoing));
+                          }
+                        }}
+                      >
+                        {s.expiresAt ? "Make ongoing" : "Set season end"}
                       </button>
                       <button
                         type="button"
