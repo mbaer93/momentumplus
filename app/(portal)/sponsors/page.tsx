@@ -32,11 +32,13 @@ export default async function SponsorsPage({
     ? await listSponsorsNextSeason()
     : await listSponsors();
 
-  // Momentum+ Sponsor gets the hero card; every other tier renders as its
-  // own labeled section, in hierarchy order, only when it has sponsors.
+  // The Host Sponsor (the platform's own business) leads the page, then the
+  // Momentum+ Sponsor hero; every other tier renders as its own labeled
+  // section, in hierarchy order, only when it has sponsors.
+  const host = sponsors.filter((s) => s.tier === "host");
   const title = sponsors.filter((s) => s.tier === "momentum_plus");
   const tierSections = SPONSOR_TIERS.filter(
-    (t) => t.value !== "momentum_plus",
+    (t) => t.value !== "momentum_plus" && t.value !== "host",
   )
     .map((t) => ({
       ...t,
@@ -69,6 +71,49 @@ export default async function SponsorsPage({
         <div className="sessions-empty" style={{ marginTop: 20 }}>
           Sponsor partners will appear here as they come aboard.
         </div>
+      )}
+
+      {host.length > 0 && (
+        <>
+          <div className="sp-tier-label">Host Sponsor</div>
+          {host.map((s) => (
+            <div
+              className="sp-title-card"
+              key={s.id}
+              id={s.id}
+              style={{ position: "relative" }}
+            >
+              {isAdmin && (
+                <span
+                  className="admin-chip-overlay"
+                  style={{ right: "auto", left: 10 }}
+                >
+                  <AdminEditChip href={`/admin/sponsors?edit=${s.id}`} />
+                </span>
+              )}
+              <div className="sp-ribbon">Host Sponsor</div>
+              <div className="sp-logo-lg">
+                <SponsorMark name={s.name} logoUrl={s.logoUrl} wordmark={s.wordmark} maxHeight={80} />
+              </div>
+              <div className="sp-title-info">
+                <div className="sp-title-name">{s.name}</div>
+                <p className="sp-title-desc">{s.tagline}</p>
+                {s.offer && (
+                  <div className="sp-offer-box" style={{ maxWidth: 420 }}>
+                    <strong>Member offer</strong>
+                    {s.offer}
+                  </div>
+                )}
+                <div className="sp-card-links" style={{ borderTop: "none", paddingTop: 16 }}>
+                  <Link href={`/sponsors/${s.id}`} className="sp-link">
+                    View profile
+                  </Link>
+                  <SponsorWebsiteLink sponsorId={s.id} href={s.website} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </>
       )}
 
       {title.length > 0 && (

@@ -8,7 +8,8 @@ import { createServiceClient } from "@/lib/supabase/admin";
  */
 export async function upsertSponsorMembership(
   profileId: string,
-  termEnd: string,
+  /** ISO expiry, or null for a Host Sponsor's ongoing access. */
+  termEnd: string | null,
   /** true = the rep who runs the page (sponsor tier); false = a comped seat
       member (stays Pro). */
   rep: boolean,
@@ -79,7 +80,7 @@ export async function upsertSponsorMembership(
  */
 export async function reactivateSponsorMembership(
   profileId: string,
-  termEnd: string,
+  termEnd: string | null,
   isRep: boolean,
 ): Promise<{ error: string | null }> {
   const admin = createServiceClient();

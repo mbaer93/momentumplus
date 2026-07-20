@@ -713,7 +713,14 @@ export async function reinstateSponsor(
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
-  const termEnd = seasonEnd().toISOString();
+  const { data: row } = await admin
+    .from("sponsors")
+    .select("tier")
+    .eq("id", sponsorId)
+    .maybeSingle();
+  // Host Sponsor comes back with no end date; everyone else gets the season.
+  const termEnd =
+    row?.tier === "host" ? null : seasonEnd().toISOString();
   const { error } = await admin
     .from("sponsors")
     .update({ archived_at: null, expires_at: termEnd })
@@ -751,6 +758,8 @@ export async function reinstateSponsor(
   revalidateTag("presented-by");
   return {
     ok: true,
-    message: `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — visible to members again, reps' Pro access restored.`,
+    message: termEnd
+      ? `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — visible to members again, reps' Pro access restored.`
+      : "Reinstated as the ongoing Host Sponsor — visible to members again with no end date.",
   };
 }
