@@ -47,6 +47,12 @@ export function SessionsBrowser({
       // speaker's season ended) are likewise admin-only.
       if (status === "draft" && !isAdmin) return false;
       if (s.status === "archived" && !isAdmin) return false;
+      // COMPLETED sessions leave the sessions page (Matt, 2026-07-20) —
+      // their recording, notes, and AI summary live in the Library. The
+      // Attended filter stays as the member's personal history.
+      if (s.status === "completed" && !isAdmin && filter !== "attended") {
+        return false;
+      }
       switch (filter) {
         case "all":
           return true;
