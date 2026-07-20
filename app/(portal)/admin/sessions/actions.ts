@@ -211,7 +211,7 @@ export async function importSessionRecording(id: string): Promise<AdminResult> {
     message: result.ok
       ? result.status === "video already exists"
         ? "Already imported — review it under Admin → Library."
-        : "Recording imported — it's in Admin → Library (unpublished) with Mux processing it now. Publish it to notify members; the AI summary follows automatically."
+        : "Recording imported — Mux is processing it now. It publishes to members automatically once the video and AI summary are both ready (you can still edit or publish sooner from Admin → Library)."
       : result.status,
   };
 }

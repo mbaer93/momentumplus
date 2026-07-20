@@ -67,8 +67,9 @@ export async function ingestSessionRecording(
     return { ok: false, status: `Mux ingest failed: ${(e as Error).message}` };
   }
 
-  // Unpublished on purpose: an admin reviews and publishes with one click
-  // (which fires the members' recording_ready notification).
+  // Unpublished at first — it AUTO-PUBLISHES (summaries cron) once the
+  // video is playable AND the AI summary exists, never earlier. Admins can
+  // still edit or publish sooner from Admin → Library.
   const { error: insertError } = await admin.from("videos").insert({
     title: session.title,
     category: session.category,
@@ -88,8 +89,8 @@ export async function ingestSessionRecording(
         adminIds.map((id) => ({
           profile_id: id,
           kind: "platform",
-          title: "Session recording ready to review",
-          body: `"${session.title}" imported from Zoom — review and publish it.`,
+          title: "Session recording imported",
+          body: `"${session.title}" imported from Zoom — it publishes to members automatically once the video and AI summary are ready.`,
           link: "/admin/videos",
         })),
       );
