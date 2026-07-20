@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listSessions } from "@/lib/sessions/queries";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { dateLabel, timeLabel } from "@/lib/sessions/view";
 import { SessionRowActions } from "@/components/admin/SessionRowActions";
@@ -8,6 +9,24 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminSessionsPage() {
   const sessions = await listSessions();
+
+  // The member-level query CANNOT see the zoom columns (locked by column
+  // grants in migration 0020, attached per-session for enrolled viewers
+  // only) — so this table read zoomMeetingId as null and showed "Not yet"
+  // for EVERY session, even ones with live meetings. Ask the service role
+  // for the truth.
+  const zoomBySession = new Set<string>();
+  if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { data } = await createServiceClient()
+      .from("sessions")
+      .select("id")
+      .not("zoom_meeting_id", "is", null);
+    for (const r of data ?? []) zoomBySession.add(r.id as string);
+  }
+  const hasMeeting = (id: string) =>
+    isSupabaseConfigured()
+      ? zoomBySession.has(id)
+      : sessions.some((s) => s.id === id && Boolean(s.zoomMeetingId));
 
   return (
     <div className="admin-pad">
@@ -69,7 +88,7 @@ export default async function AdminSessionsPage() {
                 </td>
                 <td>{s.enrolledCount}</td>
                 <td>
-                  {s.zoomMeetingId ? (
+                  {hasMeeting(s.id) ? (
                     <span style={{ color: "var(--accent-green)", fontSize: 12 }}>
                       Created
                     </span>
@@ -83,7 +102,7 @@ export default async function AdminSessionsPage() {
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <SessionRowActions
                       sessionId={s.id}
-                      hasMeeting={Boolean(s.zoomMeetingId)}
+                      hasMeeting={hasMeeting(s.id)}
                     />
                   </div>
                 </td>
