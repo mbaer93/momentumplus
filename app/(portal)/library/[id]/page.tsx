@@ -4,6 +4,7 @@ import { VideoPlayer } from "@/components/library/VideoPlayer";
 import { ArrowLeftIcon, SparkleIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
 import { generateMuxPlaybackToken, isMuxSigningConfigured } from "@/lib/mux";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getVideo } from "@/lib/videos/queries";
@@ -19,6 +20,43 @@ export default async function VideoDetailPage({
   const member = await requireMember();
   const video = await getVideo(params.id, member.tier);
   if (!video) notFound();
+
+  // Self-heal: a freshly imported recording has a Mux asset but no playback
+  // id until Mux finishes encoding. Don't make the viewer wait for the next
+  // cron pass — ask Mux now and attach the playback id the moment it's ready.
+  if (
+    !video.muxPlaybackId &&
+    isSupabaseConfigured() &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    const service = createServiceClient();
+    const { data: row } = await service
+      .from("videos")
+      .select("mux_asset_id")
+      .eq("id", video.id)
+      .maybeSingle();
+    if (row?.mux_asset_id) {
+      try {
+        const { getMuxAsset } = await import("@/lib/mux");
+        const asset = await getMuxAsset(row.mux_asset_id as string);
+        const playbackId = asset.playback_ids?.[0]?.id ?? null;
+        if (asset.status === "ready" && playbackId) {
+          await service
+            .from("videos")
+            .update({
+              mux_playback_id: playbackId,
+              ...(asset.duration
+                ? { duration_sec: Math.round(asset.duration) }
+                : {}),
+            })
+            .eq("id", video.id);
+          video.muxPlaybackId = playbackId;
+        }
+      } catch {
+        // Still encoding (or Mux unreachable) — the processing state shows.
+      }
+    }
+  }
 
   // The viewer's private note on this recording (owner-only via RLS).
   // A session recording CARRIES OVER the notes the member took during the

@@ -45,9 +45,11 @@ export function VideoPlayer({
         <div className="video-stage-placeholder">
           <h3>Recording processing</h3>
           <p>
-            This recording will be available to stream once video hosting (Mux)
-            is connected and the asset is processed. The AI summary and your
-            notes are available below.
+            This recording is being prepared for streaming and will appear
+            here automatically — usually within a few minutes of import
+            (longer for long sessions). Refresh to check. The AI summary
+            follows once processing finishes, and your notes are available
+            below now.
           </p>
         </div>
       </div>
