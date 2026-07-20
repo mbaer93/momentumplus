@@ -7,7 +7,10 @@ import { getServiceSettings, saveServiceSettings } from "@/lib/service-config";
  * app_settings under "whitney"), and clearing the override falls back here.
  */
 
-export const WHITNEY_MODEL = "claude-sonnet-5";
+// Opus-tier: Whitney's job is judgment — noticing what in the member's own
+// words deserves attention, and NOT repeating herself. Smaller models circle
+// and re-ask; this is the wrong place to economize (replies are short anyway).
+export const WHITNEY_MODEL = "claude-opus-4-8";
 
 export const DEFAULT_WHITNEY_PROMPT = `You are Whitney by SLC, a reflective conversational guide.
 Your role is to help people slow down and make sense of what they are experiencing by guiding attention and asking careful questions. You do not give answers. You do not solve problems. You do not push toward decisions or action.
