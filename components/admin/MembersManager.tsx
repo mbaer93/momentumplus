@@ -41,6 +41,15 @@ export interface AdminMemberRow {
   profilePhone: string;
   adminRole: "super" | "standard" | null;
   adminPerms: Record<string, boolean>;
+  /** Additional access grants beyond the effective one (e.g. a Stripe sub
+      plus a speaker/sponsor comp) — shown inside the person's single row. */
+  otherMemberships: {
+    membershipId: string;
+    tierLabel: string;
+    status: string;
+    expiresLabel: string;
+    source: string;
+  }[];
 }
 
 // The four member levels, plus the two special roles.
@@ -257,7 +266,52 @@ export function MembersManager({
                     {m.email}
                   </div>
                 </td>
-                <td>{m.tierLabel}</td>
+                <td>
+                  {m.tierLabel}
+                  {m.otherMemberships.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      {m.otherMemberships.map((o) => (
+                        <div
+                          key={o.membershipId}
+                          style={{
+                            fontSize: 11.5,
+                            color: "var(--mid-gray)",
+                            display: "flex",
+                            gap: 6,
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            marginBottom: 2,
+                          }}
+                        >
+                          <span>
+                            also {o.tierLabel} · {o.status} · through{" "}
+                            {o.expiresLabel} ({o.source})
+                          </span>
+                          <button
+                            type="button"
+                            className="btn-mini danger"
+                            style={{ padding: "2px 8px", fontSize: 10.5 }}
+                            disabled={pending}
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Remove the extra ${o.tierLabel} grant for ${m.name}? Their ${m.tierLabel} access stays.`,
+                                )
+                              ) {
+                                run(() => deleteMembership(o.membershipId));
+                              }
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      <div style={{ fontSize: 10.5, color: "var(--mid-gray)" }}>
+                        Multiple grants — they get the highest active one.
+                      </div>
+                    </div>
+                  )}
+                </td>
                 <td>
                   {/* A paid-up membership whose owner has never signed in is
                       an invite still in flight — say so instead of "active". */}
