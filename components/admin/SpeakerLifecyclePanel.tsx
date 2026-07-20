@@ -6,6 +6,7 @@ import {
   archiveSpeaker,
   inviteSpeaker,
   reinstateSpeaker,
+  setSpeakerOngoing,
 } from "@/app/(portal)/admin/speakers/actions";
 
 export interface PastSpeakerRow {
@@ -190,9 +191,33 @@ export function SpeakerLifecyclePanel({
                 >
                   {s.expiresAt
                     ? `Season ends ${dateLabel(s.expiresAt)}`
-                    : "No season end set"}
+                    : "Ongoing — no season end"}
                 </span>
               </div>
+              <button
+                type="button"
+                className="btn-mini"
+                disabled={pending}
+                title={
+                  s.expiresAt
+                    ? "Remove the season end — they stay up until you archive them"
+                    : "Put them back on the season clock (ends next October 1)"
+                }
+                onClick={() => {
+                  const makeOngoing = Boolean(s.expiresAt);
+                  if (
+                    confirm(
+                      makeOngoing
+                        ? `Make ${s.name} an ongoing speaker? Their season end date is removed — they become visible to members right away (even before October 1), never come down automatically, and their Studio access doesn't expire. You can put them back on the season clock anytime.`
+                        : `Put ${s.name} back on the season clock? Their profile and Studio access will end next October 1.`,
+                    )
+                  ) {
+                    run(() => setSpeakerOngoing(s.id, makeOngoing));
+                  }
+                }}
+              >
+                {s.expiresAt ? "Make ongoing" : "Set season end"}
+              </button>
               <button
                 type="button"
                 className="btn-mini"

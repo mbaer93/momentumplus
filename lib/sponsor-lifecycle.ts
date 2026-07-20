@@ -62,7 +62,7 @@ export function inNextSeason(
   now: Date = new Date(),
 ): boolean {
   if (s.archivedAt) return false;
-  if (!s.expiresAt) return false; // no-term legacy rows live in the present
+  if (!s.expiresAt) return true; // ongoing (no end date) — in every season
   return new Date(s.expiresAt) > upcomingSeasonStart(now);
 }
 
