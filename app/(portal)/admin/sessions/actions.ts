@@ -161,10 +161,12 @@ export async function cancelSession(id: string): Promise<AdminResult> {
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from("sessions")
     .update({ status: "cancelled" })
-    .eq("id", id);
+    .eq("id", id)
+    .select("zoom_meeting_id")
+    .maybeSingle();
   if (error) {
     if (/invalid input value for enum/i.test(error.message)) {
       return {
@@ -175,12 +177,36 @@ export async function cancelSession(id: string): Promise<AdminResult> {
     }
     return { ok: false, message: error.message };
   }
+
+  // Close the Zoom room too — cancelling used to leave the meeting live, so
+  // members holding the old join URL or calendar invite could still walk in.
+  let zoomNote = "";
+  if (updated?.zoom_meeting_id) {
+    try {
+      const { deleteZoomMeeting, isZoomConfigured } = await import("@/lib/zoom");
+      const { isZoomReady } = await import("@/lib/service-config");
+      if (isZoomConfigured() || (await isZoomReady())) {
+        await deleteZoomMeeting(updated.zoom_meeting_id as string);
+        await admin
+          .from("sessions")
+          .update({ zoom_meeting_id: null, zoom_join_url: null })
+          .eq("id", id);
+        zoomNote = " The Zoom meeting was deleted.";
+      } else {
+        zoomNote =
+          " WARNING: Zoom isn't connected, so the Zoom meeting is still live — delete it in Zoom so old calendar invites stop working.";
+      }
+    } catch (e) {
+      zoomNote = ` WARNING: the Zoom meeting could NOT be deleted (${(e as Error).message}) — members' old calendar invites still open it. Delete it in Zoom.`;
+    }
+  }
+
   revalidatePath("/admin/sessions");
   revalidatePath("/sessions");
   return {
     ok: true,
-    message:
-      "Session cancelled — members now see it as Cancelled. Consider sending an announcement.",
+    warning: Boolean(zoomNote && zoomNote.includes("WARNING")),
+    message: `Session cancelled — members now see it as Cancelled.${zoomNote} Consider sending an announcement.`,
   };
 }
 

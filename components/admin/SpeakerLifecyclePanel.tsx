@@ -9,6 +9,7 @@ import {
   reinstateSpeaker,
   setSpeakerOngoing,
 } from "@/app/(portal)/admin/speakers/actions";
+import { seasonEnd, speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 
 export interface PastSpeakerRow {
   id: string;
@@ -220,9 +221,14 @@ export function SpeakerLifecyclePanel({
                 <span
                   style={{ color: "var(--mid-gray)", marginLeft: 8, fontSize: 12 }}
                 >
+                  {/* Pre-season truth: "active" here used to look identical
+                      to live-to-members, leaving "why is this speaker
+                      hidden?" unanswerable from this screen. */}
                   {s.expiresAt
-                    ? `Season ends ${dateLabel(s.expiresAt)}`
-                    : "Ongoing — no season end"}
+                    ? speakerLive({ archivedAt: null, expiresAt: s.expiresAt })
+                      ? `Live to members · season ends ${dateLabel(s.expiresAt)}`
+                      : `Hidden — visible to members ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "short", day: "numeric" })} · season ends ${dateLabel(s.expiresAt)}`
+                    : "Ongoing — live to members, no season end"}
                 </span>
               </div>
               <button
@@ -323,9 +329,15 @@ export function SpeakerLifecyclePanel({
                           className="btn-mini"
                           disabled={pending}
                           onClick={() => {
+                            const backLive = speakerLive({
+                              archivedAt: null,
+                              expiresAt: seasonEnd().toISOString(),
+                            });
                             if (
                               confirm(
-                                `Reinstate ${s.name}? Their speaker page and library items return for members and their Studio access is restored through the next season end. Their sessions stay archived — re-publish the ones you want back from Admin → Sessions.`,
+                                backLive
+                                  ? `Reinstate ${s.name}? Their speaker page and library items return to member view now, and their Studio access is restored through the next season end. Their sessions stay archived — re-publish the ones you want back from Admin → Sessions.`
+                                  : `Reinstate ${s.name}? They rejoin the roster and can prep in their Studio, but members won't see them until ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Their sessions stay archived — re-publish the ones you want back from Admin → Sessions.`,
                               )
                             ) {
                               run(() => reinstateSpeaker(s.id));

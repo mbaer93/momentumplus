@@ -4,6 +4,7 @@ import type { AccessLevel, SessionCategory, SessionDetail } from "@/lib/types";
 import { getPlaceholderSession, getPlaceholderSessions } from "./data";
 import { nextOccurrence } from "@/lib/recurrence";
 import { requestCache } from "@/lib/request-cache";
+import { speakerLive } from "@/lib/sponsor-lifecycle";
 
 /*
  * Sessions data access. When Supabase is configured, reads from the database
@@ -32,7 +33,13 @@ interface SessionRow {
   capacity: number | null;
   min_access: AccessLevel;
   status: SessionDetail["status"];
-  speakers: { id: string; name: string; title: string | null } | null;
+  speakers: {
+    id: string;
+    name: string;
+    title: string | null;
+    archived_at?: string | null;
+    expires_at?: string | null;
+  } | null;
   program?: string | null;
   recurrence?: string | null;
   recurrence_until?: string | null;
@@ -40,9 +47,20 @@ interface SessionRow {
 }
 
 function mapRow(row: SessionRow): SessionDetail {
+  // Pre-season and archived speakers are hidden platform-wide (directory,
+  // community, Q&A) — their names must not leak through session cards
+  // either. Until they're live, the session shows TBA.
+  const spk =
+    row.speakers &&
+    speakerLive({
+      archivedAt: row.speakers.archived_at ?? null,
+      expiresAt: row.speakers.expires_at ?? null,
+    })
+      ? row.speakers
+      : null;
   // Rooted Focus sessions are led by an SLC team member who may not be a
   // speaker — the host name fills the speaker slot for display.
-  const speakerName = row.speakers?.name ?? row.host_name ?? "TBA";
+  const speakerName = spk?.name ?? row.host_name ?? "TBA";
   const recurrence =
     row.recurrence === "weekly" ||
     row.recurrence === "biweekly" ||
@@ -57,10 +75,9 @@ function mapRow(row: SessionRow): SessionDetail {
     category: (row.category as SessionCategory) ?? "Leadership",
     objectives: [],
     speaker: {
-      id: row.speakers?.id ?? "tba",
+      id: spk?.id ?? "tba",
       name: speakerName,
-      title:
-        row.speakers?.title ?? (row.host_name && !row.speakers ? "SLC Team" : ""),
+      title: spk?.title ?? (row.host_name && !spk ? "SLC Team" : ""),
       initials: initialsFrom(speakerName),
       avatarBg: "#1C3050",
       avatarColor: "#D4AE75",
@@ -103,7 +120,7 @@ function mapRow(row: SessionRow): SessionDetail {
 // hide them, and getSession attaches them via the service role only after
 // confirming the viewer is enrolled.
 const SESSION_SELECT =
-  "id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, speakers ( id, name, title )";
+  "id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, speakers ( id, name, title, archived_at, expires_at )";
 // Pre-migration fallback (before 0030 adds the Rooted Focus columns).
 const SESSION_SELECT_LEGACY =
   "id, title, description, category, starts_at, duration_min, capacity, min_access, status, speakers ( id, name, title )";

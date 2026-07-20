@@ -929,10 +929,19 @@ export async function reinstateSponsor(
   revalidatePath("/sponsors");
   revalidateTag("sponsors");
   revalidateTag("presented-by");
+  // "Visible again" is only true when the reinstated term is inside the live
+  // season — a July reinstate stays pre-season-hidden until October 1.
+  const { sponsorLive, upcomingSeasonStart } = await import(
+    "@/lib/sponsor-lifecycle"
+  );
+  const liveNow =
+    !termEnd || sponsorLive({ archivedAt: null, expiresAt: termEnd });
   return {
     ok: true,
-    message: termEnd
-      ? `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — visible to members again, reps' Pro access restored.`
-      : "Reinstated as the ongoing Host Sponsor — visible to members again with no end date.",
+    message: !termEnd
+      ? "Reinstated as the ongoing Host Sponsor — visible to members again with no end date."
+      : liveNow
+        ? `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — visible to members again, reps' Pro access restored.`
+        : `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — reps' Pro access restored. Members see the page again on ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season until then).`,
   };
 }

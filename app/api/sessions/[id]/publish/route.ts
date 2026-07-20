@@ -45,7 +45,11 @@ export async function POST(
     session.status === "draft" ? { status: "scheduled" } : {};
 
   // Create the Zoom meeting only once, and only if Zoom is configured.
-  if (!session.zoom_meeting_id && (await isZoomReady())) {
+  // When it ISN'T configured, say so in the response — "Published." with no
+  // meeting silently created admins who believed the room existed.
+  const zoomReady = await isZoomReady();
+  const zoomSkipped = !session.zoom_meeting_id && !zoomReady;
+  if (!session.zoom_meeting_id && zoomReady) {
     try {
       const meeting = await createZoomMeeting({
         topic: session.title,
@@ -69,7 +73,7 @@ export async function POST(
   }
 
   if (Object.keys(update).length === 0) {
-    return NextResponse.json({ ok: true, unchanged: true });
+    return NextResponse.json({ ok: true, unchanged: true, zoomSkipped });
   }
 
   const { error: updateError } = await admin
@@ -93,5 +97,5 @@ export async function POST(
     });
   }
 
-  return NextResponse.json({ ok: true, ...update });
+  return NextResponse.json({ ok: true, zoomSkipped, ...update });
 }

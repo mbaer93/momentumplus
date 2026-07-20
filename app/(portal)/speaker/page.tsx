@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { SpeakerStudio, type StudioSession, type StudioVideo } from "@/components/speaker/SpeakerStudio";
 import { requireMember } from "@/lib/current-member";
 import { getSpeakerForUser } from "@/lib/speaker-tools";
+import { speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -133,6 +134,17 @@ export default async function SpeakerStudioPage({
         industries: speaker.industries.join(", "),
         expiresAt: speaker.expiresAt,
         headshotUrl: speaker.headshotUrl,
+        // Pre-season truth: tell the speaker they're hidden until Oct 1
+        // instead of letting them hunt for their missing public page.
+        goLiveLabel:
+          isSupabaseConfigured() &&
+          !speakerLive({ archivedAt: null, expiresAt: speaker.expiresAt })
+            ? upcomingSeasonStart().toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })
+            : null,
       }}
       resource={resource}
       sessions={sessions}

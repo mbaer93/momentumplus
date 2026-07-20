@@ -53,6 +53,9 @@ export function SpeakerStudio({
     industries: string;
     expiresAt: string | null;
     headshotUrl: string | null;
+    /** Set while the speaker is pre-season (hidden from members): the date
+        their page and community access open up. Null once live. */
+    goLiveLabel?: string | null;
   };
   resource: {
     title: string;
@@ -99,6 +102,14 @@ export function SpeakerStudio({
         </div>
       </div>
 
+      {speaker.goLiveLabel && (
+        <div className="admin-hint">
+          Your speaker page opens to members on{" "}
+          <strong>{speaker.goLiveLabel}</strong> — until then it&apos;s hidden
+          from the directory and community. Build everything here now; it all
+          goes live automatically.
+        </div>
+      )}
       {startError && <div className="login-error">{startError}</div>}
       {msg && (
         <div className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}>{msg.text}</div>

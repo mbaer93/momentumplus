@@ -182,6 +182,24 @@ export async function updateZoomMeeting(
   }
 }
 
+/** Delete a meeting (used when a session is cancelled — members holding the
+    old join URL or calendar invite must not walk into a live room for a
+    "cancelled" session). A 404 counts as success: already gone. */
+export async function deleteZoomMeeting(meetingId: string): Promise<void> {
+  const token = await getZoomAccessToken();
+  const res = await fetch(
+    `${ZOOM_API_BASE}/meetings/${encodeURIComponent(meetingId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    },
+  );
+  if (!res.ok && res.status !== 204 && res.status !== 404) {
+    throw new Error(`Zoom delete meeting failed: ${res.status} ${await res.text()}`);
+  }
+}
+
 export interface ZoomParticipant {
   name: string;
   email: string;
