@@ -33,6 +33,9 @@ export function SpeakerOnboardingForm({
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Setup finished but with notes worth reading — shown on a success panel
+      instead of a silent redirect. */
+  const [doneNotes, setDoneNotes] = useState<string[] | null>(null);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm({ ...form, [key]: value });
@@ -68,6 +71,12 @@ export function SpeakerOnboardingForm({
         setError(res.message ?? "Something went wrong — try again.");
         return;
       }
+      // Partial failures (resource/profile writes) are shown, not hidden
+      // behind the redirect.
+      if (res.warnings && res.warnings.length > 0) {
+        setDoneNotes(res.warnings);
+        return;
+      }
       router.replace("/speaker");
     } catch (err) {
       setError(
@@ -78,6 +87,28 @@ export function SpeakerOnboardingForm({
     } finally {
       setLoading(false);
     }
+  }
+
+  if (doneNotes) {
+    return (
+      <div className="login-card" style={{ textAlign: "left" }}>
+        <h2>Your speaker page is set up</h2>
+        <p>A couple of things to know before you head in:</p>
+        <ul style={{ fontSize: 13.5, lineHeight: 1.6, margin: "0 0 16px 18px" }}>
+          {doneNotes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          className="btn-gold"
+          style={{ width: "100%" }}
+          onClick={() => router.replace("/speaker")}
+        >
+          Open your Speaker Studio
+        </button>
+      </div>
+    );
   }
 
   return (

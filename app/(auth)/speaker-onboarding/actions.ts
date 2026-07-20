@@ -29,6 +29,9 @@ export interface SpeakerOnboardingInput {
 export interface SpeakerOnboardingResult {
   ok: boolean;
   message?: string;
+  /** Setup succeeded but some non-blocking writes failed — shown to the
+      speaker before they head into the Studio. */
+  warnings?: string[];
 }
 
 export async function completeSpeakerOnboarding(
@@ -71,10 +74,14 @@ export async function completeSpeakerOnboarding(
     .map((t) => t.trim())
     .filter(Boolean);
 
+  // Partial failures are REPORTED, not swallowed — a speaker whose resource
+  // or profile write failed used to land in the Studio believing it saved.
+  const warnings: string[] = [];
+
   // 1) Their business as a member resource (their single resource page).
   let resourceId: string | null = null;
   if (input.businessName.trim()) {
-    const { data: resource } = await admin
+    const { data: resource, error: resourceError } = await admin
       .from("resources")
       .insert({
         title: input.businessName.trim(),
@@ -88,6 +95,11 @@ export async function completeSpeakerOnboarding(
       .select("id")
       .single();
     resourceId = (resource?.id as string) ?? null;
+    if (resourceError || !resourceId) {
+      warnings.push(
+        `Your business resource page didn't save (${resourceError?.message ?? "unknown error"}) — you can add it from your Speaker Studio.`,
+      );
+    }
   }
 
   // 2) The speaker directory page (reuses an existing record if an admin
@@ -110,7 +122,13 @@ export async function completeSpeakerOnboarding(
   let speakerId: string;
   if (existingSpeaker) {
     speakerId = existingSpeaker.id as string;
-    await admin.from("speakers").update(speakerRow).eq("id", speakerId);
+    const { error: updateError } = await admin
+      .from("speakers")
+      .update(speakerRow)
+      .eq("id", speakerId);
+    if (updateError) {
+      return { ok: false, message: updateError.message };
+    }
   } else {
     const { data: created, error } = await admin
       .from("speakers")
@@ -124,7 +142,7 @@ export async function completeSpeakerOnboarding(
   }
 
   // 3) Personal profile.
-  await admin
+  const { error: profileError } = await admin
     .from("profiles")
     .update({
       full_name: displayName,
@@ -133,6 +151,11 @@ export async function completeSpeakerOnboarding(
       company: input.businessName.trim() || null,
     })
     .eq("id", user.id);
+  if (profileError) {
+    warnings.push(
+      `Your personal profile details didn't save (${profileError.message}) — update them under My Profile once you're in.`,
+    );
+  }
 
   // 4) Speaker-tier access (Pro-equivalent) through the season end.
   const { data: existingAccess } = await admin
@@ -183,7 +206,7 @@ export async function completeSpeakerOnboarding(
   revalidatePath("/resources");
   revalidatePath("/admin/speakers");
   revalidateTag("speakers");
-  return { ok: true };
+  return { ok: true, warnings: warnings.length > 0 ? warnings : undefined };
 }
 
 export async function getPendingSpeakerInvite(): Promise<{

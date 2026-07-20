@@ -116,14 +116,23 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
+  const tier = (await import("@/lib/sponsor-tiers")).normalizeSponsorTier(
+    input.tier,
+  );
+  // Same lifecycle default as the invite flow: a season term ending next
+  // October 1 (Host Sponsor stays ongoing). A manually-added sponsor used to
+  // get NO term — instantly live and never expiring, the opposite of an
+  // invited sponsor, with nothing in the form saying so.
+  const termEnd = tier === "host" ? null : seasonEnd().toISOString();
   const row = {
     name: input.name.trim(),
-    tier: (await import("@/lib/sponsor-tiers")).normalizeSponsorTier(input.tier),
+    tier,
     tagline: input.tagline.trim() || null,
     description: input.description.trim() || null,
     offer: input.offer.trim() || null,
     website: input.website.trim() || null,
     rail_active: input.railActive,
+    expires_at: termEnd,
   };
   let { error } = await admin.from("sponsors").insert(row);
   if (error && error.message.includes("description")) {
@@ -137,7 +146,19 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
   revalidateTag("presented-by");
   revalidatePath("/sponsors");
   revalidateTag("sponsors");
-  return { ok: true, message: "Sponsor created." };
+  const { sponsorLive, upcomingSeasonStart } = await import(
+    "@/lib/sponsor-lifecycle"
+  );
+  const liveNow =
+    !termEnd || sponsorLive({ archivedAt: null, expiresAt: termEnd });
+  return {
+    ok: true,
+    message: !termEnd
+      ? "Sponsor created — ongoing Host Sponsor, visible to members now."
+      : liveNow
+        ? `Sponsor created — visible to members now, season ends ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Use "Make ongoing" to remove the end date.`
+        : `Sponsor created — goes live to members ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, season ends ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Use "Make ongoing" to publish it immediately with no end date.`,
+  };
 }
 
 export async function toggleRail(

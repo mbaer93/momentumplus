@@ -26,6 +26,10 @@ interface StudioSponsor {
       it goes live. Null once live, ongoing, or archived. */
   goLiveLabel: string | null;
   expiresLabel: string | null;
+  /** Current artwork — shown next to the upload inputs so a failed or
+      forgotten upload is visible instead of silently absent. */
+  logoUrl: string | null;
+  sidebarAdUrl: string | null;
 }
 
 interface SponsorStudioViewProps {
@@ -195,6 +199,21 @@ export function SponsorStudioView({
           <div className="admin-field-row">
             <div className="admin-field">
               <label htmlFor="sp-logo-up">Logo (PNG/JPG/SVG/WebP, 2 MB)</label>
+              <div style={{ marginBottom: 6 }}>
+                {sponsor.logoUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={sponsor.logoUrl}
+                    alt={`${sponsor.name} current logo`}
+                    style={{ maxHeight: 40, maxWidth: 140, objectFit: "contain" }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                    No logo yet — your page shows a text placeholder until you
+                    add one.
+                  </span>
+                )}
+              </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <input
                   id="sp-logo-up"
@@ -222,6 +241,21 @@ export function SponsorStudioView({
             </div>
             <div className="admin-field">
               <label htmlFor="sp-ad-up">Ad artwork (eligible tiers)</label>
+              <div style={{ marginBottom: 6 }}>
+                {sponsor.sidebarAdUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={sponsor.sidebarAdUrl}
+                    alt={`${sponsor.name} current ad artwork`}
+                    style={{ maxHeight: 60, maxWidth: 140, objectFit: "contain" }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                    No ad artwork yet. Ad placements run for the top sponsor
+                    tiers and are activated by the Momentum+ team.
+                  </span>
+                )}
+              </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <input
                   id="sp-ad-up"

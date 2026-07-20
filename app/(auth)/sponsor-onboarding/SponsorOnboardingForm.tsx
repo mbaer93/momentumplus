@@ -41,6 +41,9 @@ export function SponsorOnboardingForm({
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Setup finished but with notes worth reading (failed VIP invites or
+      uploads) — shown on a success panel instead of a silent redirect. */
+  const [doneNotes, setDoneNotes] = useState<string[] | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,23 +77,41 @@ export function SponsorOnboardingForm({
         setError(res.message ?? "Something went wrong — try again.");
         return;
       }
+      // Anything that partially failed is COLLECTED and shown, not
+      // swallowed: a mistyped VIP email or a failed logo upload used to
+      // vanish behind the redirect, leaving the rep sure it all worked.
+      const notes: string[] = [];
+      if (res.message) notes.push(res.message);
       // Artwork rides along with setup: the rep is seated as owner by the
       // completion above, so the studio upload action authorizes them. A
       // failed upload never blocks onboarding — they can retry in the
       // Studio.
       if (res.sponsorId) {
-        for (const [file, kind] of [
-          [logoFile, "logo"],
-          [adFile, "ad"],
+        for (const [file, kind, label] of [
+          [logoFile, "logo", "logo"],
+          [adFile, "ad", "ad artwork"],
         ] as const) {
           if (file) {
-            const fd = new FormData();
-            fd.append("file", file);
-            await uploadOwnSponsorImage(res.sponsorId, kind, fd).catch(
-              () => undefined,
-            );
+            try {
+              const fd = new FormData();
+              fd.append("file", file);
+              const up = await uploadOwnSponsorImage(res.sponsorId, kind, fd);
+              if (!up.ok) {
+                notes.push(
+                  `Your ${label} didn't upload (${up.message ?? "unknown error"}) — retry it from your Sponsor Studio.`,
+                );
+              }
+            } catch {
+              notes.push(
+                `Your ${label} didn't upload — retry it from your Sponsor Studio.`,
+              );
+            }
           }
         }
+      }
+      if (notes.length > 0) {
+        setDoneNotes(notes);
+        return;
       }
       // Land in the new Sponsor Studio — it shows the page, team, and
       // remaining VIP tickets they just set up.
@@ -104,6 +125,28 @@ export function SponsorOnboardingForm({
     } finally {
       setLoading(false);
     }
+  }
+
+  if (doneNotes) {
+    return (
+      <div className="login-card" style={{ textAlign: "left" }}>
+        <h2>Your sponsor page is set up</h2>
+        <p>A couple of things to know before you head in:</p>
+        <ul style={{ fontSize: 13.5, lineHeight: 1.6, margin: "0 0 16px 18px" }}>
+          {doneNotes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          className="btn-gold"
+          style={{ width: "100%" }}
+          onClick={() => router.replace("/sponsor")}
+        >
+          Open your Sponsor Studio
+        </button>
+      </div>
+    );
   }
 
   return (
