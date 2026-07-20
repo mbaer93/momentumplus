@@ -218,7 +218,7 @@ export function SponsorsManager({
       } catch {
         // e.g. the upload request itself was rejected before reaching us.
         setMsg({
-          text: "That didn't save — check your connection and try again. If you were uploading an image, use one under 2 MB.",
+          text: "That didn't save — refresh the page and try again (the app may have just been updated). If you were uploading an image, use one under 2 MB.",
           ok: false,
         });
       }
