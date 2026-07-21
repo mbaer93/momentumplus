@@ -247,6 +247,29 @@ export async function getMeetingStatus(
   }
 }
 
+/**
+ * When the meeting's most recent instance actually ENDED — null when it has
+ * never run (Zoom 404s) or on error. The live /meetings status can't tell
+ * "ended" from "not started yet" (both read "waiting"); this endpoint can,
+ * because Zoom only writes a past-meeting record after a real run.
+ */
+export async function getPastMeetingEnd(
+  meetingId: string,
+): Promise<string | null> {
+  try {
+    const token = await getZoomAccessToken();
+    const res = await fetch(
+      `${ZOOM_API_BASE}/past_meetings/${encodeURIComponent(meetingId)}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { end_time?: string };
+    return json.end_time ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface ZoomRecordingFile {
   file_type?: string;
   file_size?: number;

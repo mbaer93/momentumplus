@@ -13,23 +13,51 @@ type Phase =
   | "joined"
   | "waiting"
   | "unavailable"
-  | "ended"
   | "left";
 
 /*
  * The live room runs Zoom's CLIENT VIEW — the full Zoom web client, exactly
  * what members get joining a meeting in a browser: full-size toolbar,
- * self-view, native screen-share handling (share appears and the video comes
- * back when it stops), centered dialogs, gallery/speaker toggle.
+ * self-view, native screen-share handling, centered dialogs, gallery/speaker
+ * toggle. The client view takes the whole viewport while the meeting runs
+ * (leaving returns to this page), so member notes live in a floating drawer
+ * on top of it.
  *
- * We previously embedded the SDK's "component view" floating panel; its
- * tiny toolbar, off-screen consent dialogs, share blackouts, and unbounded
- * canvas were unfixable from outside the SDK. The client view takes the
- * whole viewport while the meeting runs (leaving returns to this page), so
- * member notes live in a floating drawer on top of it.
+ * IMPORTANT: every entry INTO a live room is a full document load (plain
+ * <a>, not <Link>) — the SharedArrayBuffer isolation headers on this route
+ * only apply on a document response, and a fresh document also guarantees
+ * the Zoom singleton below is initialized for THIS session (leaveUrl, the
+ * status listener). Keep it that way.
  */
 
 const SDK_VERSION = "6.2.0";
+
+/** The generic stepped-out copy. Zoom sends everyone to ?left=1 for BOTH
+    cases — leaving yourself and the host ending the meeting — and we can't
+    tell which, so the copy covers both. */
+const LEFT_GENERIC =
+  "Either you left, or the host ended the session for everyone. If it's still running you can rejoin below — and if it's over, the recording lands in the Library with AI takeaways. Your notes are saved either way.";
+
+/* ---- Zoom is a page-wide singleton; so is our bookkeeping about it. ----
+   The SDK's onMeetingStatus listener can't be unregistered, so it is
+   registered ONCE and routed through this mutable pointer to whichever
+   room instance is active. */
+interface ActiveRoom {
+  sessionId: string;
+  pathname: string;
+  isJoined: () => boolean;
+  isDeliberate: () => boolean;
+}
+let zoomBooted = false;
+let activeRoom: ActiveRoom | null = null;
+let disconnectNavTimer: ReturnType<typeof setTimeout> | undefined;
+
+function cancelDisconnectNav() {
+  if (disconnectNavTimer) {
+    clearTimeout(disconnectNavTimer);
+    disconnectNavTimer = undefined;
+  }
+}
 
 /** Zoom rejects with a plain object, not an Error — pull out the human
     reason and whether it just means "host hasn't started yet". */
@@ -57,6 +85,11 @@ function ensureZoomRoot(): HTMLElement {
   }
   root.style.display = "none";
   return root;
+}
+
+function hideZoomRoot() {
+  const root = document.getElementById("zmmtg-root");
+  if (root) root.style.display = "none";
 }
 
 /** The client view's styles ship from Zoom's CDN (the npm package carries
@@ -101,7 +134,9 @@ export function LiveRoom({
   const [phase, setPhase] = useState<Phase>(
     startedAsLeft ? "left" : askHowToJoin ? "choose" : "loading",
   );
-  const [message, setMessage] = useState<string>("Connecting to the live room…");
+  const [message, setMessage] = useState<string>(
+    startedAsLeft ? LEFT_GENERIC : "Connecting to the live room…",
+  );
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Bumping `attempt` re-runs the join: automatically while waiting for the
   // host to start the meeting, or manually via the Try again button.
@@ -109,17 +144,30 @@ export function LiveRoom({
   // Set when the member deliberately steps out (Zoom app / hosting from the
   // app) — stops the auto-retry loop from dragging them back in and
   // duplicating them in the meeting.
-  const suspendedRef = useRef(startedAsLeft || (canHost && !viewerIsSpeaker));
+  const suspendedRef = useRef(startedAsLeft || askHowToJoin);
   // Admins join as plain attendees unless they explicitly choose to host —
   // an admin account merely opening the page must never start the meeting.
   // (The speaker is the intended host; the server always host-joins them.)
   const hostIntentRef = useRef(false);
+  // True only between a successful join and a leave/disconnect — the status
+  // listener uses it to tell a real mid-meeting disconnect apart from the
+  // SDK's status-3 noise on FAILED join attempts and transient errors.
+  const joinedRef = useRef(false);
   const handledAttempt = useRef(-1);
-  const initedRef = useRef(false);
   const leftDeliberately = useRef(false);
   const zoomRef = useRef<{
     leaveMeeting: (args: { success?: () => void; error?: () => void }) => void;
   } | null>(null);
+
+  const leaveZoom = () => {
+    joinedRef.current = false;
+    try {
+      zoomRef.current?.leaveMeeting({});
+    } catch {
+      /* not in a meeting */
+    }
+    hideZoomRoot();
+  };
 
   /** Deliberately step out: leave the meeting if joined, stop retries, and
       show the "left" state. Used when switching to the Zoom app — staying
@@ -127,13 +175,8 @@ export function LiveRoom({
   const stepOut = (msg: string) => {
     leftDeliberately.current = true;
     suspendedRef.current = true;
-    try {
-      zoomRef.current?.leaveMeeting({});
-    } catch {
-      /* not in a meeting */
-    }
-    const root = document.getElementById("zmmtg-root");
-    if (root) root.style.display = "none";
+    cancelDisconnectNav();
+    leaveZoom();
     setMessage(msg);
     setPhase("left");
   };
@@ -194,9 +237,17 @@ export function LiveRoom({
         if (cancelled) return;
         zoomRef.current = ZoomMtg as unknown as typeof zoomRef.current;
 
+        // Point the singleton's status listener at THIS room.
+        activeRoom = {
+          sessionId: session.id,
+          pathname: window.location.pathname,
+          isJoined: () => joinedRef.current,
+          isDeliberate: () => leftDeliberately.current,
+        };
+
         const root = ensureZoomRoot();
 
-        if (!initedRef.current) {
+        if (!zoomBooted) {
           ensureZoomStyles();
           ZoomMtg.setZoomJSLib(
             `https://source.zoom.us/${SDK_VERSION}/lib`,
@@ -215,33 +266,43 @@ export function LiveRoom({
               error: (e: unknown) => reject(e),
             });
           });
-          // When the meeting ends (host ends for all, or a drop), tell the
-          // server — it verifies with the Zoom API and only completes the
-          // session if the meeting truly ended, so blips can't mislabel it.
+          // Registered ONCE per document (it can't be unregistered) and
+          // routed through activeRoom. Status 3 (disconnected) also fires
+          // on FAILED join attempts and recoverable blips, so it only
+          // counts when we were actually joined — and a recovery signal
+          // (2 connected / 4 reconnecting) cancels the pending exit.
           try {
             ZoomMtg.inMeetingServiceListener(
               "onMeetingStatus",
               (data: { meetingStatus?: number }) => {
-                if (data?.meetingStatus !== 3) return; // 3 = disconnected
-                if (leftDeliberately.current) return;
-                // keepalive: navigation follows right after this.
-                void fetch(`/api/sessions/${session.id}/complete`, {
+                const s = data?.meetingStatus;
+                if (s === 2 || s === 4) {
+                  cancelDisconnectNav();
+                  return;
+                }
+                if (s !== 3) return;
+                const room = activeRoom;
+                if (!room || !room.isJoined() || room.isDeliberate()) return;
+                // Report the end — the server verifies with the Zoom API
+                // (past-meeting record) before completing anything, so
+                // spurious disconnects can't mislabel a running session.
+                void fetch(`/api/sessions/${room.sessionId}/complete`, {
                   method: "POST",
                   keepalive: true,
                 }).catch(() => undefined);
-                // Don't rely on Zoom's "ended by host" dialog to move people
-                // along — when it fails to surface, participants sit frozen
-                // behind it. Leave on our own; if Zoom's flow navigates
-                // first, this never runs.
-                setTimeout(() => {
-                  window.location.href = `${window.location.pathname}?left=1`;
+                // Don't rely on Zoom's "ended by host" dialog to move
+                // people along — leave on our own. A recovery signal
+                // before the timer fires cancels this.
+                cancelDisconnectNav();
+                disconnectNavTimer = setTimeout(() => {
+                  window.location.href = `${room.pathname}?left=1`;
                 }, 2000);
               },
             );
           } catch {
             /* the hourly cron completes ended sessions regardless */
           }
-          initedRef.current = true;
+          zoomBooted = true;
         }
 
         // Visible from the join call on — the SDK shows its device preview
@@ -264,11 +325,18 @@ export function LiveRoom({
           });
         });
 
+        // The member may have stepped out (Zoom app) while this join was in
+        // flight — honor that instead of silently re-entering them twice.
+        if (suspendedRef.current) {
+          leaveZoom();
+          return;
+        }
+
+        joinedRef.current = true;
         leftDeliberately.current = false;
         if (!cancelled) setPhase("joined");
       } catch (err) {
-        const root = document.getElementById("zmmtg-root");
-        if (root) root.style.display = "none";
+        hideZoomRoot();
         if (cancelled) return;
         const failure = joinFailure(err);
         if (failure.notStarted) {
@@ -288,16 +356,30 @@ export function LiveRoom({
     return () => {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
+      // Release the attempt so a strict-mode remount (which re-runs this
+      // effect with the same attempt number) can claim it again — without
+      // this, dev builds deadlocked on "Taking your seat…".
+      if (handledAttempt.current === attempt) {
+        handledAttempt.current = attempt - 1;
+      }
     };
   }, [attempt, session.id, displayName, memberEmail]);
 
-  // Hide Zoom's root if the member navigates away inside the app while the
-  // meeting UI is up (client-side route change unmounts us, not the page).
+  // On unmount (browser Back, in-app navigation) LEAVE the meeting — the
+  // Zoom client lives on <body> outside React, so without this the member
+  // stayed connected with a live mic and a hidden UI.
   useEffect(
     () => () => {
-      const root = document.getElementById("zmmtg-root");
-      if (root) root.style.display = "none";
+      cancelDisconnectNav();
+      if (joinedRef.current) {
+        leftDeliberately.current = true;
+        leaveZoom();
+      } else {
+        hideZoomRoot();
+      }
+      activeRoom = null;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -346,7 +428,14 @@ export function LiveRoom({
                   <div className="sess-resource-name">{r.name}</div>
                   <div className="sess-resource-type">{r.type}</div>
                 </div>
-                <a className="sess-resource-link" href={r.url}>
+                {/* New tab — same-tab navigation dropped the member out of
+                    the live meeting when opened from the in-meeting drawer. */}
+                <a
+                  className="sess-resource-link"
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener"
+                >
                   Open <ExternalIcon size={12} />
                 </a>
               </div>
@@ -452,11 +541,9 @@ export function LiveRoom({
                     ? "Connecting"
                     : phase === "waiting"
                       ? "Waiting for the host"
-                      : phase === "ended"
-                        ? "Session over"
-                        : phase === "left"
-                          ? "Stepped out"
-                          : "Live room"}
+                      : phase === "left"
+                        ? "Stepped out"
+                        : "Live room"}
               </div>
               <h3>
                 {phase === "choose"
@@ -465,23 +552,14 @@ export function LiveRoom({
                     ? "Taking your seat…"
                     : phase === "waiting"
                       ? "Starting soon"
-                      : phase === "ended"
-                        ? "That's a wrap"
-                        : phase === "left"
-                          ? "You're out of the meeting"
-                          : "The room isn't live yet"}
+                      : phase === "left"
+                        ? "You're out of the meeting"
+                        : "The room isn't live yet"}
               </h3>
               <p>
                 {phase === "choose"
                   ? "Hosting from this room runs the meeting under YOUR name. The session's speaker is the intended host — host only if they can't. If the meeting is already running, you'll join it as an attendee either way."
-                  : phase === "ended"
-                    ? "The session has ended. The recording lands in the Library with AI takeaways, usually within a couple of days — and your notes are saved."
-                    : phase === "left" && !message.startsWith("You")
-                      ? // Zoom sends everyone here for BOTH cases — leaving
-                        // yourself and the host ending the meeting — and we
-                        // can't tell which, so the copy covers both.
-                        "Either you left, or the host ended the session for everyone. If it's still running you can rejoin below — and if it's over, the recording lands in the Library with AI takeaways. Your notes are saved either way."
-                      : message}
+                  : message}
               </p>
               {phase === "choose" && (
                 <p style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
@@ -515,20 +593,18 @@ export function LiveRoom({
                   </button>
                 </p>
               )}
-              {(phase === "ended" || phase === "left") && (
+              {phase === "left" && (
                 <p style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
                   <a className="live-host-btn" href={`/sessions/${session.slug}`}>
                     Back to the session
                   </a>
-                  {phase === "left" && (
-                    <a
-                      className="live-fallback"
-                      style={{ marginLeft: 0 }}
-                      href={`/sessions/${session.slug}/live`}
-                    >
-                      Rejoin
-                    </a>
-                  )}
+                  <a
+                    className="live-fallback"
+                    style={{ marginLeft: 0 }}
+                    href={`/sessions/${session.slug}/live`}
+                  >
+                    Rejoin
+                  </a>
                 </p>
               )}
               {phase === "unavailable" && (

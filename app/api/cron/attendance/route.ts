@@ -29,6 +29,14 @@ import {
 /** Sessions are swept for attendance for this long after they end. */
 const ATTENDANCE_WINDOW_DAYS = 3;
 
+/** One-off sessions aren't auto-completed until this long past their
+    scheduled end — sessions run long, and completing mid-meeting closes
+    enrollment and marks the session "past" while people are still in the
+    room. Mirrors the live room's join-window overrun. The /complete
+    endpoint (Zoom-verified) still flips them the moment the host actually
+    ends; this cron is the backstop. */
+const COMPLETE_GRACE_MS = 60 * 60 * 1000;
+
 // Long-running under load — allow the full function window (Vercel Pro).
 export const maxDuration = 300;
 
@@ -112,7 +120,7 @@ export async function GET(req: NextRequest) {
     } else {
       const started = new Date(s.starts_at).getTime();
       const endMs = started + (s.duration_min ?? 60) * 60 * 1000;
-      next = now >= endMs ? "completed" : "live";
+      next = now >= endMs + COMPLETE_GRACE_MS ? "completed" : "live";
     }
     if (next === s.status) continue;
     const { error: transitionError } = await admin
@@ -243,6 +251,19 @@ export async function GET(req: NextRequest) {
       .eq("session_id", session.id)
       .eq("attended", false);
 
+    // Name matches are a fallback (Zoom often omits guest emails) and only
+    // count when the name is UNIQUE among this session's enrollments — with
+    // two enrolled "John Smith"s, one attending would mark both present.
+    const nameCounts = new Map<string, number>();
+    for (const e of enrollments ?? []) {
+      const n = (
+        e as unknown as { profiles: { full_name: string | null } | null }
+      ).profiles?.full_name
+        ?.trim()
+        .toLowerCase();
+      if (n) nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1);
+    }
+
     const toMark: string[] = [];
     for (const e of enrollments ?? []) {
       const p = (
@@ -254,7 +275,7 @@ export async function GET(req: NextRequest) {
       const name = p?.full_name?.trim().toLowerCase();
       if (
         (email && attendedEmails.has(email)) ||
-        (name && attendedNames.has(name))
+        (name && attendedNames.has(name) && nameCounts.get(name) === 1)
       ) {
         toMark.push(e.id);
       }

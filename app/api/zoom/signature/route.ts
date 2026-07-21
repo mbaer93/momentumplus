@@ -95,7 +95,10 @@ export async function POST(req: NextRequest) {
     const status = await getMeetingStatus(session.zoomMeetingId).catch(
       () => null,
     );
-    hostJoin = status !== "started";
+    // FAIL CLOSED: grant host only on Zoom's definitive "waiting" (not
+    // started). null means the check errored — handing out a ZAK on an
+    // unknown state could bump a live host off their own meeting.
+    hostJoin = status === "waiting";
   }
 
   const signature = generateZoomSignature({

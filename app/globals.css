@@ -1599,14 +1599,14 @@
   z-index: 500 !important;
 }
 /* While the Zoom client covers the screen, notes ride on top in a drawer.
-   Top-CENTER is the one spot the Zoom web client leaves empty: top-right is
-   recording/view controls, bottom-right is the End button, and the right
-   edge hosts its chat/participants panels. */
+   Placement is a minefield: top-right is recording/view controls,
+   bottom-right is End + chat/participants panels, and DEAD center-top is
+   where the "You are viewing X's screen / View Options" pill lands during
+   a share — so the button sits left-of-center, clear of all of them. */
 .live-drawer-btn {
   position: fixed;
   top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: calc(50% - 240px);
   z-index: 2147483000;
   background: var(--gold);
   color: var(--navy);
