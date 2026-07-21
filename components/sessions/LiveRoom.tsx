@@ -181,6 +181,18 @@ export function LiveRoom({
     setPhase("left");
   };
 
+  // Second shot at completion: the disconnect handler fires /complete the
+  // instant the meeting ends, but Zoom only writes its end-of-meeting record
+  // a few seconds later — so that first call can find nothing. Landing back
+  // on this page (?left=1) is comfortably after the lag, so ask again.
+  useEffect(() => {
+    if (!startedAsLeft) return;
+    void fetch(`/api/sessions/${session.id}/complete`, {
+      method: "POST",
+    }).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (suspendedRef.current) return;
     // Guards React strict-mode double-invoke without blocking retries.

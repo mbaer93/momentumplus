@@ -17,6 +17,9 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * (start time in the past), and only scheduled/live one-off sessions flip —
  * a recurring series keeps rolling to its next occurrence.
  */
+// Room for the end-record retries below.
+export const maxDuration = 30;
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
@@ -74,7 +77,14 @@ export async function POST(
     if (status === "started") {
       return NextResponse.json({ ok: true, skipped: "meeting still running" });
     }
-    const endedAt = await getPastMeetingEnd(zoomRow.zoom_meeting_id as string);
+    // Zoom writes the past-meeting record a few SECONDS after "end for
+    // all" — an immediate ask often misses it, which left just-ended
+    // sessions sitting "live". Retry briefly before giving up.
+    let endedAt = await getPastMeetingEnd(zoomRow.zoom_meeting_id as string);
+    for (let i = 0; i < 4 && !endedAt; i++) {
+      await new Promise((r) => setTimeout(r, 2500));
+      endedAt = await getPastMeetingEnd(zoomRow.zoom_meeting_id as string);
+    }
     // 15-min slack: a host may start a touch early; anything older is a
     // previous run (a test days before) and doesn't count for this one.
     const occurrenceStart =
