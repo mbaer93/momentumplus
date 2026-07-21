@@ -54,9 +54,14 @@ export async function POST(
     return NextResponse.json({ ok: true, skipped: "not started" });
   }
 
-  // VERIFY with Zoom before flipping: the client only knows a localized
-  // disconnect reason, which also fires on plan cutoffs and host connection
-  // blips. If Zoom says the meeting is still running, nothing completes.
+  // VERIFY with Zoom before flipping, and FAIL CLOSED. Two traps here:
+  // (1) the live meeting status reads "waiting" both when the meeting has
+  // ended AND when a late host simply hasn't started it yet — completing on
+  // "not started" would close enrollment and mark the session past while
+  // members sit waiting for the host; (2) a Zoom API blip must not complete
+  // anything. So: skip while running, and otherwise require Zoom's
+  // past-meeting record to show a real end AT THIS session's occurrence —
+  // no confirmation, no completion (the hourly cron is the backstop).
   const service = createServiceClient();
   const { data: zoomRow } = await service
     .from("sessions")
@@ -64,14 +69,21 @@ export async function POST(
     .eq("id", session.id)
     .maybeSingle();
   if (zoomRow?.zoom_meeting_id) {
-    try {
-      const { getMeetingStatus } = await import("@/lib/zoom");
-      const status = await getMeetingStatus(zoomRow.zoom_meeting_id as string);
-      if (status === "started") {
-        return NextResponse.json({ ok: true, skipped: "meeting still running" });
-      }
-    } catch {
-      // Zoom unreachable — fall through to the time-based guard above.
+    const { getMeetingStatus, getPastMeetingEnd } = await import("@/lib/zoom");
+    const status = await getMeetingStatus(zoomRow.zoom_meeting_id as string);
+    if (status === "started") {
+      return NextResponse.json({ ok: true, skipped: "meeting still running" });
+    }
+    const endedAt = await getPastMeetingEnd(zoomRow.zoom_meeting_id as string);
+    // 15-min slack: a host may start a touch early; anything older is a
+    // previous run (a test days before) and doesn't count for this one.
+    const occurrenceStart =
+      new Date(session.startsAt).getTime() - 15 * 60 * 1000;
+    if (!endedAt || new Date(endedAt).getTime() < occurrenceStart) {
+      return NextResponse.json({
+        ok: true,
+        skipped: "meeting has not ended (or Zoom unreachable)",
+      });
     }
   }
 
