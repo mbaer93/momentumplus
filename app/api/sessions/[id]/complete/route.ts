@@ -21,11 +21,20 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 export const maxDuration = 30;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ ok: true, preview: true });
+  }
+  // force: the host just ended the meeting and says so — skip the Zoom
+  // verification below (whose record can lag) and complete right now.
+  // Hosts only; a member can never force a session closed.
+  let force = false;
+  try {
+    force = ((await req.json()) as { force?: boolean })?.force === true;
+  } catch {
+    /* no body — the normal disconnect ping */
   }
   const session = await getSession(params.id);
   if (!session) {
@@ -35,18 +44,21 @@ export async function POST(
   // alone in the room when it ends: the session's speaker and admins, who
   // join without enrolling. Without them, a host-only test meeting stayed
   // "live" until the hourly cron noticed.
-  if (!session.isEnrolled) {
-    let allowed = (await getCurrentMember())?.isAdmin ?? false;
-    if (!allowed) {
+  if (!session.isEnrolled || force) {
+    let privileged = (await getCurrentMember())?.isAdmin ?? false;
+    if (!privileged) {
       const {
         data: { user },
       } = await createClient().auth.getUser();
       if (user) {
-        allowed = (await speakerOwnsSession(user.id, session.id)).ok;
+        privileged = (await speakerOwnsSession(user.id, session.id)).ok;
       }
     }
-    if (!allowed) {
-      return NextResponse.json({ error: "Not enrolled" }, { status: 403 });
+    if (!privileged) {
+      return NextResponse.json(
+        { error: session.isEnrolled ? "Hosts only" : "Not enrolled" },
+        { status: 403 },
+      );
     }
   }
   if (session.recurrence) {
@@ -71,7 +83,7 @@ export async function POST(
     .select("zoom_meeting_id")
     .eq("id", session.id)
     .maybeSingle();
-  if (zoomRow?.zoom_meeting_id) {
+  if (zoomRow?.zoom_meeting_id && !force) {
     const { getMeetingStatus, getPastMeetingEnd } = await import("@/lib/zoom");
     const status = await getMeetingStatus(zoomRow.zoom_meeting_id as string);
     if (status === "started") {
