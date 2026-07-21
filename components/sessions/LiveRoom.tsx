@@ -8,6 +8,7 @@ import { NotesEditor } from "./NotesEditor";
 
 type Tab = "notes" | "resources" | "community";
 type Phase =
+  | "choose"
   | "loading"
   | "joined"
   | "waiting"
@@ -93,7 +94,13 @@ export function LiveRoom({
   startedAsLeft?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("notes");
-  const [phase, setPhase] = useState<Phase>(startedAsLeft ? "left" : "loading");
+  // Admins choose how to join BEFORE we hand them to Zoom — once join() is
+  // called, Zoom's own waiting-for-host page covers everything instantly,
+  // so a button on our waiting screen was unclickable in practice.
+  const askHowToJoin = canHost && !viewerIsSpeaker;
+  const [phase, setPhase] = useState<Phase>(
+    startedAsLeft ? "left" : askHowToJoin ? "choose" : "loading",
+  );
   const [message, setMessage] = useState<string>("Connecting to the live room…");
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Bumping `attempt` re-runs the join: automatically while waiting for the
@@ -102,7 +109,7 @@ export function LiveRoom({
   // Set when the member deliberately steps out (Zoom app / hosting from the
   // app) — stops the auto-retry loop from dragging them back in and
   // duplicating them in the meeting.
-  const suspendedRef = useRef(startedAsLeft);
+  const suspendedRef = useRef(startedAsLeft || (canHost && !viewerIsSpeaker));
   // Admins join as plain attendees unless they explicitly choose to host —
   // an admin account merely opening the page must never start the meeting.
   // (The speaker is the intended host; the server always host-joins them.)
@@ -432,55 +439,69 @@ export function LiveRoom({
                 }`}
               />
               <div className="live-ph-kicker">
-                {phase === "loading"
-                  ? "Connecting"
-                  : phase === "waiting"
-                    ? "Waiting for the host"
-                    : phase === "ended"
-                      ? "Session over"
-                      : phase === "left"
-                        ? "Stepped out"
-                        : "Live room"}
+                {phase === "choose"
+                  ? "Host controls"
+                  : phase === "loading"
+                    ? "Connecting"
+                    : phase === "waiting"
+                      ? "Waiting for the host"
+                      : phase === "ended"
+                        ? "Session over"
+                        : phase === "left"
+                          ? "Stepped out"
+                          : "Live room"}
               </div>
               <h3>
-                {phase === "loading"
-                  ? "Taking your seat…"
-                  : phase === "waiting"
-                    ? "Starting soon"
-                    : phase === "ended"
-                      ? "That's a wrap"
-                      : phase === "left"
-                        ? "You've left the room"
-                        : "The room isn't live yet"}
+                {phase === "choose"
+                  ? "How do you want to join?"
+                  : phase === "loading"
+                    ? "Taking your seat…"
+                    : phase === "waiting"
+                      ? "Starting soon"
+                      : phase === "ended"
+                        ? "That's a wrap"
+                        : phase === "left"
+                          ? "You've left the room"
+                          : "The room isn't live yet"}
               </h3>
               <p>
-                {phase === "ended"
-                  ? "The session has ended. The recording lands in the Library with AI takeaways, usually within a couple of days — and your notes are saved."
-                  : phase === "left" && !message.startsWith("You")
-                    ? "You're out of the meeting here. If you switched to the Zoom app, you're still in the session there. Your notes are saved."
-                    : message}
+                {phase === "choose"
+                  ? "Hosting from this room runs the meeting under YOUR name. The session's speaker is the intended host — host only if they can't. If the meeting is already running, you'll join it as an attendee either way."
+                  : phase === "ended"
+                    ? "The session has ended. The recording lands in the Library with AI takeaways, usually within a couple of days — and your notes are saved."
+                    : phase === "left" && !message.startsWith("You")
+                      ? "You're out of the meeting here. If you switched to the Zoom app, you're still in the session there. Your notes are saved."
+                      : message}
               </p>
-              {phase === "waiting" && canHost && !viewerIsSpeaker && (
+              {phase === "choose" && (
                 <p style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
                   <button
                     type="button"
                     className="live-host-btn"
                     style={{ cursor: "pointer", border: "none" }}
                     onClick={() => {
-                      if (
-                        !confirm(
-                          "Start the meeting as host from this room? It will run under YOUR name. The session's speaker is the intended host — only start it if they can't.",
-                        )
-                      ) {
-                        return;
-                      }
                       hostIntentRef.current = true;
+                      suspendedRef.current = false;
                       setPhase("loading");
                       setMessage("Starting the meeting as host…");
                       setAttempt((a) => a + 1);
                     }}
                   >
                     Host from this room
+                  </button>
+                  <button
+                    type="button"
+                    className="live-fallback"
+                    style={{ cursor: "pointer", background: "none", marginLeft: 0 }}
+                    onClick={() => {
+                      hostIntentRef.current = false;
+                      suspendedRef.current = false;
+                      setPhase("loading");
+                      setMessage("Connecting to the live room…");
+                      setAttempt((a) => a + 1);
+                    }}
+                  >
+                    Join as attendee
                   </button>
                 </p>
               )}
