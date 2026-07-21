@@ -9,7 +9,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * old way.
  */
 
-export type ServiceKey = "zoom" | "anthropic" | "ghl" | "smtp" | "whitney";
+export type ServiceKey = "zoom" | "anthropic" | "ghl" | "smtp";
 
 export async function getServiceSettings<T>(key: ServiceKey): Promise<T | null> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
