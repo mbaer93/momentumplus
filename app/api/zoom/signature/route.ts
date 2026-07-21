@@ -26,7 +26,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * The SDK secret never leaves the server.
  */
 export async function POST(req: NextRequest) {
-  let body: { sessionId?: string };
+  let body: { sessionId?: string; asHost?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -82,11 +82,15 @@ export async function POST(req: NextRequest) {
   }
 
   // Who joins as host (role 1 + ZAK — starting from the Web SDK requires
-  // both): the speaker always; an admin only while the meeting hasn't
-  // started, so their join can't bump a host who's already live (all host
-  // joins share the account's Zoom user — see the header comment).
+  // both): the speaker always (they're the intended host); an admin ONLY
+  // when they explicitly asked to host (asHost) — an admin-privileged
+  // account merely opening the live page must join as a plain attendee,
+  // otherwise their arrival silently starts the meeting as host. Even with
+  // asHost, a started meeting stays hands-off so their join can't bump the
+  // live host (all host joins share the account's Zoom user — see the
+  // header comment).
   let hostJoin = isSpeakerHost;
-  if (!hostJoin && isAdminViewer) {
+  if (!hostJoin && isAdminViewer && body.asHost === true) {
     const { getMeetingStatus } = await import("@/lib/zoom");
     const status = await getMeetingStatus(session.zoomMeetingId).catch(
       () => null,

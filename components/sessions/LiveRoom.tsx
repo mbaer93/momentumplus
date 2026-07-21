@@ -103,6 +103,10 @@ export function LiveRoom({
   // app) — stops the auto-retry loop from dragging them back in and
   // duplicating them in the meeting.
   const suspendedRef = useRef(startedAsLeft);
+  // Admins join as plain attendees unless they explicitly choose to host —
+  // an admin account merely opening the page must never start the meeting.
+  // (The speaker is the intended host; the server always host-joins them.)
+  const hostIntentRef = useRef(false);
   const handledAttempt = useRef(-1);
   const initedRef = useRef(false);
   const leftDeliberately = useRef(false);
@@ -149,7 +153,10 @@ export function LiveRoom({
         const res = await fetch("/api/zoom/signature", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: session.id }),
+          body: JSON.stringify({
+            sessionId: session.id,
+            asHost: hostIntentRef.current,
+          }),
         });
 
         if (!res.ok) {
@@ -453,6 +460,30 @@ export function LiveRoom({
                     ? "You're out of the meeting here. If you switched to the Zoom app, you're still in the session there. Your notes are saved."
                     : message}
               </p>
+              {phase === "waiting" && canHost && !viewerIsSpeaker && (
+                <p style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="live-host-btn"
+                    style={{ cursor: "pointer", border: "none" }}
+                    onClick={() => {
+                      if (
+                        !confirm(
+                          "Start the meeting as host from this room? It will run under YOUR name. The session's speaker is the intended host — only start it if they can't.",
+                        )
+                      ) {
+                        return;
+                      }
+                      hostIntentRef.current = true;
+                      setPhase("loading");
+                      setMessage("Starting the meeting as host…");
+                      setAttempt((a) => a + 1);
+                    }}
+                  >
+                    Host from this room
+                  </button>
+                </p>
+              )}
               {(phase === "ended" || phase === "left") && (
                 <p style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
                   <a className="live-host-btn" href={`/sessions/${session.slug}`}>
