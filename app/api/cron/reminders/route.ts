@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { sendEmailViaGhl, sendSmsViaGhl } from "@/lib/notifications";
+import { sendPushToProfiles } from "@/lib/push";
 
 /*
  * Session reminders (SPEC.md §4): cron runs every few minutes; any session
@@ -133,6 +134,20 @@ export async function GET(req: NextRequest) {
           phone: member.profiles.phone,
           message: `Momentum+: "${session.title}" starts at ${startLabel}. Join from your portal.`,
         });
+      }
+
+      // Push rides the in-app preference — it's the same alert on the
+      // member's device. Best-effort; a push hiccup must not stall the run.
+      if (wants.in_app) {
+        try {
+          await sendPushToProfiles([member.profile_id], {
+            title: `Starting soon: ${session.title}`,
+            body: `Begins at ${startLabel} — the live room is open now.`,
+            link,
+          });
+        } catch {
+          /* skip */
+        }
       }
 
       // The notifications row doubles as the idempotency marker — ALWAYS

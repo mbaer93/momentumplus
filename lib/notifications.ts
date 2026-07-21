@@ -16,6 +16,7 @@ export const PREF_KEYS = [
   "platform", // email locked on
   "resource_new",
   "event_reminder",
+  "announcements", // SMS opt-in only — email/in-app announcements ride "platform"
 ] as const;
 
 export type PrefKey = (typeof PREF_KEYS)[number];
@@ -27,6 +28,8 @@ export interface PrefDefinition {
   emailLocked?: boolean; // platform emails cannot be disabled
   /** Only the in-app bell is wired for this key — hide email/SMS toggles. */
   inAppOnly?: boolean;
+  /** Only the SMS toggle is wired for this key — hide email/in-app toggles. */
+  smsOnly?: boolean;
   /** No sender exists yet — hidden from the preferences UI until one does
       (showing a toggle that controls nothing erodes trust). */
   hidden?: boolean;
@@ -85,6 +88,13 @@ export const PREF_DEFINITIONS: PrefDefinition[] = [
     label: "Event reminders",
     description: "TSLS and community event reminders",
     hidden: true, // no sender yet
+  },
+  {
+    key: "announcements",
+    label: "Announcement texts",
+    description:
+      "Text me announcements from the SLC team (requires a phone number)",
+    smsOnly: true,
   },
 ];
 
