@@ -138,6 +138,11 @@ export function LiveRoom({
     startedAsLeft ? LEFT_GENERIC : "Connecting to the live room…",
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Host's force-end: marks the session completed on the platform without
+  // waiting for Zoom's (sometimes laggy) end-of-meeting record.
+  const [ending, setEnding] = useState<"idle" | "working" | "done" | "error">(
+    "idle",
+  );
   // Bumping `attempt` re-runs the join: automatically while waiting for the
   // host to start the meeting, or manually via the Try again button.
   const [attempt, setAttempt] = useState(0);
@@ -167,6 +172,33 @@ export function LiveRoom({
       /* not in a meeting */
     }
     hideZoomRoot();
+  };
+
+  /** Host says the meeting is over — flip the session to completed NOW,
+      bypassing the Zoom end-record check (which can lag or hiccup). */
+  const forceEndSession = async () => {
+    if (
+      !confirm(
+        "Mark this session completed across the platform? Do this only after the meeting has actually ended for everyone.",
+      )
+    ) {
+      return;
+    }
+    setEnding("working");
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        skipped?: string;
+      } | null;
+      setEnding(res.ok && json?.ok && !json.skipped ? "done" : "error");
+    } catch {
+      setEnding("error");
+    }
   };
 
   /** Deliberately step out: leave the meeting if joined, stop retries, and
@@ -617,6 +649,25 @@ export function LiveRoom({
                   >
                     Rejoin
                   </a>
+                  {/* A recurring series never completes — next occurrence is next. */}
+                  {canHost && !session.recurrence && session.status !== "completed" && (
+                    <button
+                      type="button"
+                      className="live-fallback"
+                      style={{ cursor: "pointer", background: "none", marginLeft: 0 }}
+                      disabled={ending === "working" || ending === "done"}
+                      title="If the session still shows as live after you've ended the meeting, this marks it completed immediately."
+                      onClick={forceEndSession}
+                    >
+                      {ending === "done"
+                        ? "Session marked completed"
+                        : ending === "working"
+                          ? "Ending…"
+                          : ending === "error"
+                            ? "Couldn't end — try again"
+                            : "End session"}
+                    </button>
+                  )}
                 </p>
               )}
               {phase === "unavailable" && (
