@@ -461,7 +461,7 @@ export function LiveRoom({
                       : phase === "ended"
                         ? "That's a wrap"
                         : phase === "left"
-                          ? "You've left the room"
+                          ? "You're out of the meeting"
                           : "The room isn't live yet"}
               </h3>
               <p>
@@ -470,7 +470,10 @@ export function LiveRoom({
                   : phase === "ended"
                     ? "The session has ended. The recording lands in the Library with AI takeaways, usually within a couple of days — and your notes are saved."
                     : phase === "left" && !message.startsWith("You")
-                      ? "You're out of the meeting here. If you switched to the Zoom app, you're still in the session there. Your notes are saved."
+                      ? // Zoom sends everyone here for BOTH cases — leaving
+                        // yourself and the host ending the meeting — and we
+                        // can't tell which, so the copy covers both.
+                        "Either you left, or the host ended the session for everyone. If it's still running you can rejoin below — and if it's over, the recording lands in the Library with AI takeaways. Your notes are saved either way."
                       : message}
               </p>
               {phase === "choose" && (
