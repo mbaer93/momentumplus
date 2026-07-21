@@ -224,11 +224,18 @@ export function LiveRoom({
               (data: { meetingStatus?: number }) => {
                 if (data?.meetingStatus !== 3) return; // 3 = disconnected
                 if (leftDeliberately.current) return;
-                // keepalive: the SDK navigates to leaveUrl right after this.
+                // keepalive: navigation follows right after this.
                 void fetch(`/api/sessions/${session.id}/complete`, {
                   method: "POST",
                   keepalive: true,
                 }).catch(() => undefined);
+                // Don't rely on Zoom's "ended by host" dialog to move people
+                // along — when it fails to surface, participants sit frozen
+                // behind it. Leave on our own; if Zoom's flow navigates
+                // first, this never runs.
+                setTimeout(() => {
+                  window.location.href = `${window.location.pathname}?left=1`;
+                }, 2000);
               },
             );
           } catch {
