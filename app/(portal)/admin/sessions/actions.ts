@@ -298,3 +298,62 @@ export async function deleteSession(id: string): Promise<AdminResult> {
   revalidatePath("/sessions");
   return { ok: true, message: "Session deleted." };
 }
+
+/* ---- Session resources (migration 0047) — shown on the session page and
+   in the live room's Resources tab. ---- */
+
+export async function addSessionResourceAction(
+  sessionId: string,
+  formData: FormData,
+): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, message: "Added (preview mode)." };
+  }
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { addSessionResourceFromForm } = await import(
+    "@/lib/session-resources"
+  );
+  const res = await addSessionResourceFromForm(sessionId, formData);
+  if (res.ok) {
+    revalidatePath(`/sessions/${sessionId}`);
+    revalidatePath(`/admin/sessions/${sessionId}/edit`);
+  }
+  return res;
+}
+
+export async function deleteSessionResourceAction(
+  resourceId: string,
+): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, message: "Removed (preview mode)." };
+  }
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { deleteSessionResource, sessionIdOfResource } = await import(
+    "@/lib/session-resources"
+  );
+  const sessionId = await sessionIdOfResource(resourceId);
+  const res = await deleteSessionResource(resourceId);
+  if (res.ok && sessionId) revalidatePath(`/sessions/${sessionId}`);
+  return res;
+}
+
+export async function moveSessionResourceAction(
+  resourceId: string,
+  direction: "up" | "down",
+): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) return { ok: true };
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { moveSessionResource, sessionIdOfResource } = await import(
+    "@/lib/session-resources"
+  );
+  const sessionId = await sessionIdOfResource(resourceId);
+  const res = await moveSessionResource(resourceId, direction);
+  if (res.ok && sessionId) revalidatePath(`/sessions/${sessionId}`);
+  return res;
+}

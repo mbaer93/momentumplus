@@ -240,9 +240,10 @@ export const getSession = requestCache(async (id: string): Promise<SessionDetail
     ? (await import("@/lib/supabase/admin")).createServiceClient()
     : null;
 
-  // Viewer state, the aggregate count, and (optimistically) the join
-  // credentials all run concurrently — this was a 4-stage serial waterfall.
-  const [enrollmentRes, noteRes, countRes, joinRes] = await Promise.all([
+  // Viewer state, the aggregate count, session resources, and
+  // (optimistically) the join credentials all run concurrently — this was
+  // a serial waterfall.
+  const [enrollmentRes, noteRes, countRes, joinRes, resourcesRes] = await Promise.all([
     user
       ? supabase
           .from("enrollments")
@@ -272,6 +273,13 @@ export const getSession = requestCache(async (id: string): Promise<SessionDetail
           .eq("id", id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    // RLS-scoped: members see resources of any session they can see.
+    supabase
+      .from("session_resources")
+      .select("id, name, type, url")
+      .eq("session_id", id)
+      .order("sort", { ascending: true })
+      .order("created_at", { ascending: true }),
   ]);
 
   if (enrollmentRes.data) {
@@ -283,6 +291,24 @@ export const getSession = requestCache(async (id: string): Promise<SessionDetail
   const noteBody = (noteRes.data as { body?: string } | null)?.body;
   if (noteBody) session.note = noteBody;
   session.enrolledCount = countRes.count ?? 0;
+
+  // Pre-migration-0047 deployments have no session_resources table — the
+  // query errors and the tab just stays empty, same as before.
+  if (!resourcesRes.error && resourcesRes.data) {
+    session.resources = (
+      resourcesRes.data as {
+        id: string;
+        name: string;
+        type: string | null;
+        url: string;
+      }[]
+    ).map((r) => ({
+      id: r.id,
+      name: r.name,
+      type: r.type ?? "Resource",
+      url: r.url,
+    }));
+  }
 
   // Join credentials only exist for enrolled viewers — the columns are not
   // member-selectable (migration 0020), so this is the single hand-out

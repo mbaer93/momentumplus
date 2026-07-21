@@ -2,9 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSession } from "@/lib/sessions/queries";
 import { SessionForm } from "@/components/admin/SessionForm";
+import { SessionResourcesManager } from "@/components/admin/SessionResourcesManager";
 import { ArrowLeftIcon } from "@/components/icons";
 import { listSpeakersForAdmin } from "@/lib/directory-queries";
 import { isoToEasternInput } from "@/lib/eastern-time";
+import { listSessionResources } from "@/lib/session-resources";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +22,9 @@ export default async function EditSessionPage({
     id: s.id,
     name: s.name,
   }));
+  const resources = isSupabaseConfigured()
+    ? await listSessionResources(session.id).catch(() => [])
+    : [];
 
   return (
     <div className="admin-pad">
@@ -55,6 +61,7 @@ export default async function EditSessionPage({
           hostName: session.hostName ?? "",
         }}
       />
+      <SessionResourcesManager sessionId={session.id} initial={resources} />
     </div>
   );
 }
