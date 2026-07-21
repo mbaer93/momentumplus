@@ -1588,11 +1588,15 @@
    meeting's left edge. Our notes drawer then sits above Zoom. */
 /* !important: Zoom's stylesheets load AFTER ours at runtime and also style
    this root — without it their rules win the cascade and the sidebar covers
-   the meeting's left edge again. */
+   the meeting's left edge again.
+   z-index is a NARROW window: above all portal chrome (sidebar 10, help
+   bubble 60, mobile bits ≤80) but BELOW Zoom's own dropdowns and modals —
+   the More/View/share-options menus portal to <body> at bootstrap layers
+   (~1000+), and a higher value here buried them (clicks "did nothing"). */
 #zmmtg-root {
   position: fixed !important;
   inset: 0 !important;
-  z-index: 999990 !important;
+  z-index: 500 !important;
 }
 /* While the Zoom client covers the screen, notes ride on top in a drawer.
    Top-CENTER is the one spot the Zoom web client leaves empty: top-right is
