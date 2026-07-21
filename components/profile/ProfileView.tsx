@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { PrefDefinition, PrefRow } from "@/lib/notifications";
+import { PushSetup } from "./PushSetup";
 import { PASSWORD_HINT, checkPassword } from "@/lib/password";
 import {
   BillingControls,
@@ -637,10 +638,14 @@ export function ProfileView({
                                 <div className="pref-desc">{def.description}</div>
                               </td>
                               <td className="center">
-                                {def.inAppOnly ? (
+                                {def.inAppOnly || def.smsOnly ? (
                                   <span
                                     style={{ color: "var(--mid-gray)", fontSize: 12 }}
-                                    title="Delivered in-app only"
+                                    title={
+                                      def.smsOnly
+                                        ? "Text message only"
+                                        : "Delivered in-app only"
+                                    }
                                   >
                                     —
                                   </span>
@@ -679,13 +684,22 @@ export function ProfileView({
                                 )}
                               </td>
                               <td className="center">
-                                <input
-                                  type="checkbox"
-                                  className="pref-toggle"
-                                  checked={row.in_app}
-                                  onChange={() => togglePref(def.key, "in_app")}
-                                  aria-label={`${def.label} in-app`}
-                                />
+                                {def.smsOnly ? (
+                                  <span
+                                    style={{ color: "var(--mid-gray)", fontSize: 12 }}
+                                    title="Text message only"
+                                  >
+                                    —
+                                  </span>
+                                ) : (
+                                  <input
+                                    type="checkbox"
+                                    className="pref-toggle"
+                                    checked={row.in_app}
+                                    onChange={() => togglePref(def.key, "in_app")}
+                                    aria-label={`${def.label} in-app`}
+                                  />
+                                )}
                               </td>
                             </tr>
                           );
@@ -693,6 +707,7 @@ export function ProfileView({
                     </tbody>
                   </table>
                 </div>
+                <PushSetup />
                 <div className="prefs-save-row">
                   <button
                     type="button"
