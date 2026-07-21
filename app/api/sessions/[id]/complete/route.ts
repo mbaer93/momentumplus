@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
+import { getCurrentMember } from "@/lib/current-member";
 import { getSession } from "@/lib/sessions/queries";
+import { speakerOwnsSession } from "@/lib/speaker-tools";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /*
@@ -25,8 +28,23 @@ export async function POST(
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
+  // Enrolled members report ends — and so do the people most likely to be
+  // alone in the room when it ends: the session's speaker and admins, who
+  // join without enrolling. Without them, a host-only test meeting stayed
+  // "live" until the hourly cron noticed.
   if (!session.isEnrolled) {
-    return NextResponse.json({ error: "Not enrolled" }, { status: 403 });
+    let allowed = (await getCurrentMember())?.isAdmin ?? false;
+    if (!allowed) {
+      const {
+        data: { user },
+      } = await createClient().auth.getUser();
+      if (user) {
+        allowed = (await speakerOwnsSession(user.id, session.id)).ok;
+      }
+    }
+    if (!allowed) {
+      return NextResponse.json({ error: "Not enrolled" }, { status: 403 });
+    }
   }
   if (session.recurrence) {
     // Series sessions never auto-complete — next week's occurrence is next.
