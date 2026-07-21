@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  addOwnSessionResource,
+  deleteOwnSessionResource,
   sendSessionNotice,
   updateOwnResource,
   updateOwnSpeakerPage,
@@ -10,6 +12,7 @@ import {
   uploadOwnResourceLogo,
   updateOwnVideo,
 } from "@/app/(portal)/speaker/actions";
+import type { SessionResource } from "@/lib/types";
 
 export interface StudioSession {
   id: string;
@@ -18,6 +21,8 @@ export interface StudioSession {
   status: string;
   hasMeeting: boolean;
   enrolled: number;
+  /** Materials shown to members on the session page + live-room drawer. */
+  resources: SessionResource[];
 }
 
 export interface StudioVideo {
@@ -75,6 +80,9 @@ export function SpeakerStudio({
   const [noticeFor, setNoticeFor] = useState<string | null>(null);
   const [notice, setNotice] = useState({ subject: "", message: "", linkUrl: "" });
   const [noticeFile, setNoticeFile] = useState<File | null>(null);
+  const [resourcesFor, setResourcesFor] = useState<string | null>(null);
+  const [newResource, setNewResource] = useState({ name: "", url: "" });
+  const [resourceFile, setResourceFile] = useState<File | null>(null);
   const [headshotFile, setHeadshotFile] = useState<File | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -157,7 +165,96 @@ export function SpeakerStudio({
               >
                 {noticeFor === s.id ? "Close notice" : "Message enrollees"}
               </button>
+              <button
+                type="button"
+                className="btn-mini"
+                onClick={() => {
+                  setResourcesFor(resourcesFor === s.id ? null : s.id);
+                  setMsg(null);
+                }}
+              >
+                {resourcesFor === s.id
+                  ? "Close resources"
+                  : `Resources (${s.resources.length})`}
+              </button>
             </div>
+
+            {resourcesFor === s.id && (
+              <div style={{ marginTop: 12, background: "#fbfaf8", borderRadius: 8, padding: 14 }}>
+                <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+                  Materials members see on the session page and inside the
+                  live room (Resources tab) — a workbook, slides, or a link.
+                </div>
+                {s.resources.map((r) => (
+                  <div
+                    key={r.id}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderTop: "1px solid var(--warm-gray)" }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{r.name}</div>
+                      <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>{r.type}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-mini"
+                      disabled={pending}
+                      onClick={() => {
+                        if (confirm(`Remove "${r.name}" from this session?`)) {
+                          run(() => deleteOwnSessionResource(r.id));
+                        }
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <div className="admin-field" style={{ marginTop: 8 }}>
+                  <label>Name</label>
+                  <input
+                    value={newResource.name}
+                    onChange={(e) => setNewResource({ ...newResource, name: e.target.value })}
+                    placeholder="e.g. Session workbook"
+                  />
+                </div>
+                <div className="admin-field">
+                  <label>Link (or attach a file below instead)</label>
+                  <input
+                    value={newResource.url}
+                    onChange={(e) => setNewResource({ ...newResource, url: e.target.value })}
+                    placeholder="https://…"
+                  />
+                </div>
+                <div className="admin-field">
+                  <label>File (PDF, Word, PowerPoint, Excel, image, or MP4 — 25 MB max)</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.mp4,.docx,.pptx,.xlsx"
+                    onChange={(e) => setResourceFile(e.target.files?.[0] ?? null)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={
+                    pending ||
+                    !newResource.name.trim() ||
+                    (!newResource.url.trim() && !resourceFile)
+                  }
+                  onClick={() => {
+                    const fd = new FormData();
+                    fd.set("sessionId", s.id);
+                    fd.set("name", newResource.name);
+                    fd.set("url", newResource.url);
+                    if (resourceFile) fd.set("file", resourceFile);
+                    setNewResource({ name: "", url: "" });
+                    setResourceFile(null);
+                    run(() => addOwnSessionResource(fd));
+                  }}
+                >
+                  {pending ? "Saving…" : "Add resource"}
+                </button>
+              </div>
+            )}
 
             {noticeFor === s.id && (
               <div style={{ marginTop: 12, background: "#fbfaf8", borderRadius: 8, padding: 14 }}>

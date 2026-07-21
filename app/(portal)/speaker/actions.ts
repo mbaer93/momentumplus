@@ -462,3 +462,54 @@ export async function updateOwnVideo(
   revalidatePath("/speaker");
   return { ok: true, message: "Library item saved." };
 }
+
+/* ---- Session resources: speakers attach materials to their OWN sessions.
+   Members see them on the session page and in the live room's Resources
+   tab (migration 0047). ---- */
+
+/** Add a resource (link or file) to one of the speaker's sessions. */
+export async function addOwnSessionResource(
+  formData: FormData,
+): Promise<StudioResult> {
+  const ctx = await requireSpeaker();
+  if ("preview" in ctx) return { ok: true, message: "Added (preview mode)." };
+  if ("error" in ctx) return { ok: false, message: ctx.error };
+
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const owns = await speakerOwnsSession(ctx.user.id, sessionId);
+  if (!owns.ok) return { ok: false, message: "That session isn't yours." };
+
+  const { addSessionResourceFromForm } = await import(
+    "@/lib/session-resources"
+  );
+  const res = await addSessionResourceFromForm(sessionId, formData);
+  if (res.ok) {
+    revalidatePath(`/sessions/${sessionId}`);
+    revalidatePath("/speaker");
+  }
+  return res;
+}
+
+/** Remove a resource from one of the speaker's own sessions. */
+export async function deleteOwnSessionResource(
+  resourceId: string,
+): Promise<StudioResult> {
+  const ctx = await requireSpeaker();
+  if ("preview" in ctx) return { ok: true, message: "Removed (preview mode)." };
+  if ("error" in ctx) return { ok: false, message: ctx.error };
+
+  const { deleteSessionResource, sessionIdOfResource } = await import(
+    "@/lib/session-resources"
+  );
+  const sessionId = await sessionIdOfResource(resourceId);
+  if (!sessionId) return { ok: false, message: "Resource not found." };
+  const owns = await speakerOwnsSession(ctx.user.id, sessionId);
+  if (!owns.ok) return { ok: false, message: "That resource isn't yours." };
+
+  const res = await deleteSessionResource(resourceId);
+  if (res.ok) {
+    revalidatePath(`/sessions/${sessionId}`);
+    revalidatePath("/speaker");
+  }
+  return res;
+}
