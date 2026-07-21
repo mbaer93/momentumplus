@@ -1583,12 +1583,21 @@
   color: var(--mid-gray);
   line-height: 1.6;
 }
+/* The Zoom web client must paint ABOVE all portal chrome (sidebar, topbar,
+   help bubble) — those have their own z-indexes and were covering the
+   meeting's left edge. Our notes drawer then sits above Zoom. */
+#zmmtg-root {
+  position: fixed;
+  inset: 0;
+  z-index: 999990;
+}
 /* While the Zoom client covers the screen, notes ride on top in a drawer.
-   z-index sits above every layer the Zoom web client uses. */
+   Anchored above the toolbar's right end — the top-right corner belongs to
+   Zoom's recording controls. */
 .live-drawer-btn {
   position: fixed;
-  top: 14px;
-  right: 14px;
+  bottom: 96px;
+  right: 16px;
   z-index: 2147483000;
   background: var(--gold);
   color: var(--navy);
@@ -1604,10 +1613,10 @@
 .live-drawer-btn:hover { filter: brightness(1.06); }
 .live-drawer {
   position: fixed;
-  top: 58px;
-  right: 14px;
-  bottom: 80px;
-  width: min(360px, calc(100vw - 28px));
+  top: 16px;
+  right: 16px;
+  bottom: 150px;
+  width: min(360px, calc(100vw - 32px));
   z-index: 2147483000;
   background: var(--white);
   border: 1px solid var(--warm-gray);
