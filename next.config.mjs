@@ -18,6 +18,24 @@ const nextConfig = {
       bodySizeLimit: "21mb",
     },
   },
+  async headers() {
+    return [
+      {
+        // Cross-origin isolation on the live room ONLY: it unlocks
+        // SharedArrayBuffer, which the Zoom Web SDK uses for its fast video
+        // pipeline — without it decoding falls back to a much slower path
+        // (choppy/lagging video, high CPU). COEP "credentialless" (instead
+        // of "require-corp") keeps cross-origin images/assets on the page
+        // working. Scoped to this route so the rest of the portal (Mux
+        // player, Stream chat) is untouched.
+        source: "/sessions/:id/live",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
+        ],
+      },
+    ];
+  },
   webpack: (config) => {
     // The Zoom Meeting SDK references an optional runtime module
     // (@zoom/download-manager) that isn't published to npm — it is only used
