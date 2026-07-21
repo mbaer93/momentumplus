@@ -1586,10 +1586,13 @@
 /* The Zoom web client must paint ABOVE all portal chrome (sidebar, topbar,
    help bubble) — those have their own z-indexes and were covering the
    meeting's left edge. Our notes drawer then sits above Zoom. */
+/* !important: Zoom's stylesheets load AFTER ours at runtime and also style
+   this root — without it their rules win the cascade and the sidebar covers
+   the meeting's left edge again. */
 #zmmtg-root {
-  position: fixed;
-  inset: 0;
-  z-index: 999990;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 999990 !important;
 }
 /* While the Zoom client covers the screen, notes ride on top in a drawer.
    Anchored above the toolbar's right end — the top-right corner belongs to
