@@ -110,9 +110,9 @@ export async function createZoomMeeting(
       agenda: input.agenda,
       settings: {
         join_before_host: false,
-        // The portal already gates the room to logged-in enrolled members —
-        // a waiting room would make the host hand-admit every attendee.
-        waiting_room: false,
+        // Waiting room ON (Matt, 2026-07-21): the host sees who's arriving
+        // and admits them — Participants panel has Admit / Admit All.
+        waiting_room: true,
         approval_type: 2,
         auto_recording: "cloud",
         meeting_authentication: false,
@@ -166,10 +166,10 @@ export async function updateZoomMeeting(
       ...(input.durationMin !== undefined && { duration: input.durationMin }),
       ...(input.agenda !== undefined && { agenda: input.agenda }),
       // Keep settings in policy on every touch — heals meetings created
-      // before the no-waiting-room default (and guarantees the cloud
-      // recording that feeds the Library).
+      // under earlier defaults (and guarantees the cloud recording that
+      // feeds the Library).
       settings: {
-        waiting_room: false,
+        waiting_room: true,
         join_before_host: false,
         host_video: true,
         participant_video: true,
