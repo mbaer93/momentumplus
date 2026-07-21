@@ -454,9 +454,11 @@ export function LiveRoom({
       </div>
 
       <div className="live-pane">
-        {tab === "notes" && (
+        {/* Hidden, not unmounted — unmounting on a tab switch discarded
+            whatever the notes autosave hadn't flushed yet. */}
+        <div style={{ display: tab === "notes" ? undefined : "none" }}>
           <NotesEditor sessionId={session.id} initialNote={session.note} />
-        )}
+        </div>
         {tab === "resources" &&
           (session.resources.length === 0 ? (
             <div className="live-community-msg">
@@ -709,7 +711,10 @@ export function LiveRoom({
           )}
         </div>
 
-        <aside className="live-side">{sidePanel}</aside>
+        {/* While joined, the drawer (portaled below) is the ONLY notes
+            editor — rendering this hidden aside too meant two editors with
+            divergent text, and the stale one could win after the meeting. */}
+        {phase !== "joined" && <aside className="live-side">{sidePanel}</aside>}
       </div>
 
       {/* While the meeting is up, the Zoom client covers the whole screen —
