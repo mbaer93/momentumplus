@@ -1595,12 +1595,14 @@
   z-index: 999990 !important;
 }
 /* While the Zoom client covers the screen, notes ride on top in a drawer.
-   Anchored above the toolbar's right end — the top-right corner belongs to
-   Zoom's recording controls. */
+   Top-CENTER is the one spot the Zoom web client leaves empty: top-right is
+   recording/view controls, bottom-right is the End button, and the right
+   edge hosts its chat/participants panels. */
 .live-drawer-btn {
   position: fixed;
-  bottom: 96px;
-  right: 16px;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 2147483000;
   background: var(--gold);
   color: var(--navy);
@@ -1616,9 +1618,9 @@
 .live-drawer-btn:hover { filter: brightness(1.06); }
 .live-drawer {
   position: fixed;
-  top: 16px;
+  top: 54px;
   right: 16px;
-  bottom: 150px;
+  bottom: 100px;
   width: min(360px, calc(100vw - 32px));
   z-index: 2147483000;
   background: var(--white);
