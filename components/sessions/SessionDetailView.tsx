@@ -297,9 +297,11 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
             </div>
           )}
 
-          {tab === "notes" && (
+          {/* Hidden, not unmounted — unmounting on a tab switch discarded
+              whatever the notes autosave hadn't flushed yet. */}
+          <div style={{ display: tab === "notes" ? undefined : "none" }}>
             <NotesEditor sessionId={session.id} initialNote={session.note} />
-          )}
+          </div>
         </div>
       </div>
     </div>
