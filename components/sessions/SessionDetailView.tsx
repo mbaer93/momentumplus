@@ -94,12 +94,15 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
               </span>
             ) : joinable || isLive ? (
               session.isEnrolled ? (
-                <Link
+                /* Plain <a>, NOT <Link>: the live room needs a full document
+                   load so its SharedArrayBuffer isolation headers apply
+                   (fast Zoom video) and the Zoom singleton boots fresh. */
+                <a
                   href={`/sessions/${session.slug}/live`}
                   className="btn-gold"
                 >
                   {isLive ? "Join Session Now" : "Enter Live Room"}
-                </Link>
+                </a>
               ) : (
                 <EnrollButton
                   sessionId={session.id}
