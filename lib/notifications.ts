@@ -198,10 +198,12 @@ export async function sendEmailViaGhl(input: {
       contactId,
       subject: input.subject,
       html: input.html,
-      // Brand the From line — without this, sends show the GHL location's
-      // (SLC's) default sender. Overridable via env.
+      // From line per Sierra: her monitored address (aligned with the
+      // location's Mailgun sending domain), Momentum+ as the display name.
+      // Overridable via env.
       emailFrom:
-        process.env.GHL_EMAIL_FROM || "Momentum+ Team <hello@momentumplus.co>",
+        process.env.GHL_EMAIL_FROM ||
+        "Momentum+ Team <grow@sierralearnership.com>",
     }),
     cache: "no-store",
   });
