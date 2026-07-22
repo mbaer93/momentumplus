@@ -140,6 +140,7 @@ export async function GET(req: NextRequest) {
       if (wants.sms && member.profiles.phone) {
         await sendSmsViaGhl({
           contactId: contactBy.get(member.profile_id) ?? null,
+          email: member.profiles.email,
           phone: member.profiles.phone,
           message: `Momentum+: "${session.title}" starts at ${startLabel}. Join from your portal.`,
         });
