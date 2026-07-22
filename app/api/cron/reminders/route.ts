@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
           contactId: contactBy.get(member.profile_id) ?? null,
           email: member.profiles.email,
           phone: member.profiles.phone,
-          message: `Momentum+: "${session.title}" starts at ${startLabel}. Join from your portal.`,
+          message: `Momentum+: "${session.title}" starts at ${startLabel}. Join here: ${process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co"}${link}`,
         });
       }
 

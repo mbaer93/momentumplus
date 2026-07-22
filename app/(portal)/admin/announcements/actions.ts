@@ -459,7 +459,8 @@ export async function sendAnnouncement(
   let smsRemainingForBudget = 0;
   let smsEligible = 0;
   if (input.channels.includes("sms")) {
-    const smsMessage = `Momentum+: ${input.title.trim()} — details in your member portal.`;
+    const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
+    const smsMessage = `Momentum+: ${input.title.trim()} — read it here: ${site}/dashboard`;
     for (const a of audience) {
       if (!smsOptIn.has(a.profileId) || !a.phone) continue;
       smsEligible++;
