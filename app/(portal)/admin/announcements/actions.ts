@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { allRows } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { brandedEmailHtml } from "@/lib/email-template";
 import { sendEmailViaGhl, sendSmsViaGhl } from "@/lib/notifications";
 import { sendPushToProfiles } from "@/lib/push";
 import type { Tier } from "@/lib/types";
@@ -403,6 +404,7 @@ export async function sendAnnouncement(
   // again — the ledger makes the next press resume-only.
   let emailed = 0;
   let emailFailures = 0;
+  let lastEmailError: string | null = null;
   let remainingForBudget = 0;
   // ONE budget shared by the email and SMS loops — together they must fit
   // the function limit; the ledger lets a second press finish the rest.
@@ -419,7 +421,15 @@ export async function sendAnnouncement(
         contactId: a.contactId,
         email: a.email,
         subject: input.title.trim(),
-        html: `<p>Hi ${a.name || "there"},</p><p>${(input.body || "").replace(/\n/g, "<br/>")}</p><p>— The Momentum+ team</p>`,
+        html: brandedEmailHtml({
+          greetingName: a.name,
+          heading: input.title.trim(),
+          bodyHtml: `<p style="margin:0 0 14px;">${(input.body || "").replace(/\n/g, "<br/>")}</p>`,
+          ctaLabel: "Open Momentum+",
+          ctaUrl: "/dashboard",
+          footnote:
+            "You're receiving this as a Momentum+ member of the Tri-State Leadership Summit community.",
+        }),
       });
       if (res.sent) {
         emailed++;
@@ -436,6 +446,7 @@ export async function sendAnnouncement(
         }
       } else if (res.reason !== "no GHL contact id" && res.reason !== "GHL not configured") {
         emailFailures++;
+        lastEmailError = res.reason ?? null;
       }
     }
   }
@@ -495,8 +506,8 @@ export async function sendAnnouncement(
     if (emailFailures > 0) {
       parts.push(
         ledgerAvailable
-          ? `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed — press Send again to retry just those (no one gets duplicates).`
-          : `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed. Retry-dedupe is unavailable (migration 0031 hasn't run), so pressing Send again MAY re-email members already reached.`,
+          ? `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed${lastEmailError ? ` (last error: ${lastEmailError})` : ""} — press Send again to retry just those (no one gets duplicates).`
+          : `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed${lastEmailError ? ` (last error: ${lastEmailError})` : ""}. Retry-dedupe is unavailable (migration 0031 hasn't run), so pressing Send again MAY re-email members already reached.`,
       );
     }
   }

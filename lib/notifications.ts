@@ -186,28 +186,50 @@ export async function sendEmailViaGhl(input: {
   if (!contactId) {
     return { sent: false, reason: "no GHL contact id" };
   }
-  const res = await fetch(`${GHL_API_BASE}/conversations/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${creds.apiKey}`,
-      Version: "2021-04-15",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      type: "Email",
-      contactId,
-      subject: input.subject,
-      html: input.html,
-      // From line per Sierra: her monitored address (aligned with the
-      // location's Mailgun sending domain), Momentum+ as the display name.
-      // Overridable via env.
-      emailFrom:
-        process.env.GHL_EMAIL_FROM ||
-        "Momentum+ Team <grow@sierralearnership.com>",
-    }),
-    cache: "no-store",
-  });
-  if (!res.ok) return { sent: false, reason: `GHL ${res.status}` };
+  const send = (emailFrom: string) =>
+    fetch(`${GHL_API_BASE}/conversations/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${creds.apiKey}`,
+        Version: "2021-04-15",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "Email",
+        contactId,
+        subject: input.subject,
+        html: input.html,
+        emailFrom,
+      }),
+      cache: "no-store",
+    });
+  // From line per Sierra: her monitored address (aligned with the
+  // location's Mailgun sending domain), Momentum+ as the display name.
+  // Overridable via env.
+  const fromFull =
+    process.env.GHL_EMAIL_FROM || "Momentum+ Team <grow@sierralearnership.com>";
+  let res = await send(fromFull);
+  if (!res.ok && (res.status === 400 || res.status === 422)) {
+    // Some GHL validators reject the `Name <address>` form — retry with
+    // just the bare address before giving up.
+    const bare = /<([^>]+)>/.exec(fromFull)?.[1];
+    if (bare) res = await send(bare);
+  }
+  if (!res.ok) {
+    // Surface WHY — "1 email failed" with no reason is undebuggable from
+    // the admin screen. No PII: this is GHL's error text, not the member's.
+    let detail = "";
+    try {
+      const j = (await res.json()) as { message?: unknown; error?: unknown };
+      detail = String(j.message ?? j.error ?? "").slice(0, 140);
+    } catch {
+      /* non-JSON error body */
+    }
+    return {
+      sent: false,
+      reason: `GHL ${res.status}${detail ? `: ${detail}` : ""}`,
+    };
+  }
   return { sent: true };
 }
 
