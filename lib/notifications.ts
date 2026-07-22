@@ -146,6 +146,7 @@ async function upsertGhlContact(
   email: string,
   apiKey: string,
   locationId: string,
+  phone?: string | null,
 ): Promise<string | null> {
   try {
     const res = await fetch(`${GHL_API_BASE}/contacts/upsert`, {
@@ -155,7 +156,9 @@ async function upsertGhlContact(
         Version: "2021-07-28",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ locationId, email }),
+      // Include the phone when we have it — GHL texts the CONTACT's phone,
+      // so an SMS to a phoneless contact goes nowhere.
+      body: JSON.stringify({ locationId, email, ...(phone ? { phone } : {}) }),
       cache: "no-store",
     });
     if (!res.ok) return null;
@@ -235,6 +238,8 @@ export async function sendEmailViaGhl(input: {
 
 export async function sendSmsViaGhl(input: {
   contactId?: string | null;
+  /** Used to find-or-create the GHL contact when no contactId is linked. */
+  email?: string;
   phone: string | null;
   message: string;
 }): Promise<{ sent: boolean; reason?: string }> {
@@ -246,7 +251,24 @@ export async function sendSmsViaGhl(input: {
     console.log("[notify:sms:skipped] GHL not configured");
     return { sent: false, reason: "GHL not configured" };
   }
-  if (!input.contactId || !input.phone) {
+  if (!input.phone) {
+    return { sent: false, reason: "no contact/phone" };
+  }
+  // GHL delivers SMS to the CONTACT's phone, not a number we pass — so
+  // upsert by email with the phone attached. This both creates missing
+  // contacts (members who never came through GHL) and fills in a phone the
+  // existing contact may lack. Fall back to the linked id if upsert fails.
+  let contactId = input.contactId ?? null;
+  if (input.email && creds.locationId) {
+    contactId =
+      (await upsertGhlContact(
+        input.email,
+        creds.apiKey,
+        creds.locationId,
+        input.phone,
+      )) ?? contactId;
+  }
+  if (!contactId) {
     return { sent: false, reason: "no contact/phone" };
   }
   const res = await fetch(`${GHL_API_BASE}/conversations/messages`, {
@@ -258,11 +280,25 @@ export async function sendSmsViaGhl(input: {
     },
     body: JSON.stringify({
       type: "SMS",
-      contactId: input.contactId,
+      contactId,
       message: input.message,
     }),
     cache: "no-store",
   });
-  if (!res.ok) return { sent: false, reason: `GHL ${res.status}` };
+  if (!res.ok) {
+    // Surface WHY (GHL's error text, no member PII) — silent SMS failures
+    // burned a test run already.
+    let detail = "";
+    try {
+      const j = (await res.json()) as { message?: unknown; error?: unknown };
+      detail = String(j.message ?? j.error ?? "").slice(0, 140);
+    } catch {
+      /* non-JSON error body */
+    }
+    return {
+      sent: false,
+      reason: `GHL ${res.status}${detail ? `: ${detail}` : ""}`,
+    };
+  }
   return { sent: true };
 }

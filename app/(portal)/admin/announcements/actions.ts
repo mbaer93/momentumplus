@@ -455,6 +455,7 @@ export async function sendAnnouncement(
   // journaled, budget-bounded shape as email.
   let smsSent = 0;
   let smsFailures = 0;
+  let lastSmsError: string | null = null;
   let smsRemainingForBudget = 0;
   let smsEligible = 0;
   if (input.channels.includes("sms")) {
@@ -469,6 +470,7 @@ export async function sendAnnouncement(
       }
       const res = await sendSmsViaGhl({
         contactId: a.contactId,
+        email: a.email,
         phone: a.phone,
         message: smsMessage,
       });
@@ -484,11 +486,11 @@ export async function sendAnnouncement(
             { onConflict: "announcement_id,profile_id" },
           );
         }
-      } else if (
-        res.reason !== "no contact/phone" &&
-        res.reason !== "GHL not configured"
-      ) {
+      } else if (res.reason !== "GHL not configured") {
+        // "no contact/phone" counts too now — the sender upserts the GHL
+        // contact itself, so any non-send here is a real, fixable failure.
         smsFailures++;
+        lastSmsError = res.reason ?? null;
       }
     }
   }
@@ -525,8 +527,8 @@ export async function sendAnnouncement(
     if (smsFailures > 0) {
       parts.push(
         smsLedgerAvailable
-          ? `${smsFailures} text${smsFailures === 1 ? "" : "s"} failed — press Send again to retry just those.`
-          : `${smsFailures} text${smsFailures === 1 ? "" : "s"} failed. SMS retry-dedupe is unavailable (migration 0048 hasn't run), so pressing Send again MAY re-text members already reached.`,
+          ? `${smsFailures} text${smsFailures === 1 ? "" : "s"} failed${lastSmsError ? ` (last error: ${lastSmsError})` : ""} — press Send again to retry just those.`
+          : `${smsFailures} text${smsFailures === 1 ? "" : "s"} failed${lastSmsError ? ` (last error: ${lastSmsError})` : ""}. SMS retry-dedupe is unavailable (migration 0048 hasn't run), so pressing Send again MAY re-text members already reached.`,
       );
     }
   }
