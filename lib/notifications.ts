@@ -198,6 +198,10 @@ export async function sendEmailViaGhl(input: {
       contactId,
       subject: input.subject,
       html: input.html,
+      // Brand the From line — without this, sends show the GHL location's
+      // (SLC's) default sender. Overridable via env.
+      emailFrom:
+        process.env.GHL_EMAIL_FROM || "Momentum+ Team <hello@momentumplus.co>",
     }),
     cache: "no-store",
   });
