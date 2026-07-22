@@ -1671,6 +1671,11 @@
    whole words together unless a single word alone exceeds the column).
    word-break: break-word split emails one letter early ("gmail.co / m"). */
 .admin-table td { overflow-wrap: anywhere; word-break: normal; }
+/* The identity column (name + email) keeps room for a full address — the
+   wrap (.admin-table-wrap) scrolls sideways before this column crushes
+   emails into fragments. */
+.admin-table th:first-child,
+.admin-table td:first-child { min-width: 230px; }
 /* …but that's for data, never labels: buttons keep their words whole and
    stay on one line — the wrap above scrolls when space runs out. */
 .admin-table td button,
