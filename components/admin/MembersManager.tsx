@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { BreakableEmail } from "@/components/BreakableEmail";
 import type { Tier } from "@/lib/types";
 import { ADMIN_AREAS } from "@/lib/admin-perms";
 import {
@@ -263,7 +264,7 @@ export function MembersManager({
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-                    {m.email}
+                    <BreakableEmail email={m.email} />
                   </div>
                 </td>
                 <td>
