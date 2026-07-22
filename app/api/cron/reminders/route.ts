@@ -2,6 +2,7 @@ import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { brandedEmailHtml } from "@/lib/email-template";
 import { sendEmailViaGhl, sendSmsViaGhl } from "@/lib/notifications";
 import { sendPushToProfiles } from "@/lib/push";
 
@@ -125,7 +126,15 @@ export async function GET(req: NextRequest) {
           contactId: contactBy.get(member.profile_id) ?? null,
           email: member.profiles.email,
           subject: `Starting soon: ${session.title}`,
-          html: `<p>Hi ${member.profiles.full_name || "there"},</p><p><strong>${session.title}</strong> begins at ${startLabel}. Join from your Momentum+ portal — the live room is open 30 minutes before start.</p>`,
+          html: brandedEmailHtml({
+            greetingName: member.profiles.full_name,
+            heading: `Starting soon: ${session.title}`,
+            bodyHtml: `<p style="margin:0 0 14px;"><strong>${session.title}</strong> begins at ${startLabel}. The live room opens 30 minutes before start.</p>`,
+            ctaLabel: "Join the live room",
+            ctaUrl: link,
+            footnote:
+              "You're receiving this because you're enrolled in this session. Manage reminders in your profile's notification preferences.",
+          }),
         });
       }
       if (wants.sms && member.profiles.phone) {
