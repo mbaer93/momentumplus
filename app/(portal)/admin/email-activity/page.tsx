@@ -72,8 +72,8 @@ export default async function EmailActivityPage({
         <div>
           <h2>Email Delivery</h2>
           <p>
-            Account emails (invites, password resets, login links) — what
-            SendGrid reports for each address
+            Account emails (invites, password resets, login links) — what the
+            email provider reports for each address
           </p>
         </div>
       </div>
@@ -82,8 +82,7 @@ export default async function EmailActivityPage({
         <div className="admin-hint">
           The email delivery journal isn&apos;t set up yet — run database
           migration <strong>0050_email_events.sql</strong>, and make sure the
-          SendGrid Event Webhook is configured with the Delivered and Opened
-          events ticked.
+          provider&apos;s webhook (Resend &rarr; Webhooks) is configured.
         </div>
       )}
 
@@ -107,9 +106,9 @@ export default async function EmailActivityPage({
 
       {rows.length === 0 && !tableMissing ? (
         <div className="admin-hint">
-          No events{q ? ` for “${q}”` : ""} yet. Events appear here as
-          SendGrid delivers (and members open) account emails. Opens require
-          Open Tracking to be enabled in SendGrid.
+          No events{q ? ` for “${q}”` : ""} yet. Events appear here as the
+          provider delivers (and members open) account emails. Opens and
+          clicks require tracking to be enabled on the domain in Resend.
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
