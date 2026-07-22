@@ -104,22 +104,36 @@ export async function updateProfile(input: {
   if (input.share_contact !== undefined) {
     update.share_contact = input.share_contact;
   }
-  if (input.admin_title !== undefined) {
-    const member = await getCurrentMember();
-    if (member?.isAdmin) {
-      update.admin_title = input.admin_title.trim() || null;
-    }
-  }
 
   // RLS: members can only update their own profile row.
   let { error } = await supabase.from("profiles").update(update).eq("id", user.id);
-  if (error && error.message.includes("share_contact")) {
-    // Pre-migration fallback: the column arrives with 0034.
+  if (error && /share_contact|permission denied/i.test(error.message)) {
+    // The column-level grant arrives with 0049 (column itself with 0034) —
+    // save everything else rather than failing the whole form.
     delete update.share_contact;
     ({ error } = await supabase.from("profiles").update(update).eq("id", user.id));
+    if (!error && input.share_contact !== undefined) {
+      return {
+        ok: false,
+        message:
+          "Saved, except the directory sharing toggle — the team needs to apply database migration 0049.",
+      };
+    }
   }
-
   if (error) return { ok: false, message: error.message };
+
+  // admin_title is deliberately NOT member-updatable (0022 keeps admin_*
+  // columns service-role-only) — write it server-side after the admin check.
+  if (input.admin_title !== undefined) {
+    const member = await getCurrentMember();
+    if (member?.isAdmin && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const { createServiceClient } = await import("@/lib/supabase/admin");
+      await createServiceClient()
+        .from("profiles")
+        .update({ admin_title: input.admin_title.trim() || null })
+        .eq("id", user.id);
+    }
+  }
   revalidatePath("/profile");
   revalidatePath("/community");
   return { ok: true, message: "Profile saved" };
