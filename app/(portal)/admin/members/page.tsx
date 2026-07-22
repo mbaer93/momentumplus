@@ -314,9 +314,14 @@ export default async function AdminMembersPage({
           <h2>Members</h2>
           <p>Memberships, access, and manual grants</p>
         </div>
-        <Link href="/admin/activity" className="btn-primary">
-          View Activity Log
-        </Link>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/admin/email-activity" className="btn-mini">
+            Email Delivery
+          </Link>
+          <Link href="/admin/activity" className="btn-primary">
+            View Activity Log
+          </Link>
+        </div>
       </div>
       {!isSupabaseConfigured() && (
         <div className="admin-hint">

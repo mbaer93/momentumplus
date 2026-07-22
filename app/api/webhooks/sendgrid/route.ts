@@ -20,6 +20,10 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  */
 
 const ALERT_EVENTS = new Set(["bounce", "blocked", "dropped", "spamreport"]);
+// Journaled to email_events (migration 0050) for the admin Email Delivery
+// page — alerts stay failure-only, but delivered/open are worth recording.
+const JOURNAL_EVENTS = new Set([...ALERT_EVENTS, "delivered", "open"]);
+const RETENTION_DAYS = 90;
 // One webhook POST can carry many events (bulk invite to a bad list) —
 // list this many in the alert, summarize the rest.
 const MAX_LISTED = 20;
@@ -47,12 +51,43 @@ export async function POST(req: NextRequest) {
     reason?: string;
     response?: string;
     type?: string;
+    timestamp?: number;
   }[];
   try {
     const body = (await req.json()) as unknown;
     events = Array.isArray(body) ? body : [];
   } catch {
     return NextResponse.json({ error: "Bad JSON" }, { status: 400 });
+  }
+
+  const admin = createServiceClient();
+
+  // Journal everything interesting (delivered/open included) so the admin
+  // Email Delivery page can answer "did it reach them, did they open it?".
+  // Best-effort: pre-migration-0050 the insert just fails quietly and the
+  // failure alerts below still go out.
+  const journal = events
+    .filter((e) => e.event && JOURNAL_EVENTS.has(e.event))
+    .slice(0, 500)
+    .map((e) => ({
+      email: String(e.email ?? "unknown").slice(0, 200),
+      event: String(e.event),
+      reason: String(e.reason ?? e.response ?? e.type ?? "").slice(0, 200) || null,
+      occurred_at: new Date(
+        (typeof e.timestamp === "number" ? e.timestamp : Date.now() / 1000) *
+          1000,
+      ).toISOString(),
+    }));
+  if (journal.length > 0) {
+    await admin.from("email_events").insert(journal);
+    // Opportunistic retention sweep — indexed, cheap, keeps the table lean.
+    await admin
+      .from("email_events")
+      .delete()
+      .lt(
+        "occurred_at",
+        new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      );
   }
 
   const failures = events
@@ -63,10 +98,8 @@ export async function POST(req: NextRequest) {
       reason: String(e.reason ?? e.response ?? e.type ?? "").slice(0, 200),
     }));
   if (failures.length === 0) {
-    return NextResponse.json({ ok: true, failures: 0 });
+    return NextResponse.json({ ok: true, failures: 0, journaled: journal.length });
   }
-
-  const admin = createServiceClient();
   const { data: supers } = await admin
     .from("profiles")
     .select("id, email")
