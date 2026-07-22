@@ -30,6 +30,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 const EVENT_MAP: Record<string, NormalizedEmailEvent> = {
   "email.delivered": "delivered",
   "email.opened": "open",
+  "email.clicked": "click",
   "email.bounced": "bounce",
   "email.complained": "spamreport",
   "email.failed": "dropped",
