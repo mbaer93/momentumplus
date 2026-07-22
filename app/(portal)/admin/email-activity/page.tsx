@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeftIcon } from "@/components/icons";
+import { BreakableEmail } from "@/components/BreakableEmail";
 import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -132,7 +133,9 @@ export default async function EmailActivityPage({
                       timeZone: "America/New_York",
                     })}
                   </td>
-                  <td>{r.email}</td>
+                  <td>
+                    <BreakableEmail email={r.email} />
+                  </td>
                   <td
                     style={{
                       color: FAILURE_EVENTS.has(r.event)

@@ -1667,8 +1667,10 @@
   background: #fbfaf8;
 }
 /* Long unbroken values (emails, keys, URLs) fold instead of stretching the
-   row off-screen. */
-.admin-table td { word-break: break-word; }
+   row off-screen — but only as a LAST resort (overflow-wrap: anywhere keeps
+   whole words together unless a single word alone exceeds the column).
+   word-break: break-word split emails one letter early ("gmail.co / m"). */
+.admin-table td { overflow-wrap: anywhere; word-break: normal; }
 /* …but that's for data, never labels: buttons keep their words whole and
    stay on one line — the wrap above scrolls when space runs out. */
 .admin-table td button,
@@ -1697,6 +1699,10 @@
   border-radius: 10px;
   background: var(--warm-gray);
   color: var(--mid-gray);
+  /* A badge is one unbreakable unit — "INVITE / D" and "SUPER / ADMIN"
+     stacking in tight table cells read as broken UI. */
+  display: inline-block;
+  white-space: nowrap;
 }
 .admin-status.scheduled { background: rgba(58, 107, 150, 0.12); color: var(--accent-blue); }
 .admin-status.live { background: var(--accent-red); color: #fff; }
