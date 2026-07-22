@@ -14,6 +14,7 @@ import { createServiceClient } from "@/lib/supabase/admin";
 export type NormalizedEmailEvent =
   | "delivered"
   | "open"
+  | "click"
   | "bounce"
   | "blocked"
   | "dropped"

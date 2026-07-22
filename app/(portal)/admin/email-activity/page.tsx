@@ -16,6 +16,7 @@ export const metadata = {
 const EVENT_LABEL: Record<string, string> = {
   delivered: "Delivered",
   open: "Opened",
+  click: "Clicked",
   bounce: "Bounced",
   blocked: "Blocked",
   dropped: "Dropped",
@@ -140,7 +141,7 @@ export default async function EmailActivityPage({
                     style={{
                       color: FAILURE_EVENTS.has(r.event)
                         ? "#c0392b"
-                        : r.event === "open"
+                        : r.event === "open" || r.event === "click"
                           ? "var(--gold)"
                           : undefined,
                       fontWeight: FAILURE_EVENTS.has(r.event) ? 600 : undefined,
