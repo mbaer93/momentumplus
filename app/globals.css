@@ -3153,6 +3153,8 @@ a.course-card:hover {
 .cal-event.blue { background: rgba(58,107,150,0.15); color: var(--accent-blue); }
 .cal-event.gold { background: var(--gold-pale); color: var(--gold); }
 .cal-event.green { background: rgba(58,112,85,0.12); color: var(--accent-green); }
+.cal-event.purple { background: rgba(92,61,122,0.14); color: var(--purple); }
+.cal-event.neutral { background: rgba(11,22,34,0.08); color: var(--mid-gray); }
 .cal-upcoming-title {
   font-size: 13px; font-weight: 600; color: var(--text);
   margin-bottom: 12px;

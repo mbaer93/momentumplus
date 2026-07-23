@@ -4,36 +4,45 @@ import { useMemo, useState } from "react";
 import { useNowTick } from "./useNowTick";
 import type { SessionDetail } from "@/lib/types";
 import { displayStatus } from "@/lib/sessions/view";
+import { displayCategory } from "@/lib/programs";
 import { SessionCard } from "./SessionCard";
 import { AdminEditChip } from "@/components/admin/AdminChips";
+
+// Category filters follow the current taxonomy (Sierra, 2026-07-22);
+// legacy-category sessions still appear under All / Upcoming.
+const CATEGORY_FILTERS = [
+  "Monthly Educational Session",
+  "Accountability Session",
+  "Productivity Session",
+  "AI Leadership Lab",
+  "Bonus Sessions",
+] as const;
 
 type Filter =
   | "all"
   | "upcoming"
   | "enrolled"
   | "attended"
-  | "Leadership"
-  | "Wellness"
-  | "Business"
-  | "Networking";
+  | (typeof CATEGORY_FILTERS)[number];
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All Sessions" },
   { key: "upcoming", label: "Upcoming" },
   { key: "enrolled", label: "Enrolled" },
   { key: "attended", label: "Attended" },
-  { key: "Leadership", label: "Leadership" },
-  { key: "Wellness", label: "Wellness" },
-  { key: "Business", label: "Business" },
-  { key: "Networking", label: "Networking" },
+  ...CATEGORY_FILTERS.map((c) => ({ key: c, label: c }) as const),
 ];
 
 export function SessionsBrowser({
   sessions,
   isAdmin = false,
+  hideFilters = false,
 }: {
   sessions: SessionDetail[];
   isAdmin?: boolean;
+  /** Drop-in programs (Rooted Focus): no enrollment, so no filter tabs —
+      members just see the schedule. */
+  hideFilters?: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   // Compute once on the client so the time-derived status is consistent.
@@ -62,13 +71,8 @@ export function SessionsBrowser({
           return s.isEnrolled;
         case "attended":
           return status === "attended";
-        case "Leadership":
-        case "Wellness":
-        case "Business":
-        case "Networking":
-          return s.category === filter;
         default:
-          return true;
+          return displayCategory(s) === filter;
       }
     });
     // Live and upcoming sessions lead (soonest first); past ones follow,
@@ -85,18 +89,20 @@ export function SessionsBrowser({
 
   return (
     <>
-      <div className="filter-row">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            className={`filter-btn${filter === f.key ? " active" : ""}`}
-            onClick={() => setFilter(f.key)}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {!hideFilters && (
+        <div className="filter-row">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              className={`filter-btn${filter === f.key ? " active" : ""}`}
+              onClick={() => setFilter(f.key)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="sessions-grid">
         {visible.length === 0 ? (

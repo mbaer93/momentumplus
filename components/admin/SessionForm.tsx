@@ -12,7 +12,15 @@ import {
   type SessionFormValues,
 } from "@/app/(portal)/admin/sessions/actions";
 
-const CATEGORIES = ["Leadership", "Wellness", "Business", "Networking"];
+// Current taxonomy (Sierra, 2026-07-22). Older sessions may carry legacy
+// values (Leadership/Wellness/Business/Networking) until re-saved.
+const CATEGORIES = [
+  "Monthly Educational Session",
+  "Accountability Session",
+  "Productivity Session",
+  "AI Leadership Lab",
+  "Bonus Sessions",
+];
 const ACCESS: { value: AccessLevel; label: string }[] = [
   { value: "all_members", label: "All members" },
   { value: "vip_plus", label: "Exclusive — Pro, speakers & sponsors" },
@@ -49,7 +57,7 @@ export function SessionForm({
   const [values, setValues] = useState<SessionFormValues>({
     title: initial?.title ?? "",
     description: initial?.description ?? "",
-    category: initial?.category ?? "Leadership",
+    category: initial?.category ?? "Monthly Educational Session",
     startsAt: isoToEasternInput(initial?.startsAtIso ?? null),
     durationMin: initial?.durationMin ?? 60,
     capacity: initial?.capacity ?? null,
@@ -123,12 +131,12 @@ export function SessionForm({
             setValues((v) => ({
               ...v,
               program,
-              // Rooted Focus defaults: 90 minutes, weekly, Business category.
+              // Rooted Focus defaults: 90 minutes, weekly, Productivity.
               ...(program === "rooted_focus" && v.program !== "rooted_focus"
                 ? {
                     durationMin: 90,
                     recurrence: "weekly" as const,
-                    category: "Business",
+                    category: "Productivity Session",
                   }
                 : {}),
             }));
@@ -223,7 +231,12 @@ export function SessionForm({
             value={values.category}
             onChange={(e) => set("category", e.target.value)}
           >
-            {CATEGORIES.map((c) => (
+            {/* A legacy category on an existing session stays selectable —
+                otherwise the select silently rewrites it on save. */}
+            {(CATEGORIES.includes(values.category)
+              ? CATEGORIES
+              : [values.category, ...CATEGORIES]
+            ).map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

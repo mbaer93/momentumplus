@@ -22,6 +22,7 @@ import {
   TimerIcon,
   UsersIcon,
 } from "@/components/icons";
+import { displayCategory, isDropInProgram } from "@/lib/programs";
 import { RECURRENCE_LABEL, rruleFor } from "@/lib/recurrence";
 import { useNowTick } from "./useNowTick";
 import { AddToCalendarButton } from "./AddToCalendarButton";
@@ -34,7 +35,11 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
   const [tab, setTab] = useState<Tab>("overview");
   const now = useNowTick();
   const status = displayStatus(session, now);
-  const joinable = isJoinWindowOpen(session, now) && session.isEnrolled;
+  // Drop-in programs (Rooted Focus) need no enrollment — any member may
+  // enter the live room during the join window (Sierra, 2026-07-22).
+  const dropIn = isDropInProgram(session.program);
+  const joinable =
+    isJoinWindowOpen(session, now) && (session.isEnrolled || dropIn);
   const isLive = status === "live";
   const full =
     session.capacity !== null && session.enrolledCount >= session.capacity;
@@ -56,7 +61,7 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
           <div
             className={`sess-cat-badge ${categoryClass(session.category)}`}
           >
-            {session.category}
+            {displayCategory(session)}
           </div>
           <div className="sess-title">{session.title}</div>
           <div className="sess-meta-row">
@@ -70,12 +75,16 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
             <div className="sess-meta-chip">
               <TimerIcon size={11} /> {durationLabel(session.durationMin)}
             </div>
-            <div className="sess-meta-chip">
-              <UsersIcon size={11} />{" "}
-              {session.capacity
-                ? `${session.enrolledCount} of ${session.capacity} enrolled`
-                : `${session.enrolledCount} enrolled`}
-            </div>
+            {/* Drop-in sessions have no enrollment — a "0 enrolled" chip
+                read as a broken or unpopular session. */}
+            {!dropIn && (
+              <div className="sess-meta-chip">
+                <UsersIcon size={11} />{" "}
+                {session.capacity
+                  ? `${session.enrolledCount} of ${session.capacity} enrolled`
+                  : `${session.enrolledCount} enrolled`}
+              </div>
+            )}
             {session.recurrence && (
               <div className="sess-meta-chip">
                 <CalendarSmallIcon size={11} />{" "}
@@ -93,7 +102,7 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
                 This session was cancelled
               </span>
             ) : joinable || isLive ? (
-              session.isEnrolled ? (
+              session.isEnrolled || dropIn ? (
                 /* Plain <a>, NOT <Link>: the live room needs a full document
                    load so its SharedArrayBuffer isolation headers apply
                    (fast Zoom video) and the Zoom singleton boots fresh. */
@@ -117,6 +126,13 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
               >
                 {status === "attended" ? "You attended" : "Completed"}
               </span>
+            ) : dropIn ? (
+              /* No signup for drop-in programs — just tell them when the
+                 door opens. */
+              <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.85)" }}>
+                Drop in — no signup needed. The live room opens here 30
+                minutes before start.
+              </span>
             ) : (
               <EnrollButton
                 sessionId={session.id}
@@ -139,7 +155,9 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
               description={session.description}
               startsAt={session.startsAt}
               durationMin={session.durationMin}
-              joinUrl={session.isEnrolled ? session.zoomJoinUrl : null}
+              joinUrl={
+                session.isEnrolled || dropIn ? session.zoomJoinUrl : null
+              }
               rrule={
                 session.recurrence
                   ? rruleFor(session.recurrence, session.recurrenceUntil)

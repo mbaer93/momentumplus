@@ -54,7 +54,7 @@ export default async function SponsorsPage({
       <div className="section-header">
         <div>
           <h2>Our Sponsors</h2>
-          <p>The partners who make Momentum+ possible</p>
+          <p>The partners who make Momentum+ &amp; TSLS possible</p>
         </div>
         {isAdmin && <AdminAddChip href="/admin/sponsors" label="Add sponsor" />}
       </div>
@@ -207,7 +207,9 @@ export default async function SponsorsPage({
           <h3>Become a partner</h3>
           <p>
             Put your brand in front of a national community of engaged
-            leaders — tasteful, integrated, and measured.
+            leaders — tasteful, integrated, and measured. This season&apos;s
+            sponsorships are full; submissions are considered when 2027
+            sponsorships open in April 2027.
           </p>
         </div>
         <div className="admin-banner-actions">

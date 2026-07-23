@@ -75,7 +75,14 @@ export interface SessionSummary {
   status: SessionStatus;
 }
 
+/* Current taxonomy (Sierra, 2026-07-22). The legacy four remain valid so
+   existing rows keep rendering; new sessions pick from the first five. */
 export type SessionCategory =
+  | "Monthly Educational Session"
+  | "Accountability Session"
+  | "Productivity Session"
+  | "AI Leadership Lab"
+  | "Bonus Sessions"
   | "Leadership"
   | "Wellness"
   | "Business"

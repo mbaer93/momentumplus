@@ -16,7 +16,8 @@ export default async function EducationPage() {
     <div className="sessions-pad">
       <div className="section-header">
         <div>
-          <h2>Education</h2>
+          {/* "Grow on the Go" — SLC's education brand (Sierra, 2026-07-22). */}
+          <h2>Grow on the Go</h2>
           <p>
             Step-by-step courses with lessons, tests, and certificates —
             looking for a single session recording? That&apos;s the Library.
