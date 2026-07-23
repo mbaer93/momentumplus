@@ -27,6 +27,9 @@ export default async function SponsorOnboardingPage() {
         <SponsorOnboardingForm
           tierLabel={sponsorTierLabel(invite.tier ?? "partner")}
           initialBusinessName={invite.businessName ?? ""}
+          initialTagline={invite.tagline ?? ""}
+          initialDescription={invite.description ?? ""}
+          initialWebsite={invite.website ?? ""}
           needsPassword={Boolean(invite.needsPassword)}
           ticketAllotment={invite.ticketAllotment ?? 0}
           adEligible={RAIL_TIERS.has(normalizeSponsorTier(invite.tier ?? "partner"))}

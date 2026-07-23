@@ -11,12 +11,19 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 export function SponsorOnboardingForm({
   tierLabel,
   initialBusinessName,
+  initialTagline = "",
+  initialDescription = "",
+  initialWebsite = "",
   needsPassword,
   ticketAllotment = 0,
   adEligible = false,
 }: {
   tierLabel: string;
   initialBusinessName: string;
+  /** Prefill pushed from TSLS so the rep confirms rather than retypes. */
+  initialTagline?: string;
+  initialDescription?: string;
+  initialWebsite?: string;
   needsPassword: boolean;
   /** Free VIP access tickets included with this sponsor tier. */
   ticketAllotment?: number;
@@ -27,9 +34,9 @@ export function SponsorOnboardingForm({
   const router = useRouter();
   const [business, setBusiness] = useState({
     businessName: initialBusinessName,
-    tagline: "",
-    description: "",
-    website: "",
+    tagline: initialTagline,
+    description: initialDescription,
+    website: initialWebsite,
     offer: "",
   });
   const [rep, setRep] = useState({
