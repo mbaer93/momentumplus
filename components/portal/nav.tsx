@@ -26,6 +26,9 @@ export interface NavItem {
   speakerOnly?: boolean;
   /** Visible only to sponsor-page owners/managers. */
   sponsorOnly?: boolean;
+  /** Full-page navigation (plain anchor) — e.g. the TSLS crossover, which is
+      a redirecting route handler, not a client-routable page. */
+  external?: boolean;
 }
 
 export interface NavSection {
@@ -83,6 +86,18 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/services",
         icon: BriefcaseIcon,
       },
+      // One-click crossover into the Tri-State Summit event app. Only shows
+      // once NEXT_PUBLIC_TSLS_EVENT_URL is set (i.e. during event season).
+      ...(process.env.NEXT_PUBLIC_TSLS_EVENT_URL
+        ? [
+            {
+              label: "Summit Event App",
+              href: "/go/tsls",
+              icon: CalendarIcon,
+              external: true,
+            } as NavItem,
+          ]
+        : []),
     ],
   },
   {

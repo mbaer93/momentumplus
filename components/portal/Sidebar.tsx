@@ -71,12 +71,8 @@ export function Sidebar({
               <div className="nav-section-label">{section.label}</div>
               {items.map((item) => {
                 const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`nav-item${isActive(item.href) ? " active" : ""}`}
-                  >
+                const inner = (
+                  <>
                     <Icon size={16} />
                     {item.label}
                     {item.badge && (
@@ -88,6 +84,24 @@ export function Sidebar({
                         {item.badge.text}
                       </span>
                     )}
+                  </>
+                );
+                // A redirecting route handler (the TSLS crossover) needs a
+                // full-page load, not a client route transition.
+                if (item.external) {
+                  return (
+                    <a key={item.href} href={item.href} className="nav-item">
+                      {inner}
+                    </a>
+                  );
+                }
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`nav-item${isActive(item.href) ? " active" : ""}`}
+                  >
+                    {inner}
                   </Link>
                 );
               })}

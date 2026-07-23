@@ -25,6 +25,10 @@ export interface ProvisionInput {
   /** Explicit access end (overrides months) — e.g. sponsor seats that
       expire October 1 regardless of when they were invited. */
   accessExpiresAt?: string | null;
+  /** Quiet create: make the account WITHOUT sending a Momentum+ invite
+      email. Used by the TSLS Companion bridge, where TSLS is the single
+      inviter and members cross over via SSO — so nobody gets two emails. */
+  quiet?: boolean;
 }
 
 export interface ProvisionResult {
@@ -96,6 +100,9 @@ export function planToTier(plan: string): { tier: Tier; months: number } | null 
       return { tier: "pro", months: 1 };
     case "speaker":
       return { tier: "speaker", months: 0 };
+    case "sponsor":
+    case "sponsoruser":
+      return { tier: "sponsor", months: 0 };
     default:
       return null;
   }
@@ -196,6 +203,13 @@ export async function provisionMember(
     .maybeSingle();
   if (profile) {
     profileId = profile.id;
+  } else if (input.quiet) {
+    // No email: create the login directly (TSLS is the sole inviter). If the
+    // account already exists as an auth user without a matching profile row,
+    // fall back to finding it. `invited` stays false — we sent nothing.
+    const manual = await createAccountWithoutEmail(email, input.name);
+    profileId = manual.profileId ?? (await findAuthUserIdByEmail(email));
+    if (!profileId && manual.error) inviteFailure = manual.error;
   } else {
     const siteUrl = requestSiteUrl();
     const { data: inv, error } = await admin.auth.admin.inviteUserByEmail(email, {
