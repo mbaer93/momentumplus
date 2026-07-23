@@ -2793,19 +2793,23 @@
   align-items: flex-start;
   padding: 28px;
 }
+/* Tier badge: was a rotated corner ribbon, which clipped longer tier names
+   ("Momentum+ Sponsor") at the card edge. A straight corner tab fits every
+   tier name at any width. */
 .sp-ribbon {
   position: absolute;
-  top: 20px;
-  right: -44px;
-  transform: rotate(45deg);
+  top: 0;
+  right: 0;
   background: linear-gradient(135deg, var(--gold), var(--gold-light));
   color: var(--navy);
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 5px 50px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  padding: 6px 14px;
+  border-radius: 0 4px 0 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 .sp-logo-lg {
   width: 160px;
