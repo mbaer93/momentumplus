@@ -4539,3 +4539,10 @@ a.course-card:hover {
   }
 }
 
+
+/* --- Admin: persistent back-to-dashboard bar (rendered by the admin
+       layout on every admin page except the hub itself) ------------------ */
+.admin-back-bar { padding: 18px 28px 0; }
+@media (max-width: 720px) {
+  .admin-back-bar { padding: 14px 14px 0; }
+}

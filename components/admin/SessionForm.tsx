@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 // Session times are entered and displayed as Eastern Time — the same wall
 // time the server stores, so a no-op save can never shift the schedule.
 import { isoToEasternInput } from "@/lib/eastern-time";
+import { isDropInProgram } from "@/lib/programs";
 import type { AccessLevel, SessionStatus } from "@/lib/types";
 import {
   createSession,
@@ -43,12 +44,16 @@ export function SessionForm({
   sessionId,
   initial,
   speakers = [],
+  adminHosts = [],
 }: {
   mode: "create" | "edit";
   sessionId?: string;
   initial?: Partial<SessionFormValues> & { startsAtIso?: string | null };
   /** Speakers already in the system — the session links to one of them. */
   speakers?: { id: string; name: string }[];
+  /** Active admin names — drop-in programs are hosted by the SLC team, so
+      their host picker lists admins instead of speakers. */
+  adminHosts?: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -131,6 +136,9 @@ export function SessionForm({
             setValues((v) => ({
               ...v,
               program,
+              // Drop-ins are admin-hosted — a linked speaker would show the
+              // session on that speaker's profile, which is wrong here.
+              ...(isDropInProgram(program) ? { speakerId: "" } : {}),
               // Rooted Focus defaults: 90 minutes, weekly, Productivity.
               ...(program === "rooted_focus" && v.program !== "rooted_focus"
                 ? {
@@ -164,42 +172,74 @@ export function SessionForm({
         )}
       </div>
 
-      <div className="admin-field">
-        <label htmlFor="speaker">Speaker</label>
-        <select
-          id="speaker"
-          value={values.speakerId}
-          onChange={(e) => set("speakerId", e.target.value)}
-        >
-          <option value="">— No speaker yet —</option>
-          {speakers.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
-          Speakers are managed in Admin → Speakers; linking one shows the
-          session on their profile.
+      {isDropInProgram(values.program) ? (
+        /* Drop-ins (Rooted Focus / Aspire2Achieve) are always led by the SLC
+           team — the host picker lists admins, not speakers. The name lands
+           in host_name; no speaker is ever linked. */
+        <div className="admin-field">
+          <label htmlFor="hostName">Host (admin)</label>
+          <select
+            id="hostName"
+            value={values.hostName}
+            onChange={(e) => set("hostName", e.target.value)}
+          >
+            <option value="">— Choose a host —</option>
+            {/* An existing host who is no longer an active admin stays
+                selectable — otherwise the select silently rewrites it. */}
+            {(values.hostName && !adminHosts.includes(values.hostName)
+              ? [values.hostName, ...adminHosts]
+              : adminHosts
+            ).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+            Drop-in sessions are hosted by the SLC team. Any admin can start
+            the Zoom meeting as host from the session page.
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="admin-field">
+            <label htmlFor="speaker">Speaker</label>
+            <select
+              id="speaker"
+              value={values.speakerId}
+              onChange={(e) => set("speakerId", e.target.value)}
+            >
+              <option value="">— No speaker yet —</option>
+              {speakers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+              Speakers are managed in Admin → Speakers; linking one shows the
+              session on their profile.
+            </div>
+          </div>
 
-      <div className="admin-field">
-        <label htmlFor="hostName">
-          Host name (if the leader isn&apos;t a speaker — e.g. an SLC team
-          member)
-        </label>
-        <input
-          id="hostName"
-          value={values.hostName}
-          onChange={(e) => set("hostName", e.target.value)}
-          placeholder="e.g. Sierra Collins"
-        />
-        <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
-          Shown as the session leader when no speaker is linked. Admins can
-          always start the Zoom meeting as host from the session page.
-        </div>
-      </div>
+          <div className="admin-field">
+            <label htmlFor="hostName">
+              Host name (if the leader isn&apos;t a speaker — e.g. an SLC team
+              member)
+            </label>
+            <input
+              id="hostName"
+              value={values.hostName}
+              onChange={(e) => set("hostName", e.target.value)}
+              placeholder="e.g. Sierra Collins"
+            />
+            <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+              Shown as the session leader when no speaker is linked. Admins can
+              always start the Zoom meeting as host from the session page.
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="admin-field-row">
         <div className="admin-field">

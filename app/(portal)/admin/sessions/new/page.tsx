@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { SessionForm } from "@/components/admin/SessionForm";
 import { ArrowLeftIcon } from "@/components/icons";
-import { listSpeakersForAdmin } from "@/lib/directory-queries";
+import {
+  listAdminHostNames,
+  listSpeakersForAdmin,
+} from "@/lib/directory-queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewSessionPage() {
-  const speakers = (await listSpeakersForAdmin()).map((s) => ({
-    id: s.id,
-    name: s.name,
-  }));
+  const [speakerList, adminHosts] = await Promise.all([
+    listSpeakersForAdmin(),
+    listAdminHostNames(),
+  ]);
+  const speakers = speakerList.map((s) => ({ id: s.id, name: s.name }));
 
   return (
     <div className="admin-pad">
@@ -22,7 +26,7 @@ export default async function NewSessionPage() {
           <p>Add a session to the schedule</p>
         </div>
       </div>
-      <SessionForm mode="create" speakers={speakers} />
+      <SessionForm mode="create" speakers={speakers} adminHosts={adminHosts} />
     </div>
   );
 }

@@ -4,7 +4,10 @@ import { getSession } from "@/lib/sessions/queries";
 import { SessionForm } from "@/components/admin/SessionForm";
 import { SessionResourcesManager } from "@/components/admin/SessionResourcesManager";
 import { ArrowLeftIcon } from "@/components/icons";
-import { listSpeakersForAdmin } from "@/lib/directory-queries";
+import {
+  listAdminHostNames,
+  listSpeakersForAdmin,
+} from "@/lib/directory-queries";
 import { isoToEasternInput } from "@/lib/eastern-time";
 import { listSessionResources } from "@/lib/session-resources";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -18,10 +21,11 @@ export default async function EditSessionPage({
 }) {
   const session = await getSession(params.id);
   if (!session) notFound();
-  const speakers = (await listSpeakersForAdmin()).map((s) => ({
-    id: s.id,
-    name: s.name,
-  }));
+  const [speakerList, adminHosts] = await Promise.all([
+    listSpeakersForAdmin(),
+    listAdminHostNames(),
+  ]);
+  const speakers = speakerList.map((s) => ({ id: s.id, name: s.name }));
   const resources = isSupabaseConfigured()
     ? await listSessionResources(session.id).catch(() => [])
     : [];
@@ -41,6 +45,7 @@ export default async function EditSessionPage({
         mode="edit"
         sessionId={session.id}
         speakers={speakers}
+        adminHosts={adminHosts}
         initial={{
           title: session.title,
           description: session.description,

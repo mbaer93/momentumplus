@@ -26,7 +26,7 @@ const FAILURE_EVENTS = new Set(["bounce", "blocked", "dropped", "spamreport"]);
 
 /*
  * Per-address delivery history for account emails (invites, password
- * resets, login links) — fed by the SendGrid Event Webhook into
+ * resets, login links) — fed by the Resend webhook into
  * email_events (migration 0050). Emails sent through GHL (announcements,
  * reminders) are tracked in the GHL contact's Conversations tab instead.
  */

@@ -12,8 +12,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * Resend webhook: auth emails (invites, password resets, login links) now
  * send through Resend's SMTP; Resend POSTs delivery events here. Failures
  * alert every Super Admin (bell + GHL email); delivered/opened land in the
- * admin Email Delivery page. Mirrors /api/webhooks/sendgrid, which stays
- * for as long as SendGrid remains configured anywhere.
+ * admin Email Delivery page.
  *
  * Setup (Resend → Webhooks → Add endpoint):
  *   URL: https://momentumplus.co/api/webhooks/resend
