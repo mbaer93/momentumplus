@@ -129,7 +129,7 @@ export interface SessionDetail {
   minAccess: AccessLevel;
   status: SessionStatus;
   /** Which member tab it belongs to — Rooted Focus lives outside Sessions. */
-  program: "standard" | "rooted_focus";
+  program: "standard" | "rooted_focus" | "aspire";
   /** Recurring series (Rooted Focus): cadence + optional series end. */
   recurrence: "weekly" | "biweekly" | "monthly" | null;
   recurrenceUntil: string | null;

@@ -44,22 +44,33 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
   const full =
     session.capacity !== null && session.enrolledCount >= session.capacity;
 
-  // Rooted Focus sessions have no shared resources or AI summaries — pure
-  // co-working, back to its own tab.
-  const rooted = session.program === "rooted_focus";
+  // Drop-in sessions (Rooted Focus, Aspire2Achieve) have no shared
+  // resources or AI summaries — pure co-working, back to their own tab.
+  const rooted = dropIn;
+  const backHref =
+    session.program === "rooted_focus"
+      ? "/rooted-focus"
+      : session.program === "aspire"
+        ? "/aspire2achieve"
+        : "/sessions";
+  const backLabel =
+    session.program === "rooted_focus"
+      ? "All Rooted Focus sessions"
+      : session.program === "aspire"
+        ? "All Aspire2Achieve sessions"
+        : "All sessions";
 
   return (
     <div className="sess-detail-wrap">
-      <Link href={rooted ? "/rooted-focus" : "/sessions"} className="sess-back">
-        <ArrowLeftIcon size={12} />{" "}
-        {rooted ? "All Rooted Focus sessions" : "All sessions"}
+      <Link href={backHref} className="sess-back">
+        <ArrowLeftIcon size={12} /> {backLabel}
       </Link>
 
       <div className="sess-detail-card">
         {/* Hero */}
         <div className="sess-hero">
           <div
-            className={`sess-cat-badge ${categoryClass(session.category)}`}
+            className={`sess-cat-badge ${categoryClass(displayCategory(session))}`}
           >
             {displayCategory(session)}
           </div>

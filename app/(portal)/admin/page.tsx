@@ -21,119 +21,130 @@ import { listSessions } from "@/lib/sessions/queries";
 
 export const dynamic = "force-dynamic";
 
-const SECTIONS: {
+interface AdminCard {
   href: string;
   icon: typeof SessionsIcon;
   title: string;
   desc: string;
   area: AdminArea;
-}[] = [
-  {
-    href: "/admin/sessions",
-    icon: SessionsIcon,
-    title: "Sessions",
-    desc: "Create, publish (creates the Zoom meeting), and manage sessions.",
-    area: "sessions",
-  },
-  {
-    href: "/admin/members",
-    icon: SpeakersIcon,
-    title: "Members",
-    desc: "Memberships, grants, bulk import, and (Super Admin) admin access.",
-    area: "members",
-  },
-  {
-    href: "/admin/activity",
-    icon: AdminIcon,
-    title: "Activity Log",
-    desc: "Invites, first logins, enrollments, learning, and engagement — by category.",
-    area: "members",
-  },
-  {
-    href: "/admin/announcements",
-    icon: CommunityIcon,
-    title: "Announcements",
-    desc: "Compose and send to members by tier and channel.",
-    area: "announcements",
-  },
-  {
-    href: "/admin/sponsors",
-    icon: SponsorsIcon,
-    title: "Sponsors",
-    desc: "Partners, rail placement, logos, sidebar ad, impressions and clicks.",
-    area: "sponsors",
-  },
-  {
-    href: "/admin/videos",
-    icon: LibraryIcon,
-    title: "Library",
-    desc: "Recordings in the Session Library — add, edit, publish.",
-    area: "content",
-  },
-  {
-    href: "/admin/speakers",
-    icon: SpeakersIcon,
-    title: "Speakers",
-    desc: "Speaker directory profiles, topics, and bios.",
-    area: "content",
-  },
-  {
-    href: "/admin/resources",
-    icon: ResourcesIcon,
-    title: "Resources",
-    desc: "Member tools, guides, and partner materials.",
-    area: "content",
-  },
-  {
-    href: "/admin/services",
-    icon: BriefcaseIcon,
-    title: "Additional Services",
-    desc: "SLC service offerings with sign-up links.",
-    area: "content",
-  },
-  {
-    href: "/admin/testimonials",
-    icon: StarIcon,
-    title: "Testimonials",
-    desc: "Review member testimonials for the landing page.",
-    area: "content",
-  },
-  {
-    href: "/admin/education",
-    icon: EducationIcon,
-    title: "Education",
-    desc: "Courses and learning tracks built from the library.",
-    area: "content",
-  },
-  {
-    href: "/admin/analytics",
-    icon: SessionsIcon,
-    title: "Analytics",
-    desc: "Who enrolled and attended, sponsor views and clicks, top content.",
-    area: "sessions",
-  },
-];
+  superOnly?: boolean;
+}
 
-export default async function AdminPage() {
-  // Standard admins only see cards for areas the Super Admin left enabled;
-  // requireAdmin(area) re-enforces this on every mutation regardless.
-  const access = await getAdminAccess();
-  const sections = SECTIONS.filter((s) => canAccessArea(access, s.area));
-  // Billing + Connections are Super Admin territory — they hold account keys.
-  if (access?.role === "super") {
-    sections.push(
+/* Grouped by job-to-be-done (Matt, 2026-07-23: "items are all over,
+   nothing is grouped in a way that makes sense"). Order within each group
+   is most-used first. */
+const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
+  {
+    heading: "People",
+    sub: "Who's here and what access they hold",
+    cards: [
       {
-        href: "/admin/billing",
-        icon: SponsorsIcon,
-        title: "Billing — Stripe",
-        desc: "Connect Stripe, set plan prices, and go live with self-serve memberships.",
+        href: "/admin/members",
+        icon: SpeakersIcon,
+        title: "Members",
+        desc: "Memberships, grants, bulk import, and (Super Admin) admin access.",
         area: "members",
       },
       {
-        href: "/admin/connections",
-        icon: SettingsIcon,
-        title: "Connections",
-        desc: "Every integration (Stripe, Zoom, chat, video, AI) — status and setup.",
+        href: "/admin/speakers",
+        icon: SpeakersIcon,
+        title: "Speakers",
+        desc: "Speaker directory profiles, topics, and bios.",
+        area: "content",
+      },
+      {
+        href: "/admin/sponsors",
+        icon: SponsorsIcon,
+        title: "Sponsors",
+        desc: "Partners, rail placement, logos, sidebar ad, impressions and clicks.",
+        area: "sponsors",
+      },
+    ],
+  },
+  {
+    heading: "Programming & Content",
+    sub: "Sessions, recordings, courses, and member materials",
+    cards: [
+      {
+        href: "/admin/sessions",
+        icon: SessionsIcon,
+        title: "Sessions",
+        desc: "Create, publish (creates the Zoom meeting), and manage sessions.",
+        area: "sessions",
+      },
+      {
+        href: "/admin/videos",
+        icon: LibraryIcon,
+        title: "Library",
+        desc: "Recordings in the Session Library — add, edit, publish.",
+        area: "content",
+      },
+      {
+        href: "/admin/education",
+        icon: EducationIcon,
+        title: "Grow on the Go",
+        desc: "Courses and learning tracks built from the library.",
+        area: "content",
+      },
+      {
+        href: "/admin/resources",
+        icon: ResourcesIcon,
+        title: "Resources",
+        desc: "Member tools, guides, and partner materials.",
+        area: "content",
+      },
+      {
+        href: "/admin/services",
+        icon: BriefcaseIcon,
+        title: "Additional Services",
+        desc: "SLC service offerings with sign-up links.",
+        area: "content",
+      },
+      {
+        href: "/admin/testimonials",
+        icon: StarIcon,
+        title: "Testimonials",
+        desc: "Review member testimonials for the landing page.",
+        area: "content",
+      },
+    ],
+  },
+  {
+    heading: "Communications",
+    sub: "What members hear from you, and whether it arrived",
+    cards: [
+      {
+        href: "/admin/announcements",
+        icon: CommunityIcon,
+        title: "Announcements",
+        desc: "Compose and send to members by tier and channel.",
+        area: "announcements",
+      },
+      {
+        href: "/admin/email-activity",
+        icon: ResourcesIcon,
+        title: "Email Delivery",
+        desc: "Delivered / opened / bounced status for every account email.",
+        area: "members",
+      },
+    ],
+  },
+  {
+    heading: "Insights & History",
+    sub: "What's working, and who did what",
+    cards: [
+      {
+        href: "/admin/analytics",
+        icon: SessionsIcon,
+        title: "Analytics",
+        desc: "Who enrolled and attended, sponsor views and clicks, top content.",
+        area: "sessions",
+      },
+      {
+        href: "/admin/activity",
+        icon: AdminIcon,
+        title: "Activity Log",
+        desc: "Invites, first logins, enrollments, learning, and engagement — by category.",
         area: "members",
       },
       {
@@ -142,9 +153,47 @@ export default async function AdminPage() {
         title: "Audit Log",
         desc: "Sensitive admin actions — login links minted, members deleted, admin access changed.",
         area: "members",
+        superOnly: true,
       },
-    );
-  }
+    ],
+  },
+  {
+    heading: "Money & Setup",
+    sub: "Billing and the platform's integrations (Super Admin)",
+    cards: [
+      {
+        href: "/admin/billing",
+        icon: SponsorsIcon,
+        title: "Billing — Stripe",
+        desc: "Connect Stripe, set plan prices, and go live with self-serve memberships.",
+        area: "members",
+        superOnly: true,
+      },
+      {
+        href: "/admin/connections",
+        icon: SettingsIcon,
+        title: "Connections",
+        desc: "Every integration (Stripe, Zoom, chat, video, AI) — status and setup.",
+        area: "members",
+        superOnly: true,
+      },
+    ],
+  },
+];
+
+export default async function AdminPage() {
+  // Standard admins only see cards for areas the Super Admin left enabled;
+  // requireAdmin(area) re-enforces this on every mutation regardless.
+  // Billing/Connections/Audit are Super Admin territory — they hold keys.
+  const access = await getAdminAccess();
+  const groups = GROUPS.map((g) => ({
+    ...g,
+    cards: g.cards.filter(
+      (c) =>
+        canAccessArea(access, c.area) &&
+        (!c.superOnly || access?.role === "super"),
+    ),
+  })).filter((g) => g.cards.length > 0);
 
   // Stats: live counts when connected; illustrative numbers in preview.
   let stats = {
@@ -223,27 +272,45 @@ export default async function AdminPage() {
         </div>
       )}
 
-      <div className="admin-nav-cards">
-        {sections.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Link key={s.href} href={s.href} className="card" style={{ padding: 20 }}>
-              <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                <div className="stat-icon purple">
-                  <Icon size={20} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{s.title}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
-                    {s.desc}
+      {groups.map((g) => (
+        <div key={g.heading} style={{ marginTop: 26 }}>
+          <div style={{ marginBottom: 10 }}>
+            <div
+              style={{
+                fontSize: 11,
+                letterSpacing: 1,
+                textTransform: "uppercase",
+                color: "var(--gold)",
+                fontWeight: 600,
+              }}
+            >
+              {g.heading}
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>{g.sub}</div>
+          </div>
+          <div className="admin-nav-cards">
+            {g.cards.map((s) => {
+              const Icon = s.icon;
+              return (
+                <Link key={s.href} href={s.href} className="card" style={{ padding: 20 }}>
+                  <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                    <div className="stat-icon purple">
+                      <Icon size={20} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{s.title}</div>
+                      <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                        {s.desc}
+                      </div>
+                    </div>
+                    <ChevronRightIcon size={12} />
                   </div>
-                </div>
-                <ChevronRightIcon size={12} />
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

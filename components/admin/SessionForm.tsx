@@ -139,11 +139,20 @@ export function SessionForm({
                     category: "Productivity Session",
                   }
                 : {}),
+              // Aspire2Achieve defaults: 45-minute monthly accountability.
+              ...(program === "aspire" && v.program !== "aspire"
+                ? {
+                    durationMin: 45,
+                    recurrence: "monthly" as const,
+                    category: "Accountability Session",
+                  }
+                : {}),
             }));
           }}
         >
           <option value="standard">Standard session (Sessions tab)</option>
           <option value="rooted_focus">Rooted Focus (own tab)</option>
+          <option value="aspire">Aspire2Achieve Growth (own tab)</option>
         </select>
         {values.program === "rooted_focus" && (
           <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>

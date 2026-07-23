@@ -175,10 +175,165 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Drop-in reminders (Rooted Focus / Aspire2Achieve): these have no
+  // enrollment roster, so reminders go to members who OPTED IN via the
+  // dropin_reminder pref (default off for every channel). Recurring rows
+  // keep a static starts_at, so the window check runs on the NEXT
+  // occurrence; the dedupe marker carries the occurrence date so next
+  // week's session reminds again.
+  // -------------------------------------------------------------------------
+  let dropinNotified = 0;
+  if (!budgetExhausted) {
+    const { nextOccurrence } = await import("@/lib/recurrence");
+    const { data: dropins } = await admin
+      .from("sessions")
+      .select("id, title, starts_at, duration_min, recurrence, recurrence_until")
+      .in("program", ["rooted_focus", "aspire"])
+      .in("status", ["scheduled", "live"]);
+
+    // Occurrences starting within the next 30 minutes.
+    const due: { id: string; title: string; occIso: string }[] = [];
+    for (const s of dropins ?? []) {
+      if (!s.starts_at) continue;
+      const occIso = s.recurrence
+        ? nextOccurrence(
+            s.starts_at as string,
+            (s.duration_min as number) ?? 60,
+            s.recurrence as "weekly" | "biweekly" | "monthly",
+            (s.recurrence_until as string) ?? null,
+            runStart,
+          )
+        : (s.starts_at as string);
+      if (!occIso) continue;
+      const occMs = new Date(occIso).getTime();
+      if (occMs >= runStart && occMs <= runStart + 30 * 60 * 1000) {
+        due.push({ id: s.id as string, title: s.title as string, occIso });
+      }
+    }
+
+    if (due.length > 0) {
+      // Opted-in members (any channel on) — one paged query serves all due
+      // sessions this tick.
+      const { allRows } = await import("@/lib/db-utils");
+      const { rows: optIns } = await allRows<{
+        profile_id: string;
+        email: boolean | null;
+        sms: boolean | null;
+        in_app: boolean | null;
+      }>((from, to) =>
+        admin
+          .from("notification_prefs")
+          .select("profile_id, email, sms, in_app")
+          .eq("key", "dropin_reminder")
+          .or("email.eq.true,sms.eq.true,in_app.eq.true")
+          .order("profile_id")
+          .range(from, to),
+      );
+
+      outer2: for (const session of due) {
+        if (optIns.length === 0) break;
+        const link = `/sessions/${session.id}?occ=${session.occIso.slice(0, 10)}`;
+        const ids = optIns.map((o) => o.profile_id);
+        const [{ data: already }, { data: profileRows }, { data: contactRows }] =
+          await Promise.all([
+            admin
+              .from("notifications")
+              .select("profile_id")
+              .eq("kind", "dropin_reminder")
+              .eq("link", link)
+              .in("profile_id", ids.slice(0, 500)),
+            admin
+              .from("profiles")
+              .select("id, email, full_name, phone")
+              .in("id", ids.slice(0, 500)),
+            admin
+              .from("memberships")
+              .select("profile_id, ghl_contact_id")
+              .in("profile_id", ids.slice(0, 500))
+              .not("ghl_contact_id", "is", null),
+          ]);
+        const done = new Set((already ?? []).map((r) => r.profile_id as string));
+        const profileBy = new Map(
+          (profileRows ?? []).map((p) => [p.id as string, p]),
+        );
+        const contactBy = new Map(
+          (contactRows ?? []).map((c) => [
+            c.profile_id as string,
+            c.ghl_contact_id as string,
+          ]),
+        );
+        const startLabel =
+          new Date(session.occIso).toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            timeZone: "America/New_York",
+          }) + " ET";
+
+        for (const opt of optIns) {
+          if (done.has(opt.profile_id)) continue;
+          const profile = profileBy.get(opt.profile_id);
+          if (!profile) continue;
+          if (Date.now() - runStart > TIME_BUDGET_MS) {
+            budgetExhausted = true;
+            break outer2;
+          }
+          if (opt.email) {
+            await sendEmailViaGhl({
+              contactId: contactBy.get(opt.profile_id) ?? null,
+              email: profile.email as string,
+              subject: `Starting soon: ${session.title}`,
+              html: brandedEmailHtml({
+                greetingName: (profile.full_name as string) ?? "",
+                heading: `Starting soon: ${session.title}`,
+                bodyHtml: `<p style="margin:0 0 14px;"><strong>${session.title}</strong> begins at ${startLabel}. Drop in — no signup needed; the room opens 30 minutes before start.</p>`,
+                ctaLabel: "Join the live room",
+                ctaUrl: `/sessions/${session.id}`,
+                footnote:
+                  "You opted in to drop-in session reminders. Manage this in your profile's notification preferences.",
+              }),
+            });
+          }
+          if (opt.sms && profile.phone) {
+            await sendSmsViaGhl({
+              contactId: contactBy.get(opt.profile_id) ?? null,
+              email: profile.email as string,
+              phone: profile.phone as string,
+              message: `Momentum+: "${session.title}" starts at ${startLabel}. Join here: ${process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co"}/sessions/${session.id}`,
+            });
+          }
+          if (opt.in_app) {
+            try {
+              await sendPushToProfiles([opt.profile_id], {
+                title: `Starting soon: ${session.title}`,
+                body: `Begins at ${startLabel} — drop in, no signup needed.`,
+                link: `/sessions/${session.id}`,
+              });
+            } catch {
+              /* best-effort */
+            }
+          }
+          // Marker after the attempt — same idempotency shape as enrolled
+          // reminders above.
+          await admin.from("notifications").insert({
+            profile_id: opt.profile_id,
+            kind: "dropin_reminder",
+            title: `Starting soon: ${session.title}`,
+            body: `Begins at ${startLabel}. The live room is open now — drop in.`,
+            link,
+            read_at: opt.in_app ? null : new Date().toISOString(),
+          });
+          dropinNotified++;
+        }
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     sessionsInWindow: sessions?.length ?? 0,
     membersNotified: notified,
+    dropinNotified,
     budgetExhausted,
   });
 }
