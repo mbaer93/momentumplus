@@ -223,6 +223,12 @@ export async function getPendingSponsorInvite(): Promise<{
   needsPassword?: boolean;
   /** Free VIP access tickets included with the invited tier. */
   ticketAllotment?: number;
+  /** Prefill pushed from TSLS (source of truth for sponsor details) so the
+      rep confirms rather than retypes. Empty when the invite came from the
+      Momentum+ admin directly. */
+  tagline?: string;
+  description?: string;
+  website?: string;
 }> {
   if (!isSupabaseConfigured()) {
     return {
@@ -239,17 +245,31 @@ export async function getPendingSponsorInvite(): Promise<{
   } = await supabase.auth.getUser();
   if (!user) return { pending: false };
   const { findOpenInvite } = await import("@/lib/invite-lookup");
-  const invite = await findOpenInvite<{
+  // Prefill columns (tagline/description/website) arrive with migration
+  // 0052; fall back to the base columns if it hasn't run yet.
+  const admin = createServiceClient();
+  let invite = await findOpenInvite<{
     id: string;
     tier: string | null;
     business_name: string | null;
     account_created: boolean | null;
+    tagline?: string | null;
+    description?: string | null;
+    website?: string | null;
   }>(
-    createServiceClient(),
+    admin,
     "sponsor_invites",
     user,
-    "id, tier, business_name, account_created",
+    "id, tier, business_name, account_created, tagline, description, website",
   );
+  if (!invite) {
+    invite = await findOpenInvite<{
+      id: string;
+      tier: string | null;
+      business_name: string | null;
+      account_created: boolean | null;
+    }>(admin, "sponsor_invites", user, "id, tier, business_name, account_created");
+  }
   if (!invite) return { pending: false };
   const { getTicketCounts } = await import("@/lib/sponsor-team");
   const counts = await getTicketCounts();
@@ -259,5 +279,8 @@ export async function getPendingSponsorInvite(): Promise<{
     businessName: (invite.business_name as string) ?? "",
     needsPassword: Boolean(invite.account_created),
     ticketAllotment: counts[normalizeSponsorTier(invite.tier as string)] ?? 0,
+    tagline: (invite.tagline as string) ?? "",
+    description: (invite.description as string) ?? "",
+    website: (invite.website as string) ?? "",
   };
 }
