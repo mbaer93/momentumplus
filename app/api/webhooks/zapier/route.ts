@@ -30,6 +30,7 @@ const ALLOWED_TIERS: Tier[] = [
   "vip",
   "pro",
   "speaker",
+  "sponsor",
 ];
 
 function authorized(req: NextRequest): boolean {
@@ -63,6 +64,10 @@ export async function POST(req: NextRequest) {
   const email = typeof body.email === "string" ? body.email : "";
   const name = typeof body.name === "string" ? body.name : "";
   const plan = typeof body.plan === "string" ? body.plan : "";
+  // quiet=true creates the account without a Momentum+ email — used by the
+  // TSLS Companion bridge, which sends the single invite and crosses members
+  // over via SSO. Defaults to the normal invite-email behaviour.
+  const quiet = body.quiet === true || body.quiet === "true";
   if (!email) {
     return NextResponse.json({ error: "email is required" }, { status: 400 });
   }
@@ -83,6 +88,7 @@ export async function POST(req: NextRequest) {
     tier: mapping.tier,
     months: mapping.months,
     source: "zapier",
+    quiet,
   });
 
   // Never echo the one-time login link into the webhook response — it would
