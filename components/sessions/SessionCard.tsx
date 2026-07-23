@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SessionDetail } from "@/lib/types";
+import { displayCategory } from "@/lib/programs";
 import {
   categoryClass,
   dateLabel,
@@ -52,8 +53,8 @@ export function SessionCard({
   return (
     <div className={`session-card${isLive ? " live" : ""}`}>
       <div className="session-card-header">
-        <div className={`session-cat ${categoryClass(session.category)}`}>
-          {session.category}
+        <div className={`session-cat ${categoryClass(displayCategory(session))}`}>
+          {displayCategory(session)}
         </div>
         <div className="session-status-badge">
           <span className={`status-pill ${STATUS_PILL[status]}`}>

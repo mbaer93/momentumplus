@@ -135,6 +135,16 @@ export function buildIcs(event: IcsEvent): string {
     lines.push(`ORGANIZER${cn}:mailto:${event.organizerEmail}`);
   }
 
+  // 30-minute reminder alarm — matches when the live room opens. (Google
+  // Calendar's URL-based add can't set reminders; the .ics path can.)
+  lines.push(
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    `DESCRIPTION:${escapeText(event.title)} starts in 30 minutes`,
+    "TRIGGER:-PT30M",
+    "END:VALARM",
+  );
+
   lines.push("END:VEVENT", "END:VCALENDAR");
 
   return lines.map(foldLine).join("\r\n") + "\r\n";

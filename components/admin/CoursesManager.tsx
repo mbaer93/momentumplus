@@ -49,9 +49,27 @@ export interface VideoOption {
   title: string;
 }
 
+/* Course categories mirror the SLC podcast taxonomy for consistency
+   (Sierra, 2026-07-23). */
+const COURSE_CATEGORIES = [
+  "Self-Leadership & Personal Growth",
+  "Leadership Foundations & Reflection",
+  "Communication & Difficult Conversations",
+  "Team Culture & Environments",
+  "Health, Wellness & Sustainable Leadership",
+  "Purpose, Values & Identity",
+  "Networks, Relationships & Connection",
+  "Business Strategy, Systems & Growth",
+  "Time Management & Productivity",
+  "Emotional Intelligence, DISC & Working Genius",
+  "Service, Community & Civic Leadership",
+  "Resilience, Pivots & Adversity",
+  "Mentorship, Coaching & Developing Others",
+];
+
 const EMPTY: CourseInput = {
   title: "",
-  category: "Leadership",
+  category: "Self-Leadership & Personal Growth",
   description: "",
   minAccess: "all_members",
   published: false,
@@ -81,11 +99,22 @@ function CourseFields({
         </div>
         <div className="admin-field">
           <label htmlFor={`${idPrefix}-cat`}>Category</label>
-          <input
+          {/* Same taxonomy as the SLC podcast (Sierra, 2026-07-23) — a
+              course keeps a legacy free-text category until re-saved. */}
+          <select
             id={`${idPrefix}-cat`}
             value={value.category}
             onChange={(e) => onChange({ ...value, category: e.target.value })}
-          />
+          >
+            {(COURSE_CATEGORIES.includes(value.category)
+              ? COURSE_CATEGORIES
+              : [value.category, ...COURSE_CATEGORIES]
+            ).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="admin-field">
           <label htmlFor={`${idPrefix}-access`}>Who can take it</label>

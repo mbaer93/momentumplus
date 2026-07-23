@@ -143,6 +143,13 @@ export function durationLabel(durationMin: number): string {
 
 export function categoryClass(category: string): string {
   const map: Record<string, string> = {
+    // Current taxonomy (Sierra, 2026-07-22)
+    "Monthly Educational Session": "cat-leadership",
+    "Accountability Session": "cat-wellness",
+    "Productivity Session": "cat-business",
+    "AI Leadership Lab": "cat-networking",
+    "Bonus Sessions": "cat-leadership",
+    // Legacy values on older rows
     Leadership: "cat-leadership",
     Wellness: "cat-wellness",
     Business: "cat-business",

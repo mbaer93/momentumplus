@@ -11,7 +11,7 @@ export default async function SessionsPage() {
   const member = await requireMember();
   // Rooted Focus sessions live on their own tab.
   const sessions = (await listSessions()).filter(
-    (s) => s.program !== "rooted_focus",
+    (s) => s.program === "standard",
   );
 
   return (

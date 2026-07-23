@@ -17,6 +17,7 @@ export const PREF_KEYS = [
   "resource_new",
   "event_reminder",
   "announcements", // SMS opt-in only — email/in-app announcements ride "platform"
+  "dropin_reminder", // Rooted Focus / Aspire2Achieve — opt-in, default OFF
 ] as const;
 
 export type PrefKey = (typeof PREF_KEYS)[number];
@@ -96,6 +97,12 @@ export const PREF_DEFINITIONS: PrefDefinition[] = [
       "Text me announcements from the SLC team (requires a phone number)",
     smsOnly: true,
   },
+  {
+    key: "dropin_reminder",
+    label: "Rooted Focus & Aspire2Achieve reminders",
+    description:
+      "30 minutes before each drop-in session — off unless you opt in",
+  },
 ];
 
 export interface PrefRow {
@@ -105,13 +112,14 @@ export interface PrefRow {
   in_app: boolean;
 }
 
-/** Default prefs for a member with no saved rows (email+in-app on, SMS off). */
+/** Default prefs for a member with no saved rows (email+in-app on, SMS off).
+    dropin_reminder is fully opt-IN — every channel starts off. */
 export function defaultPrefs(): PrefRow[] {
   return PREF_DEFINITIONS.map((d) => ({
     key: d.key,
-    email: true,
+    email: d.key !== "dropin_reminder",
     sms: false,
-    in_app: true,
+    in_app: d.key !== "dropin_reminder",
   }));
 }
 
