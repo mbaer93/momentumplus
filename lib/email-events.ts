@@ -1,5 +1,5 @@
 /*
- * Shared plumbing for email-provider event webhooks (SendGrid, Resend):
+ * Shared plumbing for email-provider event webhooks (Resend):
  * journal normalized events into email_events (migration 0050) and alert
  * Super Admins about delivery failures — bell first, then a GHL email (a
  * different pipe than the failing one, so the alert itself can't be

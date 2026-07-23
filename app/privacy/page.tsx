@@ -123,7 +123,7 @@ export default function PrivacyPage() {
                 ["Zoom", "Name and email when you join a live session; participation", "Live sessions & attendance"],
                 ["Mux", "Session/course recordings and transcripts", "Video hosting & captions"],
                 ["Anthropic", "Session transcripts and help-chat messages (no name/email added by us)", "AI summaries & help assistant"],
-                ["SendGrid (via Supabase)", "Email address, name, sign-in links", "Account & authentication email"],
+                ["Resend (via Supabase)", "Email address, name, sign-in links", "Account & authentication email"],
                 ["Google", "Event-registration name, email, type", "Registration import"],
                 ["Zapier", "Name, email, plan", "Member-provisioning automation"],
                 ["Vercel & Supabase", "All of the above, as hosting & database", "Infrastructure"],

@@ -184,7 +184,7 @@ export default async function AdminConnectionsPage() {
 
           <ConnectionCard
             title="Email — invites and password resets"
-            powers="Branded Momentum+ email from your own domain (SendGrid SMTP through Supabase)"
+            powers="Branded Momentum+ email from your own domain (Resend SMTP through Supabase)"
             connected={smtpDone}
           >
             <SmtpWizard markedDone={smtpDone} />
