@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
+// Server actions on this page fan out per-member work — allow the full window.
+export const maxDuration = 300;
 
 export const metadata = { title: "Speaker Studio | Momentum+" };
 
@@ -59,7 +61,7 @@ export default async function SpeakerStudioPage({
         : Promise.resolve({ data: null }),
     ]);
     const sessionIds = (sessionRows ?? []).map((s) => s.id as string);
-    const [{ data: enrollCounts }, { data: videoRows }] = await Promise.all([
+    const [{ data: enrollCounts }, { data: videoRows }, resourceRes] = await Promise.all([
       sessionIds.length > 0
         ? admin
             .from("session_enrollment_counts")
@@ -72,10 +74,29 @@ export default async function SpeakerStudioPage({
             .select("id, title, category, published_at")
             .in("session_id", sessionIds)
         : Promise.resolve({ data: [] as { id: string; title: string; category: string | null; published_at: string | null }[] }),
+      sessionIds.length > 0
+        ? admin
+            .from("session_resources")
+            .select("id, session_id, name, type, url, sort")
+            .in("session_id", sessionIds)
+            .order("sort", { ascending: true })
+        : Promise.resolve({ data: null, error: null }),
     ]);
     const counts = new Map(
       (enrollCounts ?? []).map((r) => [r.session_id as string, r.enrolled as number]),
     );
+    // Pre-migration-0047: no table yet — sessions just show zero resources.
+    const resourcesBySession = new Map<string, { id: string; name: string; type: string; url: string }[]>();
+    for (const r of (!resourceRes.error && resourceRes.data) || []) {
+      const list = resourcesBySession.get(r.session_id as string) ?? [];
+      list.push({
+        id: r.id as string,
+        name: r.name as string,
+        type: (r.type as string | null) ?? "Resource",
+        url: r.url as string,
+      });
+      resourcesBySession.set(r.session_id as string, list);
+    }
     sessions = (sessionRows ?? []).map((s) => ({
       id: s.id as string,
       title: s.title as string,
@@ -83,6 +104,7 @@ export default async function SpeakerStudioPage({
       status: s.status as string,
       hasMeeting: Boolean(s.zoom_meeting_id),
       enrolled: counts.get(s.id as string) ?? 0,
+      resources: resourcesBySession.get(s.id as string) ?? [],
     }));
     videos = (videoRows ?? []).map((v) => ({
       id: v.id as string,
@@ -118,6 +140,9 @@ export default async function SpeakerStudioPage({
         status: "scheduled",
         hasMeeting: true,
         enrolled: 23,
+        resources: [
+          { id: "r1", name: "Session workbook", type: "PDF", url: "#" },
+        ],
       },
     ];
     videos = [

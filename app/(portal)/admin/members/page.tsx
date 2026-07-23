@@ -20,6 +20,8 @@ import { redirect } from "next/navigation";
 import type { Membership, Tier } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+// Server actions on this page fan out per-member work — allow the full window.
+export const maxDuration = 300;
 
 const PREVIEW_PROFILE_DEFAULTS = {
   profileTitle: "",
@@ -312,9 +314,14 @@ export default async function AdminMembersPage({
           <h2>Members</h2>
           <p>Memberships, access, and manual grants</p>
         </div>
-        <Link href="/admin/activity" className="btn-primary">
-          View Activity Log
-        </Link>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/admin/email-activity" className="btn-mini">
+            Email Delivery
+          </Link>
+          <Link href="/admin/activity" className="btn-primary">
+            View Activity Log
+          </Link>
+        </div>
       </div>
       {!isSupabaseConfigured() && (
         <div className="admin-hint">

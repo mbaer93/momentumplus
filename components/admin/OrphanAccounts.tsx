@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { BreakableEmail } from "@/components/BreakableEmail";
 import { deleteMember } from "@/app/(portal)/admin/members/actions";
 
 /*
@@ -55,7 +56,9 @@ export function OrphanAccounts({ orphans }: { orphans: OrphanAccount[] }) {
         >
           <div style={{ fontSize: 13 }}>
             <strong>{o.name || "—"}</strong>{" "}
-            <span style={{ color: "var(--mid-gray)" }}>{o.email}</span>
+            <span style={{ color: "var(--mid-gray)" }}>
+              <BreakableEmail email={o.email} />
+            </span>
           </div>
           <button
             type="button"

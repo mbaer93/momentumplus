@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   cancelSession,
   deleteSession,
+  importSessionRecording,
 } from "@/app/(portal)/admin/sessions/actions";
 
 export function SessionRowActions({
@@ -101,6 +102,24 @@ export function SessionRowActions({
       >
         {publishing ? "Publishing…" : "Publish"}
       </button>
+      {hasMeeting && (
+        <button
+          type="button"
+          className="btn-mini"
+          disabled={pending}
+          title="Pull this session's Zoom cloud recording into the Library now (the hourly cron also does this automatically)"
+          onClick={() =>
+            startTransition(async () => {
+              setNote(null);
+              const res = await importSessionRecording(sessionId);
+              setNote({ text: res.message ?? (res.ok ? "Imported." : "Import failed"), ok: res.ok });
+              if (res.ok) router.refresh();
+            })
+          }
+        >
+          Get recording
+        </button>
+      )}
       <button
         type="button"
         className="btn-mini"

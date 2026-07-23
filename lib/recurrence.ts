@@ -83,6 +83,38 @@ export function nextOccurrence(
 }
 
 /**
+ * The most recent occurrence START at or before `now` (the one currently
+ * running or just finished). Null before the series begins. Used by the
+ * attendance/recording cron: windowing recurring rows on their STATIC
+ * starts_at excluded every occurrence after the first from attendance.
+ */
+export function lastOccurrenceStart(
+  startIso: string,
+  recurrence: Recurrence,
+  untilIso: string | null,
+  now: number = Date.now(),
+): string | null {
+  const untilMs = untilIso ? new Date(untilIso).getTime() : null;
+  const startMs = new Date(startIso).getTime();
+  if (now < startMs) return null;
+  const periodDays =
+    recurrence === "weekly" ? 7 : recurrence === "biweekly" ? 14 : 30;
+  let k = Math.max(
+    0,
+    Math.floor((now - startMs) / (24 * 60 * 60 * 1000) / periodDays) - 2,
+  );
+  let last: string | null = null;
+  for (let i = 0; i < MAX_STEPS; i++, k++) {
+    const occ = occurrenceAt(startIso, recurrence, k);
+    const occMs = new Date(occ).getTime();
+    if (untilMs !== null && occMs > untilMs) break;
+    if (occMs > now) break;
+    last = occ;
+  }
+  return last;
+}
+
+/**
  * All occurrence starts within [fromMs, toMs] — used to paint every date of
  * a series on the member calendar.
  */

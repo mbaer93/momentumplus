@@ -56,6 +56,9 @@ function emailBody(name: string, step: number): { subject: string; html: string 
   };
 }
 
+// Long-running under load — allow the full function window (Vercel Pro).
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

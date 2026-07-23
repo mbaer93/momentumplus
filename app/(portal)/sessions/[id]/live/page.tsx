@@ -13,8 +13,10 @@ export const dynamic = "force-dynamic";
 
 export default async function LiveSessionPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams?: { left?: string };
 }) {
   const [session, member] = await Promise.all([
     getSession(params.id),
@@ -109,6 +111,9 @@ export default async function LiveSessionPage({
       memberEmail={member.email}
       canHost={canHost}
       viewerIsSpeaker={viewerIsSpeaker}
+      // Zoom's Leave button returns here with ?left=1 — show the stepped-out
+      // state instead of instantly re-joining them.
+      startedAsLeft={searchParams?.left === "1"}
     />
   );
 }

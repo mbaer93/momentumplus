@@ -153,6 +153,69 @@ export async function updateSession(
  * state (and can no longer enroll) while notes/enrollment history survive.
  * Members are NOT auto-notified — announce the cancellation separately.
  */
+/**
+ * On-demand Zoom recording import — the same ingest the hourly poller and
+ * the webhook use, triggered from the session row so an admin can pull a
+ * finished session's recording into the Library right now instead of
+ * waiting for the cron.
+ */
+export async function importSessionRecording(id: string): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Imported (preview mode)." };
+  }
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { data: session } = await admin
+    .from("sessions")
+    .select("id, title, category, min_access, program, zoom_meeting_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!session) return { ok: false, message: "Session not found." };
+  if (!session.zoom_meeting_id) {
+    return { ok: false, message: "This session has no Zoom meeting attached." };
+  }
+
+  const { getMeetingRecordings } = await import("@/lib/zoom");
+  let rec;
+  try {
+    rec = await getMeetingRecordings(session.zoom_meeting_id as string);
+  } catch (e) {
+    return { ok: false, message: `Zoom API error: ${(e as Error).message}` };
+  }
+  if (!rec) {
+    return {
+      ok: false,
+      message:
+        "Zoom has no cloud recording for this meeting yet. If the session just ended, Zoom is still processing — try again in 15–30 minutes. If it ended long ago, check that cloud recording is enabled on the Zoom account.",
+    };
+  }
+
+  const { ingestSessionRecording } = await import("@/lib/zoom-recordings");
+  const result = await ingestSessionRecording(
+    admin,
+    {
+      id: session.id as string,
+      title: session.title as string,
+      category: (session.category as string | null) ?? null,
+      min_access: (session.min_access as string | null) ?? null,
+      program: (session.program as string | null) ?? null,
+    },
+    rec.files,
+    rec.accessToken,
+  );
+  revalidatePath("/admin/videos");
+  return {
+    ok: result.ok,
+    message: result.ok
+      ? result.status === "video already exists"
+        ? "Already imported — review it under Admin → Library."
+        : "Recording imported — Mux is processing it now. It publishes to members automatically once the video and AI summary are both ready (you can still edit or publish sooner from Admin → Library)."
+      : result.status,
+  };
+}
+
 export async function cancelSession(id: string): Promise<AdminResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Cancelled (preview mode)." };
@@ -165,7 +228,7 @@ export async function cancelSession(id: string): Promise<AdminResult> {
     .from("sessions")
     .update({ status: "cancelled" })
     .eq("id", id)
-    .select("zoom_meeting_id")
+    .select("zoom_meeting_id, starts_at, duration_min")
     .maybeSingle();
   if (error) {
     if (/invalid input value for enum/i.test(error.message)) {
@@ -178,10 +241,21 @@ export async function cancelSession(id: string): Promise<AdminResult> {
     return { ok: false, message: error.message };
   }
 
-  // Close the Zoom room too — cancelling used to leave the meeting live, so
-  // members holding the old join URL or calendar invite could still walk in.
+  // Close the Zoom room too — but ONLY for sessions that haven't ended.
+  // Cancelling a PAST session used to delete its Zoom meeting and clear the
+  // link, destroying the platform's pointer to the cloud recording before
+  // it could be imported to the Library.
+  const endedAlready = Boolean(
+    updated?.starts_at &&
+      new Date(updated.starts_at as string).getTime() +
+        ((updated.duration_min as number | null) ?? 60) * 60000 <
+        Date.now(),
+  );
   let zoomNote = "";
-  if (updated?.zoom_meeting_id) {
+  if (updated?.zoom_meeting_id && endedAlready) {
+    zoomNote =
+      " This session already ended, so its Zoom meeting and recording link were left intact.";
+  } else if (updated?.zoom_meeting_id) {
     try {
       const { deleteZoomMeeting, isZoomConfigured } = await import("@/lib/zoom");
       const { isZoomReady } = await import("@/lib/service-config");
@@ -223,4 +297,63 @@ export async function deleteSession(id: string): Promise<AdminResult> {
   revalidatePath("/admin/sessions");
   revalidatePath("/sessions");
   return { ok: true, message: "Session deleted." };
+}
+
+/* ---- Session resources (migration 0047) — shown on the session page and
+   in the live room's Resources tab. ---- */
+
+export async function addSessionResourceAction(
+  sessionId: string,
+  formData: FormData,
+): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, message: "Added (preview mode)." };
+  }
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { addSessionResourceFromForm } = await import(
+    "@/lib/session-resources"
+  );
+  const res = await addSessionResourceFromForm(sessionId, formData);
+  if (res.ok) {
+    revalidatePath(`/sessions/${sessionId}`);
+    revalidatePath(`/admin/sessions/${sessionId}/edit`);
+  }
+  return res;
+}
+
+export async function deleteSessionResourceAction(
+  resourceId: string,
+): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, message: "Removed (preview mode)." };
+  }
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { deleteSessionResource, sessionIdOfResource } = await import(
+    "@/lib/session-resources"
+  );
+  const sessionId = await sessionIdOfResource(resourceId);
+  const res = await deleteSessionResource(resourceId);
+  if (res.ok && sessionId) revalidatePath(`/sessions/${sessionId}`);
+  return res;
+}
+
+export async function moveSessionResourceAction(
+  resourceId: string,
+  direction: "up" | "down",
+): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) return { ok: true };
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { moveSessionResource, sessionIdOfResource } = await import(
+    "@/lib/session-resources"
+  );
+  const sessionId = await sessionIdOfResource(resourceId);
+  const res = await moveSessionResource(resourceId, direction);
+  if (res.ok && sessionId) revalidatePath(`/sessions/${sessionId}`);
+  return res;
 }

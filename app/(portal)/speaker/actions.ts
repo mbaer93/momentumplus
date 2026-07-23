@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -353,9 +354,48 @@ export async function sendSessionNotice(
     </div>
   </div>`;
 
+  // Delivery ledger: each recipient gets a notifications row (their in-app
+  // bell) whose link encodes THIS notice — re-sending the same notice skips
+  // members already reached, so a timeout or double-click never re-emails
+  // all 350 enrollees.
+  const noticeHash = createHash("sha256")
+    .update(`${sessionId}|${subject}|${message}`)
+    .digest("hex")
+    .slice(0, 16);
+  const noticeLink = `/sessions/${sessionId}?notice=${noticeHash}`;
+  const alreadySent = new Set<string>();
+  if (recipients.length > 0) {
+    const { data: markers } = await admin
+      .from("notifications")
+      .select("profile_id")
+      .eq("kind", "speaker_notice")
+      .eq("link", noticeLink)
+      .in(
+        "profile_id",
+        recipients.map((r) => r.profileId),
+      );
+    for (const m of markers ?? []) alreadySent.add(m.profile_id as string);
+  }
+
+  // Sequential GHL sends across a big roster can outlast the function
+  // window — stop before the platform kills the action mid-send and tell
+  // the speaker how to resume.
+  const EMAIL_BUDGET_MS = 240_000;
+  const startedAt = Date.now();
+
   const { sendEmailViaGhl } = await import("@/lib/notifications");
   let sent = 0;
+  let skipped = 0;
+  let remainingForBudget = 0;
   for (const r of recipients) {
+    if (alreadySent.has(r.profileId)) {
+      skipped++;
+      continue;
+    }
+    if (Date.now() - startedAt > EMAIL_BUDGET_MS) {
+      remainingForBudget++;
+      continue;
+    }
     const res = await sendEmailViaGhl({
       contactId: contactIds.get(r.profileId) ?? null,
       email: r.email,
@@ -363,15 +403,30 @@ export async function sendSessionNotice(
       html,
     });
     if (res.sent) sent++;
+    // Marker AFTER the attempt: a crash mid-run re-tries the unmarked tail
+    // on the next send instead of silently dropping it. The row is also the
+    // member's bell notification for this notice.
+    await admin.from("notifications").insert({
+      profile_id: r.profileId,
+      kind: "speaker_notice",
+      title: `Notice from ${ctx.speaker.name}`,
+      body: subject,
+      link: noticeLink,
+    });
   }
 
+  const reached = sent + skipped;
   return {
     ok: true,
     recipients: recipients.length,
     message:
       recipients.length === 0
         ? "No one is enrolled in that session yet."
-        : `Notice sent to ${sent} of ${recipients.length} enrolled member${recipients.length === 1 ? "" : "s"}.`,
+        : remainingForBudget > 0
+          ? `Notice sent to ${reached} of ${recipients.length} so far — ${remainingForBudget} still to send. Press Send again to continue; members already reached are skipped automatically.`
+          : skipped > 0
+            ? `Notice sent to ${sent} more member${sent === 1 ? "" : "s"} (${skipped} had already received it).`
+            : `Notice sent to ${sent} of ${recipients.length} enrolled member${recipients.length === 1 ? "" : "s"}.`,
   };
 }
 
@@ -406,4 +461,55 @@ export async function updateOwnVideo(
   revalidatePath("/library");
   revalidatePath("/speaker");
   return { ok: true, message: "Library item saved." };
+}
+
+/* ---- Session resources: speakers attach materials to their OWN sessions.
+   Members see them on the session page and in the live room's Resources
+   tab (migration 0047). ---- */
+
+/** Add a resource (link or file) to one of the speaker's sessions. */
+export async function addOwnSessionResource(
+  formData: FormData,
+): Promise<StudioResult> {
+  const ctx = await requireSpeaker();
+  if ("preview" in ctx) return { ok: true, message: "Added (preview mode)." };
+  if ("error" in ctx) return { ok: false, message: ctx.error };
+
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const owns = await speakerOwnsSession(ctx.user.id, sessionId);
+  if (!owns.ok) return { ok: false, message: "That session isn't yours." };
+
+  const { addSessionResourceFromForm } = await import(
+    "@/lib/session-resources"
+  );
+  const res = await addSessionResourceFromForm(sessionId, formData);
+  if (res.ok) {
+    revalidatePath(`/sessions/${sessionId}`);
+    revalidatePath("/speaker");
+  }
+  return res;
+}
+
+/** Remove a resource from one of the speaker's own sessions. */
+export async function deleteOwnSessionResource(
+  resourceId: string,
+): Promise<StudioResult> {
+  const ctx = await requireSpeaker();
+  if ("preview" in ctx) return { ok: true, message: "Removed (preview mode)." };
+  if ("error" in ctx) return { ok: false, message: ctx.error };
+
+  const { deleteSessionResource, sessionIdOfResource } = await import(
+    "@/lib/session-resources"
+  );
+  const sessionId = await sessionIdOfResource(resourceId);
+  if (!sessionId) return { ok: false, message: "Resource not found." };
+  const owns = await speakerOwnsSession(ctx.user.id, sessionId);
+  if (!owns.ok) return { ok: false, message: "That resource isn't yours." };
+
+  const res = await deleteSessionResource(resourceId);
+  if (res.ok) {
+    revalidatePath(`/sessions/${sessionId}`);
+    revalidatePath("/speaker");
+  }
+  return res;
 }

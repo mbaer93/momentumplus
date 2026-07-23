@@ -1,4 +1,5 @@
 import { bearerAuthorized } from "@/lib/db-utils";
+import { revalidatePath } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -23,6 +24,9 @@ import { isAnthropicReady } from "@/lib/service-config";
  * are supplied via the admin regenerate endpoint below (POST with transcript),
  * and this cron reports what is waiting.
  */
+// Long-running under load — allow the full function window (Vercel Pro).
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,7 +57,7 @@ export async function GET(req: NextRequest) {
     const { data: videos } = await admin
       .from("videos")
       .select(
-        "id, title, mux_asset_id, mux_playback_id, duration_sec, ai_summaries!video_id ( id )",
+        "id, title, mux_asset_id, mux_playback_id, duration_sec, published_at, session_id, ai_summaries!video_id ( id ), sessions ( ai_summaries ( id ) )",
       )
       .not("mux_asset_id", "is", null)
       .limit(50);
@@ -66,6 +70,55 @@ export async function GET(req: NextRequest) {
     )) {
       try {
         const asset = await getMuxAsset(v.mux_asset_id as string);
+
+        // Errored asset (Zoom's download token expired before Mux fetched
+        // the file — the poller path's token lives ~1h): re-mint a fresh
+        // token and re-ingest, otherwise the video is stuck on "Recording
+        // processing" forever.
+        if (
+          asset.status === "errored" &&
+          (v as { session_id?: string | null }).session_id
+        ) {
+          const { data: sess } = await admin
+            .from("sessions")
+            .select("zoom_meeting_id")
+            .eq("id", (v as { session_id: string }).session_id)
+            .maybeSingle();
+          if (sess?.zoom_meeting_id) {
+            const { getMeetingRecordings } = await import("@/lib/zoom");
+            const rec = await getMeetingRecordings(
+              sess.zoom_meeting_id as string,
+            ).catch(() => null);
+            const mp4s = (rec?.files ?? []).filter(
+              (f) =>
+                f.file_type === "MP4" &&
+                f.download_url &&
+                f.status !== "processing",
+            );
+            const best =
+              mp4s.find(
+                (f) =>
+                  f.recording_type === "shared_screen_with_speaker_view",
+              ) ?? mp4s.sort((a, b) => (b.file_size ?? 0) - (a.file_size ?? 0))[0];
+            if (rec && best?.download_url) {
+              const { createMuxAssetFromUrl } = await import("@/lib/mux");
+              const fresh = await createMuxAssetFromUrl(
+                `${best.download_url}?access_token=${rec.accessToken}`,
+              );
+              await admin
+                .from("videos")
+                .update({ mux_asset_id: fresh.id })
+                .eq("id", v.id);
+              videoResults.push({
+                id: v.id,
+                title: v.title,
+                status: "errored asset re-ingested",
+              });
+            }
+          }
+          continue;
+        }
+
         const playbackId = asset.playback_ids?.[0]?.id ?? null;
         const patch: Record<string, unknown> = {};
         if (!v.mux_playback_id && playbackId) patch.mux_playback_id = playbackId;
@@ -166,11 +219,66 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // AUTO-PUBLISH session recordings (Matt, 2026-07-20): a recording goes
+  // live to members ON ITS OWN — but only once BOTH the video is playable
+  // AND its AI summary exists. Until then members see nothing. Manual
+  // library uploads (no session) keep the admin publish button.
+  const autopublished: { id: string; title: string }[] = [];
+  if (isMuxConfigured()) {
+    const { data: videos } = await admin
+      .from("videos")
+      .select(
+        "id, title, min_access, mux_playback_id, published_at, session_id, ai_summaries!video_id ( id ), sessions ( ai_summaries ( id ) )",
+      )
+      .not("session_id", "is", null)
+      .is("published_at", null)
+      .not("mux_playback_id", "is", null)
+      .limit(20);
+    const has = (v: unknown) =>
+      Array.isArray(v) ? v.length > 0 : Boolean(v);
+    for (const v of videos ?? []) {
+      const row = v as unknown as {
+        id: string;
+        title: string;
+        min_access: string | null;
+        ai_summaries: unknown;
+        sessions: { ai_summaries: unknown } | null;
+      };
+      if (!has(row.ai_summaries) && !has(row.sessions?.ai_summaries)) continue;
+      const { error: pubError } = await admin
+        .from("videos")
+        .update({ published_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .is("published_at", null);
+      if (pubError) continue;
+      autopublished.push({ id: row.id, title: row.title });
+      try {
+        const { notifyMembersInApp } = await import("@/lib/engagement-notify");
+        await notifyMembersInApp({
+          key: "recording_ready",
+          title: "New recording in the Library",
+          body: row.title,
+          link: `/library/${row.id}`,
+          // Only members whose tier can actually open it — a bell that
+          // 404s on click is worse than no bell.
+          minAccess: (row.min_access as never) ?? null,
+        });
+      } catch {
+        // Notification is best-effort; the recording is live either way.
+      }
+    }
+    if (autopublished.length > 0) {
+      revalidatePath("/library");
+      revalidatePath("/dashboard");
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     anthropicConfigured: anthropicReady,
     awaitingTranscript: waiting.map((s) => ({ id: s.id, title: s.title })),
     videos: videoResults,
+    autopublished,
   });
 }
 

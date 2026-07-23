@@ -16,6 +16,7 @@ export const PREF_KEYS = [
   "platform", // email locked on
   "resource_new",
   "event_reminder",
+  "announcements", // SMS opt-in only — email/in-app announcements ride "platform"
 ] as const;
 
 export type PrefKey = (typeof PREF_KEYS)[number];
@@ -27,6 +28,8 @@ export interface PrefDefinition {
   emailLocked?: boolean; // platform emails cannot be disabled
   /** Only the in-app bell is wired for this key — hide email/SMS toggles. */
   inAppOnly?: boolean;
+  /** Only the SMS toggle is wired for this key — hide email/in-app toggles. */
+  smsOnly?: boolean;
   /** No sender exists yet — hidden from the preferences UI until one does
       (showing a toggle that controls nothing erodes trust). */
   hidden?: boolean;
@@ -86,6 +89,13 @@ export const PREF_DEFINITIONS: PrefDefinition[] = [
     description: "TSLS and community event reminders",
     hidden: true, // no sender yet
   },
+  {
+    key: "announcements",
+    label: "Announcement texts",
+    description:
+      "Text me announcements from the SLC team (requires a phone number)",
+    smsOnly: true,
+  },
 ];
 
 export interface PrefRow {
@@ -136,6 +146,7 @@ async function upsertGhlContact(
   email: string,
   apiKey: string,
   locationId: string,
+  phone?: string | null,
 ): Promise<string | null> {
   try {
     const res = await fetch(`${GHL_API_BASE}/contacts/upsert`, {
@@ -145,7 +156,9 @@ async function upsertGhlContact(
         Version: "2021-07-28",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ locationId, email }),
+      // Include the phone when we have it — GHL texts the CONTACT's phone,
+      // so an SMS to a phoneless contact goes nowhere.
+      body: JSON.stringify({ locationId, email, ...(phone ? { phone } : {}) }),
       cache: "no-store",
     });
     if (!res.ok) return null;
@@ -176,27 +189,57 @@ export async function sendEmailViaGhl(input: {
   if (!contactId) {
     return { sent: false, reason: "no GHL contact id" };
   }
-  const res = await fetch(`${GHL_API_BASE}/conversations/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${creds.apiKey}`,
-      Version: "2021-04-15",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      type: "Email",
-      contactId,
-      subject: input.subject,
-      html: input.html,
-    }),
-    cache: "no-store",
-  });
-  if (!res.ok) return { sent: false, reason: `GHL ${res.status}` };
+  const send = (emailFrom: string) =>
+    fetch(`${GHL_API_BASE}/conversations/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${creds.apiKey}`,
+        Version: "2021-04-15",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "Email",
+        contactId,
+        subject: input.subject,
+        html: input.html,
+        emailFrom,
+      }),
+      cache: "no-store",
+    });
+  // From line per Sierra: her monitored address (aligned with the
+  // location's Mailgun sending domain), Momentum+ as the display name.
+  // Overridable via env.
+  const fromFull =
+    process.env.GHL_EMAIL_FROM || "Momentum+ Team <grow@sierralearnership.com>";
+  let res = await send(fromFull);
+  if (!res.ok && (res.status === 400 || res.status === 422)) {
+    // Some GHL validators reject the `Name <address>` form — retry with
+    // just the bare address before giving up.
+    const bare = /<([^>]+)>/.exec(fromFull)?.[1];
+    if (bare) res = await send(bare);
+  }
+  if (!res.ok) {
+    // Surface WHY — "1 email failed" with no reason is undebuggable from
+    // the admin screen. No PII: this is GHL's error text, not the member's.
+    let detail = "";
+    try {
+      const j = (await res.json()) as { message?: unknown; error?: unknown };
+      detail = String(j.message ?? j.error ?? "").slice(0, 140);
+    } catch {
+      /* non-JSON error body */
+    }
+    return {
+      sent: false,
+      reason: `GHL ${res.status}${detail ? `: ${detail}` : ""}`,
+    };
+  }
   return { sent: true };
 }
 
 export async function sendSmsViaGhl(input: {
   contactId?: string | null;
+  /** Used to find-or-create the GHL contact when no contactId is linked. */
+  email?: string;
   phone: string | null;
   message: string;
 }): Promise<{ sent: boolean; reason?: string }> {
@@ -208,7 +251,24 @@ export async function sendSmsViaGhl(input: {
     console.log("[notify:sms:skipped] GHL not configured");
     return { sent: false, reason: "GHL not configured" };
   }
-  if (!input.contactId || !input.phone) {
+  if (!input.phone) {
+    return { sent: false, reason: "no contact/phone" };
+  }
+  // GHL delivers SMS to the CONTACT's phone, not a number we pass — so
+  // upsert by email with the phone attached. This both creates missing
+  // contacts (members who never came through GHL) and fills in a phone the
+  // existing contact may lack. Fall back to the linked id if upsert fails.
+  let contactId = input.contactId ?? null;
+  if (input.email && creds.locationId) {
+    contactId =
+      (await upsertGhlContact(
+        input.email,
+        creds.apiKey,
+        creds.locationId,
+        input.phone,
+      )) ?? contactId;
+  }
+  if (!contactId) {
     return { sent: false, reason: "no contact/phone" };
   }
   const res = await fetch(`${GHL_API_BASE}/conversations/messages`, {
@@ -220,11 +280,25 @@ export async function sendSmsViaGhl(input: {
     },
     body: JSON.stringify({
       type: "SMS",
-      contactId: input.contactId,
+      contactId,
       message: input.message,
     }),
     cache: "no-store",
   });
-  if (!res.ok) return { sent: false, reason: `GHL ${res.status}` };
+  if (!res.ok) {
+    // Surface WHY (GHL's error text, no member PII) — silent SMS failures
+    // burned a test run already.
+    let detail = "";
+    try {
+      const j = (await res.json()) as { message?: unknown; error?: unknown };
+      detail = String(j.message ?? j.error ?? "").slice(0, 140);
+    } catch {
+      /* non-JSON error body */
+    }
+    return {
+      sent: false,
+      reason: `GHL ${res.status}${detail ? `: ${detail}` : ""}`,
+    };
+  }
   return { sent: true };
 }

@@ -9,6 +9,9 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * Team". Runs every 5 minutes; a post goes out once (sent_at set first so a
  * concurrent run can't double-post; rolled back if the send fails).
  */
+// Long-running under load — allow the full function window (Vercel Pro).
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

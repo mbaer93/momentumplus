@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getCurrentMember } from "@/lib/current-member";
 import { getSession } from "@/lib/sessions/queries";
 import { isJoinWindowOpen } from "@/lib/sessions/view";
 import { generateZoomSignature } from "@/lib/zoom-signature";
@@ -9,18 +10,23 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /*
- * Issues a short-lived Zoom Meeting SDK join signature for the embedded live
- * room (SPEC.md §4). Enforced server-side:
+ * Issues a short-lived Zoom Meeting SDK join signature for the live room
+ * (SPEC.md §4). Enforced server-side:
  *   - the caller must be enrolled in the session (the session's own speaker
- *     may join without enrolling), and
+ *     and admins may join without enrolling), and
  *   - the join window must be open (30 min before start → end).
- * The session's SPEAKER gets a HOST signature (role 1): hosting through the
- * embedded room shows their real name to attendees — the Zoom-app start URL
- * can only ever show the shared Zoom account's profile name.
+ * HOST signatures (role 1 + ZAK): the session's SPEAKER always; ADMINS only
+ * while the meeting hasn't started yet. Hosting through the room shows the
+ * host's real name to attendees — the Zoom-app start URL can only ever show
+ * the shared Zoom account's profile name. All host joins authenticate as the
+ * shared account's Zoom user, so once someone is hosting, a second ZAK join
+ * would bump them out mid-session — that's why a started meeting stops
+ * handing admins host rights (the speaker keeps theirs to reclaim their own
+ * dropped connection).
  * The SDK secret never leaves the server.
  */
 export async function POST(req: NextRequest) {
-  let body: { sessionId?: string };
+  let body: { sessionId?: string; asHost?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -37,8 +43,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
-  // The session's own speaker hosts through the embed under their own name.
+  // The session's own speaker hosts through the room under their own name;
+  // admins are backup hosts.
   let isSpeakerHost = false;
+  let isAdminViewer = false;
   if (isSupabaseConfigured()) {
     const {
       data: { user },
@@ -46,10 +54,12 @@ export async function POST(req: NextRequest) {
     if (user) {
       isSpeakerHost = (await speakerOwnsSession(user.id, session.id)).ok;
     }
+    isAdminViewer = (await getCurrentMember())?.isAdmin ?? false;
   }
+  const hostEligible = isSpeakerHost || isAdminViewer;
 
   // getSession resolves the viewer's enrollment via RLS-scoped queries.
-  if (!session.isEnrolled && !isSpeakerHost) {
+  if (!session.isEnrolled && !hostEligible) {
     return NextResponse.json(
       { error: "You must be enrolled to join this session." },
       { status: 403 },
@@ -71,14 +81,38 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Who joins as host (role 1 + ZAK — starting from the Web SDK requires
+  // both): the speaker always (they're the intended host); an admin ONLY
+  // when they explicitly asked to host (asHost) — an admin-privileged
+  // account merely opening the live page must join as a plain attendee,
+  // otherwise their arrival silently starts the meeting as host. Even with
+  // asHost, a started meeting stays hands-off so their join can't bump the
+  // live host (all host joins share the account's Zoom user — see the
+  // header comment).
+  let hostJoin = isSpeakerHost;
+  if (!hostJoin && isAdminViewer && body.asHost === true) {
+    const { getMeetingStatus } = await import("@/lib/zoom");
+    const status = await getMeetingStatus(session.zoomMeetingId).catch(
+      () => null,
+    );
+    // FAIL CLOSED: grant host only on Zoom's definitive "waiting" (not
+    // started). null means the check errored — handing out a ZAK on an
+    // unknown state could bump a live host off their own meeting.
+    hostJoin = status === "waiting";
+  }
+
   const signature = generateZoomSignature({
     sdkKey: zoom.sdkClientId,
     sdkSecret: zoom.sdkClientSecret,
     meetingNumber: session.zoomMeetingId,
-    // Host for the session's speaker (their join starts the meeting and
-    // displays THEIR name); attendee for everyone else.
-    role: isSpeakerHost ? 1 : 0,
+    role: hostJoin ? 1 : 0,
   });
+
+  let zak: string | null = null;
+  if (hostJoin) {
+    const { getHostZak } = await import("@/lib/zoom");
+    zak = await getHostZak();
+  }
 
   // Most Zoom accounts force meeting passcodes; the SDK join fails without
   // one. Only handed out here — after the enrollment + join-window checks.
@@ -98,6 +132,7 @@ export async function POST(req: NextRequest) {
       sdkKey: zoom.sdkClientId,
       meetingNumber: session.zoomMeetingId,
       passcode,
+      zak,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

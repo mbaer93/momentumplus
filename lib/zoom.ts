@@ -110,9 +110,9 @@ export async function createZoomMeeting(
       agenda: input.agenda,
       settings: {
         join_before_host: false,
-        // The portal already gates the room to logged-in enrolled members —
-        // a waiting room would make the host hand-admit every attendee.
-        waiting_room: false,
+        // Waiting room ON (Matt, 2026-07-21): the host sees who's arriving
+        // and admits them — Participants panel has Admit / Admit All.
+        waiting_room: true,
         approval_type: 2,
         auto_recording: "cloud",
         meeting_authentication: false,
@@ -166,10 +166,10 @@ export async function updateZoomMeeting(
       ...(input.durationMin !== undefined && { duration: input.durationMin }),
       ...(input.agenda !== undefined && { agenda: input.agenda }),
       // Keep settings in policy on every touch — heals meetings created
-      // before the no-waiting-room default (and guarantees the cloud
-      // recording that feeds the Library).
+      // under earlier defaults (and guarantees the cloud recording that
+      // feeds the Library).
       settings: {
-        waiting_room: false,
+        waiting_room: true,
         join_before_host: false,
         host_video: true,
         participant_video: true,
@@ -199,6 +199,74 @@ export async function deleteZoomMeeting(meetingId: string): Promise<void> {
   );
   if (!res.ok && res.status !== 204 && res.status !== 404) {
     throw new Error(`Zoom delete meeting failed: ${res.status} ${await res.text()}`);
+  }
+}
+
+/**
+ * ZAK (Zoom Access Key) for the meeting-owner account. The Web Meeting SDK
+ * can only START a meeting as host when the join carries a ZAK — a role-1
+ * signature alone joins with host rank but cannot start the meeting.
+ * Handed out solely to the session's own speaker via the signature route.
+ */
+export async function getHostZak(): Promise<string | null> {
+  try {
+    const token = await getZoomAccessToken();
+    const res = await fetch(`${ZOOM_API_BASE}/users/me/zak`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { token?: string };
+    return json.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Live status of a meeting: "started" while in progress, "waiting"
+ * otherwise, null when Zoom is unreachable or the meeting is gone. Used to
+ * VERIFY a client's "the host ended the meeting" claim before completing a
+ * session — client-side disconnect reasons are localized and fire on plan
+ * cutoffs and host connection blips too.
+ */
+export async function getMeetingStatus(
+  meetingId: string,
+): Promise<string | null> {
+  try {
+    const token = await getZoomAccessToken();
+    const res = await fetch(
+      `${ZOOM_API_BASE}/meetings/${encodeURIComponent(meetingId)}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { status?: string };
+    return json.status ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * When the meeting's most recent instance actually ENDED — null when it has
+ * never run (Zoom 404s) or on error. The live /meetings status can't tell
+ * "ended" from "not started yet" (both read "waiting"); this endpoint can,
+ * because Zoom only writes a past-meeting record after a real run.
+ */
+export async function getPastMeetingEnd(
+  meetingId: string,
+): Promise<string | null> {
+  try {
+    const token = await getZoomAccessToken();
+    const res = await fetch(
+      `${ZOOM_API_BASE}/past_meetings/${encodeURIComponent(meetingId)}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { end_time?: string };
+    return json.end_time ?? null;
+  } catch {
+    return null;
   }
 }
 

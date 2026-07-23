@@ -85,12 +85,15 @@ export function SessionCard({
       </div>
       <div className="session-card-footer">
         {isLive && session.isEnrolled ? (
-          <Link
+          /* Plain <a>, NOT <Link>: the live room needs a full document load
+             so its SharedArrayBuffer isolation headers apply (fast Zoom
+             video) and the Zoom singleton boots fresh for this session. */
+          <a
             href={`/sessions/${session.slug}/live`}
             className="card-btn btn-card-live"
           >
             Join Session Now
-          </Link>
+          </a>
         ) : (
           <>
             <Link
@@ -102,12 +105,13 @@ export function SessionCard({
                 : "View Details"}
             </Link>
             {joinable ? (
-              <Link
+              /* Plain <a> — see the live-entry note above. */
+              <a
                 href={`/sessions/${session.slug}/live`}
                 className="card-btn btn-card-zoom"
               >
                 Join Zoom
-              </Link>
+              </a>
             ) : (
               /* "Add to calendar" — a distinct second action, not a second
                  button to the same detail page. */

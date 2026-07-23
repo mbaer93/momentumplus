@@ -20,13 +20,16 @@ export function AnnouncementComposer() {
   // Nothing pre-selected — the admin chooses the audience and channels
   // deliberately every time.
   const [tiers, setTiers] = useState<Tier[]>([]);
-  const [channels, setChannels] = useState<("email" | "in_app" | "community")[]>(
-    [],
-  );
+  const [channels, setChannels] = useState<
+    ("email" | "in_app" | "community" | "sms")[]
+  >([]);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // Two-step send: first click counts the audience, second click sends.
   const [confirmCount, setConfirmCount] = useState<number | null>(null);
+  // SMS reaches only the opted-in-with-phone subset — counted separately so
+  // the admin sees exactly how many texts Confirm will send.
+  const [confirmSmsCount, setConfirmSmsCount] = useState(0);
   // Set when a send partially failed — resending skips everyone reached.
   const [resumeId, setResumeId] = useState<string | undefined>(undefined);
 
@@ -45,7 +48,7 @@ export function AnnouncementComposer() {
       prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t],
     );
   }
-  function toggleChannel(c: "email" | "in_app" | "community") {
+  function toggleChannel(c: "email" | "in_app" | "community" | "sms") {
     disarm();
     setChannels((prev) =>
       prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
@@ -60,8 +63,9 @@ export function AnnouncementComposer() {
     // mis-click must never email every member.
     if (confirmCount === null) {
       startTransition(async () => {
-        const { count } = await previewAnnouncementAudience(tiers);
+        const { count, smsCount } = await previewAnnouncementAudience(tiers);
         setConfirmCount(count);
+        setConfirmSmsCount(smsCount);
       });
       return;
     }
@@ -155,12 +159,21 @@ export function AnnouncementComposer() {
           >
             Community (#announcements)
           </button>
+          <button
+            type="button"
+            className={`tier-chip${channels.includes("sms") ? " selected" : ""}`}
+            onClick={() => toggleChannel("sms")}
+          >
+            Text (SMS, opted-in only)
+          </button>
         </div>
         <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 8 }}>
           Community posts land in the #announcements channel (visible to all
-          members regardless of tier). SMS announcements are intentionally
-          excluded — SMS stays strictly opt-in per member and per
-          notification type.
+          members regardless of tier). Texts go ONLY to members who turned on
+          &ldquo;Announcement texts&rdquo; in their notification preferences
+          and have a phone number — the confirm step shows exactly how many
+          that is. In-app announcements also push to members&rsquo; devices
+          where they&rsquo;ve enabled push notifications.
         </div>
       </div>
 
@@ -200,8 +213,18 @@ export function AnnouncementComposer() {
         {confirmCount !== null && !pending && !msg && (
           <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
             This reaches {confirmCount} member{confirmCount === 1 ? "" : "s"} via{" "}
-            {channels.map((c) => (c === "email" ? "email" : "in-app")).join(" + ")}.
-            Nothing has been sent yet.
+            {channels
+              .map((c) =>
+                c === "email"
+                  ? "email"
+                  : c === "sms"
+                    ? `text (${confirmSmsCount} opted in)`
+                    : c === "community"
+                      ? "community"
+                      : "in-app",
+              )
+              .join(" + ")}
+            . Nothing has been sent yet.
           </span>
         )}
         {msg && (

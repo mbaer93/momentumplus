@@ -32,8 +32,23 @@ import {
 } from "@/lib/sessions/view";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { unstable_cache } from "next/cache";
 
 export const dynamic = "force-dynamic";
+
+// The "New Messages" stat costs a Stream API call; at 350 members hitting
+// the dashboard it would hammer Stream on every render. A ~2-minute cache
+// per member keeps the stat honest enough without the per-render call.
+function cachedUnreadTotal(userId: string): Promise<number> {
+  return unstable_cache(
+    async () => {
+      const { getUnreadTotal } = await import("@/lib/stream");
+      return getUnreadTotal(userId);
+    },
+    ["stream-unread-total", userId],
+    { revalidate: 120 },
+  )();
+}
 
 interface UpcomingRow {
   id: string;
@@ -108,8 +123,8 @@ export default async function DashboardPage() {
           .select("created_at")
           .eq("id", user.id)
           .maybeSingle(),
-        // Real unread count from Stream — this stat was hardcoded to 0.
-        import("@/lib/stream").then((m) => m.getUnreadTotal(user.id)),
+        // Real unread count from Stream — cached ~2 min per member (above).
+        cachedUnreadTotal(user.id),
         supabase
           .from("notification_prefs")
           .select("key", { count: "exact", head: true })

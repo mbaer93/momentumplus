@@ -5,16 +5,19 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { allRows } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { sendEmailViaGhl } from "@/lib/notifications";
+import { brandedEmailHtml } from "@/lib/email-template";
+import { sendEmailViaGhl, sendSmsViaGhl } from "@/lib/notifications";
+import { sendPushToProfiles } from "@/lib/push";
 import type { Tier } from "@/lib/types";
 
 export interface AnnouncementInput {
   title: string;
   body: string;
   audienceTiers: Tier[];
-  /** SMS announcements come later; opt-in only. "community" posts to the
+  /** "sms" texts ONLY members who opted in to announcement texts (prefs key
+      "announcements") AND have a phone number. "community" posts to the
       #announcements chat channel (all members, tiers don't apply). */
-  channels: ("email" | "in_app" | "community")[];
+  channels: ("email" | "in_app" | "community" | "sms")[];
 }
 
 export interface AnnouncementResult {
@@ -26,30 +29,56 @@ export interface AnnouncementResult {
   announcementId?: string;
 }
 
-/** How many members the selected tiers reach — shown in the confirm step. */
+/** How many members the selected tiers reach — shown in the confirm step.
+    smsCount = the subset who opted in to announcement texts AND have a
+    phone number (what the SMS channel would actually text). */
 export async function previewAnnouncementAudience(
   audienceTiers: Tier[],
-): Promise<{ count: number }> {
+): Promise<{ count: number; smsCount: number }> {
   if (
     !isSupabaseConfigured() ||
     !process.env.SUPABASE_SERVICE_ROLE_KEY ||
     audienceTiers.length === 0
   ) {
-    return { count: 0 };
+    return { count: 0, smsCount: 0 };
   }
   const auth = await requireAdmin("announcements");
-  if (!auth.ok) return { count: 0 };
+  if (!auth.ok) return { count: 0, smsCount: 0 };
   const admin = createServiceClient();
-  const { rows } = await allRows<{ profile_id: string }>((from, to) =>
+  const { rows } = await allRows<{
+    profile_id: string;
+    profiles: { phone: string | null } | null;
+  }>((from, to) =>
     admin
       .from("memberships")
-      .select("profile_id")
+      .select("profile_id, profiles ( phone )")
       .in("tier", audienceTiers)
       .in("status", ["active", "past_due"])
       .order("profile_id")
+      .range(from, to) as unknown as PromiseLike<{
+      data:
+        | { profile_id: string; profiles: { phone: string | null } | null }[]
+        | null;
+      error: { message: string } | null;
+    }>,
+  );
+  const withPhone = new Set(
+    rows.filter((r) => r.profiles?.phone).map((r) => r.profile_id),
+  );
+  const audienceIds = new Set(rows.map((r) => r.profile_id));
+  const { rows: smsPrefs } = await allRows<{ profile_id: string }>((from, to) =>
+    admin
+      .from("notification_prefs")
+      .select("profile_id")
+      .eq("key", "announcements")
+      .eq("sms", true)
+      .order("profile_id")
       .range(from, to),
   );
-  return { count: new Set(rows.map((r) => r.profile_id)).size };
+  const smsCount = smsPrefs.filter(
+    (p) => audienceIds.has(p.profile_id) && withPhone.has(p.profile_id),
+  ).length;
+  return { count: audienceIds.size, smsCount };
 }
 
 /**
@@ -170,11 +199,11 @@ export async function sendAnnouncement(
   const { rows: memberships } = await allRows<{
     profile_id: string;
     ghl_contact_id: string | null;
-    profiles: { email: string; full_name: string } | null;
+    profiles: { email: string; full_name: string; phone: string | null } | null;
   }>((from, to) =>
     admin
       .from("memberships")
-      .select("profile_id, ghl_contact_id, profiles ( email, full_name )")
+      .select("profile_id, ghl_contact_id, profiles ( email, full_name, phone )")
       .in("tier", input.audienceTiers)
       .in("status", ["active", "past_due"])
       .order("profile_id")
@@ -183,7 +212,11 @@ export async function sendAnnouncement(
         | {
             profile_id: string;
             ghl_contact_id: string | null;
-            profiles: { email: string; full_name: string } | null;
+            profiles: {
+              email: string;
+              full_name: string;
+              phone: string | null;
+            } | null;
           }[]
         | null;
       error: { message: string } | null;
@@ -196,6 +229,7 @@ export async function sendAnnouncement(
     contactId: string | null;
     email: string;
     name: string;
+    phone: string | null;
   }[] = [];
   for (const m of memberships) {
     if (seen.has(m.profile_id)) continue;
@@ -206,14 +240,21 @@ export async function sendAnnouncement(
       contactId: m.ghl_contact_id ?? null,
       email: m.profiles.email,
       name: m.profiles.full_name,
+      phone: m.profiles.phone ?? null,
     });
   }
   const profileIds = audience.map((a) => a.profileId);
 
   // What already went out (retry safety). Pre-migration the table may not
   // exist — treat as "nothing delivered yet" and skip journaling.
-  let delivered = new Map<string, { notified: boolean; emailed: boolean }>();
+  let delivered = new Map<
+    string,
+    { notified: boolean; emailed: boolean; smsed: boolean }
+  >();
   let ledgerAvailable = true;
+  // sms_at is migration 0048 — select it separately so a pre-0048 database
+  // only degrades SMS dedupe, not the whole ledger.
+  let smsLedgerAvailable = true;
   {
     const { rows, error } = await allRows<{
       profile_id: string;
@@ -229,13 +270,40 @@ export async function sendAnnouncement(
     );
     if (error) {
       ledgerAvailable = false;
+      smsLedgerAvailable = false;
     } else {
       delivered = new Map(
         rows.map((r) => [
           r.profile_id,
-          { notified: Boolean(r.notified_at), emailed: Boolean(r.emailed_at) },
+          {
+            notified: Boolean(r.notified_at),
+            emailed: Boolean(r.emailed_at),
+            smsed: false,
+          },
         ]),
       );
+      if (input.channels.includes("sms")) {
+        const { rows: smsRows, error: smsError } = await allRows<{
+          profile_id: string;
+          sms_at: string | null;
+        }>((from, to) =>
+          admin
+            .from("announcement_deliveries")
+            .select("profile_id, sms_at")
+            .eq("announcement_id", announcementId)
+            .order("profile_id")
+            .range(from, to),
+        );
+        if (smsError) {
+          smsLedgerAvailable = false;
+        } else {
+          for (const r of smsRows) {
+            if (!r.sms_at) continue;
+            const entry = delivered.get(r.profile_id);
+            if (entry) entry.smsed = true;
+          }
+        }
+      }
     }
   }
 
@@ -260,6 +328,27 @@ export async function sendAnnouncement(
       if (p.in_app === false && audienceIds.has(p.profile_id)) {
         optedOut.add(p.profile_id);
       }
+    }
+  }
+
+  // SMS opt-in: ONLY members who turned on announcement texts (prefs key
+  // "announcements") — never the whole audience. Same paged in-memory
+  // filter as above.
+  const smsOptIn = new Set<string>();
+  if (input.channels.includes("sms") && profileIds.length > 0) {
+    const audienceIds = new Set(profileIds);
+    const { rows: smsPrefs } = await allRows<{ profile_id: string }>(
+      (from, to) =>
+        admin
+          .from("notification_prefs")
+          .select("profile_id")
+          .eq("key", "announcements")
+          .eq("sms", true)
+          .order("profile_id")
+          .range(from, to),
+    );
+    for (const p of smsPrefs) {
+      if (audienceIds.has(p.profile_id)) smsOptIn.add(p.profile_id);
     }
   }
 
@@ -291,20 +380,56 @@ export async function sendAnnouncement(
         );
       }
     }
+    // Push mirrors the in-app bell: same audience, same content, delivered
+    // to whatever devices those members enabled push on. Best-effort — the
+    // ledger's notified_at also covers push, so a resume doesn't re-push.
+    try {
+      await sendPushToProfiles(
+        owed.map((a) => a.profileId),
+        {
+          title: input.title.trim(),
+          body: input.body.trim().slice(0, 180),
+          link: "/dashboard",
+        },
+      );
+    } catch {
+      /* push must never fail the announcement */
+    }
   }
 
   // Emails: sequential (GHL API), journaled one by one so a mid-loop crash
-  // never double-sends on retry.
+  // never double-sends on retry. TIME-BUDGETED for a 350-member audience:
+  // one press can't finish 350 sequential GHL calls inside the function
+  // limit, so the loop stops cleanly and tells the admin to press Send
+  // again — the ledger makes the next press resume-only.
   let emailed = 0;
   let emailFailures = 0;
+  let lastEmailError: string | null = null;
+  let remainingForBudget = 0;
+  // ONE budget shared by the email and SMS loops — together they must fit
+  // the function limit; the ledger lets a second press finish the rest.
+  const emailBudgetStart = Date.now();
+  const EMAIL_BUDGET_MS = 240_000;
   if (input.channels.includes("email")) {
     for (const a of audience) {
       if (delivered.get(a.profileId)?.emailed) continue;
+      if (Date.now() - emailBudgetStart > EMAIL_BUDGET_MS) {
+        remainingForBudget++;
+        continue;
+      }
       const res = await sendEmailViaGhl({
         contactId: a.contactId,
         email: a.email,
         subject: input.title.trim(),
-        html: `<p>Hi ${a.name || "there"},</p><p>${(input.body || "").replace(/\n/g, "<br/>")}</p><p>— The Momentum+ team</p>`,
+        html: brandedEmailHtml({
+          greetingName: a.name,
+          heading: input.title.trim(),
+          bodyHtml: `<p style="margin:0 0 14px;">${(input.body || "").replace(/\n/g, "<br/>")}</p>`,
+          ctaLabel: "Open Momentum+",
+          ctaUrl: "/dashboard",
+          footnote:
+            "You're receiving this as a Momentum+ member of the Tri-State Leadership Summit community.",
+        }),
       });
       if (res.sent) {
         emailed++;
@@ -321,6 +446,52 @@ export async function sendAnnouncement(
         }
       } else if (res.reason !== "no GHL contact id" && res.reason !== "GHL not configured") {
         emailFailures++;
+        lastEmailError = res.reason ?? null;
+      }
+    }
+  }
+
+  // Texts: opted-in members with a phone number only. Same sequential,
+  // journaled, budget-bounded shape as email.
+  let smsSent = 0;
+  let smsFailures = 0;
+  let lastSmsError: string | null = null;
+  let smsRemainingForBudget = 0;
+  let smsEligible = 0;
+  if (input.channels.includes("sms")) {
+    const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
+    const smsMessage = `Momentum+: ${input.title.trim()} — read it here: ${site}/dashboard`;
+    for (const a of audience) {
+      if (!smsOptIn.has(a.profileId) || !a.phone) continue;
+      smsEligible++;
+      if (delivered.get(a.profileId)?.smsed) continue;
+      if (Date.now() - emailBudgetStart > EMAIL_BUDGET_MS) {
+        smsRemainingForBudget++;
+        continue;
+      }
+      const res = await sendSmsViaGhl({
+        contactId: a.contactId,
+        email: a.email,
+        phone: a.phone,
+        message: smsMessage,
+      });
+      if (res.sent) {
+        smsSent++;
+        if (ledgerAvailable && smsLedgerAvailable) {
+          await admin.from("announcement_deliveries").upsert(
+            {
+              announcement_id: announcementId,
+              profile_id: a.profileId,
+              sms_at: new Date().toISOString(),
+            },
+            { onConflict: "announcement_id,profile_id" },
+          );
+        }
+      } else if (res.reason !== "GHL not configured") {
+        // "no contact/phone" counts too now — the sender upserts the GHL
+        // contact itself, so any non-send here is a real, fixable failure.
+        smsFailures++;
+        lastSmsError = res.reason ?? null;
       }
     }
   }
@@ -328,17 +499,43 @@ export async function sendAnnouncement(
   const parts: string[] = [`Reached ${audience.length} member${audience.length === 1 ? "" : "s"}.`];
   if (input.channels.includes("email")) {
     parts.push(`${emailed} email${emailed === 1 ? "" : "s"} sent this run.`);
+    if (remainingForBudget > 0) {
+      parts.push(
+        ledgerAvailable
+          ? `${remainingForBudget} still to email — press Send again to continue (members already reached are skipped automatically).`
+          : `${remainingForBudget} still to email, but retry-dedupe is unavailable (migration 0031) — pressing Send again MAY re-email members already reached.`,
+      );
+    }
     if (emailFailures > 0) {
       parts.push(
         ledgerAvailable
-          ? `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed — press Send again to retry just those (no one gets duplicates).`
-          : `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed. Retry-dedupe is unavailable (migration 0031 hasn't run), so pressing Send again MAY re-email members already reached.`,
+          ? `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed${lastEmailError ? ` (last error: ${lastEmailError})` : ""} — press Send again to retry just those (no one gets duplicates).`
+          : `${emailFailures} email${emailFailures === 1 ? "" : "s"} failed${lastEmailError ? ` (last error: ${lastEmailError})` : ""}. Retry-dedupe is unavailable (migration 0031 hasn't run), so pressing Send again MAY re-email members already reached.`,
+      );
+    }
+  }
+  if (input.channels.includes("sms")) {
+    parts.push(
+      `${smsSent} text${smsSent === 1 ? "" : "s"} sent (${smsEligible} member${smsEligible === 1 ? "" : "s"} opted in with a phone number).`,
+    );
+    if (smsRemainingForBudget > 0) {
+      parts.push(
+        smsLedgerAvailable
+          ? `${smsRemainingForBudget} still to text — press Send again to continue.`
+          : `${smsRemainingForBudget} still to text, but SMS retry-dedupe is unavailable (migration 0048) — pressing Send again MAY re-text members already reached.`,
+      );
+    }
+    if (smsFailures > 0) {
+      parts.push(
+        smsLedgerAvailable
+          ? `${smsFailures} text${smsFailures === 1 ? "" : "s"} failed${lastSmsError ? ` (last error: ${lastSmsError})` : ""} — press Send again to retry just those.`
+          : `${smsFailures} text${smsFailures === 1 ? "" : "s"} failed${lastSmsError ? ` (last error: ${lastSmsError})` : ""}. SMS retry-dedupe is unavailable (migration 0048 hasn't run), so pressing Send again MAY re-text members already reached.`,
       );
     }
   }
   if (communityNote) parts.push(communityNote.trim());
   return {
-    ok: emailFailures === 0,
+    ok: emailFailures === 0 && smsFailures === 0,
     recipients: audience.length,
     announcementId,
     message: parts.join(" "),
