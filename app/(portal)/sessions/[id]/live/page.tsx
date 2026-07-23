@@ -24,8 +24,10 @@ export default async function LiveSessionPage({
   ]);
   if (!session) notFound();
 
-  // Enrolled-members-only (SPEC.md §4).
-  if (!session.isEnrolled) {
+  // Enrolled-members-only (SPEC.md §4) — except drop-in programs (Rooted
+  // Focus): any active member may walk in during the join window.
+  const { isDropInProgram } = await import("@/lib/programs");
+  if (!session.isEnrolled && !isDropInProgram(session.program)) {
     return (
       <div className="dash-pad">
         <div className="placeholder" style={{ margin: "40px auto" }}>

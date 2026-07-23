@@ -131,6 +131,7 @@ export function SponsorRail({
         <div className="rail-become-title">Become a partner</div>
         <div className="rail-become-sub">
           Put your brand in front of a national community of engaged leaders.
+          New partners are considered when 2027 sponsorships open in April.
         </div>
         <a
           className="btn-gold"

@@ -16,22 +16,39 @@ export interface CalendarEvent {
   title: string;
   startsAt: string;
   category: string;
+  program?: string;
   speakerName: string;
   isEnrolled: boolean;
 }
 
-type EventColor = "blue" | "gold" | "green";
+type EventColor = "blue" | "green" | "gold" | "purple" | "neutral";
 
+/* Legend follows the session taxonomy (Sierra, 2026-07-22). Rooted Focus
+   is always a Productivity Session regardless of its stored category;
+   legacy categories fold into the nearest new bucket. */
 function colorFor(e: CalendarEvent): EventColor {
-  if (/office hours/i.test(e.title)) return "green";
-  if (e.category === "Networking") return "gold";
-  return "blue";
+  if (e.program === "rooted_focus") return "gold";
+  switch (e.category) {
+    case "Accountability Session":
+      return "green";
+    case "Productivity Session":
+      return "gold";
+    case "AI Leadership Lab":
+      return "purple";
+    case "Bonus Sessions":
+    case "Networking":
+      return "neutral";
+    default:
+      return "blue"; // Monthly Educational Session + legacy categories
+  }
 }
 
 const LEGEND: { color: EventColor; swatch: string; label: string }[] = [
-  { color: "blue", swatch: "rgba(58,107,150,0.15)", label: "Session / Workshop" },
-  { color: "gold", swatch: "var(--gold-pale)", label: "Networking Event" },
-  { color: "green", swatch: "rgba(58,112,85,0.12)", label: "Office Hours" },
+  { color: "blue", swatch: "rgba(58,107,150,0.15)", label: "Monthly Educational Session" },
+  { color: "green", swatch: "rgba(58,112,85,0.12)", label: "Accountability Session" },
+  { color: "gold", swatch: "var(--gold-pale)", label: "Productivity Session" },
+  { color: "purple", swatch: "rgba(92,61,122,0.14)", label: "AI Leadership Lab" },
+  { color: "neutral", swatch: "rgba(11,22,34,0.08)", label: "Bonus Sessions" },
 ];
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

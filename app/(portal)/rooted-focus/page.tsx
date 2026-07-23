@@ -12,9 +12,9 @@ export const metadata = { title: "Rooted Focus | Momentum+" };
 /*
  * Rooted Focus: 90-minute structured co-working sessions led by the SLC
  * team. Same browsing experience as Sessions, scoped to the rooted_focus
- * program, with the session rhythm explained up top. Enrolling adds the
- * whole recurring series to the member's calendar (RRULE in the .ics and
- * Google Calendar links).
+ * program, with the session rhythm explained up top. Drop-in: no
+ * enrollment — any member joins during the window, and Add to Calendar
+ * puts the whole recurring series (WITH the Zoom link) on their calendar.
  */
 
 const RHYTHM: { step: string; detail: string }[] = [
@@ -112,7 +112,9 @@ export default async function RootedFocusPage() {
           Rooted Focus sessions will appear here as they&apos;re scheduled.
         </div>
       ) : (
-        <SessionsBrowser sessions={sessions} isAdmin={member.isAdmin} />
+        /* Drop-in program: no enrollment, so no All/Enrolled/Attended
+           filters — just the schedule (Sierra, 2026-07-22). */
+        <SessionsBrowser sessions={sessions} isAdmin={member.isAdmin} hideFilters />
       )}
     </div>
   );

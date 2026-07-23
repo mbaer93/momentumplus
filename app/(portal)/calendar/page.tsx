@@ -42,6 +42,7 @@ export default async function CalendarPage() {
         title: s.title,
         startsAt,
         category: s.category,
+        program: s.program,
         speakerName: s.speaker.name,
         isEnrolled: s.isEnrolled,
       }));

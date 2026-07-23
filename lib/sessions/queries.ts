@@ -313,8 +313,10 @@ export const getSession = requestCache(async (id: string): Promise<SessionDetail
   // Join credentials only exist for enrolled viewers — the columns are not
   // member-selectable (migration 0020), so this is the single hand-out
   // point. The row was fetched concurrently; it is only ATTACHED here,
-  // after the enrollment check.
-  if (session.isEnrolled && joinRes.data) {
+  // after the enrollment check. Drop-in programs (Rooted Focus) hand the
+  // link to ANY member who can see the session — no enrollment exists.
+  const { isDropInProgram } = await import("@/lib/programs");
+  if ((session.isEnrolled || isDropInProgram(session.program)) && joinRes.data) {
     const j = joinRes.data as {
       zoom_join_url: string | null;
       zoom_meeting_id: string | null;

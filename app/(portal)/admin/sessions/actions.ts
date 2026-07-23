@@ -124,11 +124,14 @@ export async function updateSession(
       const { isZoomReady } = await import("@/lib/service-config");
       if (await isZoomReady()) {
         const { updateZoomMeeting } = await import("@/lib/zoom");
+        const { programRecords } = await import("@/lib/programs");
         await updateZoomMeeting(updated.zoom_meeting_id, {
           topic: row.title,
           startTime: row.starts_at ?? undefined,
           durationMin: row.duration_min ?? undefined,
           agenda: row.description ?? undefined,
+          // Rooted Focus co-working is never recorded (Sierra, 2026-07-22).
+          record: programRecords((row.program as string) ?? "standard"),
         });
       }
     } catch (e) {

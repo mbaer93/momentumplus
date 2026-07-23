@@ -88,6 +88,9 @@ export interface CreateMeetingInput {
   durationMin: number;
   agenda?: string;
   hostEmail?: string; // defaults to the S2S app's default user ("me")
+  /** Cloud-record the meeting (default true). Drop-in programs like
+      Rooted Focus are NOT recorded (Sierra, 2026-07-22). */
+  record?: boolean;
 }
 
 export async function createZoomMeeting(
@@ -114,7 +117,7 @@ export async function createZoomMeeting(
         // and admits them — Participants panel has Admit / Admit All.
         waiting_room: true,
         approval_type: 2,
-        auto_recording: "cloud",
+        auto_recording: input.record === false ? "none" : "cloud",
         meeting_authentication: false,
         // Cameras start available and on at join (the browser still asks
         // permission) — members should be seen, not just heard.
@@ -151,7 +154,14 @@ export async function createZoomMeeting(
  */
 export async function updateZoomMeeting(
   meetingId: string,
-  input: { topic?: string; startTime?: string; durationMin?: number; agenda?: string },
+  input: {
+    topic?: string;
+    startTime?: string;
+    durationMin?: number;
+    agenda?: string;
+    /** See CreateMeetingInput.record — false for drop-in programs. */
+    record?: boolean;
+  },
 ): Promise<void> {
   const token = await getZoomAccessToken();
   const res = await fetch(`${ZOOM_API_BASE}/meetings/${meetingId}`, {
@@ -173,7 +183,7 @@ export async function updateZoomMeeting(
         join_before_host: false,
         host_video: true,
         participant_video: true,
-        auto_recording: "cloud",
+        auto_recording: input.record === false ? "none" : "cloud",
       },
     }),
     cache: "no-store",

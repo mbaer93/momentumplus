@@ -23,7 +23,7 @@ export async function POST(
   const { data: session, error } = await admin
     .from("sessions")
     .select(
-      "id, title, description, starts_at, duration_min, zoom_meeting_id, status",
+      "id, title, description, starts_at, duration_min, zoom_meeting_id, status, program",
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -51,11 +51,14 @@ export async function POST(
   const zoomSkipped = !session.zoom_meeting_id && !zoomReady;
   if (!session.zoom_meeting_id && zoomReady) {
     try {
+      const { programRecords } = await import("@/lib/programs");
       const meeting = await createZoomMeeting({
         topic: session.title,
         startTime: session.starts_at,
         durationMin: session.duration_min ?? 60,
         agenda: session.description ?? undefined,
+        // Rooted Focus co-working is never recorded (Sierra, 2026-07-22).
+        record: programRecords((session.program as string) ?? "standard"),
       });
       update = {
         ...update,
