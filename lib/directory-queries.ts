@@ -187,6 +187,31 @@ export async function listSpeakersForAdmin(): Promise<SpeakerProfile[]> {
     .map(mapSpeakerRow);
 }
 
+/**
+ * Names of active admins, for the drop-in host picker (Rooted Focus /
+ * Aspire2Achieve are led by the SLC team, never a speaker). The picked name
+ * lands in sessions.host_name — no FK, so this is display data only.
+ */
+export async function listAdminHostNames(): Promise<string[]> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return [];
+  }
+  const { createServiceClient } = await import("@/lib/supabase/admin");
+  const admin = createServiceClient();
+  const { data } = await admin
+    .from("memberships")
+    .select("profiles ( full_name )")
+    .eq("tier", "admin")
+    .eq("status", "active");
+  const names = (data ?? [])
+    .map((row) => {
+      const p = row.profiles as { full_name: string | null } | { full_name: string | null }[] | null;
+      return Array.isArray(p) ? p[0]?.full_name : p?.full_name;
+    })
+    .filter((n): n is string => Boolean(n && n.trim()));
+  return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+}
+
 export async function listResources(viewerTier: Tier): Promise<ResourceItem[]> {
   if (!isSupabaseConfigured()) {
     // Show all; gated ones render with an Exclusive lock in the UI.

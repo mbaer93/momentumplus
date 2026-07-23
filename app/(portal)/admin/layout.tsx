@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -14,5 +15,10 @@ export default async function AdminLayout({
     const auth = await requireAdmin();
     if (!auth.ok) redirect("/dashboard");
   }
-  return <>{children}</>;
+  return (
+    <>
+      <AdminBackLink />
+      {children}
+    </>
+  );
 }

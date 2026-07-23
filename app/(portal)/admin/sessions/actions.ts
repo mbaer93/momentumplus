@@ -51,7 +51,12 @@ function toRow(values: SessionFormValues) {
     capacity: values.capacity,
     min_access: values.minAccess,
     status: values.status,
-    speaker_id: values.speakerId || null,
+    // Drop-ins are admin-hosted (host_name), never speaker-linked — enforced
+    // here too so a stale client can't attach one.
+    speaker_id:
+      ["rooted_focus", "aspire"].includes(values.program) || !values.speakerId
+        ? null
+        : values.speakerId,
     program: ["rooted_focus", "aspire"].includes(values.program)
       ? values.program
       : "standard",
