@@ -29,8 +29,9 @@ export async function ingestSessionRecording(
       access token — both authorize Zoom recording downloads). */
   accessToken?: string | null,
 ): Promise<{ ok: boolean; status: string }> {
-  if (session.program === "rooted_focus") {
-    return { ok: true, status: "rooted focus — not archived" };
+  const { isDropInProgram } = await import("@/lib/programs");
+  if (isDropInProgram(session.program ?? "standard")) {
+    return { ok: true, status: "drop-in program — not archived" };
   }
 
   // One recording per session — webhook re-deliveries, multi-file events,

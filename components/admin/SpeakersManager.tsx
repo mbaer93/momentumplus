@@ -19,6 +19,28 @@ import {
   type SpeakerInput,
 } from "@/app/(portal)/admin/speakers/actions";
 
+/* Speaker-of-the-month options: fixed window covering the published
+   schedule (Oct 2026 – Sep 2027) plus two seasons of headroom. A static
+   list keeps server and client renders identical. */
+const MONTH_OPTIONS: { value: string; label: string }[] = (() => {
+  const out: { value: string; label: string }[] = [
+    { value: "", label: "— No month assigned —" },
+  ];
+  for (let i = 0; i < 36; i++) {
+    const d = new Date(Date.UTC(2026, 9 + i, 15));
+    const value = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    out.push({
+      value,
+      label: d.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      }),
+    });
+  }
+  return out;
+})();
+
 const FIELDS: FieldDef[] = [
   { key: "name", label: "Name", type: "text", required: true },
   {
@@ -41,6 +63,17 @@ const FIELDS: FieldDef[] = [
   },
   { key: "bio", label: "Bio", type: "textarea" },
   { key: "featured", label: "Featured (shown first)", type: "checkbox" },
+  {
+    key: "speakerMonth",
+    label: "Momentum+ month (speaker of the month)",
+    type: "select",
+    options: MONTH_OPTIONS,
+  },
+  {
+    key: "tslsMainSpeaker",
+    label: "TSLS Main Speaker (unpaid — no 15% earnings share)",
+    type: "checkbox",
+  },
 ];
 
 const EMPTY: EntityValues = {
@@ -50,6 +83,8 @@ const EMPTY: EntityValues = {
   website: "",
   bio: "",
   featured: false,
+  speakerMonth: "",
+  tslsMainSpeaker: false,
 };
 
 function toInput(v: EntityValues): SpeakerInput {
@@ -60,6 +95,8 @@ function toInput(v: EntityValues): SpeakerInput {
     industries: String(v.industries ?? ""),
     website: String(v.website ?? ""),
     featured: Boolean(v.featured),
+    speakerMonth: String(v.speakerMonth ?? ""),
+    tslsMainSpeaker: Boolean(v.tslsMainSpeaker),
   };
 }
 

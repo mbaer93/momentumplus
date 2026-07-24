@@ -20,12 +20,14 @@ export function programRecords(program: string): boolean {
 
 /** Rooted Focus displays as a Productivity Session and Aspire2Achieve as an
     Accountability Session regardless of the stored category (older rows
-    were created as "Business"/"Networking"). */
+    were created as "Business"/"Networking"). Add-on Sessions likewise badge
+    by their program, not the stored category. */
 export function displayCategory(session: {
   program: string;
   category: SessionCategory | string;
 }): string {
   if (session.program === "rooted_focus") return "Productivity Session";
   if (session.program === "aspire") return "Accountability Session";
+  if (session.program === "addon") return "Add-on Sessions";
   return session.category;
 }

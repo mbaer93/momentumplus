@@ -9,9 +9,10 @@ export const dynamic = "force-dynamic";
 
 export default async function SessionsPage() {
   const member = await requireMember();
-  // Rooted Focus sessions live on their own tab.
+  // Rooted Focus/Aspire live on their own tabs; Main Sessions and Add-on
+  // Sessions share this one.
   const sessions = (await listSessions()).filter(
-    (s) => s.program === "standard",
+    (s) => s.program === "standard" || s.program === "addon",
   );
 
   return (

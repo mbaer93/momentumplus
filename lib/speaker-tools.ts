@@ -18,6 +18,11 @@ export interface OwnSpeaker {
   headshotUrl: string | null;
   resourceId: string | null;
   expiresAt: string | null;
+  /** Speaker-of-the-month assignment ("YYYY-MM") — drives the Studio's
+      members/earnings card. Null until an admin assigns a month. */
+  speakerMonth: string | null;
+  /** TSLS Main Speakers are unpaid — their card shows members, not money. */
+  tslsMainSpeaker: boolean;
 }
 
 export async function getSpeakerForUser(
@@ -26,13 +31,28 @@ export async function getSpeakerForUser(
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return null;
   }
-  const { data } = await createServiceClient()
-    .from("speakers")
-    .select(
-      "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at",
-    )
-    .eq("profile_id", userId)
-    .maybeSingle();
+  const service = createServiceClient();
+  let data: Record<string, unknown> | null = (
+    await service
+      .from("speakers")
+      .select(
+        "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker",
+      )
+      .eq("profile_id", userId)
+      .maybeSingle()
+  ).data;
+  if (!data) {
+    // Pre-migration-0053 fallback (no speaker-month columns yet).
+    data = (
+      await service
+        .from("speakers")
+        .select(
+          "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at",
+        )
+        .eq("profile_id", userId)
+        .maybeSingle()
+    ).data;
+  }
   if (!data) return null;
   if (
     !sponsorActive({
@@ -51,6 +71,8 @@ export async function getSpeakerForUser(
     headshotUrl: (data.headshot_url as string | null) ?? null,
     resourceId: (data.resource_id as string | null) ?? null,
     expiresAt: (data.expires_at as string | null) ?? null,
+    speakerMonth: (data.speaker_month as string | null) ?? null,
+    tslsMainSpeaker: Boolean(data.tsls_main_speaker),
   };
 }
 

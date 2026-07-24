@@ -16,6 +16,7 @@ const CATEGORY_FILTERS = [
   "Productivity Session",
   "AI Leadership Lab",
   "Bonus Sessions",
+  "Add-on Sessions",
 ] as const;
 
 type Filter =

@@ -18,8 +18,9 @@ export interface SessionFormValues {
   status: SessionStatus;
   /** Speaker record this session links to ("" = none yet). */
   speakerId: string;
-  /** Rooted Focus lives on its own member tab. */
-  program: "standard" | "rooted_focus" | "aspire";
+  /** Rooted Focus/Aspire live on their own member tabs; Add-on Sessions
+      share the Sessions tab with Main Sessions. */
+  program: "standard" | "rooted_focus" | "aspire" | "addon";
   /** Recurring series cadence ("" = one-time). */
   recurrence: "" | "weekly" | "biweekly" | "monthly";
   /** Optional series end, "YYYY-MM-DD" (ET) — blank = open-ended. */
@@ -57,7 +58,7 @@ function toRow(values: SessionFormValues) {
       ["rooted_focus", "aspire"].includes(values.program) || !values.speakerId
         ? null
         : values.speakerId,
-    program: ["rooted_focus", "aspire"].includes(values.program)
+    program: ["rooted_focus", "aspire", "addon"].includes(values.program)
       ? values.program
       : "standard",
     recurrence: values.recurrence || null,

@@ -4546,3 +4546,7 @@ a.course-card:hover {
 @media (max-width: 720px) {
   .admin-back-bar { padding: 14px 14px 0; }
 }
+
+/* --- Add-on Sessions (program 'addon'): badge + calendar color ----------- */
+.cat-addon { background: rgba(58, 140, 130, 0.25); color: #7ec4bc; }
+.cal-event.teal { background: rgba(58, 140, 130, 0.14); color: #2d6b63; }

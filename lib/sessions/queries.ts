@@ -88,8 +88,8 @@ function mapRow(row: SessionRow): SessionDetail {
     enrolledCount: 0,
     minAccess: row.min_access,
     status: row.status,
-    program: ["rooted_focus", "aspire"].includes(row.program ?? "")
-      ? (row.program as "rooted_focus" | "aspire")
+    program: ["rooted_focus", "aspire", "addon"].includes(row.program ?? "")
+      ? (row.program as "rooted_focus" | "aspire" | "addon")
       : "standard",
     recurrence,
     recurrenceUntil: row.recurrence_until ?? null,
