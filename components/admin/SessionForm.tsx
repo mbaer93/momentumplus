@@ -158,10 +158,19 @@ export function SessionForm({
             }));
           }}
         >
-          <option value="standard">Standard session (Sessions tab)</option>
+          <option value="standard">Main Session (Sessions tab)</option>
+          <option value="addon">Add-on Session (Sessions tab)</option>
           <option value="rooted_focus">Rooted Focus (own tab)</option>
           <option value="aspire">Aspire2Achieve Growth (own tab)</option>
         </select>
+        {values.program === "addon" && (
+          <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+            Add-on Sessions are speaker-led extras (e.g. a monthly AI-in-
+            business series). They appear on the Sessions tab and calendar
+            with an Add-on badge, members enroll normally, and they can be
+            one-time or recurring via the Repeats field.
+          </div>
+        )}
         {values.program === "rooted_focus" && (
           <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
             Rooted Focus sessions show on the Rooted Focus tab and the

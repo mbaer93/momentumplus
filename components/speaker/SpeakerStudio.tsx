@@ -44,12 +44,24 @@ function whenLabel(iso: string | null): string {
   });
 }
 
+export interface StudioMonthCard {
+  monthLabel: string;
+  memberCount: number;
+  /** Formatted dollars, or null when there's nothing to show (TSLS Main
+      Speaker, or Stripe not connected yet). */
+  earningsLabel: string | null;
+  /** One-line explanation under the numbers (who's counted, unpaid note…). */
+  note: string;
+  inProgress: boolean;
+}
+
 export function SpeakerStudio({
   speaker,
   resource,
   sessions,
   videos,
   startError,
+  monthCard = null,
 }: {
   speaker: {
     name: string;
@@ -71,6 +83,8 @@ export function SpeakerStudio({
   sessions: StudioSession[];
   videos: StudioVideo[];
   startError: string | null;
+  /** Speaker-of-the-month stats — null until an admin assigns a month. */
+  monthCard?: StudioMonthCard | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -121,6 +135,43 @@ export function SpeakerStudio({
       {startError && <div className="login-error">{startError}</div>}
       {msg && (
         <div className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}>{msg.text}</div>
+      )}
+
+      {/* Speaker-of-the-month: members reached + earnings share */}
+      {monthCard && (
+        <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
+          <div className="admin-field" style={{ marginBottom: 6 }}>
+            <label style={{ fontSize: 13 }}>
+              Your Momentum+ month — {monthCard.monthLabel}
+              {monthCard.inProgress ? " (in progress)" : ""}
+            </label>
+          </div>
+          <div style={{ display: "flex", gap: 36, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 26, fontWeight: 600, color: "var(--navy)" }}>
+                {monthCard.memberCount.toLocaleString("en-US")}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                Members on the platform
+                {monthCard.inProgress ? " so far this month" : " in your month"}
+              </div>
+            </div>
+            {monthCard.earningsLabel && (
+              <div>
+                <div style={{ fontSize: 26, fontWeight: 600, color: "var(--gold)" }}>
+                  {monthCard.earningsLabel}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                  Your earnings — 15% of this month&apos;s membership revenue
+                  {monthCard.inProgress ? " (still updating)" : ""}
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 10 }}>
+            {monthCard.note}
+          </div>
+        </div>
       )}
 
       {/* Sessions + audience tools */}

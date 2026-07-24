@@ -83,6 +83,7 @@ export type SessionCategory =
   | "Productivity Session"
   | "AI Leadership Lab"
   | "Bonus Sessions"
+  | "Add-on Sessions"
   | "Leadership"
   | "Wellness"
   | "Business"
@@ -128,8 +129,9 @@ export interface SessionDetail {
   enrolledCount: number;
   minAccess: AccessLevel;
   status: SessionStatus;
-  /** Which member tab it belongs to — Rooted Focus lives outside Sessions. */
-  program: "standard" | "rooted_focus" | "aspire";
+  /** Which member tab it belongs to — Rooted Focus lives outside Sessions;
+      Add-on Sessions share the Sessions tab with Main Sessions. */
+  program: "standard" | "rooted_focus" | "aspire" | "addon";
   /** Recurring series (Rooted Focus): cadence + optional series end. */
   recurrence: "weekly" | "biweekly" | "monthly" | null;
   recurrenceUntil: string | null;

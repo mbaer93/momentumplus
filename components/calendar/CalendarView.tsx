@@ -21,13 +21,14 @@ export interface CalendarEvent {
   isEnrolled: boolean;
 }
 
-type EventColor = "blue" | "green" | "gold" | "purple" | "neutral";
+type EventColor = "blue" | "green" | "gold" | "purple" | "neutral" | "teal";
 
 /* Legend follows the session taxonomy (Sierra, 2026-07-22). Rooted Focus
    is always a Productivity Session regardless of its stored category;
    legacy categories fold into the nearest new bucket. */
 function colorFor(e: CalendarEvent): EventColor {
   if (e.program === "rooted_focus") return "gold";
+  if (e.program === "addon") return "teal";
   switch (e.category) {
     case "Accountability Session":
       return "green";
@@ -49,6 +50,7 @@ const LEGEND: { color: EventColor; swatch: string; label: string }[] = [
   { color: "gold", swatch: "var(--gold-pale)", label: "Productivity Session" },
   { color: "purple", swatch: "rgba(92,61,122,0.14)", label: "AI Leadership Lab" },
   { color: "neutral", swatch: "rgba(11,22,34,0.08)", label: "Bonus Sessions" },
+  { color: "teal", swatch: "rgba(58,140,130,0.14)", label: "Add-on Sessions" },
 ];
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

@@ -15,6 +15,10 @@ export interface SpeakerInput {
   industries: string;
   website: string;
   featured: boolean;
+  /** Momentum+ speaker-of-the-month assignment, "YYYY-MM" ("" = none). */
+  speakerMonth?: string;
+  /** TSLS Main Speakers are unpaid — hides the earnings line in their Studio. */
+  tslsMainSpeaker?: boolean;
 }
 
 export interface AdminResult {
@@ -34,7 +38,20 @@ function toRow(input: SpeakerInput) {
       .filter(Boolean),
     website: input.website.trim() || null,
     featured: input.featured,
+    // Only a valid YYYY-MM passes; anything else clears the assignment (the
+    // DB check constraint would reject it anyway).
+    speaker_month: /^\d{4}-(0[1-9]|1[0-2])$/.test(input.speakerMonth ?? "")
+      ? input.speakerMonth
+      : null,
+    tsls_main_speaker: Boolean(input.tslsMainSpeaker),
   };
+}
+
+/** Friendly hint when the speaker-month columns aren't deployed yet. */
+function migrationHint(message: string): string {
+  return /speaker_month|tsls_main_speaker/.test(message)
+    ? "The database doesn't have the speaker-month columns yet — run migration 0053 first."
+    : message;
 }
 
 async function guard(): Promise<AdminResult | null> {
@@ -76,7 +93,7 @@ export async function createSpeaker(input: SpeakerInput): Promise<AdminResult> {
   const early = await guard();
   if (early) return early;
   const { error } = await createServiceClient().from("speakers").insert(toRow(input));
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: migrationHint(error.message) };
   refresh();
   return { ok: true, message: "Speaker added." };
 }
@@ -91,7 +108,7 @@ export async function updateSpeaker(
     .from("speakers")
     .update(toRow(input))
     .eq("id", id);
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: migrationHint(error.message) };
   refresh();
   return { ok: true, message: "Speaker saved." };
 }

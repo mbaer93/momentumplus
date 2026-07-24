@@ -149,6 +149,7 @@ export function categoryClass(category: string): string {
     "Productivity Session": "cat-business",
     "AI Leadership Lab": "cat-networking",
     "Bonus Sessions": "cat-leadership",
+    "Add-on Sessions": "cat-addon",
     // Legacy values on older rows
     Leadership: "cat-leadership",
     Wellness: "cat-wellness",

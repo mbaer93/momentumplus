@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
-import { SpeakerStudio, type StudioSession, type StudioVideo } from "@/components/speaker/SpeakerStudio";
+import {
+  SpeakerStudio,
+  type StudioMonthCard,
+  type StudioSession,
+  type StudioVideo,
+} from "@/components/speaker/SpeakerStudio";
 import { requireMember } from "@/lib/current-member";
+import { formatCents, speakerMonthStats } from "@/lib/revenue";
 import { getSpeakerForUser } from "@/lib/speaker-tools";
 import { speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -35,6 +41,7 @@ export default async function SpeakerStudioPage({
   };
   let sessions: StudioSession[] = [];
   let videos: StudioVideo[] = [];
+  let monthCard: StudioMonthCard | null = null;
 
   if (isSupabaseConfigured()) {
     const supabase = createClient();
@@ -120,6 +127,26 @@ export default async function SpeakerStudioPage({
         imageUrl: (resourceRow.image_url as string | null) ?? null,
       };
     }
+
+    // Speaker-of-the-month card. TSLS Main Speakers see reach only (they're
+    // unpaid); everyone else also sees their 15% share.
+    if (speaker.speakerMonth) {
+      const stats = await speakerMonthStats(speaker.speakerMonth, {
+        paid: !speaker.tslsMainSpeaker,
+      });
+      monthCard = {
+        monthLabel: stats.monthLabel,
+        memberCount: stats.memberCount,
+        earningsLabel:
+          stats.earningsCents !== null ? formatCents(stats.earningsCents) : null,
+        note: speaker.tslsMainSpeaker
+          ? "Member count excludes admins, speakers, and sponsors. As a TSLS Main Speaker your Momentum+ month is part of your Summit engagement."
+          : stats.revenueCents === null
+            ? "Member count excludes admins, speakers, and sponsors. Earnings appear once billing is connected."
+            : "Member count excludes admins, speakers, and sponsors. Earnings are 15% of membership revenue attributed to your month (longer plans are spread evenly across the months they cover); the figure settles when the month closes.",
+        inProgress: stats.inProgress,
+      };
+    }
   } else {
     // Preview mode: demo speaker so the Studio is explorable.
     speaker = {
@@ -175,6 +202,7 @@ export default async function SpeakerStudioPage({
       sessions={sessions}
       videos={videos}
       startError={searchParams?.error ?? null}
+      monthCard={monthCard}
     />
   );
 }
