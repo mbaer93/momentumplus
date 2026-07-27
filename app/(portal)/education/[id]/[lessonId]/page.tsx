@@ -11,11 +11,12 @@ import { getVideo } from "@/lib/videos/queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function LessonPage({
-  params,
-}: {
-  params: { id: string; lessonId: string };
-}) {
+export default async function LessonPage(
+  props: {
+    params: Promise<{ id: string; lessonId: string }>;
+  }
+) {
+  const params = await props.params;
   const member = await requireMember();
   const course = await getCourse(params.id);
   if (!course || (!course.published && !member.isAdmin)) notFound();
@@ -45,11 +46,9 @@ export default async function LessonPage({
       {!lesson.quiz && !lesson.completed && (
         <LessonAutoComplete lessonId={lesson.id} />
       )}
-
       <Link href={`/education/${course.id}`} className="sess-back">
         <ArrowLeftIcon size={12} /> {course.title}
       </Link>
-
       <div className="section-header">
         <div>
           <div className="course-cat" style={{ marginBottom: 6 }}>
@@ -65,7 +64,6 @@ export default async function LessonPage({
           {lesson.summary && <p>{lesson.summary}</p>}
         </div>
       </div>
-
       {video && (
         <VideoPlayer
           videoId={video.id}
@@ -74,10 +72,9 @@ export default async function LessonPage({
           title={video.title}
         />
       )}
-
       {lesson.imageUrl && (
         /* eslint-disable-next-line @next/next/no-img-element */
-        <img
+        (<img
           src={lesson.imageUrl}
           alt={lesson.title}
           style={{
@@ -86,9 +83,8 @@ export default async function LessonPage({
             border: "1px solid var(--warm-gray)",
             marginTop: video ? 16 : 0,
           }}
-        />
+        />)
       )}
-
       {paragraphs.length > 0 && (
         <div className="card" style={{ marginTop: 16 }}>
           <div style={{ padding: "18px 22px" }}>
@@ -100,7 +96,6 @@ export default async function LessonPage({
           </div>
         </div>
       )}
-
       {lesson.documents.length > 0 && (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="card-header">
@@ -122,7 +117,6 @@ export default async function LessonPage({
           </div>
         </div>
       )}
-
       {lesson.quiz && (
         <LessonQuiz
           lessonId={lesson.id}
@@ -130,7 +124,6 @@ export default async function LessonPage({
           completed={lesson.completed}
         />
       )}
-
       <div
         style={{
           display: "flex",

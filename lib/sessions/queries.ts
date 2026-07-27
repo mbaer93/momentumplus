@@ -131,7 +131,7 @@ const SESSION_SELECT_LEGACY =
 export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
   if (!isSupabaseConfigured()) return getPlaceholderSessions();
 
-  const supabase = createClient();
+  const supabase = await createClient();
   let res = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
@@ -214,7 +214,7 @@ export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
 export const getSession = requestCache(async (id: string): Promise<SessionDetail | null> => {
   if (!isSupabaseConfigured()) return getPlaceholderSession(id);
 
-  const supabase = createClient();
+  const supabase = await createClient();
   let res = await supabase
     .from("sessions")
     .select(SESSION_SELECT)

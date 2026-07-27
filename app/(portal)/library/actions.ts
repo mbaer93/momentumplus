@@ -22,7 +22,7 @@ export async function recordVideoView(
   secondsWatched: number,
 ): Promise<void> {
   if (!isSupabaseConfigured()) return; // preview mode: nothing to record
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -55,7 +55,7 @@ export async function saveVideoNote(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

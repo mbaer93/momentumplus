@@ -30,11 +30,12 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminEducationPage({
-  searchParams,
-}: {
-  searchParams?: { edit?: string };
-}) {
+export default async function AdminEducationPage(
+  props: {
+    searchParams?: Promise<{ edit?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   let rows: AdminCourseRow[];
   let videos: VideoOption[];
 

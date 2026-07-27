@@ -56,7 +56,7 @@ export default async function ProfilePage() {
   let membershipStatusLabel = "● Active";
 
   if (isSupabaseConfigured()) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -145,7 +145,7 @@ export default async function ProfilePage() {
   );
   const completionDates = new Map<string, string>();
   if (isSupabaseConfigured() && earnedCourses.length > 0) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const lessonToCourse = new Map<string, string>();
     for (const c of earnedCourses) {
       for (const l of c.lessons) lessonToCourse.set(l.id, c.id);

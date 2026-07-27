@@ -101,7 +101,7 @@ export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
       muxPlaybackId: canAccess(viewerTier, v.minAccess) ? v.muxPlaybackId : null,
     }));
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   // Archived items (speaker archived with their season) stay out of the
   // library without being deleted.
   let { data, error } = await supabase
@@ -162,7 +162,7 @@ export async function getVideo(
     const v = placeholderVideos.find((x) => x.id === id) ?? null;
     return v && canAccess(viewerTier, v.minAccess) ? v : null;
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   let { data, error } = await supabase
     .from("videos")
     .select(VIDEO_SELECT)

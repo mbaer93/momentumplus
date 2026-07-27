@@ -36,6 +36,14 @@ const nextConfig = {
       },
     ];
   },
+  // Next 16 builds with Turbopack by default, so the Zoom alias below has to
+  // exist for both bundlers. Turbopack's resolveAlias can't map to `false`,
+  // so it points at an empty stub module instead.
+  turbopack: {
+    resolveAlias: {
+      "@zoom/download-manager": "./lib/empty-module.js",
+    },
+  },
   webpack: (config) => {
     // The Zoom Meeting SDK references an optional runtime module
     // (@zoom/download-manager) that isn't published to npm — it is only used

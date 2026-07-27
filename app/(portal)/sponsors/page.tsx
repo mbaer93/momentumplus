@@ -17,11 +17,12 @@ import { SponsorWebsiteLink } from "@/components/sponsors/SponsorWebsiteLink";
 
 export const dynamic = "force-dynamic";
 
-export default async function SponsorsPage({
-  searchParams,
-}: {
-  searchParams?: { season?: string };
-}) {
+export default async function SponsorsPage(
+  props: {
+    searchParams?: Promise<{ season?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const member = await requireMember();
   const isAdmin = member.isAdmin;
   const canPreview =

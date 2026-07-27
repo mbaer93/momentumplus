@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       : "/welcome";
 
   if (tokenHash && type && isSupabaseConfigured()) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
       type: type as "invite" | "recovery" | "signup" | "email" | "email_change" | "magiclink",

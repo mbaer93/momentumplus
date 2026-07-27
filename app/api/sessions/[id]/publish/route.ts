@@ -9,10 +9,8 @@ import { isZoomReady } from "@/lib/service-config";
  * stores the meeting id + join URL, and moves the session to `scheduled`.
  * SPEC.md §4: "Admin creates session → API creates Zoom meeting, stores join URL."
  */
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireAdmin("sessions");
   if (!auth.ok) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });

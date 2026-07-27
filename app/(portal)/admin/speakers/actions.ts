@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { emailPattern } from "@/lib/db-utils";
 import { seasonEnd, speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
@@ -66,7 +66,7 @@ async function guard(): Promise<AdminResult | null> {
 function refresh() {
   revalidatePath("/admin/speakers");
   revalidatePath("/speakers");
-  revalidateTag("speakers");
+  updateTag("speakers");
 }
 
 /**

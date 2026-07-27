@@ -257,7 +257,7 @@ export async function listCourses(): Promise<CourseItem[]> {
   if (!isSupabaseConfigured()) return PLACEHOLDER_COURSES;
   // (teasers for RLS-hidden gated courses are appended at the end)
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

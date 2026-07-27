@@ -6,8 +6,9 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 // Server Supabase client for Server Components, Route Handlers, and Server
 // Actions. Uses the request cookie store for the authenticated session.
-export function createClient() {
-  const cookieStore = cookies();
+// `cookies()` is async as of Next 15, so this is too — callers await it.
+export async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {

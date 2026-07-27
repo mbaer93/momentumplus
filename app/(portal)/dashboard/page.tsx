@@ -111,7 +111,7 @@ export default async function DashboardPage() {
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     const attended = sessions.filter((s) => s.attended).length;
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

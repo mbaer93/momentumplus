@@ -7,11 +7,12 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminServicesPage({
-  searchParams,
-}: {
-  searchParams?: { edit?: string };
-}) {
+export default async function AdminServicesPage(
+  props: {
+    searchParams?: Promise<{ edit?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   let rows: EntityRow[] = [];
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {

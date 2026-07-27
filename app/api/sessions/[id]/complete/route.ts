@@ -20,10 +20,8 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 // Room for the end-record retries below.
 export const maxDuration = 30;
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ ok: true, preview: true });
   }
@@ -49,7 +47,7 @@ export async function POST(
     if (!privileged) {
       const {
         data: { user },
-      } = await createClient().auth.getUser();
+      } = await (await createClient()).auth.getUser();
       if (user) {
         privileged = (await speakerOwnsSession(user.id, session.id)).ok;
       }

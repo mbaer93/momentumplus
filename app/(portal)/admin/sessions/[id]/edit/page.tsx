@@ -14,11 +14,12 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function EditSessionPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function EditSessionPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const session = await getSession(params.id);
   if (!session) notFound();
   const [speakerList, adminHosts] = await Promise.all([

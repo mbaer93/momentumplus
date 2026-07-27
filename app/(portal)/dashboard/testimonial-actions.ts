@@ -27,7 +27,7 @@ export async function submitTestimonial(input: {
     return { ok: false, message: "Add the name you'd like shown." };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -83,7 +83,7 @@ export async function hasTestimonial(): Promise<boolean> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return false;
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

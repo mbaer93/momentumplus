@@ -1,7 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -22,7 +22,7 @@ export interface StudioResult {
 
 async function requireSpeaker() {
   if (!isSupabaseConfigured()) return { preview: true as const };
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -60,7 +60,7 @@ export async function updateOwnSpeakerPage(input: {
   if (error) return { ok: false, message: error.message };
   revalidatePath("/speakers");
   revalidatePath("/speaker");
-  revalidateTag("speakers");
+  updateTag("speakers");
   return { ok: true, message: "Speaker page saved." };
 }
 
@@ -173,7 +173,7 @@ export async function uploadOwnHeadshot(
   if (error) return { ok: false, message: error.message };
   revalidatePath("/speakers");
   revalidatePath("/speaker");
-  revalidateTag("speakers");
+  updateTag("speakers");
   return { ok: true, message: "Headshot uploaded." };
 }
 

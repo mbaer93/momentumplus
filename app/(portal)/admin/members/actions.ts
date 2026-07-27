@@ -77,7 +77,7 @@ export async function grantMembership(input: {
   if (profile) {
     profileId = profile.id;
   } else {
-    const siteUrl = requestSiteUrl();
+    const siteUrl = await requestSiteUrl();
     const { data: invited, error: inviteErr } =
       await admin.auth.admin.inviteUserByEmail(email, {
         redirectTo: siteUrl
@@ -590,7 +590,7 @@ export async function sendPasswordReset(email: string): Promise<AdminMemberResul
   if (!email.includes("@")) return { ok: false, message: "No email on this member." };
 
   const admin = createServiceClient();
-  const siteUrl = requestSiteUrl();
+  const siteUrl = await requestSiteUrl();
   const { error } = await admin.auth.resetPasswordForEmail(email, {
     redirectTo: siteUrl
       ? `${siteUrl}/auth/callback?redirect=/welcome`
@@ -618,7 +618,7 @@ export async function resendInvite(email: string): Promise<AdminMemberResult> {
   if (!email.includes("@")) return { ok: false, message: "No email on this member." };
 
   const admin = createServiceClient();
-  const siteUrl = requestSiteUrl();
+  const siteUrl = await requestSiteUrl();
   const redirectTo = siteUrl ? `${siteUrl}/auth/callback?redirect=/welcome` : undefined;
   const { error } = await admin.auth.admin.inviteUserByEmail(
     email.trim().toLowerCase(),
@@ -686,7 +686,7 @@ export async function getLoginLink(email: string): Promise<AdminMemberResult> {
     };
   }
 
-  const siteUrl = requestSiteUrl();
+  const siteUrl = await requestSiteUrl();
   const { data, error } = await admin.auth.admin.generateLink({
     type: "recovery",
     email: normalized,

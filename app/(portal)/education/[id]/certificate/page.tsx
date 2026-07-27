@@ -13,11 +13,12 @@ export const dynamic = "force-dynamic";
  * Printable completion certificate. Available once every lesson in the
  * course is complete; shows the admin-set continuing-education hours.
  */
-export default async function CertificatePage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function CertificatePage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const member = await requireMember();
   const course = await getCourse(params.id);
   if (!course || (!course.published && !member.isAdmin)) notFound();
@@ -30,7 +31,7 @@ export default async function CertificatePage({
   // Completion date = when the last lesson was finished.
   let completedOn = new Date();
   if (isSupabaseConfigured()) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

@@ -159,11 +159,12 @@ async function fetchAuthActivity(
 
 const PAGE_SIZE = 50;
 
-export default async function AdminMembersPage({
-  searchParams,
-}: {
-  searchParams?: { q?: string; page?: string };
-}) {
+export default async function AdminMembersPage(
+  props: {
+    searchParams?: Promise<{ q?: string; page?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   // Member PII (email, phone, login history) is behind the "members" area,
   // enforced HERE on the read — the admin layout only checks "is an admin",
   // so a standard admin without the members area could otherwise open this

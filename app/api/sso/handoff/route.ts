@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const siteUrl = requestSiteUrl();
+  const siteUrl = await requestSiteUrl();
   const { data: linkData, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,

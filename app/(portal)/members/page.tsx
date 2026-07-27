@@ -61,11 +61,12 @@ function initialsOf(name: string): string {
     .toUpperCase();
 }
 
-export default async function MembersPage({
-  searchParams,
-}: {
-  searchParams?: { q?: string };
-}) {
+export default async function MembersPage(
+  props: {
+    searchParams?: Promise<{ q?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   await requireMember();
   const q = (searchParams?.q ?? "").trim().toLowerCase().slice(0, 80);
 
