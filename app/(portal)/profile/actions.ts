@@ -25,7 +25,7 @@ export async function changePassword(
   if (policyError) {
     return { ok: false, message: policyError };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -87,7 +87,7 @@ export async function updateProfile(input: {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Saved (preview mode)" };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -145,7 +145,7 @@ export async function saveNotificationPrefs(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Saved (preview mode)" };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -11,10 +11,8 @@ import { getMeetingStartUrl } from "@/lib/zoom";
  * (or an admin) ever receives the start URL — it grants host powers. The
  * URL is fetched live from Zoom, never stored or exposed to members.
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { origin } = new URL(request.url);
   // Speakers land back in their Studio; admins (who may not have a Studio)
   // land on the admin sessions list instead.
@@ -24,7 +22,7 @@ export async function GET(
 
   if (!isSupabaseConfigured()) return back("Preview mode — no live Zoom.");
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

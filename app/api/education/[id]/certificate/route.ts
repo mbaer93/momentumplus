@@ -15,10 +15,8 @@ const GOLD = { r: 184 / 255, g: 150 / 255, b: 90 / 255 };
 const CREAM = { r: 248 / 255, g: 246 / 255, b: 241 / 255 };
 const INK = { r: 26 / 255, g: 35 / 255, b: 50 / 255 };
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const member = await getCurrentMember();
   if (!member) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
@@ -42,7 +40,7 @@ export async function GET(
   // Completion date = latest lesson completion (own rows only).
   let completedOn = new Date();
   if (isSupabaseConfigured()) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

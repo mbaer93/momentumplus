@@ -6,9 +6,9 @@ import { headers } from "next/headers";
  * request scope (server actions, route handlers); crons/webhooks without a
  * meaningful Host fall back to the env var.
  */
-export function requestSiteUrl(): string | null {
+export async function requestSiteUrl(): Promise<string | null> {
   try {
-    const h = headers();
+    const h = await headers();
     const host = h.get("x-forwarded-host") ?? h.get("host");
     if (host && !host.startsWith("localhost") && !host.startsWith("127.")) {
       const proto = h.get("x-forwarded-proto") ?? "https";

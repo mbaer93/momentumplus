@@ -1,7 +1,7 @@
 "use server";
 
 import { emailPattern } from "@/lib/db-utils";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { provisionMember } from "@/lib/onboarding";
 import { PRESENTED_BY_PATH } from "@/lib/presented-by";
@@ -142,10 +142,10 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
   }
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   revalidatePath("/sponsors");
-  revalidateTag("sponsors");
+  updateTag("sponsors");
   const { sponsorLive, upcomingSeasonStart } = await import(
     "@/lib/sponsor-lifecycle"
   );
@@ -178,8 +178,8 @@ export async function toggleRail(
     .eq("id", sponsorId);
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   return { ok: true };
 }
 
@@ -223,10 +223,10 @@ export async function deleteSponsor(sponsorId: string): Promise<SponsorResult> {
   if (error) return { ok: false, message: error.message };
   await expireOrphanedSponsorPro((seats ?? []).map((s) => s.profile_id));
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   revalidatePath("/sponsors");
-  revalidateTag("sponsors");
+  updateTag("sponsors");
   return { ok: true, message: "Sponsor deleted." };
 }
 
@@ -356,8 +356,8 @@ export async function linkSponsorMember(
   }
 
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   return {
     ok: true,
     message:
@@ -388,8 +388,8 @@ export async function unlinkSponsorMember(
   await expireOrphanedSponsorPro([profileId]);
 
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   return { ok: true, message: "Member unlinked — sponsor Pro access ended." };
 }
 
@@ -421,10 +421,10 @@ export async function updateSponsor(
   }
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   revalidatePath("/sponsors");
-  revalidateTag("sponsors");
+  updateTag("sponsors");
   return { ok: true, message: "Sponsor saved." };
 }
 
@@ -495,10 +495,10 @@ async function uploadSponsorImage(
   if (error) return { ok: false, message: error.message };
 
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   revalidatePath("/sponsors");
-  revalidateTag("sponsors");
+  updateTag("sponsors");
   revalidatePath("/", "layout");
   return { ok: true, message: `${label} uploaded.` };
 }
@@ -561,8 +561,8 @@ export async function uploadPresentedByLogo(
   if (error) return { ok: false, message: error.message };
 
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   revalidatePath("/", "layout");
   return { ok: true, message: "Presented-by logo uploaded." };
 }
@@ -581,8 +581,8 @@ export async function removePresentedByLogo(): Promise<SponsorResult> {
     .remove([PRESENTED_BY_PATH]);
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   revalidatePath("/", "layout");
   return { ok: true, message: "Presented-by logo removed." };
 }
@@ -602,8 +602,8 @@ export async function removeSponsorAd(sponsorId: string): Promise<SponsorResult>
     .eq("id", sponsorId);
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   revalidatePath("/", "layout");
   return { ok: true, message: "Ad graphic removed." };
 }
@@ -818,8 +818,8 @@ export async function setSponsorOngoing(
 
   revalidatePath("/admin/sponsors");
   revalidatePath("/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   return {
     ok: true,
     message: ongoing
@@ -886,8 +886,8 @@ export async function archiveSponsor(sponsorId: string): Promise<SponsorResult> 
 
   revalidatePath("/admin/sponsors");
   revalidatePath("/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   return {
     ok: true,
     message:
@@ -948,8 +948,8 @@ export async function reinstateSponsor(
 
   revalidatePath("/admin/sponsors");
   revalidatePath("/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
   // "Visible again" is only true when the reinstated term is inside the live
   // season — a July reinstate stays pre-season-hidden until October 1.
   const { sponsorLive, upcomingSeasonStart } = await import(

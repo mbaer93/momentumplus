@@ -154,7 +154,7 @@ async function upcomingPublicSessions(): Promise<
 export default async function HomePage() {
   // Signed-in members skip the marketing page.
   if (isSupabaseConfigured()) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

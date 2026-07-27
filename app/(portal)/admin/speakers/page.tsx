@@ -36,11 +36,12 @@ interface AdminSpeakerRow {
   tsls_main_speaker?: boolean | null;
 }
 
-export default async function AdminSpeakersPage({
-  searchParams,
-}: {
-  searchParams?: { edit?: string };
-}) {
+export default async function AdminSpeakersPage(
+  props: {
+    searchParams?: Promise<{ edit?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   let rows: EntityRow[] = placeholderSpeakers.map((s) => ({
     id: s.id,
     title: s.name,

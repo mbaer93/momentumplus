@@ -36,7 +36,7 @@ async function billingContext(opts?: {
   if (!usable || !settings) {
     return { ok: false, message: "Online billing isn't set up yet — contact the team." };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

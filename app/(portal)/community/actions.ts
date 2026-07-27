@@ -19,7 +19,7 @@ export async function askSpeakerQuestion(
   const q = question.trim().slice(0, 2000);
   if (!speakerId || !q) return { ok: false, message: "Missing question." };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -114,7 +114,7 @@ export async function askSpeakerQuestion(
     swallow unread items that never made it onto the screen. */
 export async function markNotificationsRead(ids: string[]): Promise<void> {
   if (!isSupabaseConfigured() || ids.length === 0) return;
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -18,7 +18,7 @@ interface SubscriptionBody {
 async function currentUserId(): Promise<string | null> {
   const {
     data: { user },
-  } = await createClient().auth.getUser();
+  } = await (await createClient()).auth.getUser();
   return user?.id ?? null;
 }
 

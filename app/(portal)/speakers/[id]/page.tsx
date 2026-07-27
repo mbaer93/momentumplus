@@ -8,11 +8,12 @@ import { dateLabel } from "@/lib/sessions/view";
 
 export const dynamic = "force-dynamic";
 
-export default async function SpeakerDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function SpeakerDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const member = await requireMember();
   let speaker = await getSpeaker(params.id);
   // Pre-season speakers are hidden from members until October 1, but the
@@ -41,16 +42,15 @@ export default async function SpeakerDetailPage({
       <Link href="/speakers" className="sess-back">
         <ArrowLeftIcon size={12} /> All speakers
       </Link>
-
       <div className="spk-hero">
         {speaker.headshotUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img
+          (<img
             className="spk-hero-av"
             src={speaker.headshotUrl}
             alt={`${speaker.name} headshot`}
             style={{ objectFit: "cover" }}
-          />
+          />)
         ) : (
           <div
             className="spk-hero-av"
@@ -82,7 +82,6 @@ export default async function SpeakerDetailPage({
           )}
         </div>
       </div>
-
       <div className="spk-body">
         {speaker.bio && <p className="spk-bio">{speaker.bio}</p>}
 

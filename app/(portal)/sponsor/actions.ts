@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { upsertSponsorMembership } from "@/lib/sponsor-membership";
 import {
   inviteProTicketUsers,
@@ -30,8 +30,8 @@ function refreshSponsorSurfaces(): void {
   revalidatePath("/sponsor");
   revalidatePath("/sponsors");
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
-  revalidateTag("presented-by");
+  updateTag("sponsors");
+  updateTag("presented-by");
 }
 
 async function requireStudioActor(

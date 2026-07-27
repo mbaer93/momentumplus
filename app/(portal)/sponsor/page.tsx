@@ -23,11 +23,12 @@ export const dynamic = "force-dynamic";
  * transfer ownership; managers edit the page. Super Admins can open any
  * sponsor's studio via ?sponsor=<id>.
  */
-export default async function SponsorStudioPage({
-  searchParams,
-}: {
-  searchParams: { sponsor?: string };
-}) {
+export default async function SponsorStudioPage(
+  props: {
+    searchParams: Promise<{ sponsor?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   await requireMember();
 
   if (!isSupabaseConfigured()) {
@@ -43,7 +44,7 @@ export default async function SponsorStudioPage({
     );
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

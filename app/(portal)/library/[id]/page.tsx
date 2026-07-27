@@ -12,11 +12,12 @@ import { VideoNotesEditor } from "@/components/library/VideoNotesEditor";
 
 export const dynamic = "force-dynamic";
 
-export default async function VideoDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function VideoDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const member = await requireMember();
   const video = await getVideo(params.id, member.tier);
   if (!video) notFound();
@@ -64,7 +65,7 @@ export default async function VideoDetailPage({
   // notes they wrote in the room instead of an empty box.
   let initialNote = "";
   if (isSupabaseConfigured()) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const [{ data: note }, sessionNote] = await Promise.all([
       supabase
         .from("video_notes")

@@ -182,7 +182,7 @@ export async function sendSmtpTestEmail(): Promise<ConnectResult> {
   const early = await guardSuper();
   if (early) return early;
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

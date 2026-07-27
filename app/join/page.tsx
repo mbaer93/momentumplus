@@ -13,11 +13,12 @@ export const metadata = {
  * via Stripe Checkout; the account is provisioned by the webhook and the
  * welcome email walks the new member into /welcome.
  */
-export default async function JoinPage({
-  searchParams,
-}: {
-  searchParams?: { plan?: string; success?: string; canceled?: string; ref?: string };
-}) {
+export default async function JoinPage(
+  props: {
+    searchParams?: Promise<{ plan?: string; success?: string; canceled?: string; ref?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const plan = searchParams?.plan === "pro" ? "pro" : "basic";
   const settings = await getStripeSettings();
   const terms = {

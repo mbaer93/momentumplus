@@ -153,7 +153,7 @@ export interface SponsorActor {
 export async function resolveSponsorActor(
   sponsorId: string,
 ): Promise<SponsorActor> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -42,7 +42,7 @@ export async function completeSponsorOnboarding(
   if (!isSupabaseConfigured()) {
     return { ok: true, message: "Saved (preview mode)." };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -210,7 +210,7 @@ export async function completeSponsorOnboarding(
 
   revalidatePath("/sponsors");
   revalidatePath("/admin/sponsors");
-  revalidateTag("sponsors");
+  updateTag("sponsors");
   return { ok: true, sponsorId, message: ticketNote || undefined };
 }
 
@@ -239,7 +239,7 @@ export async function getPendingSponsorInvite(): Promise<{
       ticketAllotment: 2,
     };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

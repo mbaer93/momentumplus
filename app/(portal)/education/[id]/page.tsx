@@ -8,11 +8,12 @@ import { courseUnlocked, effectiveCeHours, getCourse } from "@/lib/education";
 
 export const dynamic = "force-dynamic";
 
-export default async function CoursePage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function CoursePage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const member = await requireMember();
   const course = await getCourse(params.id);
   if (!course || (!course.published && !member.isAdmin)) notFound();

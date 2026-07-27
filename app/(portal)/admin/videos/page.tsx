@@ -10,11 +10,12 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminVideosPage({
-  searchParams,
-}: {
-  searchParams?: { edit?: string };
-}) {
+export default async function AdminVideosPage(
+  props: {
+    searchParams?: Promise<{ edit?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   let rows: EntityRow[] = placeholderVideos.map((v) => ({
     id: v.id,
     title: v.title,

@@ -26,7 +26,7 @@ export async function setLessonComplete(
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -76,7 +76,7 @@ export async function setLessonComplete(
 export async function markLessonOpened(lessonId: string): Promise<ProgressResult> {
   if (!isSupabaseConfigured()) return { ok: true, preview: true };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -128,7 +128,7 @@ export async function submitLessonQuiz(
   if (!isSupabaseConfigured()) {
     return { ok: true, passed: true, scorePct: 100, preview: true };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -20,7 +20,7 @@ export async function requireAdmin(area?: AdminArea): Promise<
     return { ok: false, status: 503, message: "Supabase is not configured." };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -30,11 +30,12 @@ const FAILURE_EVENTS = new Set(["bounce", "blocked", "dropped", "spamreport"]);
  * email_events (migration 0050). Emails sent through GHL (announcements,
  * reminders) are tracked in the GHL contact's Conversations tab instead.
  */
-export default async function EmailActivityPage({
-  searchParams,
-}: {
-  searchParams?: { q?: string };
-}) {
+export default async function EmailActivityPage(
+  props: {
+    searchParams?: Promise<{ q?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   if (isSupabaseConfigured() && !canAccessArea(await getAdminAccess(), "members")) {
     redirect("/admin");
   }

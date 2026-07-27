@@ -48,7 +48,7 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
       .map((s) => ({ slug: s.slug, title: s.title, dateLabel: label(s.startsAt) }));
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -120,7 +120,7 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
     RLS): speaker questions, announcements, whatever lands in the table. */
 async function recentNotifications(): Promise<TopbarNotification[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

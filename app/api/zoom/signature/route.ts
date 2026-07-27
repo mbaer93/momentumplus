@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   if (isSupabaseConfigured()) {
     const {
       data: { user },
-    } = await createClient().auth.getUser();
+    } = await (await createClient()).auth.getUser();
     if (user) {
       isSpeakerHost = (await speakerOwnsSession(user.id, session.id)).ok;
     }

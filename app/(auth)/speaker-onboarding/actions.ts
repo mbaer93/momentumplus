@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -40,7 +40,7 @@ export async function completeSpeakerOnboarding(
   if (!isSupabaseConfigured()) {
     return { ok: true, message: "Saved (preview mode)." };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -205,7 +205,7 @@ export async function completeSpeakerOnboarding(
   revalidatePath("/speakers");
   revalidatePath("/resources");
   revalidatePath("/admin/speakers");
-  revalidateTag("speakers");
+  updateTag("speakers");
   return { ok: true, warnings: warnings.length > 0 ? warnings : undefined };
 }
 
@@ -217,7 +217,7 @@ export async function getPendingSpeakerInvite(): Promise<{
   if (!isSupabaseConfigured()) {
     return { pending: true, displayName: "", needsPassword: true };
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

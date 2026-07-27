@@ -5,10 +5,8 @@ import { rruleFor } from "@/lib/recurrence";
 
 // "Add to Calendar" — returns an .ics for the session. RLS (or placeholder
 // visibility) already restricts which sessions can be fetched.
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession(params.id);
   if (!session) {
     return new NextResponse("Not found", { status: 404 });

@@ -32,11 +32,12 @@ function matches(q: string, ...fields: (string | null | undefined)[]): boolean {
   return fields.some((f) => f?.toLowerCase().includes(q));
 }
 
-export default async function SearchPage({
-  searchParams,
-}: {
-  searchParams?: { q?: string };
-}) {
+export default async function SearchPage(
+  props: {
+    searchParams?: Promise<{ q?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const member = await requireMember();
   const q = (searchParams?.q ?? "").trim().toLowerCase().slice(0, 80);
 

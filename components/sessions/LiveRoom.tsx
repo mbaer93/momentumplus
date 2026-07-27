@@ -423,7 +423,6 @@ export function LiveRoom({
       }
       activeRoom = null;
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

@@ -25,11 +25,12 @@ export const metadata = { title: "Speaker Studio | Momentum+" };
  * resource emails to enrollees — recipient emails stay server-side), and
  * tidy their library items.
  */
-export default async function SpeakerStudioPage({
-  searchParams,
-}: {
-  searchParams?: { error?: string };
-}) {
+export default async function SpeakerStudioPage(
+  props: {
+    searchParams?: Promise<{ error?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const member = await requireMember();
 
   let speaker = null;
@@ -44,7 +45,7 @@ export default async function SpeakerStudioPage({
   let monthCard: StudioMonthCard | null = null;
 
   if (isSupabaseConfigured()) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

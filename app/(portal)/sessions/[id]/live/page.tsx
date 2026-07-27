@@ -11,13 +11,14 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function LiveSessionPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { left?: string };
-}) {
+export default async function LiveSessionPage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams?: Promise<{ left?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const [session, member] = await Promise.all([
     getSession(params.id),
     requireMember(),
@@ -99,7 +100,7 @@ export default async function LiveSessionPage({
   if (member.isSpeaker && isSupabaseConfigured()) {
     const {
       data: { user },
-    } = await createClient().auth.getUser();
+    } = await (await createClient()).auth.getUser();
     if (user) {
       viewerIsSpeaker = (await speakerOwnsSession(user.id, session.id)).ok;
     }

@@ -13,11 +13,12 @@ import { BodyAd } from "@/components/sponsors/BodyAd";
 
 export const dynamic = "force-dynamic";
 
-export default async function SpeakersPage({
-  searchParams,
-}: {
-  searchParams?: { season?: string };
-}) {
+export default async function SpeakersPage(
+  props: {
+    searchParams?: Promise<{ season?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const member = await requireMember();
   // Next-season preview is for the people planning it — admins, speakers,
   // sponsor managers. Members always get the live season.

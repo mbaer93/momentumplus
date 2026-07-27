@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   const to = toRaw.startsWith("/") && !toRaw.startsWith("//") ? toRaw : "/";
 
   const base = tslsBase();
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

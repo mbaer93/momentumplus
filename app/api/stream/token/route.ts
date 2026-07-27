@@ -28,7 +28,7 @@ export async function POST() {
 
   let userId = "preview-member";
   if (isSupabaseConfigured()) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

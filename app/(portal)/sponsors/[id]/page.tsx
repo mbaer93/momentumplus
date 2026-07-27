@@ -15,11 +15,12 @@ export const dynamic = "force-dynamic";
  * tier, tagline, long-form about text, the member offer, and the tracked
  * website link.
  */
-export default async function SponsorDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function SponsorDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const member = await requireMember();
   let sponsor = await getSponsor(params.id);
   // Pre-season sponsors are hidden from members until October 1, but the
@@ -36,7 +37,6 @@ export default async function SponsorDetailPage({
       <Link href="/sponsors" className="sess-back">
         <ArrowLeftIcon size={12} /> All sponsors
       </Link>
-
       <div className="spk-hero" style={{ position: "relative" }}>
         {member.isAdmin && (
           <span className="admin-chip-overlay">
@@ -77,7 +77,6 @@ export default async function SponsorDetailPage({
           )}
         </div>
       </div>
-
       <div className="spk-body">
         {sponsor.description ? (
           sponsor.description

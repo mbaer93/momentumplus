@@ -69,10 +69,11 @@ export async function startPublicCheckout(input: {
   let ref = (input.ref ?? "").trim().toLowerCase().slice(0, 20);
   if (!ref) {
     const { cookies } = await import("next/headers");
-    ref = (cookies().get("mp_ref")?.value ?? "").trim().toLowerCase().slice(0, 20);
+    const jar = await cookies();
+    ref = (jar.get("mp_ref")?.value ?? "").trim().toLowerCase().slice(0, 20);
   }
 
-  const site = requestSiteUrl() ?? "";
+  const site = await requestSiteUrl() ?? "";
   try {
     const session = await stripeRequest<{ url: string }>(
       settings.secretKey,

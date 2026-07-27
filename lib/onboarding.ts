@@ -157,7 +157,7 @@ export async function createAccountWithoutEmail(
     };
   }
 
-  const siteUrl = requestSiteUrl();
+  const siteUrl = await requestSiteUrl();
   const { data: linkData } = await admin.auth.admin.generateLink({
     type: "recovery",
     email,
@@ -211,7 +211,7 @@ export async function provisionMember(
     profileId = manual.profileId ?? (await findAuthUserIdByEmail(email));
     if (!profileId && manual.error) inviteFailure = manual.error;
   } else {
-    const siteUrl = requestSiteUrl();
+    const siteUrl = await requestSiteUrl();
     const { data: inv, error } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: input.name ?? "" },
       redirectTo: siteUrl

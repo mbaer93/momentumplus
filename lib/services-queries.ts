@@ -40,7 +40,7 @@ const PLACEHOLDER_SERVICES: ServiceItem[] = [
 
 export async function listServices(): Promise<ServiceItem[]> {
   if (!isSupabaseConfigured()) return PLACEHOLDER_SERVICES;
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("services")
     .select("id, name, tagline, description, url, price_label")

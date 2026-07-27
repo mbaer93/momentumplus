@@ -53,11 +53,12 @@ async function sponsorOverrideRows(
   }));
 }
 
-export default async function AdminSponsorsPage({
-  searchParams,
-}: {
-  searchParams?: { edit?: string };
-}) {
+export default async function AdminSponsorsPage(
+  props: {
+    searchParams?: Promise<{ edit?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   let rows: AdminSponsorRow[] = placeholderSponsors.map((s, i) => ({
     id: s.id,
     name: s.name,

@@ -29,7 +29,7 @@ export default async function ExpiredPage() {
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const {
       data: { user },
-    } = await createClient().auth.getUser();
+    } = await (await createClient()).auth.getUser();
     if (user) {
       // Same profile-id-OR-email rule as the onboarding pages themselves —
       // diverging keys once trapped people in a redirect loop.

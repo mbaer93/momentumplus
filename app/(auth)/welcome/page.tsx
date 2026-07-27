@@ -14,11 +14,12 @@ export const metadata = {
  * via /auth/callback?redirect=/welcome; here they set a password, complete
  * their profile, and enter the portal.
  */
-export default async function WelcomePage({
-  searchParams,
-}: {
-  searchParams?: { mode?: string; step?: string };
-}) {
+export default async function WelcomePage(
+  props: {
+    searchParams?: Promise<{ mode?: string; step?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const mode = searchParams?.mode === "reset" ? "reset" : "welcome";
   // ?step=profile: an already-passworded member is missing their name —
   // the portal gate sends them here to finish just the profile step.
@@ -36,7 +37,7 @@ export default async function WelcomePage({
     bio: "",
   };
   if (isSupabaseConfigured()) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

@@ -106,7 +106,7 @@ export async function listSpeakers(): Promise<SpeakerProfile[]> {
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
     data = await cachedSpeakerRows();
   } else {
-    const supabase = createClient();
+    const supabase = await createClient();
     let rows = (
       await supabase
         .from("speakers")
@@ -217,7 +217,7 @@ export async function listResources(viewerTier: Tier): Promise<ResourceItem[]> {
     // Show all; gated ones render with an Exclusive lock in the UI.
     return placeholderResources;
   }
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("resources")
     .select("id, title, category, description, url, partner_name, min_access, image_url")
@@ -292,7 +292,7 @@ export async function listSponsors(): Promise<SponsorItem[]> {
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
     data = await cachedSponsorRows();
   } else {
-    const supabase = createClient();
+    const supabase = await createClient();
     let rows = (
       await supabase.from("sponsors").select(SPONSOR_COLUMNS).order("tier")
     ).data as SponsorRow[] | null;
