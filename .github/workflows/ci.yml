@@ -19,3 +19,5 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # A build-breaking change must fail CI, not just the Vercel preview.
+      - run: npm run build
