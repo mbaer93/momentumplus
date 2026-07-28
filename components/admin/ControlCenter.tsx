@@ -14,6 +14,7 @@ import {
 } from "@/app/(portal)/admin/control-center/actions";
 import { startViewAs } from "@/app/(portal)/admin/control-center/view-as-actions";
 import { LockIcon } from "@/components/icons";
+import { isInternalTier } from "@/lib/tiers-shared";
 import type { AccessMatrix, LibraryScope, TierDef } from "@/lib/tiers";
 
 const SCOPE_LABEL: Record<LibraryScope, string> = {
@@ -178,39 +179,47 @@ export function ControlCenter({
                   <td>{SCOPE_LABEL[t.libraryScope]}</td>
                   <td>{t.countsTowardSpeakerPay ? "Yes" : "No"}</td>
                   <td>
-                    <div className="admin-actions-cell">
-                      <span
-                        className={`admin-status ${t.isPublic ? "live" : "draft"}`}
-                      >
-                        {t.isPublic ? "Live" : "Hidden"}
-                      </span>
-                      <button
-                        type="button"
-                        className={t.isPublic ? "btn-mini" : "btn-purple"}
-                        disabled={pending}
-                        onClick={() => {
-                          if (
-                            t.isPublic &&
-                            !window.confirm(
-                              `Take ${t.label} off the public site? Existing members keep their access; nobody new can buy it.`,
-                            )
-                          ) {
-                            return;
-                          }
-                          if (
-                            !t.isPublic &&
-                            !window.confirm(
-                              `Put ${t.label} on sale? It appears in pricing and checkout straight away.`,
-                            )
-                          ) {
-                            return;
-                          }
-                          run(() => setTierPublic(t.slug, !t.isPublic));
-                        }}
-                      >
-                        {t.isPublic ? "Take off sale" : "Go live"}
-                      </button>
-                    </div>
+                    {/* Granted roles are never sold, so they get no Go Live
+                        button at all (the action refuses them too). The one
+                        exception: a row flipped public before this guard
+                        existed can still be taken back off. */}
+                    {isInternalTier(t.slug) && !t.isPublic ? (
+                      <span className="cc-sub">Granted role — never sold</span>
+                    ) : (
+                      <div className="admin-actions-cell">
+                        <span
+                          className={`admin-status ${t.isPublic ? "live" : "draft"}`}
+                        >
+                          {t.isPublic ? "Live" : "Hidden"}
+                        </span>
+                        <button
+                          type="button"
+                          className={t.isPublic ? "btn-mini" : "btn-purple"}
+                          disabled={pending}
+                          onClick={() => {
+                            if (
+                              t.isPublic &&
+                              !window.confirm(
+                                `Take ${t.label} off the public site? Existing members keep their access; nobody new can buy it.`,
+                              )
+                            ) {
+                              return;
+                            }
+                            if (
+                              !t.isPublic &&
+                              !window.confirm(
+                                `Put ${t.label} on sale? It appears in pricing and checkout straight away.`,
+                              )
+                            ) {
+                              return;
+                            }
+                            run(() => setTierPublic(t.slug, !t.isPublic));
+                          }}
+                        >
+                          {t.isPublic ? "Take off sale" : "Go live"}
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

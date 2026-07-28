@@ -6,6 +6,7 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { LibraryScope } from "@/lib/tiers";
+import { isInternalTier } from "@/lib/tiers-shared";
 
 export interface ControlResult {
   ok: boolean;
@@ -77,6 +78,16 @@ export async function setTierPublic(
   if (!isSupabaseConfigured()) return PREVIEW;
   const auth = await requireSuper();
   if (!auth.ok) return { ok: false, message: auth.message };
+
+  // Granted roles are never sold. Only the PUBLISH direction is refused —
+  // a row flipped public before this guard existed can still be taken back.
+  if (isPublic && isInternalTier(slug)) {
+    return {
+      ok: false,
+      message:
+        "That's a granted role, not a product — it can't be put on sale. Admins, speakers and sponsors get their access from you, never from checkout.",
+    };
+  }
 
   const db = createServiceClient();
   const { data: existing, error: readErr } = await db
