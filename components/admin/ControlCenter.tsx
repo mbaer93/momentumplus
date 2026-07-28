@@ -93,16 +93,20 @@ export function ControlCenter({
         </div>
       )}
 
-      <div className="card">
-        <div className="card-header">
-          <h3>View the portal as a member</h3>
+      <div className="section-header">
+        <div>
+          <h2>View as a member</h2>
+          <p>
+            Browse as any member type and interact with the platform the way
+            they do — locked tabs, upgrade prompts, the lot. A bar stays at
+            the top of every page until you exit. Nothing you do changes
+            their account, and this can only ever show you less than you
+            already have.
+          </p>
         </div>
-        <p className="cc-note">
-          Browse as any member type and interact with the platform the way
-          they do — locked tabs, upgrade prompts, the lot. A bar stays at the
-          top of every page until you exit. Nothing you do changes their
-          account, and this can only ever show you less than you already have.
-        </p>
+      </div>
+
+      <div className="admin-form" style={{ marginBottom: 32 }}>
         <div className="admin-field">
           <label htmlFor="cc-view-as">Member type</label>
           <select
@@ -153,12 +157,8 @@ export function ControlCenter({
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Membership tiers</h3>
-        </div>
-        <div className="admin-table-wrap">
-          <table className="admin-table">
+      <div className="admin-table-wrap" style={{ marginBottom: 32 }}>
+        <table className="admin-table">
             <thead>
               <tr>
                 <th>Tier</th>
@@ -224,16 +224,21 @@ export function ControlCenter({
                 </tr>
               ))}
             </tbody>
-          </table>
+        </table>
+      </div>
+
+      <div className="section-header">
+        <div>
+          <h2>Feature switches</h2>
+          <p>
+            Pull a whole feature back to admins-only while you work on it, or
+            launch it for every tier that includes it.
+          </p>
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Features</h3>
-        </div>
-        <div className="admin-table-wrap">
-          <table className="admin-table">
+      <div className="admin-table-wrap" style={{ marginBottom: 32 }}>
+        <table className="admin-table">
             <thead>
               <tr>
                 <th>Feature</th>
@@ -271,8 +276,7 @@ export function ControlCenter({
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </table>
       </div>
 
       {/* ---------------------------------------------------------------- */}
@@ -291,9 +295,8 @@ export function ControlCenter({
         </div>
       </div>
 
-      <div className="card">
-        <div className="admin-table-wrap">
-          <table className="admin-table cc-grid">
+      <div className="admin-table-wrap" style={{ marginBottom: 32 }}>
+        <table className="admin-table cc-grid">
             <thead>
               <tr>
                 <th>Feature</th>
@@ -342,9 +345,8 @@ export function ControlCenter({
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-        <p className="cc-note">
+        </table>
+        <p className="cc-note" style={{ paddingTop: 12 }}>
           Administrators are fixed at full access — locking yourself out of the
           Control Center is not a recoverable mistake.
         </p>
@@ -373,18 +375,31 @@ export function ControlCenter({
       </div>
 
       {editing && (
-        <div className="card">
-          <div className="card-header">
-            <h3>{creating ? "New member type" : "Edit member type"}</h3>
-          </div>
-          <div className="admin-field">
-            <label htmlFor="cc-label">Name</label>
-            <input
-              id="cc-label"
-              value={form.label}
-              placeholder="Networking Member"
-              onChange={(e) => setForm({ ...form, label: e.target.value })}
-            />
+        <div className="admin-form" style={{ marginBottom: 20 }}>
+          <h3 className="admin-form-title">
+            {creating ? "New member type" : "Edit member type"}
+          </h3>
+          <div className="admin-field-row">
+            <div className="admin-field">
+              <label htmlFor="cc-label">Name</label>
+              <input
+                id="cc-label"
+                value={form.label}
+                placeholder="Networking Member"
+                onChange={(e) => setForm({ ...form, label: e.target.value })}
+              />
+            </div>
+            <div className="admin-field">
+              <label htmlFor="cc-rank">
+                Rank — lower sits above. Momentum+ Member is 100.
+              </label>
+              <input
+                id="cc-rank"
+                inputMode="numeric"
+                value={form.rank}
+                onChange={(e) => setForm({ ...form, rank: e.target.value })}
+              />
+            </div>
           </div>
           <div className="admin-field">
             <label htmlFor="cc-desc">Description</label>
@@ -393,17 +408,6 @@ export function ControlCenter({
               value={form.description}
               placeholder="Networking groups only."
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
-          </div>
-          <div className="admin-field">
-            <label htmlFor="cc-rank">
-              Rank — lower sits above. Momentum+ Member is 100.
-            </label>
-            <input
-              id="cc-rank"
-              inputMode="numeric"
-              value={form.rank}
-              onChange={(e) => setForm({ ...form, rank: e.target.value })}
             />
           </div>
           <div className="admin-field">
@@ -480,9 +484,8 @@ export function ControlCenter({
         </div>
       )}
 
-      <div className="card">
-        <div className="admin-table-wrap">
-          <table className="admin-table">
+      <div className="admin-table-wrap">
+        <table className="admin-table">
             <thead>
               <tr>
                 <th>Member type</th>
@@ -538,8 +541,7 @@ export function ControlCenter({
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </table>
       </div>
     </>
   );

@@ -1,10 +1,9 @@
-import Link from "next/link";
 import {
   CoursesManager,
   type AdminCourseRow,
   type VideoOption,
 } from "@/components/admin/CoursesManager";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { listCourses, parseDocuments } from "@/lib/education";
 
 /** Full quiz (with answers) for the admin editor. */
@@ -116,9 +115,6 @@ export default async function AdminEducationPage(
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Education</h2>

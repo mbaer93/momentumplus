@@ -135,10 +135,10 @@ export function AdsManager({
       </div>
 
       {editing && (
-        <div className="card">
-          <div className="card-header">
-            <h3>{editing === "__new__" ? "New ad or notice" : "Edit"}</h3>
-          </div>
+        <div className="admin-form" style={{ marginBottom: 24 }}>
+          <h3 className="admin-form-title">
+            {editing === "__new__" ? "New ad or notice" : "Edit ad or notice"}
+          </h3>
           <div className="admin-field">
             <label htmlFor="ad-placement">Where it appears</label>
             <select
@@ -153,18 +153,35 @@ export function AdsManager({
               ))}
             </select>
           </div>
-          <div className="admin-field">
-            <label htmlFor="ad-kind">Type</label>
-            <select
-              id="ad-kind"
-              value={form.kind}
-              onChange={(e) =>
-                setForm({ ...form, kind: e.target.value as "ad" | "notice" })
-              }
-            >
-              <option value="ad">Ad — a paid or sponsor placement</option>
-              <option value="notice">Notice — house copy, no advertiser</option>
-            </select>
+          <div className="admin-field-row">
+            <div className="admin-field">
+              <label htmlFor="ad-kind">Type</label>
+              <select
+                id="ad-kind"
+                value={form.kind}
+                onChange={(e) =>
+                  setForm({ ...form, kind: e.target.value as "ad" | "notice" })
+                }
+              >
+                <option value="ad">Ad — a paid or sponsor placement</option>
+                <option value="notice">Notice — house copy, no advertiser</option>
+              </select>
+            </div>
+            <div className="admin-field">
+              <label htmlFor="ad-sponsor">Sponsor — feeds their analytics</label>
+              <select
+                id="ad-sponsor"
+                value={form.sponsorId}
+                onChange={(e) => setForm({ ...form, sponsorId: e.target.value })}
+              >
+                <option value="">— none (house notice) —</option>
+                {sponsors.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="admin-field">
             <label htmlFor="ad-title">Headline</label>
@@ -183,23 +200,25 @@ export function AdsManager({
               onChange={(e) => setForm({ ...form, body: e.target.value })}
             />
           </div>
-          <div className="admin-field">
-            <label htmlFor="ad-cta">Button label</label>
-            <input
-              id="ad-cta"
-              value={form.ctaLabel}
-              placeholder="Learn more"
-              onChange={(e) => setForm({ ...form, ctaLabel: e.target.value })}
-            />
-          </div>
-          <div className="admin-field">
-            <label htmlFor="ad-url">Link</label>
-            <input
-              id="ad-url"
-              value={form.url}
-              placeholder="https://…"
-              onChange={(e) => setForm({ ...form, url: e.target.value })}
-            />
+          <div className="admin-field-row">
+            <div className="admin-field">
+              <label htmlFor="ad-cta">Button label</label>
+              <input
+                id="ad-cta"
+                value={form.ctaLabel}
+                placeholder="Learn more"
+                onChange={(e) => setForm({ ...form, ctaLabel: e.target.value })}
+              />
+            </div>
+            <div className="admin-field">
+              <label htmlFor="ad-url">Link</label>
+              <input
+                id="ad-url"
+                value={form.url}
+                placeholder="https://…"
+                onChange={(e) => setForm({ ...form, url: e.target.value })}
+              />
+            </div>
           </div>
           <div className="admin-field">
             <label htmlFor="ad-image">Image URL</label>
@@ -209,40 +228,25 @@ export function AdsManager({
               onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
             />
           </div>
-          <div className="admin-field">
-            <label htmlFor="ad-sponsor">
-              Sponsor — links views and clicks to their analytics
-            </label>
-            <select
-              id="ad-sponsor"
-              value={form.sponsorId}
-              onChange={(e) => setForm({ ...form, sponsorId: e.target.value })}
-            >
-              <option value="">— none (house notice) —</option>
-              {sponsors.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="admin-field">
-            <label htmlFor="ad-start">Starts (optional, Eastern)</label>
-            <input
-              id="ad-start"
-              type="datetime-local"
-              value={form.startsAt}
-              onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
-            />
-          </div>
-          <div className="admin-field">
-            <label htmlFor="ad-end">Ends (optional, Eastern)</label>
-            <input
-              id="ad-end"
-              type="datetime-local"
-              value={form.endsAt}
-              onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
-            />
+          <div className="admin-field-row">
+            <div className="admin-field">
+              <label htmlFor="ad-start">Starts (optional, Eastern)</label>
+              <input
+                id="ad-start"
+                type="datetime-local"
+                value={form.startsAt}
+                onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
+              />
+            </div>
+            <div className="admin-field">
+              <label htmlFor="ad-end">Ends (optional, Eastern)</label>
+              <input
+                id="ad-end"
+                type="datetime-local"
+                value={form.endsAt}
+                onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
+              />
+            </div>
           </div>
           <div className="admin-field">
             <label className="cc-check-row">
@@ -279,13 +283,13 @@ export function AdsManager({
           .filter((a) => a.placementKey === p.key)
           .sort((a, b) => a.sort - b.sort);
         return (
-          <div className="card" key={p.key}>
-            <div className="card-header">
+          <div key={p.key}>
+            <div className="ads-slot-head">
               <h3>{p.label}</h3>
+              <p>{p.description}</p>
             </div>
-            <p className="cc-note">{p.description}</p>
             {inSlot.length === 0 ? (
-              <p className="cc-note">Nothing in this slot.</p>
+              <p className="cc-sub">Nothing in this slot yet.</p>
             ) : (
               <div className="admin-table-wrap">
                 <table className="admin-table">

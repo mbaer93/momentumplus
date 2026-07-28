@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { AnnouncementComposer } from "@/components/admin/AnnouncementComposer";
 import {
   ScheduledPostsManager,
   type ScheduledPostRow,
 } from "@/components/admin/ScheduledPostsManager";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -53,9 +52,6 @@ export default async function AdminAnnouncementsPage() {
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Announcements</h2>

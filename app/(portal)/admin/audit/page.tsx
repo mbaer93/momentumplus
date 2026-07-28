@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { listAdminAudit } from "@/lib/admin-audit";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -24,9 +23,6 @@ export default async function AdminAuditPage() {
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Admin Audit Log</h2>

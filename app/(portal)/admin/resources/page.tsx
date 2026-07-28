@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { ResourcesManager } from "@/components/admin/ResourcesManager";
 import type { EntityRow } from "@/components/admin/EntityManager";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { resources as placeholderResources } from "@/lib/directory-data";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -63,9 +62,6 @@ export default async function AdminResourcesPage(
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Resources</h2>

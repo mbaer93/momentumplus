@@ -1,10 +1,9 @@
-import Link from "next/link";
 import {
   SponsorsManager,
   type AdminSponsorRow,
 } from "@/components/admin/SponsorsManager";
 import { SponsorTicketSettings } from "@/components/admin/SponsorTicketSettings";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { sponsors as placeholderSponsors } from "@/lib/directory-data";
 import { getPresentedByLogoUrl } from "@/lib/presented-by";
@@ -191,9 +190,6 @@ export default async function AdminSponsorsPage(
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Sponsors</h2>

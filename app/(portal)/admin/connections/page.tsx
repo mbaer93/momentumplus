@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   BillingSetup,
   type BillingStatus,
@@ -9,7 +8,7 @@ import {
   SmtpWizard,
   ZoomWizard,
 } from "@/components/admin/ConnectWizards";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import {
   isAnthropicReady,
@@ -123,9 +122,6 @@ export default async function AdminConnectionsPage() {
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Connections</h2>
