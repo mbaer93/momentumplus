@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { ServicesManager } from "@/components/admin/ServicesManager";
 import type { EntityRow } from "@/components/admin/EntityManager";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -41,9 +40,6 @@ export default async function AdminServicesPage(
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Additional Services</h2>

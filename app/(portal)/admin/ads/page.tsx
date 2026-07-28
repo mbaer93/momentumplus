@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { AdsManager } from "@/components/admin/AdsManager";
 import { listAds, listPlacements } from "@/lib/ads";
 import { requireAdmin } from "@/lib/auth-helpers";
@@ -45,7 +44,6 @@ export default async function AdminAdsPage() {
 
   return (
     <div className="admin-pad">
-      <AdminBackLink />
       <div className="section-header">
         <div>
           <h2>Ad Manager</h2>

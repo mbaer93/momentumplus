@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import {
   TopicsManager,
   type TaggableItem,
@@ -114,7 +113,6 @@ export default async function AdminTopicsPage() {
 
   return (
     <div className="admin-pad">
-      <AdminBackLink />
       <div className="section-header">
         <div>
           <h2>Library Categories</h2>

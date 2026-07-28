@@ -8,7 +8,7 @@ import {
   OrphanAccounts,
   type OrphanAccount,
 } from "@/components/admin/OrphanAccounts";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { tierLabel } from "@/lib/access";
 import { allRows } from "@/lib/db-utils";
 import { effectiveMembership } from "@/lib/membership";
@@ -307,9 +307,6 @@ export default async function AdminMembersPage(
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Members</h2>

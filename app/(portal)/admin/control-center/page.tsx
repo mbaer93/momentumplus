@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { ControlCenter } from "@/components/admin/ControlCenter";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -37,7 +36,6 @@ export default async function ControlCenterPage() {
 
   return (
     <div className="admin-pad">
-      <AdminBackLink />
       <div className="section-header">
         <div>
           <h2>Control Center</h2>

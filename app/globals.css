@@ -1758,6 +1758,12 @@
   padding: 24px;
   max-width: 680px;
 }
+.admin-form-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+}
 .admin-field { margin-bottom: 18px; }
 .admin-field label {
   display: block;
@@ -4671,6 +4677,75 @@ a.course-card:hover {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 2px 16px;
 }
+/* Inline inputs inside the categories table — rename in place, and the
+   permanent add-row at the bottom. Smaller than .admin-field inputs so a
+   row being edited stays row-height. */
+.topic-inline-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--warm-gray);
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--white);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.topic-inline-input:focus { border-color: var(--purple); }
+.admin-table tr.topic-add-row td {
+  background: #fbfaf8;
+  border-top: 1px solid var(--warm-gray);
+}
+.topic-search {
+  width: 260px;
+  max-width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--warm-gray);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--white);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.topic-search:focus { border-color: var(--purple); }
+/* Category chips in the filed-where table. Primary is gold-filled, matching
+   the member-facing .recording-topic.primary. */
+.topic-chip {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--mid-gray);
+  white-space: nowrap;
+}
+.topic-chip.primary {
+  border-color: rgba(184, 150, 90, 0.45);
+  background: rgba(184, 150, 90, 0.1);
+  color: var(--navy);
+  font-weight: 600;
+}
+.topic-chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+/* The expanded assignment editor lives in its own full-width row. */
+.admin-table tr.topic-editor-row td,
+.admin-table tr.topic-editor-row:hover td {
+  background: #fbfaf8;
+  padding: 18px 16px 14px;
+}
+.topic-editor .admin-field { margin-bottom: 14px; }
+.admin-table td.topic-empty {
+  padding: 30px 16px;
+  text-align: center;
+  color: var(--mid-gray);
+}
+/* Ad Manager: each placement gets a plain heading above its table. */
+.ads-slot-head { margin: 26px 0 10px; }
+.ads-slot-head h3 { font-size: 15px; font-weight: 600; color: var(--text); }
+.ads-slot-head p { font-size: 12.5px; color: var(--mid-gray); margin-top: 2px; }
 
 /* ===== VIEW AS ===== */
 .view-as-bar {

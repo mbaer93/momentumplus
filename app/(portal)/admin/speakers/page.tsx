@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { SpeakersManager } from "@/components/admin/SpeakersManager";
 import {
   SpeakerLifecyclePanel,
@@ -6,7 +5,7 @@ import {
   type PendingSpeakerInvite,
 } from "@/components/admin/SpeakerLifecyclePanel";
 import type { EntityRow } from "@/components/admin/EntityManager";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { speakers as placeholderSpeakers } from "@/lib/directory-data";
 import {
@@ -161,9 +160,6 @@ export default async function AdminSpeakersPage(
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Speakers</h2>

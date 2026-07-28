@@ -1,9 +1,8 @@
-import Link from "next/link";
 import {
   TestimonialsManager,
   type AdminTestimonialRow,
 } from "@/components/admin/TestimonialsManager";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -32,9 +31,6 @@ export default async function AdminTestimonialsPage() {
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Testimonials</h2>

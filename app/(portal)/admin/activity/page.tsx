@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActivityFeed } from "@/components/admin/ActivityFeed";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { listActivity } from "@/lib/activity";
 import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
@@ -28,9 +27,6 @@ export default async function AdminActivityPage() {
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Activity Log</h2>

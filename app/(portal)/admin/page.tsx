@@ -122,13 +122,6 @@ const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
     sub: "What members hear from you, and whether it arrived",
     cards: [
       {
-        href: "/admin/ads",
-        icon: SponsorsIcon,
-        title: "Ad Manager",
-        desc: "Banners and notices — what runs in each slot, and in what order.",
-        area: "sponsors",
-      },
-      {
         href: "/admin/announcements",
         icon: CommunityIcon,
         title: "Announcements",
@@ -174,8 +167,15 @@ const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
   },
   {
     heading: "Money & Setup",
-    sub: "Billing and the platform's integrations (Super Admin)",
+    sub: "Ads, billing, and the platform's integrations",
     cards: [
+      {
+        href: "/admin/ads",
+        icon: SponsorsIcon,
+        title: "Ad Manager",
+        desc: "Banners and notices — what runs in each slot, and in what order.",
+        area: "sponsors",
+      },
       {
         href: "/admin/control-center",
         icon: ShieldIcon,

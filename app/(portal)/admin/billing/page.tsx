@@ -1,10 +1,9 @@
-import Link from "next/link";
 import {
   BillingSetup,
   type BillingStatus,
 } from "@/components/admin/BillingSetup";
 import { PricingManager, type PricingInitial } from "@/components/admin/PricingManager";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { getStripeSettings, pricesModeMismatch } from "@/lib/stripe";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -38,9 +37,6 @@ export default async function AdminBillingPage() {
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Billing — Stripe</h2>

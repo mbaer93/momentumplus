@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { VideosManager } from "@/components/admin/VideosManager";
 import { VideoUploader } from "@/components/admin/VideoUploader";
 import type { EntityRow } from "@/components/admin/EntityManager";
-import { ArrowLeftIcon } from "@/components/icons";
+import {} from "@/components/icons";
 import { isMuxConfigured, muxThumbnailUrl } from "@/lib/mux";
 import { placeholderVideos } from "@/lib/videos/data";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -71,9 +70,6 @@ export default async function AdminVideosPage(
 
   return (
     <div className="admin-pad">
-      <Link href="/admin" className="sess-back">
-        <ArrowLeftIcon size={12} /> Admin
-      </Link>
       <div className="section-header">
         <div>
           <h2>Library</h2>
