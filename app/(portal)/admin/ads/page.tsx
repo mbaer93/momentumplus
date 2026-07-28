@@ -46,12 +46,14 @@ export default async function AdminAdsPage() {
   return (
     <div className="admin-pad">
       <AdminBackLink />
-      <div className="page-header">
-        <h1>Ad Manager</h1>
-        <p>
-          Banners, notices and where they run. Sponsor-linked creatives keep
-          reporting their views and clicks in Analytics.
-        </p>
+      <div className="section-header">
+        <div>
+          <h2>Ad Manager</h2>
+          <p>
+            Banners, notices and where they run. Sponsor-linked creatives keep
+            reporting their views and clicks in Analytics.
+          </p>
+        </div>
       </div>
       <AdsManager
         placements={placements}

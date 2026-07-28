@@ -115,12 +115,14 @@ export default async function AdminTopicsPage() {
   return (
     <div className="admin-pad">
       <AdminBackLink />
-      <div className="page-header">
-        <h1>Library Categories</h1>
-        <p>
-          The subjects members browse the Library by, and what each talk is
-          filed under.
-        </p>
+      <div className="section-header">
+        <div>
+          <h2>Library Categories</h2>
+          <p>
+            The subjects members browse the Library by, and what each talk is
+            filed under.
+          </p>
+        </div>
       </div>
       {needsMigration ? (
         <div className="admin-hint">

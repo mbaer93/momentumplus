@@ -25,8 +25,9 @@ export interface OwnSpeaker {
   tslsMainSpeaker: boolean;
 }
 
-export async function getSpeakerForUser(
-  userId: string,
+async function resolveSpeaker(
+  column: "profile_id" | "id",
+  value: string,
 ): Promise<OwnSpeaker | null> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return null;
@@ -38,7 +39,7 @@ export async function getSpeakerForUser(
       .select(
         "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker",
       )
-      .eq("profile_id", userId)
+      .eq(column, value)
       .maybeSingle()
   ).data;
   if (!data) {
@@ -49,7 +50,7 @@ export async function getSpeakerForUser(
         .select(
           "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at",
         )
-        .eq("profile_id", userId)
+        .eq(column, value)
         .maybeSingle()
     ).data;
   }
@@ -74,6 +75,23 @@ export async function getSpeakerForUser(
     speakerMonth: (data.speaker_month as string | null) ?? null,
     tslsMainSpeaker: Boolean(data.tsls_main_speaker),
   };
+}
+
+export async function getSpeakerForUser(
+  userId: string,
+): Promise<OwnSpeaker | null> {
+  return resolveSpeaker("profile_id", userId);
+}
+
+/**
+ * A speaker by their row id — how an admin opens someone's Studio to see
+ * what that speaker sees. Same active-season rule as the owner path: an
+ * archived or expired speaker has no Studio for anyone.
+ */
+export async function getSpeakerById(
+  speakerId: string,
+): Promise<OwnSpeaker | null> {
+  return resolveSpeaker("id", speakerId);
 }
 
 /** True when `userId` is the active speaker who owns `sessionId`. */

@@ -4773,3 +4773,25 @@ a.ad-slot-item:hover {
     width: 100%;
   }
 }
+
+
+/* ===== SPEAKER STUDIO ADMIN PREVIEW ===== */
+.studio-preview-banner {
+  margin-bottom: 16px;
+  padding: 10px 16px;
+  border: 1px solid rgba(92, 61, 122, 0.35);
+  border-left: 3px solid var(--purple);
+  border-radius: 4px;
+  background: rgba(92, 61, 122, 0.07);
+  font-size: 13px;
+}
+/* The fieldset is plumbing, not layout — it must not add box chrome. */
+.studio-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.studio-fieldset:disabled {
+  opacity: 0.92;
+}
