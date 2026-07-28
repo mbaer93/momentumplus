@@ -38,12 +38,14 @@ export default async function ControlCenterPage() {
   return (
     <div className="admin-pad">
       <AdminBackLink />
-      <div className="page-header">
-        <h1>Control Center</h1>
-        <p>
-          Launch switches, tier access and member types. Changes here take
-          effect immediately for every member.
-        </p>
+      <div className="section-header">
+        <div>
+          <h2>Control Center</h2>
+          <p>
+            Launch switches, tier access and member types. Changes here take
+            effect immediately for every member.
+          </p>
+        </div>
       </div>
       <ControlCenter matrix={matrix} memberCounts={memberCounts} />
     </div>

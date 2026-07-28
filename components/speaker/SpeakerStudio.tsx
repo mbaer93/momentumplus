@@ -65,6 +65,7 @@ export function SpeakerStudio({
   videos,
   startError,
   monthCard = null,
+  previewAs = null,
 }: {
   speaker: {
     name: string;
@@ -88,6 +89,10 @@ export function SpeakerStudio({
   startError: string | null;
   /** Speaker-of-the-month stats — null until an admin assigns a month. */
   monthCard?: StudioMonthCard | null;
+  /** Set when an admin is viewing this speaker's Studio: banner + read-only.
+      Every server action re-checks ownership anyway, so this is honest UI
+      (buttons that would fail are disabled), not the security boundary. */
+  previewAs?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -115,6 +120,16 @@ export function SpeakerStudio({
 
   return (
     <div className="admin-pad" style={{ maxWidth: 900 }}>
+      {previewAs && (
+        <div className="studio-preview-banner" role="status">
+          You&apos;re viewing <strong>{previewAs}</strong>&apos;s Studio the
+          way they see it. Everything is read-only — nothing here can change
+          their page.
+        </div>
+      )}
+      {/* A disabled fieldset switches off every input and button inside it —
+          the whole Studio at once, with no per-control bookkeeping. */}
+      <fieldset disabled={Boolean(previewAs)} className="studio-fieldset">
       <div className="section-header">
         <div>
           <h2>Speaker Studio</h2>
@@ -666,6 +681,7 @@ export function SpeakerStudio({
           );
         })}
       </div>
+      </fieldset>
     </div>
   );
 }

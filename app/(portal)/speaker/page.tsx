@@ -5,9 +5,12 @@ import {
   type StudioSession,
   type StudioVideo,
 } from "@/components/speaker/SpeakerStudio";
+import Link from "next/link";
+import { canAccessArea } from "@/lib/admin-perms";
+import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
 import { formatCents, speakerMonthStats } from "@/lib/revenue";
-import { getSpeakerForUser } from "@/lib/speaker-tools";
+import { getSpeakerById, getSpeakerForUser } from "@/lib/speaker-tools";
 import { speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -27,7 +30,7 @@ export const metadata = { title: "Speaker Studio | Momentum+" };
  */
 export default async function SpeakerStudioPage(
   props: {
-    searchParams?: Promise<{ error?: string }>;
+    searchParams?: Promise<{ error?: string; as?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -44,14 +47,98 @@ export default async function SpeakerStudioPage(
   let videos: StudioVideo[] = [];
   let monthCard: StudioMonthCard | null = null;
 
+  // Set when an admin is looking at a specific speaker's Studio.
+  let previewAs: string | null = null;
+
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) redirect("/login");
-    speaker = await getSpeakerForUser(user.id);
-    if (!speaker) redirect("/dashboard");
+
+    /*
+     * ?as=<speakerId>: an admin opening a speaker's Studio to see exactly
+     * what that speaker sees (Matt, 2026-07-28). Admin check uses the REAL
+     * profile, so this is unreachable from inside a view-as preview — which
+     * is correct: view-as simulates a role, this inspects a person.
+     */
+    const asId = searchParams?.as?.trim();
+    if (asId) {
+      const access = await getAdminAccess();
+      if (!access || !canAccessArea(access, "content")) redirect("/dashboard");
+      speaker = await getSpeakerById(asId);
+      // Archived/expired speakers have no Studio for anyone.
+      if (!speaker) redirect("/admin/speakers");
+      previewAs = speaker.name;
+    } else {
+      speaker = await getSpeakerForUser(user.id);
+    }
+
+    if (!speaker) {
+      /*
+       * No speaker row of your own. For a generic view-as "speaker" preview
+       * that's expected — say so instead of silently bouncing to the
+       * dashboard, which read as a bug. For a real admin, offer the list of
+       * Studios they can open. Everyone else has no business here.
+       */
+      const access = await getAdminAccess();
+      if (member.viewingAs || access) {
+        const admin = createServiceClient();
+        const { data: rows } = access
+          ? await admin
+              .from("speakers")
+              .select("id, name, title")
+              .is("archived_at", null)
+              .order("name")
+          : { data: [] };
+        return (
+          <div className="admin-pad">
+            <div className="section-header">
+              <div>
+                <h2>Speaker Studio</h2>
+                <p>
+                  {member.viewingAs
+                    ? "The role preview has no speaker page attached — a Studio always belongs to one real speaker. Exit the preview and open a specific speaker's Studio below or from Admin → Speakers."
+                    : "You don't have a speaker page of your own. Open any speaker's Studio to see exactly what they see."}
+                </p>
+              </div>
+            </div>
+            {(rows ?? []).length > 0 && (
+              <div className="card">
+                <div className="admin-table-wrap">
+                  <table className="admin-table">
+                    <tbody>
+                      {(rows ?? []).map((r) => (
+                        <tr key={r.id as string}>
+                          <td>
+                            <div className="admin-row-title">
+                              {r.name as string}
+                            </div>
+                            <div className="cc-sub">
+                              {(r.title as string) ?? ""}
+                            </div>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <Link
+                              className="btn-mini"
+                              href={`/speaker?as=${r.id as string}`}
+                            >
+                              Open Studio
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+      redirect("/dashboard");
+    }
 
     const admin = createServiceClient();
     const [{ data: sessionRows }, { data: resourceRow }] = await Promise.all([
@@ -204,6 +291,7 @@ export default async function SpeakerStudioPage(
       videos={videos}
       startError={searchParams?.error ?? null}
       monthCard={monthCard}
+      previewAs={previewAs}
     />
   );
 }

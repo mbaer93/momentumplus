@@ -231,6 +231,10 @@ export function SpeakerLifecyclePanel({
                     : "Ongoing — live to members, no season end"}
                 </span>
               </div>
+              {/* Opens their Studio read-only — see exactly what they see. */}
+              <a className="btn-mini" href={`/speaker?as=${s.id}`}>
+                Studio
+              </a>
               <button
                 type="button"
                 className="btn-mini"

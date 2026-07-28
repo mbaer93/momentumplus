@@ -194,7 +194,7 @@ export function ControlCenter({
                         </span>
                         <button
                           type="button"
-                          className={t.isPublic ? "btn-mini" : "btn-purple"}
+                          className="btn-mini"
                           disabled={pending}
                           onClick={() => {
                             if (
@@ -258,7 +258,7 @@ export function ControlCenter({
                       </span>
                       <button
                         type="button"
-                        className={f.isLaunched ? "btn-mini" : "btn-purple"}
+                        className="btn-mini"
                         disabled={pending}
                         onClick={() =>
                           run(() => setFeatureLaunched(f.key, !f.isLaunched))
