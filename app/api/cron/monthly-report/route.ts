@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
 
   const bodyHtml = `
     <p style="margin:0 0 14px;">Here's how Momentum+ did in <strong>${esc(label)}</strong>.</p>
-    <p style="margin:0 0 6px;"><strong>${memberCount}</strong> members on the platform (excluding admins, speakers, and sponsors)</p>
+    <p style="margin:0 0 6px;"><strong>${memberCount}</strong> members on the platform (only tiers set to count in Control Center &rarr; Member types)</p>
     <p style="margin:0 0 6px;"><strong>${newMembers ?? 0}</strong> new memberships started</p>
     <p style="margin:0 0 14px;"><strong>${revenueCents === null ? "Billing not connected" : formatCents(revenueCents)}</strong> monthly-equivalent membership revenue (longer plans spread across the months they cover)</p>
     ${speakerLines ? `<p style="margin:0 0 6px;"><strong>Speaker of the month</strong></p>${speakerLines}` : ""}

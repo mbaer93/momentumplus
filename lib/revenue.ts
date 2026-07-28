@@ -204,10 +204,30 @@ export async function monthlyEquivalentRevenueCents(
 // Eligible members for a month
 // ---------------------------------------------------------------------------
 
-/** Tiers/sources that are NOT counted as "users on the platform" for the
-    speaker card (Matt: exclude admins, speakers, sponsors, super admins). */
-const EXCLUDED_TIERS = new Set(["admin", "speaker", "sponsor"]);
+/* Which tiers count as "users on the platform" for the speaker card is now a
+   switch per tier (member_tiers.counts_toward_speaker_pay, migration 0054):
+   admins, speakers and sponsors were always excluded, and Momentum+ Lite
+   joins them because it isn't a full share of a month (Matt, 2026-07-28).
+   The set below is only the pre-migration fallback. */
+const FALLBACK_EXCLUDED_TIERS = new Set(["admin", "speaker", "sponsor", "lite"]);
 const EXCLUDED_SOURCES = new Set(["speaker", "sponsor"]);
+
+/** Tier slugs that do NOT count, read from the registry. */
+async function nonCountingTiers(): Promise<Set<string>> {
+  try {
+    const { data, error } = await createServiceClient()
+      .from("member_tiers")
+      .select("slug, counts_toward_speaker_pay");
+    if (error || !data?.length) return FALLBACK_EXCLUDED_TIERS;
+    return new Set(
+      data
+        .filter((r) => r.counts_toward_speaker_pay === false)
+        .map((r) => String(r.slug)),
+    );
+  } catch {
+    return FALLBACK_EXCLUDED_TIERS;
+  }
+}
 
 /**
  * Distinct members whose active access overlaps the month, excluding staff
@@ -217,6 +237,7 @@ const EXCLUDED_SOURCES = new Set(["speaker", "sponsor"]);
 export async function eligibleMemberCount(monthKey: string): Promise<number> {
   const { start, end } = monthWindow(monthKey);
   const admin = createServiceClient();
+  const excluded = await nonCountingTiers();
   const { rows } = await allRows<{
     profile_id: string;
     tier: string;
@@ -233,7 +254,7 @@ export async function eligibleMemberCount(monthKey: string): Promise<number> {
   );
   const members = new Set<string>();
   for (const r of rows) {
-    if (EXCLUDED_TIERS.has(r.tier)) continue;
+    if (excluded.has(r.tier)) continue;
     if (r.source && EXCLUDED_SOURCES.has(r.source)) continue;
     members.add(r.profile_id);
   }
