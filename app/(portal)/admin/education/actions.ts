@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { lessonDocumentPrefix, pathInScope, scopedUploadPath } from "@/lib/upload-paths";
 
 export interface CourseInput {
   title: string;
@@ -227,47 +228,68 @@ export async function removeLessonImage(lessonId: string): Promise<AdminResult> 
   return { ok: true, message: "Lesson image removed." };
 }
 
-/** Attach a document (PDF, slides, worksheets — any file up to 20 MB). */
-export async function uploadLessonDocument(
+/**
+ * A signed URL so the browser uploads a lesson document straight to storage.
+ *
+ * Course documents are slide decks and workbooks — routinely past the ~4.5 MB
+ * Vercel allows in a server action body, a limit enforced before any of our
+ * code runs. The old FormData version advertised 20 MB it could never honour:
+ * anything bigger was rejected by the platform, so the upload failed with
+ * nothing for the admin to see.
+ */
+export async function createLessonDocumentUpload(
   lessonId: string,
-  formData: FormData,
-): Promise<AdminResult> {
+  fileName: string,
+): Promise<AdminResult & { path?: string; token?: string; bucket?: string }> {
   const early = await guard();
   if (early) return early;
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, message: "No file received — choose a document and try again." };
-  }
-  if (file.size > 20 * 1024 * 1024) {
-    return { ok: false, message: "Documents must be under 20 MB." };
-  }
 
   await ensureMediaBucket();
   const admin = createServiceClient();
-  const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
-  const path = `lesson-${lessonId}/${Date.now()}-${safeName}`;
-  const { error: upErr } = await admin.storage
+  const path = scopedUploadPath(lessonDocumentPrefix(lessonId), fileName);
+  const { data, error } = await admin.storage
     .from(MEDIA_BUCKET)
-    .upload(path, Buffer.from(await file.arrayBuffer()), {
-      contentType: file.type || "application/octet-stream",
-      upsert: true,
-    });
-  if (upErr) return { ok: false, message: upErr.message };
-  const { data: pub } = admin.storage.from(MEDIA_BUCKET).getPublicUrl(path);
+    .createSignedUploadUrl(path);
+  if (error || !data) {
+    return { ok: false, message: error?.message ?? "Could not start the upload." };
+  }
+  return { ok: true, path: data.path, token: data.token, bucket: MEDIA_BUCKET };
+}
 
+/**
+ * Record a document the browser has already uploaded.
+ *
+ * The path comes from the client, so it is checked against this lesson's
+ * scope rather than trusted — otherwise one lesson could be made to point at
+ * another's file.
+ */
+export async function finalizeLessonDocument(
+  lessonId: string,
+  storagePath: string,
+  displayName: string,
+): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+  if (!pathInScope(storagePath, lessonDocumentPrefix(lessonId))) {
+    return { ok: false, message: "That upload doesn't belong to this lesson." };
+  }
+
+  const admin = createServiceClient();
+  const { data: pub } = admin.storage.from(MEDIA_BUCKET).getPublicUrl(storagePath);
   const { data: lesson } = await admin
     .from("course_lessons")
     .select("documents")
     .eq("id", lessonId)
     .maybeSingle();
   const docs = Array.isArray(lesson?.documents) ? lesson.documents : [];
+  const name = displayName.trim() || storagePath.split("/").pop() || "Document";
   const { error } = await admin
     .from("course_lessons")
-    .update({ documents: [...docs, { name: file.name, url: pub.publicUrl }] })
+    .update({ documents: [...docs, { name, url: pub.publicUrl }] })
     .eq("id", lessonId);
   if (error) return { ok: false, message: error.message };
   refresh();
-  return { ok: true, message: `"${file.name}" attached.` };
+  return { ok: true, message: `"${name}" attached.` };
 }
 
 export async function removeLessonDocument(

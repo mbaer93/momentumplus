@@ -1,4 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/admin";
+import {
+  pathInScope,
+  scopedUploadPath,
+  sessionResourcePrefix,
+} from "@/lib/upload-paths";
 import type { SessionResource } from "@/lib/types";
 
 /*
@@ -30,9 +35,58 @@ const FILE_TYPES: Record<string, { ext: string; label: string }> = {
 
 const BUCKET = "resource-images"; // existing public bucket (speaker shares live here too)
 
+/** Label for a stored file, recovered from the extension we chose for it. */
+const EXT_LABEL: Record<string, string> = Object.fromEntries(
+  Object.values(FILE_TYPES).map((k) => [k.ext, k.label]),
+);
+
 export interface ResourceResult {
   ok: boolean;
   message?: string;
+}
+
+export interface ResourceUploadTicket extends ResourceResult {
+  path?: string;
+  token?: string;
+  bucket?: string;
+}
+
+/**
+ * A signed URL the browser can upload a resource file to directly.
+ *
+ * Resources are workbooks, slide decks and session recordings — routinely
+ * far past the ~4.5 MB Vercel allows in a server action body, which it
+ * rejects before our own size check runs. Uploading straight to storage is
+ * the only way the stated limit can be true.
+ *
+ * AUTHORIZATION IS THE CALLER'S JOB, as with everything else in this file.
+ */
+export async function createSessionResourceUpload(
+  sessionId: string,
+  contentType: string,
+  fileName: string,
+): Promise<ResourceUploadTicket> {
+  const kind = FILE_TYPES[contentType];
+  if (!kind) {
+    return {
+      ok: false,
+      message:
+        "Attach a PDF, Word/PowerPoint/Excel file, image, or MP4 — or paste a link instead.",
+    };
+  }
+  const admin = createServiceClient();
+  await admin.storage.createBucket(BUCKET, { public: true }).catch(() => undefined);
+  const path = scopedUploadPath(
+    sessionResourcePrefix(sessionId),
+    `${fileName.replace(/\.[^.]*$/, "")}.${kind.ext}`,
+  );
+  const { data, error } = await admin.storage
+    .from(BUCKET)
+    .createSignedUploadUrl(path);
+  if (error || !data) {
+    return { ok: false, message: error?.message ?? "Could not start the upload." };
+  }
+  return { ok: true, path: data.path, token: data.token, bucket: BUCKET };
 }
 
 export async function listSessionResources(
@@ -54,9 +108,13 @@ export async function listSessionResources(
 }
 
 /**
- * Add a resource from a form: `name` plus EITHER `url` or an uploaded
- * `file`. Uploaded files land in public storage; the stored row points at
- * the public URL either way.
+ * Add a resource from a form: `name` plus EITHER `url` or `storagePath` —
+ * the key of a file the browser has already uploaded via
+ * `createSessionResourceUpload`. The stored row points at a public URL
+ * either way.
+ *
+ * The path comes from the client, so it's checked against the scope this
+ * caller was authorised for rather than taken at face value.
  */
 export async function addSessionResourceFromForm(
   sessionId: string,
@@ -64,11 +122,10 @@ export async function addSessionResourceFromForm(
 ): Promise<ResourceResult> {
   const name = String(formData.get("name") ?? "").trim();
   const linkUrl = String(formData.get("url") ?? "").trim();
-  const file = formData.get("file");
-  const hasFile = file instanceof File && file.size > 0;
+  const storagePath = String(formData.get("storagePath") ?? "").trim();
 
   if (!name) return { ok: false, message: "Give the resource a name." };
-  if (!hasFile && !linkUrl) {
+  if (!storagePath && !linkUrl) {
     return { ok: false, message: "Paste a link or attach a file." };
   }
 
@@ -76,33 +133,13 @@ export async function addSessionResourceFromForm(
   let url = linkUrl;
   let typeLabel = "Link";
 
-  if (hasFile) {
-    if (file.size > 25 * 1024 * 1024) {
-      return {
-        ok: false,
-        message:
-          "Files are limited to 25 MB — host bigger videos elsewhere and paste the link instead.",
-      };
+  if (storagePath) {
+    if (!pathInScope(storagePath, sessionResourcePrefix(sessionId))) {
+      return { ok: false, message: "That upload doesn't belong to this session." };
     }
-    const kind = FILE_TYPES[file.type];
-    if (!kind) {
-      return {
-        ok: false,
-        message:
-          "Attach a PDF, Word/PowerPoint/Excel file, image, or MP4 — or paste a link instead.",
-      };
-    }
-    await admin.storage
-      .createBucket(BUCKET, { public: true })
-      .catch(() => undefined);
-    const path = `session-resources/${sessionId}/${Date.now()}.${kind.ext}`;
-    const bytes = Buffer.from(await file.arrayBuffer());
-    const { error: uploadError } = await admin.storage
-      .from(BUCKET)
-      .upload(path, bytes, { contentType: file.type, upsert: true });
-    if (uploadError) return { ok: false, message: uploadError.message };
-    url = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-    typeLabel = kind.label;
+    const ext = storagePath.split(".").pop()?.toLowerCase() ?? "";
+    url = admin.storage.from(BUCKET).getPublicUrl(storagePath).data.publicUrl;
+    typeLabel = EXT_LABEL[ext] ?? "File";
   } else {
     try {
       const parsed = new URL(linkUrl);

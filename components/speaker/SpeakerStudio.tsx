@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addOwnSessionResource,
+  createNoticeAttachmentUpload,
+  createOwnResourceUpload,
   deleteOwnSessionResource,
   sendSessionNotice,
   updateOwnResource,
@@ -12,6 +14,7 @@ import {
   uploadOwnResourceLogo,
   updateOwnVideo,
 } from "@/app/(portal)/speaker/actions";
+import { uploadOnTicket } from "@/lib/upload-client";
 import type { SessionResource } from "@/lib/types";
 
 export interface StudioSession {
@@ -292,14 +295,28 @@ export function SpeakerStudio({
                     (!newResource.url.trim() && !resourceFile)
                   }
                   onClick={() => {
+                    const picked = resourceFile;
                     const fd = new FormData();
                     fd.set("sessionId", s.id);
                     fd.set("name", newResource.name);
                     fd.set("url", newResource.url);
-                    if (resourceFile) fd.set("file", resourceFile);
                     setNewResource({ name: "", url: "" });
                     setResourceFile(null);
-                    run(() => addOwnSessionResource(fd));
+                    run(async () => {
+                      // Straight to storage — past ~4.5 MB Vercel rejects a
+                      // server action body before the action runs.
+                      if (picked) {
+                        const ticket = await createOwnResourceUpload(
+                          s.id,
+                          picked.type,
+                          picked.name,
+                        );
+                        const up = await uploadOnTicket(ticket, picked);
+                        if (!up.ok) return { ok: false, message: up.message };
+                        if (up.path) fd.set("storagePath", up.path);
+                      }
+                      return addOwnSessionResource(fd);
+                    });
                   }}
                 >
                   {pending ? "Saving…" : "Add resource"}
@@ -369,7 +386,22 @@ export function SpeakerStudio({
                       fd.append("subject", notice.subject);
                       fd.append("message", notice.message);
                       fd.append("linkUrl", notice.linkUrl);
-                      if (noticeFile) fd.append("file", noticeFile);
+                      // The attachment is uploaded first and referenced by
+                      // path: a deck emailed to enrollees is routinely past
+                      // the ~4.5 MB Vercel allows in a server action body.
+                      if (noticeFile) {
+                        const ticket = await createNoticeAttachmentUpload(
+                          s.id,
+                          noticeFile.type,
+                          noticeFile.name,
+                        );
+                        const up = await uploadOnTicket(ticket, noticeFile);
+                        if (!up.ok) return { ok: false, message: up.message };
+                        if (up.path) {
+                          fd.append("storagePath", up.path);
+                          fd.append("fileName", noticeFile.name);
+                        }
+                      }
                       const res = await sendSessionNotice(fd);
                       if (res.ok) {
                         setNotice({ subject: "", message: "", linkUrl: "" });
