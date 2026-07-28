@@ -1,0 +1,381 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  createAd,
+  deleteAd,
+  moveAd,
+  updateAd,
+  type AdInput,
+  type AdResult,
+} from "@/app/(portal)/admin/ads/actions";
+import { adStatus, type AdCreative, type AdPlacement } from "@/lib/ads-shared";
+
+const EMPTY: AdInput = {
+  placementKey: "",
+  kind: "ad",
+  title: "",
+  body: "",
+  ctaLabel: "",
+  url: "",
+  imageUrl: "",
+  sponsorId: "",
+  active: true,
+  startsAt: "",
+  endsAt: "",
+};
+
+/** ISO → the value a datetime-local input wants, in Eastern. */
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
+
+function toInput(a: AdCreative): AdInput {
+  return {
+    placementKey: a.placementKey,
+    kind: a.kind,
+    title: a.title,
+    body: a.body,
+    ctaLabel: a.ctaLabel,
+    url: a.url,
+    imageUrl: a.imageUrl ?? "",
+    sponsorId: a.sponsorId ?? "",
+    active: a.active,
+    startsAt: toLocalInput(a.startsAt),
+    endsAt: toLocalInput(a.endsAt),
+  };
+}
+
+export function AdsManager({
+  placements,
+  ads,
+  sponsors,
+  needsMigration,
+}: {
+  placements: AdPlacement[];
+  ads: AdCreative[];
+  sponsors: { id: string; name: string }[];
+  needsMigration: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [form, setForm] = useState<AdInput>(EMPTY);
+
+  function run(fn: () => Promise<AdResult>, silent = false) {
+    setMsg(null);
+    startTransition(async () => {
+      const res = await fn();
+      if (!res.ok || (!silent && res.message)) {
+        setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "Saved." : "Error") });
+      }
+      if (res.ok) router.refresh();
+    });
+  }
+
+  function save() {
+    const input = form;
+    const id = editing;
+    run(async () => (id && id !== "__new__" ? updateAd(id, input) : createAd(input)));
+    setEditing(null);
+    setForm(EMPTY);
+  }
+
+  if (needsMigration) {
+    return (
+      <div className="admin-hint">
+        Run <code>0056_ad_manager.sql</code> in Supabase to turn on the ad
+        manager.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {msg && (
+        <div className={`admin-form-msg ${msg.ok ? "ok" : "err"}`} role="status">
+          {msg.text}
+        </div>
+      )}
+
+      <div className="section-header">
+        <div>
+          <h2>Placements</h2>
+          <p>
+            Every slot a banner or notice can occupy. Within a slot, the order
+            here is the order members see — use the arrows to move a creative
+            up or down.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-purple"
+          onClick={() => {
+            setEditing("__new__");
+            setForm({ ...EMPTY, placementKey: placements[0]?.key ?? "" });
+          }}
+        >
+          Add an ad or notice
+        </button>
+      </div>
+
+      {editing && (
+        <div className="card">
+          <div className="card-header">
+            <h3>{editing === "__new__" ? "New ad or notice" : "Edit"}</h3>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-placement">Where it appears</label>
+            <select
+              id="ad-placement"
+              value={form.placementKey}
+              onChange={(e) => setForm({ ...form, placementKey: e.target.value })}
+            >
+              {placements.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.label} — {p.description}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-kind">Type</label>
+            <select
+              id="ad-kind"
+              value={form.kind}
+              onChange={(e) =>
+                setForm({ ...form, kind: e.target.value as "ad" | "notice" })
+              }
+            >
+              <option value="ad">Ad — a paid or sponsor placement</option>
+              <option value="notice">Notice — house copy, no advertiser</option>
+            </select>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-title">Headline</label>
+            <input
+              id="ad-title"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-body">Body</label>
+            <textarea
+              id="ad-body"
+              rows={2}
+              value={form.body}
+              onChange={(e) => setForm({ ...form, body: e.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-cta">Button label</label>
+            <input
+              id="ad-cta"
+              value={form.ctaLabel}
+              placeholder="Learn more"
+              onChange={(e) => setForm({ ...form, ctaLabel: e.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-url">Link</label>
+            <input
+              id="ad-url"
+              value={form.url}
+              placeholder="https://…"
+              onChange={(e) => setForm({ ...form, url: e.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-image">Image URL</label>
+            <input
+              id="ad-image"
+              value={form.imageUrl}
+              onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-sponsor">
+              Sponsor — links views and clicks to their analytics
+            </label>
+            <select
+              id="ad-sponsor"
+              value={form.sponsorId}
+              onChange={(e) => setForm({ ...form, sponsorId: e.target.value })}
+            >
+              <option value="">— none (house notice) —</option>
+              {sponsors.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-start">Starts (optional, Eastern)</label>
+            <input
+              id="ad-start"
+              type="datetime-local"
+              value={form.startsAt}
+              onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="ad-end">Ends (optional, Eastern)</label>
+            <input
+              id="ad-end"
+              type="datetime-local"
+              value={form.endsAt}
+              onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label className="cc-check-row">
+              <input
+                type="checkbox"
+                checked={form.active}
+                onChange={(e) => setForm({ ...form, active: e.target.checked })}
+              />
+              Running
+            </label>
+          </div>
+          <div className="admin-form-actions">
+            <button
+              type="button"
+              className="btn-purple"
+              disabled={pending}
+              onClick={save}
+            >
+              {editing === "__new__" ? "Add" : "Save"}
+            </button>
+            <button
+              type="button"
+              className="btn-mini"
+              onClick={() => setEditing(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {placements.map((p) => {
+        const inSlot = ads
+          .filter((a) => a.placementKey === p.key)
+          .sort((a, b) => a.sort - b.sort);
+        return (
+          <div className="card" key={p.key}>
+            <div className="card-header">
+              <h3>{p.label}</h3>
+            </div>
+            <p className="cc-note">{p.description}</p>
+            {inSlot.length === 0 ? (
+              <p className="cc-note">Nothing in this slot.</p>
+            ) : (
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Order</th>
+                      <th>Creative</th>
+                      <th>Status</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inSlot.map((a, i) => {
+                      const status = adStatus(a);
+                      return (
+                        <tr key={a.id}>
+                          <td>
+                            <div className="admin-actions-cell">
+                              <button
+                                type="button"
+                                className="btn-mini"
+                                aria-label={`Move ${a.title} up`}
+                                disabled={pending || i === 0}
+                                onClick={() => run(() => moveAd(a.id, "up"), true)}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-mini"
+                                aria-label={`Move ${a.title} down`}
+                                disabled={pending || i === inSlot.length - 1}
+                                onClick={() => run(() => moveAd(a.id, "down"), true)}
+                              >
+                                ↓
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="admin-row-title">{a.title}</div>
+                            <div className="cc-sub">
+                              {a.kind === "notice" ? "Notice" : "Ad"}
+                              {a.body ? ` — ${a.body.slice(0, 60)}` : ""}
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`admin-status ${status.tone}`}>
+                              {status.label}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="admin-actions-cell">
+                              <button
+                                type="button"
+                                className="btn-mini"
+                                onClick={() => {
+                                  setEditing(a.id);
+                                  setForm(toInput(a));
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-mini danger"
+                                disabled={pending}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Delete "${a.title}"? This can't be undone — switch it off instead if you might run it again.`,
+                                    )
+                                  ) {
+                                    run(() => deleteAd(a.id));
+                                  }
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}

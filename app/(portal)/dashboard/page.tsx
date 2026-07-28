@@ -1,4 +1,5 @@
 import { Greeting } from "@/components/portal/Greeting";
+import { AdSlot } from "@/components/sponsors/AdSlot";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { GettingStarted } from "@/components/dashboard/GettingStarted";
 import { TestimonialAsk } from "@/components/dashboard/TestimonialAsk";
@@ -191,6 +192,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="dash-pad">
+      {/* House notices and top-of-dashboard placements (Ad Manager). Above
+          the welcome banner because that's what "above the fold" means on
+          the screen members land on. */}
+      <AdSlot placement="dashboard_top" limit={2} />
+
       {/* Welcome Banner */}
       <div className="welcome-banner">
         <div className="welcome-text">
@@ -272,6 +278,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      <AdSlot placement="body_banner" limit={1} />
       <BodyAd variant="banner" />
 
       {/* Stat Grid */}

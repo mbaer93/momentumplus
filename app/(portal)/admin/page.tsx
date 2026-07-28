@@ -54,6 +54,13 @@ const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
         area: "content",
       },
       {
+        href: "/admin/ads",
+        icon: SponsorsIcon,
+        title: "Ad Manager",
+        desc: "Banners and notices — what runs in each slot, and in what order.",
+        area: "sponsors",
+      },
+      {
         href: "/admin/sponsors",
         icon: SponsorsIcon,
         title: "Sponsors",
