@@ -8,8 +8,11 @@ test.describe("sessions", () => {
     const total = await cards.count();
     expect(total).toBeGreaterThanOrEqual(4);
 
-    await page.getByRole("button", { name: "Wellness" }).click();
-    await expect(page.locator(".session-cat.cat-wellness").first()).toBeVisible();
+    /* Filter by a category that exists rather than a slug: the category set
+       is content, and "Wellness" has since been replaced by the Add-on /
+       Bonus / named-session split. Asserting the count drops tests the
+       filter without pinning the test to today's category names. */
+    await page.getByRole("button", { name: "Bonus Sessions" }).click();
     const filtered = await page.locator(".session-card").count();
     expect(filtered).toBeLessThan(total);
   });

@@ -4,7 +4,9 @@ test.describe("admin portal (preview mode)", () => {
   test("admin hub shows stats and section cards", async ({ page }) => {
     await page.goto("/admin");
     await expect(page.locator(".admin-stat-card")).toHaveCount(4);
-    await expect(page.getByRole("link", { name: /Members/ })).toBeVisible();
+    // Scoped by href: "Members" is both the admin tile (/admin/members) and
+    // the member-directory link in the sidebar (/members).
+    await expect(page.locator('a[href="/admin/members"]').first()).toBeVisible();
   });
 
   test("session management table lists sessions with actions", async ({
@@ -42,8 +44,10 @@ test.describe("admin portal (preview mode)", () => {
     for (let i = 0; i < count; i++) {
       await page.locator(".tier-chip.selected").first().click();
     }
+    // The button reads "Review & send" — sending is a two-step confirm, so
+    // the first press counts the audience rather than sending.
     await expect(
-      page.getByRole("button", { name: "Send announcement" }),
+      page.getByRole("button", { name: /Review & send/ }),
     ).toBeDisabled();
   });
 });
