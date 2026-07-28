@@ -9,7 +9,7 @@ test.describe("tier gating + community", () => {
 
     // Placeholder member is sub_annual → vip-only and annual-members unlocked.
     await expect(
-      page.locator(".channel-item", { hasText: "vip-only" }),
+      page.locator(".channel-item", { hasText: "inner-circle" }),
     ).not.toHaveClass(/locked/);
 
     // announcements is admin-post-only: composer disabled for non-admins.

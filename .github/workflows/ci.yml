@@ -21,3 +21,23 @@ jobs:
       - run: npm test
       # A build-breaking change must fail CI, not just the Vercel preview.
       - run: npm run build
+
+  e2e:
+    name: Critical flows (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # The suite builds and serves the app itself, in preview mode.
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
