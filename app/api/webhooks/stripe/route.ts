@@ -8,6 +8,11 @@ import {
 import { GRACE_DAYS } from "@/lib/membership";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import {
+  invoiceSubscriptionId,
+  mapStatus,
+  periodEndIso,
+} from "@/lib/stripe-events";
 
 /*
  * Stripe → membership sync. Registered by the Admin → Billing wizard.
@@ -34,35 +39,6 @@ interface StripeSubscription {
   items?: { data?: { current_period_end?: number }[] };
   metadata?: Record<string, string>;
   customer?: string;
-}
-
-function periodEndIso(sub: StripeSubscription): string | null {
-  const unix =
-    sub.current_period_end ?? sub.items?.data?.[0]?.current_period_end;
-  return unix ? new Date(unix * 1000).toISOString() : null;
-}
-
-function mapStatus(stripeStatus: string): "active" | "past_due" | "canceled" {
-  if (stripeStatus === "active" || stripeStatus === "trialing") return "active";
-  if (stripeStatus === "canceled" || stripeStatus === "incomplete_expired") {
-    return "canceled";
-  }
-  // past_due, unpaid, incomplete, paused, anything new Stripe invents:
-  // access only until the already-paid period (or grace) runs out.
-  return "past_due";
-}
-
-/**
- * Invoice → subscription id. Current ("Basil", 2025+) Stripe API versions
- * moved it under parent.subscription_details; older versions have it
- * top-level. Accept both — the webhook endpoint doesn't pin api_version.
- */
-function invoiceSubscriptionId(inv: {
-  subscription?: string | null;
-  parent?: { subscription_details?: { subscription?: string | null } | null } | null;
-}): string | null {
-  const sub = inv.subscription ?? inv.parent?.subscription_details?.subscription;
-  return typeof sub === "string" && sub ? sub : null;
 }
 
 export async function POST(req: NextRequest) {
