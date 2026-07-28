@@ -10,6 +10,7 @@ import {
   ResourcesIcon,
   SessionsIcon,
   SettingsIcon,
+  ShieldIcon,
   SpeakersIcon,
   SponsorsIcon,
 } from "@/components/icons";
@@ -161,6 +162,14 @@ const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
     heading: "Money & Setup",
     sub: "Billing and the platform's integrations (Super Admin)",
     cards: [
+      {
+        href: "/admin/control-center",
+        icon: ShieldIcon,
+        title: "Control Center",
+        desc: "Launch switches, what each membership tier reaches, and new member types.",
+        area: "members",
+        superOnly: true,
+      },
       {
         href: "/admin/billing",
         icon: SponsorsIcon,

@@ -22,6 +22,10 @@ export interface NavItem {
   href: string;
   icon: ComponentType<{ size?: number }>;
   badge?: { text: string; variant?: "gold" | "blue" };
+  /** Key in app_features. The tab still renders when the member's tier isn't
+      granted it — with a padlock, leading to /upgrade. Tabs with no feature
+      key are ungated plumbing (the Studios, the Admin Panel). */
+  feature?: string;
   adminOnly?: boolean;
   speakerOnly?: boolean;
   /** Visible only to sponsor-page owners/managers. */
@@ -44,47 +48,47 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Learn",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: DashboardIcon },
-      { label: "Sessions", href: "/sessions", icon: SessionsIcon },
-      { label: "Rooted Focus", href: "/rooted-focus", icon: TargetIcon },
-      { label: "Calendar", href: "/calendar", icon: CalendarIcon },
-      { label: "Library", href: "/library", icon: LibraryIcon },
-      { label: "Grow on the Go", href: "/education", icon: EducationIcon },
-      // Unreleased — hidden from members (admins can preview) so a first-run
-      // explore doesn't dead-end on a "Coming soon" teaser. Flip adminOnly
-      // off when the program ships.
+      { label: "Sessions", href: "/sessions", icon: SessionsIcon, feature: "sessions" },
+      { label: "Rooted Focus", href: "/rooted-focus", icon: TargetIcon, feature: "rooted_focus" },
+      { label: "Calendar", href: "/calendar", icon: CalendarIcon, feature: "calendar" },
+      { label: "Library", href: "/library", icon: LibraryIcon, feature: "library" },
+      { label: "Grow on the Go", href: "/education", icon: EducationIcon, feature: "education" },
+      // Unreleased. `is_launched` in the feature registry keeps it to admins
+      // now; Control Center → Launch switches is what ships it.
       {
         label: "Aspire2Achieve Growth",
         href: "/aspire2achieve",
         icon: StarIcon,
-        adminOnly: true,
+        feature: "aspire2achieve",
       },
     ],
   },
   {
     label: "Connect",
     items: [
-      { label: "Community", href: "/community", icon: CommunityIcon },
-      { label: "Members", href: "/members", icon: UsersIcon },
-      { label: "Speakers", href: "/speakers", icon: SpeakersIcon },
+      { label: "Community", href: "/community", icon: CommunityIcon, feature: "community" },
+      { label: "Members", href: "/members", icon: UsersIcon, feature: "members" },
+      { label: "Speakers", href: "/speakers", icon: SpeakersIcon, feature: "speakers" },
       // Placeholder while the networking-group integration is worked out —
-      // admins only until it's real.
+      // unlaunched in the registry until it's real.
       {
         label: "Networking",
         href: "/networking",
         icon: UsersIcon,
-        adminOnly: true,
+        feature: "networking",
       },
     ],
   },
   {
     label: "Partners & More",
     items: [
-      { label: "Sponsors", href: "/sponsors", icon: SponsorsIcon },
-      { label: "Resources", href: "/resources", icon: ResourcesIcon },
+      { label: "Sponsors", href: "/sponsors", icon: SponsorsIcon, feature: "sponsors" },
+      { label: "Resources", href: "/resources", icon: ResourcesIcon, feature: "resources" },
       {
         label: "Additional Services",
         href: "/services",
         icon: BriefcaseIcon,
+        feature: "services",
       },
       // One-click crossover into the Tri-State Summit event app. Only shows
       // once NEXT_PUBLIC_TSLS_EVENT_URL is set (i.e. during event season).
