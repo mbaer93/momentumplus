@@ -4,9 +4,11 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addSessionResourceAction,
+  createSessionResourceUploadAction,
   deleteSessionResourceAction,
   moveSessionResourceAction,
 } from "@/app/(portal)/admin/sessions/actions";
+import { uploadOnTicket } from "@/lib/upload-client";
 import type { SessionResource } from "@/lib/types";
 
 /*
@@ -139,20 +141,33 @@ export function SessionResourcesManager({
           className="btn-primary"
           disabled={busy || !name.trim() || (!url.trim() && !file)}
           onClick={() => {
-            const fd = new FormData();
-            fd.set("name", name);
-            fd.set("url", url);
-            if (file) fd.set("file", file);
-            void run(() => addSessionResourceAction(sessionId, fd)).then(
-              (res) => {
-                if (res.ok) {
-                  setName("");
-                  setUrl("");
-                  setFile(null);
-                  if (fileInput.current) fileInput.current.value = "";
-                }
-              },
-            );
+            void run(async () => {
+              const fd = new FormData();
+              fd.set("name", name);
+              fd.set("url", url);
+              // The file goes straight to storage first — a workbook or a
+              // session recording is past the ~4.5 MB Vercel allows in a
+              // server action body, and it rejects the request before the
+              // action runs.
+              if (file) {
+                const ticket = await createSessionResourceUploadAction(
+                  sessionId,
+                  file.type,
+                  file.name,
+                );
+                const up = await uploadOnTicket(ticket, file);
+                if (!up.ok) return { ok: false, message: up.message };
+                if (up.path) fd.set("storagePath", up.path);
+              }
+              return addSessionResourceAction(sessionId, fd);
+            }).then((res) => {
+              if (res.ok) {
+                setName("");
+                setUrl("");
+                setFile(null);
+                if (fileInput.current) fileInput.current.value = "";
+              }
+            });
           }}
         >
           {busy ? "Saving…" : "Add resource"}

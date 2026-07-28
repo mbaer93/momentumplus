@@ -6,6 +6,11 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getSpeakerForUser, speakerOwnsSession } from "@/lib/speaker-tools";
+import {
+  pathInScope,
+  scopedUploadPath,
+  speakerSharePrefix,
+} from "@/lib/upload-paths";
 
 /*
  * Speaker Studio self-service actions. Every action re-verifies ownership
@@ -224,6 +229,46 @@ const SHARE_TYPES: Record<string, string> = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
 };
 
+/** Signed URL for a notice attachment, uploaded straight from the browser. */
+export async function createNoticeAttachmentUpload(
+  sessionId: string,
+  contentType: string,
+  fileName: string,
+): Promise<
+  StudioResult & { path?: string; token?: string; bucket?: string; preview?: boolean }
+> {
+  const ctx = await requireSpeaker();
+  if ("preview" in ctx) return { ok: true, preview: true };
+  if ("error" in ctx) return { ok: false, message: ctx.error };
+
+  const owns = await speakerOwnsSession(ctx.user.id, sessionId);
+  if (!owns.ok) return { ok: false, message: "That session isn't yours." };
+
+  const ext = SHARE_TYPES[contentType];
+  if (!ext) {
+    return {
+      ok: false,
+      message: "Attach a PDF, Word/PowerPoint file, image, or MP4 — or paste a link instead.",
+    };
+  }
+
+  const admin = createServiceClient();
+  await admin.storage
+    .createBucket(SHARE_BUCKET, { public: true })
+    .catch(() => undefined);
+  const path = scopedUploadPath(
+    speakerSharePrefix(sessionId),
+    `${fileName.replace(/\.[^.]*$/, "")}.${ext}`,
+  );
+  const { data, error } = await admin.storage
+    .from(SHARE_BUCKET)
+    .createSignedUploadUrl(path);
+  if (error || !data) {
+    return { ok: false, message: error?.message ?? "Could not start the upload." };
+  }
+  return { ok: true, path: data.path, token: data.token, bucket: SHARE_BUCKET };
+}
+
 /**
  * Send a notice (and optionally a document/video link or uploaded file) to
  * everyone enrolled in one of the speaker's sessions. Emails are resolved
@@ -257,32 +302,23 @@ export async function sendSessionNotice(
     .eq("id", sessionId)
     .maybeSingle();
 
-  // Optional attachment → public storage link included in the email.
+  // Optional attachment → public storage link included in the email. The
+  // browser has already uploaded it (createNoticeAttachmentUpload) because a
+  // slide deck or recording is past the ~4.5 MB Vercel allows in a server
+  // action body — it rejects the request before this function is reached.
   let attachmentUrl: string | null = null;
   let attachmentName: string | null = null;
-  const file = formData.get("file");
-  if (file instanceof File && file.size > 0) {
-    if (file.size > 25 * 1024 * 1024) {
-      return { ok: false, message: "Attachments are limited to 25 MB — share bigger videos as a link instead." };
+  const storagePath = String(formData.get("storagePath") ?? "").trim();
+  if (storagePath) {
+    if (!pathInScope(storagePath, speakerSharePrefix(sessionId))) {
+      return { ok: false, message: "That attachment doesn't belong to this session." };
     }
-    const ext = SHARE_TYPES[file.type];
-    if (!ext) {
-      return {
-        ok: false,
-        message: "Attach a PDF, Word/PowerPoint file, image, or MP4 — or paste a link instead.",
-      };
-    }
-    await admin.storage
-      .createBucket(SHARE_BUCKET, { public: true })
-      .catch(() => undefined);
-    const path = `speaker-shares/${sessionId}/${Date.now()}.${ext}`;
-    const bytes = Buffer.from(await file.arrayBuffer());
-    const { error: uploadError } = await admin.storage
-      .from(SHARE_BUCKET)
-      .upload(path, bytes, { contentType: file.type, upsert: true });
-    if (uploadError) return { ok: false, message: uploadError.message };
-    attachmentUrl = admin.storage.from(SHARE_BUCKET).getPublicUrl(path).data.publicUrl;
-    attachmentName = file.name;
+    attachmentUrl = admin.storage.from(SHARE_BUCKET).getPublicUrl(storagePath).data
+      .publicUrl;
+    attachmentName =
+      String(formData.get("fileName") ?? "").trim() ||
+      storagePath.split("/").pop() ||
+      "Attachment";
   }
 
   // Recipients: enrollees' emails, resolved server-side only.
@@ -467,7 +503,26 @@ export async function updateOwnVideo(
    Members see them on the session page and in the live room's Resources
    tab (migration 0047). ---- */
 
-/** Add a resource (link or file) to one of the speaker's sessions. */
+/** Signed URL so the speaker's browser uploads the file straight to storage. */
+export async function createOwnResourceUpload(
+  sessionId: string,
+  contentType: string,
+  fileName: string,
+): Promise<
+  StudioResult & { path?: string; token?: string; bucket?: string; preview?: boolean }
+> {
+  const ctx = await requireSpeaker();
+  if ("preview" in ctx) return { ok: true, preview: true };
+  if ("error" in ctx) return { ok: false, message: ctx.error };
+
+  const owns = await speakerOwnsSession(ctx.user.id, sessionId);
+  if (!owns.ok) return { ok: false, message: "That session isn't yours." };
+
+  const { createSessionResourceUpload } = await import("@/lib/session-resources");
+  return createSessionResourceUpload(sessionId, contentType, fileName);
+}
+
+/** Add a resource (link or already-uploaded file) to one of the speaker's sessions. */
 export async function addOwnSessionResource(
   formData: FormData,
 ): Promise<StudioResult> {

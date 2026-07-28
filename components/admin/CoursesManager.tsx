@@ -14,11 +14,13 @@ import {
   saveLessonQuiz,
   updateCourse,
   updateLessonDetails,
-  uploadLessonDocument,
+  createLessonDocumentUpload,
+  finalizeLessonDocument,
   uploadLessonImage,
   type CourseInput,
   type QuizQuestionInput,
 } from "@/app/(portal)/admin/education/actions";
+import { uploadOnTicket } from "@/lib/upload-client";
 import { useRef } from "react";
 
 export interface AdminLessonRow {
@@ -340,9 +342,18 @@ function LessonEditor({ lesson }: { lesson: AdminLessonRow }) {
                 setMsg({ text: "Choose a document first.", ok: false });
                 return;
               }
-              const fd = new FormData();
-              fd.append("file", file);
-              run(() => uploadLessonDocument(lesson.id, fd));
+              // Straight to storage: a slide deck is routinely past the
+              // ~4.5 MB Vercel allows in a server action body.
+              run(async () => {
+                const ticket = await createLessonDocumentUpload(
+                  lesson.id,
+                  file.name,
+                );
+                const up = await uploadOnTicket(ticket, file);
+                if (!up.ok) return { ok: false, message: up.message };
+                if (up.preview) return { ok: true, message: "Attached (preview mode)." };
+                return finalizeLessonDocument(lesson.id, up.path ?? "", file.name);
+              });
             }}
           >
             Attach document

@@ -313,6 +313,24 @@ export async function deleteSession(id: string): Promise<AdminResult> {
 /* ---- Session resources (migration 0047) — shown on the session page and
    in the live room's Resources tab. ---- */
 
+/**
+ * Signed URL so the browser uploads a resource file straight to storage.
+ * A workbook or session recording is routinely past the ~4.5 MB Vercel
+ * allows in a server action body, which it rejects before we see it.
+ */
+export async function createSessionResourceUploadAction(
+  sessionId: string,
+  contentType: string,
+  fileName: string,
+): Promise<AdminResult & { path?: string; token?: string; bucket?: string }> {
+  if (!isSupabaseConfigured()) return { ok: true, preview: true };
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { createSessionResourceUpload } = await import("@/lib/session-resources");
+  return createSessionResourceUpload(sessionId, contentType, fileName);
+}
+
 export async function addSessionResourceAction(
   sessionId: string,
   formData: FormData,

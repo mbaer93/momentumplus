@@ -12,10 +12,19 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      // Sponsor logo/ad uploads go through a server action as FormData; the
-      // default 1 MB body limit rejected anything bigger before our own
-      // 2 MB validation could run.
-      bodySizeLimit: "21mb",
+      // Sponsor logos, headshots and card art still arrive as FormData; the
+      // default 1 MB rejects a phone photo before our own validation runs.
+      //
+      // This is NOT a ceiling we control. Vercel caps a serverless request
+      // body at ~4.5 MB whatever this says, and enforces it before any of
+      // our code executes — so a bigger number here is a promise the
+      // platform breaks silently. Anything that can exceed it (session
+      // resources, speaker attachments, lesson documents) now uploads
+      // straight to Supabase Storage from the browser; see
+      // lib/upload-client.ts. 5mb leaves headroom over the largest
+      // remaining FormData path (4 MB) without claiming more than Vercel
+      // will actually accept.
+      bodySizeLimit: "5mb",
     },
   },
   async headers() {
