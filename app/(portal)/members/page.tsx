@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { tierLabel } from "@/lib/access";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -68,6 +69,7 @@ export default async function MembersPage(
 ) {
   const searchParams = await props.searchParams;
   await requireMember();
+  await requireFeature("members");
   const q = (searchParams?.q ?? "").trim().toLowerCase().slice(0, 80);
 
   // Preview fixtures appear ONLY with no Supabase at all — a configured

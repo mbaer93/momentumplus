@@ -2,6 +2,7 @@ import { PlansView } from "@/components/profile/PlansView";
 import { isPro } from "@/lib/access";
 import { requireMember } from "@/lib/current-member";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
+import { getAccessMatrix, upgradeTierFor } from "@/lib/tiers";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -16,12 +17,21 @@ export const dynamic = "force-dynamic";
  */
 export default async function UpgradePage(
   props: {
-    searchParams?: Promise<{ billing?: string }>;
+    searchParams?: Promise<{ billing?: string; feature?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
   const member = await requireMember();
   const settings = await getStripeSettings();
+
+  // Arrived from a padlock: name the feature they reached for, and the
+  // cheapest tier that would open it. If no tier ON SALE includes it, say so
+  // plainly rather than dangling an upgrade they can't buy yet.
+  const matrix = await getAccessMatrix();
+  const wanted = searchParams?.feature
+    ? (matrix.features.find((f) => f.key === searchParams.feature) ?? null)
+    : null;
+  const unlockedBy = wanted ? upgradeTierFor(matrix, wanted.key) : null;
   const terms = {
     basic: {
       1: settings?.displayPrices?.basic ?? null,
@@ -74,6 +84,20 @@ export default async function UpgradePage(
           </p>
         </div>
       </div>
+      {wanted && (
+        <div className="upgrade-callout">
+          <strong>{wanted.label}</strong>{" "}
+          {unlockedBy ? (
+            <>
+              isn&apos;t part of {member.tierLabel}. It&apos;s included with{" "}
+              <strong>{unlockedBy.label}</strong>.
+            </>
+          ) : (
+            <>isn&apos;t part of {member.tierLabel} yet — it&apos;s not on sale
+            at the moment. We&apos;ll announce it when it opens up.</>
+          )}
+        </div>
+      )}
       <PlansView
         enabled={stripeReady(settings)}
         terms={terms}

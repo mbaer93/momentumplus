@@ -193,7 +193,11 @@ export const getAccessMatrix = requestCache(async (): Promise<AccessMatrix> => {
     (grants[tier] ??= {})[String(row.feature_key)] = Boolean(row.allowed);
   }
 
-  if (!tiers.length || !features.length) return previewMatrix();
+  // An empty feature registry would lock every member out of every tab, so
+  // that falls back. An empty TIER list does not: to a signed-out visitor
+  // the read policy only exposes tiers that are on sale, and "nothing is on
+  // sale" is a legitimate answer the pricing grid must be allowed to give.
+  if (!features.length) return previewMatrix();
   return { tiers, features, grants };
 });
 

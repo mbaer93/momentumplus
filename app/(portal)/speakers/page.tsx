@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 import {
   listSpeakers,
   listSpeakersNextSeason,
@@ -20,6 +21,7 @@ export default async function SpeakersPage(
 ) {
   const searchParams = await props.searchParams;
   const member = await requireMember();
+  await requireFeature("speakers");
   // Next-season preview is for the people planning it — admins, speakers,
   // sponsor managers. Members always get the live season.
   const canPreview =

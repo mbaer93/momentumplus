@@ -1,12 +1,14 @@
 import { LibraryBrowser } from "@/components/library/LibraryBrowser";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 import { listVideos } from "@/lib/videos/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function LibraryPage() {
   const member = await requireMember();
+  await requireFeature("library");
   const videos = await listVideos(member.tier);
 
   return (

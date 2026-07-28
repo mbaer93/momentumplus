@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { JoinForm } from "@/components/home/JoinForm";
 import { getStripeSettings } from "@/lib/stripe";
+import { getAccessMatrix, publicTiers } from "@/lib/tiers";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,12 @@ export default async function JoinPage(
   }
 ) {
   const searchParams = await props.searchParams;
-  const plan = searchParams?.plan === "pro" ? "pro" : "basic";
+  // A plan that hasn't gone live can't be bought, however the link was
+  // reached — a stale bookmark to ?plan=pro falls back to Member.
+  const matrix = await getAccessMatrix();
+  const liveSlugs = new Set(publicTiers(matrix).map((t) => t.slug));
+  const plan =
+    searchParams?.plan === "pro" && liveSlugs.has("pro") ? "pro" : "basic";
   const settings = await getStripeSettings();
   const terms = {
     basic: { 1: settings?.displayPrices?.basic ?? null, ...(settings?.termDisplay?.basic ?? {}) },
@@ -69,9 +75,18 @@ export default async function JoinPage(
             <p className="join-sub">
               {searchParams?.canceled === "1"
                 ? "No charge was made — pick up right where you left off."
-                : "Pick your level, tell us who you are, and finish on our secure Stripe checkout."}
+                : liveSlugs.size > 1
+                  ? "Pick your level, tell us who you are, and finish on our secure Stripe checkout."
+                  : "Tell us who you are and finish on our secure Stripe checkout."}
             </p>
-            <JoinForm initialPlan={plan} terms={terms} referralCode={searchParams?.ref} />
+            <JoinForm
+              availablePlans={(["basic", "pro"] as const).filter((p) =>
+                liveSlugs.has(p),
+              )}
+              initialPlan={plan}
+              terms={terms}
+              referralCode={searchParams?.ref}
+            />
           </>
         )}
       </div>

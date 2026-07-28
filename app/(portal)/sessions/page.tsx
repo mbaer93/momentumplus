@@ -4,11 +4,13 @@ import { SessionsBrowser } from "@/components/sessions/SessionsBrowser";
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 
 export const dynamic = "force-dynamic";
 
 export default async function SessionsPage() {
   const member = await requireMember();
+  await requireFeature("sessions");
   // Rooted Focus/Aspire live on their own tabs; Main Sessions and Add-on
   // Sessions share this one.
   const sessions = (await listSessions()).filter(

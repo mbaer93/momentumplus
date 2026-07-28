@@ -3,6 +3,7 @@ import { SponsorMark } from "@/components/sponsors/SponsorMark";
 import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
 import { SPONSOR_INTEREST_URL } from "@/lib/links";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 import {
   listSponsors,
   listSponsorsNextSeason,
@@ -24,6 +25,7 @@ export default async function SponsorsPage(
 ) {
   const searchParams = await props.searchParams;
   const member = await requireMember();
+  await requireFeature("sponsors");
   const isAdmin = member.isAdmin;
   const canPreview =
     isAdmin || member.isSpeaker || member.isSponsorManager;
