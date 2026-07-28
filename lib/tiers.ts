@@ -16,6 +16,7 @@
 import { createClient } from "./supabase/server";
 import { isSupabaseConfigured } from "./supabase/config";
 import { requestCache } from "./request-cache";
+import { isInternalTier } from "./tiers-shared";
 
 export type LibraryScope = "none" | "current_season" | "all_seasons";
 
@@ -233,7 +234,9 @@ export function upgradeTierFor(
   featureKey: string,
 ): TierDef | null {
   const candidates = matrix.tiers
-    .filter((t) => t.isPublic && !t.archivedAt)
+    // Internal tiers are excluded even if a row was ever flipped public —
+    // "included with Administrator" is never useful upgrade copy.
+    .filter((t) => t.isPublic && !t.archivedAt && !isInternalTier(t.slug))
     .filter((t) => matrix.grants[t.slug]?.[featureKey] === true)
     .sort((a, b) => b.rank - a.rank);
   return candidates[0] ?? null;
