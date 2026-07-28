@@ -4,6 +4,7 @@ import {
   PortalNavProvider,
 } from "@/components/portal/PortalNav";
 import { Sidebar } from "@/components/portal/Sidebar";
+import { ViewAsBanner } from "@/components/portal/ViewAsBanner";
 import {
   Topbar,
   type TopbarNotification,
@@ -192,6 +193,7 @@ export default async function PortalLayout({
 
   return (
     <PortalNavProvider>
+      {member.viewingAs && <ViewAsBanner label={member.viewingAs.label} />}
       <MobileNavBackdrop />
       <Sidebar
         userName={member.name}

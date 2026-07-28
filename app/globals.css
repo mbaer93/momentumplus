@@ -4671,3 +4671,43 @@ a.course-card:hover {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 2px 16px;
 }
+
+/* ===== VIEW AS ===== */
+.view-as-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  background: var(--purple);
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+}
+.view-as-icon {
+  display: inline-flex;
+  opacity: 0.85;
+}
+.view-as-exit {
+  background: #fff;
+  color: var(--purple);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.view-as-exit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+/* Push the whole shell down so the bar never covers the sidebar or topbar. */
+body:has(.view-as-bar) .sidebar,
+body:has(.view-as-bar) .main-area {
+  margin-top: 36px;
+}

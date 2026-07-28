@@ -12,6 +12,7 @@ import {
   type ControlResult,
   type TierInput,
 } from "@/app/(portal)/admin/control-center/actions";
+import { startViewAs } from "@/app/(portal)/admin/control-center/view-as-actions";
 import { LockIcon } from "@/components/icons";
 import type { AccessMatrix, LibraryScope, TierDef } from "@/lib/tiers";
 
@@ -57,6 +58,7 @@ export function ControlCenter({
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<TierInput>(EMPTY_TIER);
   const [creating, setCreating] = useState(false);
+  const [previewTier, setPreviewTier] = useState("");
 
   // Archived tiers are history — they stay out of the grid and the switches.
   const tiers = matrix.tiers.filter((t) => !t.archivedAt);
@@ -89,6 +91,54 @@ export function ControlCenter({
           {msg.text}
         </div>
       )}
+
+      <div className="card">
+        <div className="card-header">
+          <h3>View the portal as a member</h3>
+        </div>
+        <p className="cc-note">
+          Browse as any member type and interact with the platform the way
+          they do — locked tabs, upgrade prompts, the lot. A bar stays at the
+          top of every page until you exit. Nothing you do changes their
+          account, and this can only ever show you less than you already have.
+        </p>
+        <div className="admin-field">
+          <label htmlFor="cc-view-as">Member type</label>
+          <select
+            id="cc-view-as"
+            value={previewTier}
+            onChange={(e) => setPreviewTier(e.target.value)}
+          >
+            <option value="">— pick one —</option>
+            {tiers.map((t) => (
+              <option key={t.slug} value={t.slug}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="admin-form-actions">
+          <button
+            type="button"
+            className="btn-purple"
+            disabled={pending || !previewTier}
+            onClick={() =>
+              startTransition(async () => {
+                const res = await startViewAs(previewTier);
+                if (!res.ok) {
+                  setMsg({ ok: false, text: res.message ?? "Error" });
+                  return;
+                }
+                // Land on the dashboard — the first thing that member sees.
+                router.push("/dashboard");
+                router.refresh();
+              })
+            }
+          >
+            Start viewing as this member
+          </button>
+        </div>
+      </div>
 
       {/* ---------------------------------------------------------------- */}
       <div className="section-header">

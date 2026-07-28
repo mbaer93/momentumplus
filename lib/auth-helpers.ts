@@ -1,6 +1,7 @@
 import { canAccessArea, type AdminAccess, type AdminArea } from "@/lib/admin-perms";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { readViewAsCookie } from "@/lib/view-as";
 
 /**
  * Server-side admin check: true only if the signed-in user holds an active
@@ -12,6 +13,30 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * switched that area off for them.
  */
 export async function requireAdmin(area?: AdminArea): Promise<
+  | { ok: true; userId: string; userEmail: string | null; access: AdminAccess }
+  | { ok: false; status: number; message: string }
+> {
+  // While a Super Admin is viewing as a member, the Admin Panel has to be as
+  // out of reach as it is for that member — otherwise the preview lies about
+  // the one thing it exists to show. Leaving the preview goes through
+  // realAdminAccess() below, which ignores the cookie.
+  const viewingAs = await readViewAsCookie();
+  if (viewingAs && viewingAs !== "admin") {
+    return {
+      ok: false,
+      status: 403,
+      message: "You're viewing the portal as a member. Exit the preview first.",
+    };
+  }
+  return requireRealAdmin(area);
+}
+
+/**
+ * The admin check WITHOUT the view-as override — who this person actually is.
+ * Only the code that enters and leaves a preview should use it; everything
+ * else wants requireAdmin().
+ */
+export async function requireRealAdmin(area?: AdminArea): Promise<
   | { ok: true; userId: string; userEmail: string | null; access: AdminAccess }
   | { ok: false; status: number; message: string }
 > {
