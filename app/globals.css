@@ -4635,3 +4635,39 @@ a.course-card:hover {
   font-size: 13px;
   color: var(--navy);
 }
+
+/* Topic chips under a recording title. Primary reads first and is filled. */
+.recording-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 2px;
+}
+.recording-topic {
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  color: var(--mid-gray);
+}
+.recording-topic.primary {
+  border-color: rgba(184, 150, 90, 0.45);
+  background: rgba(184, 150, 90, 0.1);
+  color: var(--navy);
+}
+
+/* Library category editor */
+.topic-kind {
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mid-gray);
+}
+.topic-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 2px 16px;
+}

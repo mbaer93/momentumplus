@@ -74,6 +74,13 @@ const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
         area: "sessions",
       },
       {
+        href: "/admin/topics",
+        icon: LibraryIcon,
+        title: "Library Categories",
+        desc: "The subjects members browse by, and what each talk is filed under.",
+        area: "content",
+      },
+      {
         href: "/admin/videos",
         icon: LibraryIcon,
         title: "Library",
