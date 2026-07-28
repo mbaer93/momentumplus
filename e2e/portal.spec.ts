@@ -17,18 +17,22 @@ test.describe("auth + portal shell", () => {
       "Momentum",
     );
     await expect(page.locator(".land-perk")).toHaveCount(6);
-    await expect(page.locator(".land-price-card")).toHaveCount(2);
+    /* One card, not two: Momentum+ Pro is built but hasn't launched, so it
+       stays off the public site until Control Center → Launch says otherwise
+       (Matt, 2026-07-28). Pressing Go Live on Pro should turn this into 2. */
+    await expect(page.locator(".land-price-card")).toHaveCount(1);
+    await expect(page.locator(".land-price-name")).toContainText(
+      "Momentum+ Member",
+    );
     await expect(
       page.locator(".land-nav-links .land-login-btn"),
     ).toContainText("Member Login");
-    // Pricing CTA leads to the join form
-    /* Go straight to the join URL the Pro card points at, rather than
-       clicking it: the landing pricing cards reveal on scroll, so the link
-       isn't actionable until its animation runs and the click just waits out
-       the timeout. What matters is the assertion below — that /join honours
-       the plan param and preselects Pro. */
+    /* A stale bookmark to the Pro checkout falls back to Member rather than
+       selling something that isn't on sale. With only one plan live there is
+       no picker to render at all. */
     await page.goto("/join?plan=pro");
-    await expect(page.locator(".join-plan.active")).toContainText("Pro");
+    await expect(page.locator(".join-plan")).toHaveCount(0);
+    await expect(page.locator(".join-card")).not.toContainText("Momentum+ Pro");
   });
 
   test("dashboard greets by time of day", async ({ page }) => {
@@ -86,10 +90,15 @@ test.describe("auth + portal shell", () => {
     page,
   }) => {
     await page.goto("/expired");
-    // Two PURCHASABLE plans — Member and Pro. The other member levels
-    // (gift, vip) are comps an admin grants, not things anyone buys.
-    await expect(page.locator(".pricing-card")).toHaveCount(2);
-    await expect(page.locator(".pricing-best-tag")).toContainText("Most Access");
+    /* Only the plans actually ON SALE. Momentum+ Pro is unlaunched, so a
+       lapsed member is offered Member alone — offering a plan nobody can buy
+       is worse than offering one. The other member levels (gift, vip) are
+       comps an admin grants, not things anyone buys. */
+    await expect(page.locator(".pricing-card")).toHaveCount(1);
+    await expect(page.locator(".pricing-name")).toContainText(
+      "Momentum+ Member",
+    );
+    await expect(page.locator(".pricing-best-tag")).toHaveCount(0);
     /* No literal prices asserted here. They come from the Stripe settings,
        which preview mode has none of, so the page renders placeholders — a
        hardcoded "$1,668" tested nothing and broke on every price change. */
