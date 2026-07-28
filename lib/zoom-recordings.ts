@@ -92,6 +92,34 @@ export async function ingestSessionRecording(
   }
   if (insertError) return { ok: false, status: insertError.message };
 
+  // The recording inherits the session's Library categories, the same way it
+  // inherits the format category above. Best effort: a talk without
+  // categories is a tidy-up in Admin → Library Categories, not a failed
+  // ingest.
+  try {
+    const { data: created } = await admin
+      .from("videos")
+      .select("id")
+      .eq("session_id", session.id)
+      .maybeSingle();
+    const { data: sessionTopics } = await admin
+      .from("session_topics")
+      .select("topic_id, is_primary")
+      .eq("session_id", session.id);
+    if (created?.id && sessionTopics?.length) {
+      await admin.from("video_topics").upsert(
+        sessionTopics.map((t) => ({
+          video_id: created.id,
+          topic_id: t.topic_id,
+          is_primary: t.is_primary,
+        })),
+        { onConflict: "video_id,topic_id" },
+      );
+    }
+  } catch {
+    // Pre-0055, or a race with a manual edit — neither is worth failing on.
+  }
+
   // Tell the admins there's a recording to review.
   try {
     const { listAdminProfileIds } = await import("@/lib/engagement-notify");

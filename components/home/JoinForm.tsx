@@ -14,8 +14,12 @@ export function JoinForm({
   initialPlan,
   terms,
   referralCode,
+  availablePlans = ["basic", "pro"],
 }: {
   initialPlan: "basic" | "pro";
+  /** Plans that have gone live. A single entry hides the picker entirely —
+      there is no choice to offer. */
+  availablePlans?: ("basic" | "pro")[];
   /** Referral code from /join?ref=… — attributed at checkout. */
   referralCode?: string;
   /** Configured billing terms per plan: months -> total USD (1 = monthly). */
@@ -63,18 +67,20 @@ export function JoinForm({
 
   return (
     <form onSubmit={submit} className="join-form">
-      <div className="join-plan-row">
-        {(["basic", "pro"] as const).map((p) => (
-          <button
-            key={p}
-            type="button"
-            className={`join-plan${plan === p ? " active" : ""}`}
-            onClick={() => setPlan(p)}
-          >
-            {p === "basic" ? "Momentum+ Member" : "Momentum+ Pro"}
-          </button>
-        ))}
-      </div>
+      {availablePlans.length > 1 && (
+        <div className="join-plan-row">
+          {availablePlans.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={`join-plan${plan === p ? " active" : ""}`}
+              onClick={() => setPlan(p)}
+            >
+              {p === "basic" ? "Momentum+ Member" : "Momentum+ Pro"}
+            </button>
+          ))}
+        </div>
+      )}
       {planTerms.length > 1 ? (
         <div className="join-terms" role="radiogroup" aria-label="Billing term">
           {planTerms.map(([m, usd]) => {

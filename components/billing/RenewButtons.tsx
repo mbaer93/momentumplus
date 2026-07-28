@@ -10,9 +10,12 @@ import {
 export function RenewButtons({
   basicPrice,
   proPrice,
+  proLive = true,
 }: {
   basicPrice: number | null;
   proPrice: number | null;
+  /** False while Momentum+ Pro is unlaunched — no Go Pro button at all. */
+  proLive?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -56,14 +59,16 @@ export function RenewButtons({
         >
           Renew Basic{basicPrice ? ` — $${basicPrice}/mo` : ""}
         </button>
-        <button
-          type="button"
-          className="btn-gold"
-          disabled={pending}
-          onClick={() => go("pro")}
-        >
-          Go Pro{proPrice ? ` — $${proPrice}/mo` : ""}
-        </button>
+        {proLive && (
+          <button
+            type="button"
+            className="btn-gold"
+            disabled={pending}
+            onClick={() => go("pro")}
+          >
+            Go Pro{proPrice ? ` — $${proPrice}/mo` : ""}
+          </button>
+        )}
       </div>
       <button
         type="button"

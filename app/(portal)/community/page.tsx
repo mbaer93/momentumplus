@@ -1,5 +1,6 @@
 import { CommunityView } from "@/components/community/CommunityView";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 import { listSpeakers } from "@/lib/directory-queries";
 import { listSessions } from "@/lib/sessions/queries";
 import { COMMUNITY_CHANNELS, channelsForTier, isStreamConfigured } from "@/lib/stream";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CommunityPage() {
   const member = await requireMember();
+  await requireFeature("community");
   const allowedIds = new Set(channelsForTier(member.tier).map((c) => c.id));
 
   // Show every channel; tier-locked ones render with a lock (the real gate is

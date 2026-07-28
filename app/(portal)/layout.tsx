@@ -4,6 +4,7 @@ import {
   PortalNavProvider,
 } from "@/components/portal/PortalNav";
 import { Sidebar } from "@/components/portal/Sidebar";
+import { ViewAsBanner } from "@/components/portal/ViewAsBanner";
 import {
   Topbar,
   type TopbarNotification,
@@ -16,6 +17,7 @@ import { listSponsors } from "@/lib/directory-queries";
 import { getPresentedByLogoUrl } from "@/lib/presented-by";
 import { listSessions } from "@/lib/sessions/queries";
 import { RAIL_TIERS } from "@/lib/sponsor-tiers";
+import { getAccessMatrix, tierHasFeature } from "@/lib/tiers";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -179,8 +181,19 @@ export default async function PortalLayout({
   // are excluded — their comped season isn't an upsell target.
   const showUpgrade = !isPro(member.tier) && member.tier !== "speaker";
 
+  // Every feature stays in the sidebar; the ones this tier doesn't reach get
+  // a padlock instead of being hidden. Admins see the lot unlocked so they
+  // can preview an area before pressing Go Live on it.
+  const matrix = await getAccessMatrix();
+  const lockedFeatures = member.isAdmin
+    ? []
+    : matrix.features
+        .filter((f) => !tierHasFeature(matrix, member.tier, f.key))
+        .map((f) => f.key);
+
   return (
     <PortalNavProvider>
+      {member.viewingAs && <ViewAsBanner label={member.viewingAs.label} />}
       <MobileNavBackdrop />
       <Sidebar
         userName={member.name}
@@ -191,6 +204,7 @@ export default async function PortalLayout({
         isSponsorManager={member.isSponsorManager}
         presentedBy={presentedBy}
         presentedByLogoUrl={presentedByLogoUrl}
+        lockedFeatures={lockedFeatures}
       />
       <div className="main-area">
         <Topbar

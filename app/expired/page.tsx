@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { RenewButtons } from "@/components/billing/RenewButtons";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
+import { getAccessMatrix, publicTiers } from "@/lib/tiers";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -95,6 +96,10 @@ export default async function ExpiredPage() {
   const renewUrl = process.env.NEXT_PUBLIC_GHL_RENEW_URL || null;
   const stripe = await getStripeSettings();
   const stripeLive = stripeReady(stripe);
+  // A lapsed member shouldn't be offered a plan that isn't on sale either.
+  const proLive = publicTiers(await getAccessMatrix()).some(
+    (t) => t.slug === "pro",
+  );
 
   return (
     <div className="renew-screen">
@@ -137,19 +142,21 @@ export default async function ExpiredPage() {
               Live sessions, the full library, core courses, and the community.
             </p>
           </div>
-          <div className="pricing-card best">
-            <span className="pricing-best-tag">Most Access</span>
-            <div className="pricing-name">Momentum+ Pro</div>
-            <div className="pricing-price">
-              {stripe?.displayPrices?.pro
-                ? `$${stripe.displayPrices.pro}/mo`
-                : "Membership"}
+          {proLive && (
+            <div className="pricing-card best">
+              <span className="pricing-best-tag">Most Access</span>
+              <div className="pricing-name">Momentum+ Pro</div>
+              <div className="pricing-price">
+                {stripe?.displayPrices?.pro
+                  ? `$${stripe.displayPrices.pro}/mo`
+                  : "Membership"}
+              </div>
+              <p className="pricing-blurb">
+                Everything in Member, plus Pro-only sessions, recordings,
+                advanced tracks, and premium resources.
+              </p>
             </div>
-            <p className="pricing-blurb">
-              Everything in Member, plus Pro-only sessions, recordings,
-              advanced tracks, and premium resources.
-            </p>
-          </div>
+          )}
         </div>
 
         <div className="renew-actions">
@@ -157,6 +164,7 @@ export default async function ExpiredPage() {
             <RenewButtons
               basicPrice={stripe.displayPrices?.basic ?? null}
               proPrice={stripe.displayPrices?.pro ?? null}
+              proLive={proLive}
             />
           ) : renewUrl ? (
             <a

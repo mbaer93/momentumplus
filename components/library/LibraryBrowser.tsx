@@ -4,20 +4,34 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { VideoItem } from "@/lib/videos/data";
+import type { Topic } from "@/lib/topics";
 import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
-
-const FILTERS = ["All", "Leadership", "Wellness", "Business"] as const;
 
 export function LibraryBrowser({
   videos,
+  topics,
   isAdmin = false,
 }: {
   videos: VideoItem[];
+  /* Sierra's taxonomy, straight from content_topics — new speakers bring new
+     topics and this row picks them up without a deploy. */
+  topics: Topic[];
   isAdmin?: boolean;
 }) {
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
+  const [filter, setFilter] = useState<string>("all");
+
+  // Only offer topics something is actually filed under; an empty chip is a
+  // dead end, and the taxonomy runs ahead of the content.
+  const used = new Set(videos.flatMap((v) => v.topics.map((t) => t.slug)));
+  const filters = [
+    { slug: "all", name: "All" },
+    ...topics.filter((t) => used.has(t.slug)),
+  ];
+
   const visible =
-    filter === "All" ? videos : videos.filter((v) => v.category === filter);
+    filter === "all"
+      ? videos
+      : videos.filter((v) => v.topics.some((t) => t.slug === filter));
 
   return (
     <>
@@ -33,14 +47,14 @@ export function LibraryBrowser({
           className="filter-row"
           style={{ margin: 0, alignItems: "center", gap: 8 }}
         >
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <button
-              key={f}
+              key={f.slug}
               type="button"
-              className={`filter-btn${filter === f ? " active" : ""}`}
-              onClick={() => setFilter(f)}
+              className={`filter-btn${filter === f.slug ? " active" : ""}`}
+              onClick={() => setFilter(f.slug)}
             >
-              {f === "All" ? "All" : f}
+              {f.name}
             </button>
           ))}
           {isAdmin && <AdminAddChip href="/admin/videos" label="Add recording" />}
@@ -49,7 +63,7 @@ export function LibraryBrowser({
 
       <div className="library-grid">
         {visible.length === 0 ? (
-          <div className="sessions-empty">No recordings in this category yet.</div>
+          <div className="sessions-empty">No recordings on this topic yet.</div>
         ) : (
           visible.map((v) => (
             <div key={v.id} style={{ position: "relative" }}>
@@ -118,11 +132,25 @@ export function LibraryBrowser({
               </div>
               <div className="recording-body">
                 <div className="recording-title">{v.title}</div>
+                {v.topics.length > 0 && (
+                  <div className="recording-topics">
+                    {v.topics.slice(0, 2).map((t) => (
+                      <span
+                        key={t.slug}
+                        className={`recording-topic${t.isPrimary ? " primary" : ""}`}
+                      >
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="recording-meta">
                   <span className="recording-speaker">{v.speakerName}</span>
                   {v.locked ? (
                     <span className="recording-date" style={{ color: "var(--gold)" }}>
-                      Upgrade to watch
+                      {v.lockReason === "season"
+                        ? "Past season — upgrade to watch"
+                        : "Upgrade to watch"}
                     </span>
                   ) : (
                     <span className="recording-date">{v.dateLabel}</span>

@@ -2,6 +2,7 @@
 
 import { emailPattern } from "@/lib/db-utils";
 import { getStripeSettings, priceForTerm, stripeReady, stripeRequest } from "@/lib/stripe";
+import { getAccessMatrix, publicTiers } from "@/lib/tiers";
 import { requestSiteUrl } from "@/lib/site-url";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -34,6 +35,15 @@ export async function startPublicCheckout(input: {
   const plan = input.plan === "pro" ? "pro" : "basic";
   if (!/^\S+@\S+\.\S+$/.test(email)) {
     return { ok: false, message: "Enter a valid email address." };
+  }
+  // The real gate on an unlaunched tier. Hiding the card is presentation;
+  // this is what stops a hand-built request buying Pro before it ships.
+  const liveSlugs = new Set(publicTiers(await getAccessMatrix()).map((t) => t.slug));
+  if (!liveSlugs.has(plan)) {
+    return {
+      ok: false,
+      message: "That membership isn't on sale yet.",
+    };
   }
   if (!isSupabaseConfigured()) {
     return { ok: false, message: "Signup opens once the site is fully connected." };

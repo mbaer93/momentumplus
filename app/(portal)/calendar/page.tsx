@@ -4,6 +4,7 @@ import {
 } from "@/components/calendar/CalendarView";
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { expandOccurrences } from "@/lib/recurrence";
 import { listSessions } from "@/lib/sessions/queries";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CalendarPage() {
   const member = await requireMember();
+  await requireFeature("calendar");
   const sessions = await listSessions();
 
   // Recurring series (Rooted Focus) paint every occurrence over the next

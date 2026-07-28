@@ -3,6 +3,7 @@ import { listSessions } from "@/lib/sessions/queries";
 import { SessionsBrowser } from "@/components/sessions/SessionsBrowser";
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,7 @@ const RHYTHM: { step: string; detail: string }[] = [
 
 export default async function RootedFocusPage() {
   const member = await requireMember();
+  await requireFeature("rooted_focus");
   const sessions = (await listSessions()).filter(
     (s) => s.program === "rooted_focus",
   );

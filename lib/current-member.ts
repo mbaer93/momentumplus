@@ -6,6 +6,8 @@ import { createClient } from "./supabase/server";
 import { isSupabaseConfigured } from "./supabase/config";
 import type { Membership, Tier } from "./types";
 import { requestCache } from "@/lib/request-cache";
+import { readViewAsCookie, viewAsStateFor } from "./view-as";
+import { getAccessMatrix, findTier } from "./tiers";
 
 export interface CurrentMember {
   name: string;
@@ -22,6 +24,8 @@ export interface CurrentMember {
   adminTitle: string | null;
   /** False when every membership has lapsed → portal layout sends to /expired. */
   membershipActive: boolean;
+  /** Set while a Super Admin is previewing the portal as another tier. */
+  viewingAs: { tier: string; label: string } | null;
   /** False until the member has given their name — portal requires it on
       first login (they're sent to the /welcome profile step). */
   profileComplete: boolean;
@@ -73,6 +77,7 @@ export const getCurrentMember = requestCache(
       membershipActive: true,
       profileComplete: true,
       accessExpiresAt: null,
+      viewingAs: null,
     };
   }
 
@@ -90,7 +95,7 @@ export const getCurrentMember = requestCache(
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("full_name, email, admin_title")
+      .select("full_name, email, admin_title, admin_role")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -117,14 +122,40 @@ export const getCurrentMember = requestCache(
   >[];
   const effective = effectiveMembership(rows);
 
+  const realTier: Tier = effective?.tier ?? "tsls_attendee";
+  const realIsAdmin = effective?.tier === "admin";
+
+  /*
+   * View as: a Super Admin previewing the portal as another tier. Only ever
+   * narrows — the cookie is checked against the signer's REAL super-admin
+   * role on every request, so it does nothing in anyone else's browser.
+   */
+  const requested = realIsAdmin ? await readViewAsCookie() : null;
+  let viewingAs: CurrentMember["viewingAs"] = null;
+  let simulated: ReturnType<typeof viewAsStateFor> | null = null;
+  if (requested) {
+    const isSuper = profile?.admin_role === "super";
+    const known = findTier(await getAccessMatrix(), requested);
+    if (isSuper && known) {
+      simulated = viewAsStateFor(requested);
+      viewingAs = { tier: known.slug, label: known.label };
+    }
+  }
+
   return {
     name,
     email: profile?.email ?? user.email ?? "",
     initials: initials(name),
-    tier: effective?.tier ?? "tsls_attendee",
-    tierLabel: effective ? tierLabel(effective.tier) : "Membership lapsed",
-    isAdmin: effective?.tier === "admin",
-    isSpeaker: Boolean(
+    tier: simulated ? (simulated.tier as Tier) : realTier,
+    tierLabel: simulated
+      ? (viewingAs?.label ?? tierLabel(realTier))
+      : effective
+        ? tierLabel(realTier)
+        : "Membership lapsed",
+    isAdmin: simulated ? simulated.isAdmin : realIsAdmin,
+    isSpeaker: simulated
+      ? simulated.isSpeaker
+      : Boolean(
       speakerRow &&
         !(speakerRow as { archived_at?: string | null }).archived_at &&
         (!(speakerRow as { expires_at?: string | null }).expires_at ||
@@ -132,11 +163,16 @@ export const getCurrentMember = requestCache(
             (speakerRow as { expires_at: string }).expires_at,
           ) > new Date()),
     ),
-    isSponsorManager: Boolean(sponsorSeats.data?.length),
+    isSponsorManager: simulated
+      ? simulated.isSponsorManager
+      : Boolean(sponsorSeats.data?.length),
     adminTitle:
-      effective?.tier === "admin" ? (profile?.admin_title ?? null) : null,
+      (simulated ? simulated.isAdmin : realIsAdmin)
+        ? (profile?.admin_title ?? null)
+        : null,
     membershipActive: effective !== null,
     profileComplete: Boolean(profile?.full_name?.trim()),
     accessExpiresAt: effective?.access_expires_at ?? null,
+    viewingAs,
   };
 });

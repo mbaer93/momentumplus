@@ -1,4 +1,5 @@
 import type { AccessLevel, AiSummary } from "@/lib/types";
+import type { TopicRef } from "@/lib/topics";
 
 /*
  * Video library data. Placeholder set mirrors mockup/momentum-plus-v5.html;
@@ -8,7 +9,10 @@ import type { AccessLevel, AiSummary } from "@/lib/types";
 export interface VideoItem {
   id: string;
   title: string;
-  category: "Leadership" | "Wellness" | "Business";
+  /* The session FORMAT this came from ("Monthly Educational Session"). Free
+     text in the database — it has been rewritten twice (migrations 0051,
+     0053) and typing it as a closed union only made the type lie. */
+  category: string;
   speakerName: string;
   durationLabel: string;
   dateLabel: string;
@@ -19,9 +23,15 @@ export interface VideoItem {
   thumbnailUrl?: string | null;
   sessionId: string | null;
   aiSummary: AiSummary | null;
+  /** Sierra's browse-by-subject taxonomy; primary first. */
+  topics: TopicRef[];
+  /** Season this belongs to, labelled by the October it opened. */
+  season: number | null;
   /** True for a teaser the viewer can't watch — shown as a locked upsell
       card (metadata only; no playback id ever reaches the browser). */
   locked?: boolean;
+  /** Why it's locked, so the card can say the right thing. */
+  lockReason?: "tier" | "season";
 }
 
 const summary = (highlights: string, takeaways: string[]): AiSummary => ({
@@ -33,7 +43,7 @@ const summary = (highlights: string, takeaways: string[]): AiSummary => ({
   generatedAt: "2026-06-01T00:00:00.000Z",
 });
 
-export const placeholderVideos: VideoItem[] = [
+const rawPlaceholders: Omit<VideoItem, "topics" | "season">[] = [
   {
     id: "burnout-blueprint",
     title: "The Burnout Blueprint: A Framework for Sustainable High Performance",
@@ -152,6 +162,40 @@ export const placeholderVideos: VideoItem[] = [
     aiSummary: null,
   },
 ];
+
+/*
+ * Preview-mode topics. Real rows carry their own through video_topics; this
+ * only exists so the filter row has something to filter in a database-less
+ * environment (local dev, the e2e suite).
+ */
+const PREVIEW_VIDEO_TOPICS: Record<string, [string, ...string[]]> = {
+  "burnout-blueprint": [
+    "Health, Wellness & Sustainable Leadership",
+    "Resilience, Pivots & Adversity",
+  ],
+  "trust-architecture": [
+    "Team Culture & Environments",
+    "Leadership Foundations & Reflection",
+  ],
+};
+
+const slugOf = (name: string) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+export const placeholderVideos: VideoItem[] = rawPlaceholders.map((v) => {
+  const names = PREVIEW_VIDEO_TOPICS[v.id] ?? ["Leadership Foundations & Reflection"];
+  return {
+    ...v,
+    topics: names.map((name, i) => ({
+      id: slugOf(name),
+      name,
+      slug: slugOf(name),
+      isPrimary: i === 0,
+    })),
+    // The placeholder set is dated "Aug 2025" etc., all inside season 2024.
+    season: null,
+  };
+});
 
 const GRADIENTS = [
   "linear-gradient(135deg,#1C3050,#3A6B96)",

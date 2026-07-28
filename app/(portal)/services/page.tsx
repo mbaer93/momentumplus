@@ -1,6 +1,7 @@
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { BriefcaseIcon, ExternalIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { listServices } from "@/lib/services-queries";
 
@@ -14,6 +15,7 @@ export const metadata = { title: "Additional Services | Momentum+" };
  */
 export default async function ServicesPage() {
   const member = await requireMember();
+  await requireFeature("services");
   const services = await listServices();
 
   return (

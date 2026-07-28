@@ -12,6 +12,7 @@ import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getAccessMatrix, publicTiers } from "@/lib/tiers";
 import { listApprovedTestimonials } from "@/lib/testimonials";
 
 export const dynamic = "force-dynamic";
@@ -167,6 +168,10 @@ export default async function HomePage() {
   const proPrice = stripe?.displayPrices?.pro ?? null;
   const sessions = await upcomingPublicSessions();
   const testimonials = await listApprovedTestimonials();
+  // Momentum+ Pro is built but not launched — it stays off the public site
+  // until Control Center → Launch says otherwise (Matt, 2026-07-28).
+  const matrix = await getAccessMatrix();
+  const proLive = publicTiers(matrix).some((t) => t.slug === "pro");
 
   return (
     <div className="land-screen">
@@ -334,32 +339,34 @@ export default async function HomePage() {
               </a>
             )}
           </div>
-          <div className="land-price-card best">
-            <span className="pricing-best-tag">Most Access</span>
-            <div className="land-price-name">Momentum+ Pro</div>
-            <div className="land-price-amount">
-              {proPrice ? `$${proPrice}/mo` : "Membership"}
+          {proLive && (
+            <div className="land-price-card best">
+              <span className="pricing-best-tag">Most Access</span>
+              <div className="land-price-name">Momentum+ Pro</div>
+              <div className="land-price-amount">
+                {proPrice ? `$${proPrice}/mo` : "Membership"}
+              </div>
+              <ul className="land-price-list">
+                <li>Everything in Momentum+ Member</li>
+                <li>Pro-only live sessions and workshops</li>
+                <li>Pro-only recordings in the library</li>
+                <li>Every past season in the recording library</li>
+                <li>First access to new programs</li>
+              </ul>
+              {live ? (
+                <Link href="/join?plan=pro" className="btn-gold land-cta">
+                  Join Momentum+ Pro
+                </Link>
+              ) : (
+                <a
+                  className="btn-gold land-cta"
+                  href="mailto:hello@momentumplus.co?subject=Reserve%20my%20Momentum%2B%20Pro%20membership"
+                >
+                  Reserve my spot
+                </a>
+              )}
             </div>
-            <ul className="land-price-list">
-              <li>Everything in Momentum+ Member</li>
-              <li>Pro-only live sessions and workshops</li>
-              <li>Pro-only recordings in the library</li>
-              <li>Advanced course tracks and premium resources</li>
-              <li>First access to new programs</li>
-            </ul>
-            {live ? (
-              <Link href="/join?plan=pro" className="btn-gold land-cta">
-                Join Momentum+ Pro
-              </Link>
-            ) : (
-              <a
-                className="btn-gold land-cta"
-                href="mailto:hello@momentumplus.co?subject=Reserve%20my%20Momentum%2B%20Pro%20membership"
-              >
-                Reserve my spot
-              </a>
-            )}
-          </div>
+          )}
         </div>
         {live ? (
           <p className="land-price-note">

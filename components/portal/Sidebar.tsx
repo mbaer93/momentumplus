@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_SECTIONS } from "./nav";
 import { MobileNavClose } from "./PortalNav";
-import { SettingsIcon } from "@/components/icons";
+import { LockIcon, SettingsIcon } from "@/components/icons";
 import { SponsorMark } from "@/components/sponsors/SponsorMark";
 import type { SponsorItem } from "@/lib/directory-data";
 
@@ -22,6 +22,10 @@ interface SidebarProps {
   /** Dedicated logo uploaded specifically for this slot (fills it exactly);
       falls back to the sponsor's regular logo/name mark when absent. */
   presentedByLogoUrl?: string | null;
+  /** Feature keys this member's tier doesn't reach. Those tabs still render —
+      with a padlock, leading to /upgrade — so nobody has to guess what the
+      next tier up would buy them (Matt, 2026-07-28). */
+  lockedFeatures?: string[];
 }
 
 export function Sidebar({
@@ -33,7 +37,9 @@ export function Sidebar({
   isSponsorManager = false,
   presentedBy,
   presentedByLogoUrl,
+  lockedFeatures = [],
 }: SidebarProps) {
+  const locked = new Set(lockedFeatures);
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -71,21 +77,42 @@ export function Sidebar({
               <div className="nav-section-label">{section.label}</div>
               {items.map((item) => {
                 const Icon = item.icon;
+                const isLocked = Boolean(item.feature && locked.has(item.feature));
                 const inner = (
                   <>
                     <Icon size={16} />
                     {item.label}
-                    {item.badge && (
-                      <span
-                        className={`nav-badge${
-                          item.badge.variant === "blue" ? " blue" : ""
-                        }`}
-                      >
-                        {item.badge.text}
+                    {isLocked ? (
+                      <span className="nav-lock" aria-label="Not in your plan">
+                        <LockIcon size={13} />
                       </span>
+                    ) : (
+                      item.badge && (
+                        <span
+                          className={`nav-badge${
+                            item.badge.variant === "blue" ? " blue" : ""
+                          }`}
+                        >
+                          {item.badge.text}
+                        </span>
+                      )
                     )}
                   </>
                 );
+
+                // Locked tabs lead to the upgrade page, not the feature. The
+                // page itself re-checks (requireFeature) — this is signage.
+                if (isLocked) {
+                  return (
+                    <Link
+                      key={item.href}
+                      href={`/upgrade?feature=${encodeURIComponent(item.feature!)}`}
+                      className="nav-item locked"
+                    >
+                      {inner}
+                    </Link>
+                  );
+                }
                 // A redirecting route handler (the TSLS crossover) needs a
                 // full-page load, not a client route transition.
                 if (item.external) {

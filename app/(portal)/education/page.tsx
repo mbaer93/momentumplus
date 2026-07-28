@@ -2,12 +2,14 @@ import Link from "next/link";
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 import { courseUnlocked, listCourses } from "@/lib/education";
 
 export const dynamic = "force-dynamic";
 
 export default async function EducationPage() {
   const member = await requireMember();
+  await requireFeature("education");
   const courses = await listCourses();
   // Members only see published courses; admins also see drafts (marked).
   const visible = courses.filter((c) => c.published || member.isAdmin);

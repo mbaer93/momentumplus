@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { UsersIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
+import { requireFeature } from "@/lib/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export const metadata = { title: "Networking | Momentum+" };
  */
 export default async function NetworkingPage() {
   const member = await requireMember();
+  await requireFeature("networking");
   if (!member.isAdmin) redirect("/dashboard");
 
   return (
