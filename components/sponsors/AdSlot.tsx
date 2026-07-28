@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { adsFor } from "@/lib/ads";
+import { hydratedAdsFor } from "@/lib/ads";
+import type { AdCreative } from "@/lib/ads-shared";
 
 /*
  * Renders whatever the Ad Manager has put in a named slot, in the order set
@@ -19,10 +20,15 @@ export async function AdSlot({
   placement: string;
   limit?: number;
 }) {
-  const all = await adsFor(placement);
+  const all = await hydratedAdsFor(placement);
   const ads = typeof limit === "number" ? all.slice(0, limit) : all;
   if (ads.length === 0) return null;
+  return <AdItems ads={ads} />;
+}
 
+/** The slot's markup on its own, for callers that already have the rows. */
+export function AdItems({ ads }: { ads: AdCreative[] }) {
+  if (ads.length === 0) return null;
   return (
     <div className="ad-slot">
       {ads.map((ad) => {

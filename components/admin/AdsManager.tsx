@@ -183,6 +183,13 @@ export function AdsManager({
               </select>
             </div>
           </div>
+          {form.sponsorId && (
+            <p className="cc-sub" style={{ margin: "-8px 0 16px" }}>
+              Sponsor-linked: any field left blank inherits from the
+              sponsor&apos;s profile — name, tagline, uploaded ad creative,
+              and a link to their page. Fill a field here to override it.
+            </p>
+          )}
           <div className="admin-field">
             <label htmlFor="ad-title">Headline</label>
             <input
@@ -329,10 +336,19 @@ export function AdsManager({
                             </div>
                           </td>
                           <td>
-                            <div className="admin-row-title">{a.title}</div>
+                            <div className="admin-row-title">
+                              {a.title ||
+                                sponsors.find((s) => s.id === a.sponsorId)
+                                  ?.name ||
+                                "Untitled"}
+                            </div>
                             <div className="cc-sub">
                               {a.kind === "notice" ? "Notice" : "Ad"}
-                              {a.body ? ` — ${a.body.slice(0, 60)}` : ""}
+                              {a.body
+                                ? ` — ${a.body.slice(0, 60)}`
+                                : !a.title && a.sponsorId
+                                  ? " — creative comes from the sponsor's profile"
+                                  : ""}
                             </div>
                           </td>
                           <td>

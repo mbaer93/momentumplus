@@ -12,6 +12,8 @@
 
 import { createClient } from "./supabase/server";
 import { isSupabaseConfigured } from "./supabase/config";
+import { listSponsors } from "./directory-queries";
+import type { SponsorItem } from "./directory-data";
 import { requestCache } from "./request-cache";
 import {
   FALLBACK_PLACEMENTS,
@@ -95,5 +97,60 @@ export async function adsFor(placementKey: string): Promise<AdCreative[]> {
       (!a.startsAt || new Date(a.startsAt).getTime() <= now) &&
       (!a.endsAt || new Date(a.endsAt).getTime() > now),
   );
+}
+
+/** What a sponsor-card renderer needs beyond the ad row itself. */
+export interface AdSponsorVisual {
+  id: string;
+  name: string;
+  tagline: string;
+  offer: string | null;
+  logoUrl: string | null;
+  sidebarAdUrl: string | null;
+  wordmark: SponsorItem["wordmark"];
+}
+
+export type HydratedAd = AdCreative & { sponsor: AdSponsorVisual | null };
+
+/**
+ * Live creatives for one slot with sponsor-linked rows filled in.
+ *
+ * A sponsor-linked row seeded (or saved) with blank fields inherits the
+ * sponsor's profile — name, tagline, uploaded ad creative, and a link to
+ * their profile page — so the creative keeps being managed in
+ * Admin → Sponsors while the Ad Manager decides placement and order.
+ * Anything the row does set overrides the inherited value.
+ */
+export async function hydratedAdsFor(
+  placementKey: string,
+): Promise<HydratedAd[]> {
+  const ads = await adsFor(placementKey);
+  if (ads.length === 0) return [];
+  const sponsors = ads.some((a) => a.sponsorId)
+    ? await listSponsors()
+    : [];
+  return ads.map((a) => {
+    const s = a.sponsorId
+      ? (sponsors.find((x) => x.id === a.sponsorId) ?? null)
+      : null;
+    if (!s) return { ...a, sponsor: null };
+    return {
+      ...a,
+      title: a.title || s.name,
+      body: a.body || s.tagline,
+      imageUrl: a.imageUrl || s.sidebarAdUrl,
+      url: a.url || `/sponsors/${s.id}`,
+      ctaLabel: a.ctaLabel || "Learn more",
+      sponsor: {
+        id: s.id,
+        name: s.name,
+        tagline: s.tagline,
+        offer: s.offer,
+        logoUrl: s.logoUrl,
+        sidebarAdUrl: s.sidebarAdUrl,
+        wordmark: s.wordmark,
+      },
+    };
+  });
 }
 

@@ -1,36 +1,48 @@
-import { listSponsors } from "@/lib/directory-queries";
+import { hydratedAdsFor } from "@/lib/ads";
+import { AdItems } from "./AdSlot";
 import { BodyAdClient } from "./BodyAdClient";
 
 /*
- * In-body sponsor placement (Matt, 2026-07-18): 1-2 ads inside the main
- * content of portal pages, reserved for the Momentum+ Sponsor and the
- * Title Sponsor. Pages choose the size that fits their layout:
+ * In-body placement: 1-2 ads inside the main content of portal pages. Pages
+ * choose the size that fits their layout:
  *   - "banner": full-width horizontal strip (dashboard, lists)
  *   - "tile":   compact card for grid pages
- * Impressions/clicks reuse the sponsor_events pipeline, so these show up
- * in Admin → Analytics alongside the rail numbers.
+ *
+ * Since migration 0057 what fills these comes from the Ad Manager
+ * (placements "body_banner" / "body_tile") instead of a tier rule in code.
+ * Sponsor-linked rows render through the original sponsor card design and
+ * keep reporting impressions/clicks through the sponsor_events pipeline;
+ * house notices render with the generic slot markup.
  */
 export async function BodyAd({
   variant,
 }: {
   variant: "banner" | "tile";
 }) {
-  const sponsors = (await listSponsors()).filter(
-    (s) => s.tier === "momentum_plus" || s.tier === "title",
+  const ads = await hydratedAdsFor(
+    variant === "banner" ? "body_banner" : "body_tile",
   );
-  if (sponsors.length === 0) return null;
+  const sponsorAds = ads.filter((a) => a.sponsor);
+  const notices = ads.filter((a) => !a.sponsor);
+  if (sponsorAds.length === 0 && notices.length === 0) return null;
   return (
-    <BodyAdClient
-      variant={variant}
-      sponsors={sponsors.slice(0, 2).map((s) => ({
-        id: s.id,
-        name: s.name,
-        tagline: s.tagline,
-        offer: s.offer,
-        logoUrl: s.logoUrl,
-        sidebarAdUrl: s.sidebarAdUrl,
-        wordmark: s.wordmark,
-      }))}
-    />
+    <>
+      {sponsorAds.length > 0 && (
+        <BodyAdClient
+          variant={variant}
+          /* Two fit the strip; the manager's order decides which two. */
+          sponsors={sponsorAds.slice(0, 2).map((a) => ({
+            id: a.sponsor!.id,
+            name: a.title,
+            tagline: a.body,
+            offer: a.sponsor!.offer,
+            logoUrl: a.sponsor!.logoUrl,
+            sidebarAdUrl: a.imageUrl,
+            wordmark: a.sponsor!.wordmark,
+          }))}
+        />
+      )}
+      <AdItems ads={notices} />
+    </>
   );
 }
