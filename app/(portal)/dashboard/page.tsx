@@ -278,7 +278,6 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <AdSlot placement="body_banner" limit={1} />
       <BodyAd variant="banner" />
 
       {/* Stat Grid */}

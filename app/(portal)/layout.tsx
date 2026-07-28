@@ -12,6 +12,7 @@ import {
 } from "@/components/portal/Topbar";
 import { SponsorRail } from "@/components/sponsors/SponsorRail";
 import { isPro } from "@/lib/access";
+import { hydratedAdsFor } from "@/lib/ads";
 import { requireMember } from "@/lib/current-member";
 import { listSponsors } from "@/lib/directory-queries";
 import { getPresentedByLogoUrl } from "@/lib/presented-by";
@@ -156,25 +157,35 @@ export default async function PortalLayout({
   // Requires a signed-in member with an active (or in-grace) membership;
   // lapsed members land on /expired with renewal options (SPEC.md §5).
   const member = await requireMember();
-  const [allSponsors, presentedByLogoUrl, upcoming, notifications] =
+  const [allSponsors, presentedByLogoUrl, upcoming, notifications, railAds] =
     await Promise.all([
       listSponsors(),
       getPresentedByLogoUrl(),
       upcomingEnrolled(),
       recentNotifications(),
+      hydratedAdsFor("rail"),
     ]);
   // The Momentum+ Sponsor is "Presented by" on the left (logo) and always
   // leads the right-hand rail, where its ad creative renders. Rail ads are
   // reserved for the top tiers only — Momentum+ Sponsor, Title, Platinum.
+  // Sponsors that migration 0057 gave an Ad Manager row render through that
+  // row instead — otherwise they'd appear in the rail twice.
+  const inAdRows = new Set(
+    railAds.flatMap((a) => (a.sponsorId ? [a.sponsorId] : [])),
+  );
   const railList = allSponsors
-    .filter((s) => s.railActive && RAIL_TIERS.has(s.tier))
+    .filter(
+      (s) => s.railActive && RAIL_TIERS.has(s.tier) && !inAdRows.has(s.id),
+    )
     .slice(0, 3);
   const presentedBy =
     allSponsors.find((s) => s.tier === "momentum_plus" && s.railActive) ??
     allSponsors.find((s) => s.tier === "momentum_plus") ??
     null;
   const rail =
-    presentedBy && !railList.some((s) => s.id === presentedBy.id)
+    presentedBy &&
+    !inAdRows.has(presentedBy.id) &&
+    !railList.some((s) => s.id === presentedBy.id)
       ? [presentedBy, ...railList].slice(0, 3)
       : railList;
   // Members below Pro get the upgrade card at the top of the rail. Speakers
@@ -218,7 +229,29 @@ export default async function PortalLayout({
               admin, and the live room (SPEC.md §5); it self-hides by route. */}
           <div className="with-rail">
             <div className="rail-content">{children}</div>
-            <SponsorRail sponsors={rail} showUpgrade={showUpgrade} />
+            <SponsorRail
+              sponsors={rail}
+              ads={railAds.map((a) => ({
+                id: a.id,
+                kind: a.kind,
+                title: a.title,
+                body: a.body,
+                ctaLabel: a.ctaLabel,
+                url: a.url,
+                imageUrl: a.imageUrl,
+                sponsorId: a.sponsorId,
+                sponsor: a.sponsor
+                  ? {
+                      name: a.sponsor.name,
+                      tagline: a.sponsor.tagline,
+                      offer: a.sponsor.offer,
+                      logoUrl: a.sponsor.logoUrl,
+                      wordmark: a.sponsor.wordmark,
+                    }
+                  : null,
+              }))}
+              showUpgrade={showUpgrade}
+            />
           </div>
         </div>
       </div>
