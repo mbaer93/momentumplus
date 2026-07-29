@@ -528,8 +528,19 @@ export function MembersManager({
                             run(() => updateMemberProfile(m.profileId, profileForm))
                           }
                         >
-                          Save member
+                          {pending ? "Saving…" : "Save member"}
                         </button>
+                        {/* The page-top message is off-screen from an editor
+                            this deep in the table — echo it at the button
+                            (Matt, 2026-07-29: "nothing happens when I click
+                            save"). */}
+                        {msg && (
+                          <span
+                            className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+                          >
+                            {msg.text}
+                          </span>
+                        )}
                         {m.neverLoggedIn && (
                           <button
                             type="button"
@@ -664,8 +675,15 @@ export function MembersManager({
                                 )
                               }
                             >
-                              Save access
+                              {pending ? "Saving…" : "Save access"}
                             </button>
+                            {msg && (
+                              <span
+                                className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+                              >
+                                {msg.text}
+                              </span>
+                            )}
                           </div>
                         </div>
                       )}
