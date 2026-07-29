@@ -68,7 +68,12 @@ export function AdsManager({
 }: {
   placements: AdPlacement[];
   ads: AdCreative[];
-  sponsors: { id: string; name: string }[];
+  sponsors: {
+    id: string;
+    name: string;
+    tagline?: string;
+    sidebarAdUrl?: string | null;
+  }[];
   needsMigration: boolean;
 }) {
   const router = useRouter();
@@ -97,6 +102,13 @@ export function AdsManager({
       if (res.ok) router.refresh();
     });
   }
+
+  // The sponsor the open form is linked to — its profile values render as
+  // placeholders, since blank fields inherit them (Matt, 2026-07-28: an
+  // all-blank seeded row read as "none of the actual content is there").
+  const linked = form.sponsorId
+    ? sponsors.find((s) => s.id === form.sponsorId)
+    : undefined;
 
   function save() {
     const input = form;
@@ -210,6 +222,7 @@ export function AdsManager({
             <input
               id="ad-title"
               value={form.title}
+              placeholder={linked ? `${linked.name} (from their profile)` : ""}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </div>
@@ -219,6 +232,9 @@ export function AdsManager({
               id="ad-body"
               rows={2}
               value={form.body}
+              placeholder={
+                linked?.tagline ? `${linked.tagline} (from their profile)` : ""
+              }
               onChange={(e) => setForm({ ...form, body: e.target.value })}
             />
           </div>
@@ -237,7 +253,9 @@ export function AdsManager({
               <input
                 id="ad-url"
                 value={form.url}
-                placeholder="https://…"
+                placeholder={
+                  linked ? "Their sponsor profile page" : "https://…"
+                }
                 onChange={(e) => setForm({ ...form, url: e.target.value })}
               />
             </div>
@@ -247,6 +265,11 @@ export function AdsManager({
             <input
               id="ad-image"
               value={form.imageUrl}
+              placeholder={
+                linked?.sidebarAdUrl
+                  ? "Their uploaded ad creative (from their profile)"
+                  : ""
+              }
               onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
             />
           </div>
