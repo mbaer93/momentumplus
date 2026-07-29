@@ -19,25 +19,27 @@ import {
  * down at the NEXT April 1. Speakers stay on October 1.
  */
 
-test("sponsorTermEnd is the next April 1 (ET)", () => {
+test("sponsorTermEnd: Apr–Sep joins the current season, Oct+ the following", () => {
+  // Mid-season (July) → this season's April 1.
   const july = new Date("2026-07-29T12:00:00Z");
   assert.equal(sponsorTermEnd(july).toISOString(), "2027-04-01T04:00:00.000Z");
+  // After the October 1 sales cutoff → the FOLLOWING season.
   const november = new Date("2026-11-02T12:00:00Z");
   assert.equal(
     sponsorTermEnd(november).toISOString(),
-    "2027-04-01T04:00:00.000Z",
+    "2028-04-01T04:00:00.000Z",
   );
-  // January is before the boundary → still this season's April 1.
-  const jan27 = new Date("2027-01-15T12:00:00Z");
-  assert.equal(sponsorTermEnd(jan27).toISOString(), "2027-04-01T04:00:00.000Z");
+  // January–March is still past the cutoff — same following season.
+  const feb27 = new Date("2027-02-15T12:00:00Z");
+  assert.equal(sponsorTermEnd(feb27).toISOString(), "2028-04-01T04:00:00.000Z");
   // Joining in April starts the season just begun → the next April 1.
   const apr27 = new Date("2027-04-02T12:00:00Z");
   assert.equal(sponsorTermEnd(apr27).toISOString(), "2028-04-01T04:00:00.000Z");
   // ET/UTC edge: March 31 11:30 PM ET is April 1 03:30 UTC — the ET date
-  // (March) governs, so the term is the April 1 hours away.
+  // (March, past the cutoff) governs.
   assert.equal(
     sponsorTermEnd(new Date("2027-04-01T03:30:00Z")).toISOString(),
-    "2027-04-01T04:00:00.000Z",
+    "2028-04-01T04:00:00.000Z",
   );
 });
 
@@ -46,6 +48,23 @@ test("upcomingSponsorReveal is the next April 1 (ET)", () => {
   assert.equal(
     upcomingSponsorReveal(july).toISOString(),
     "2027-04-01T04:00:00.000Z",
+  );
+  const feb27 = new Date("2027-02-15T12:00:00Z");
+  assert.equal(
+    upcomingSponsorReveal(feb27).toISOString(),
+    "2027-04-01T04:00:00.000Z",
+  );
+});
+
+test("an October-cutoff joiner is pre-season-hidden until April 1", () => {
+  // Confirmed November 2026 → term April 1 2028 → live from April 1 2027.
+  const term = { archivedAt: null, expiresAt: "2028-04-01T04:00:00Z" };
+  assert.equal(sponsorLive(term, new Date("2026-11-15T12:00:00Z")), false);
+  assert.equal(sponsorLive(term, new Date("2027-04-01T05:00:00Z")), true);
+  // And the season tab's next-season view picks them up meanwhile.
+  assert.equal(
+    inNextSponsorSeason(term, new Date("2026-11-15T12:00:00Z")),
+    true,
   );
 });
 
