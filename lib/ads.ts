@@ -12,6 +12,7 @@
 
 import { createClient } from "./supabase/server";
 import { isSupabaseConfigured } from "./supabase/config";
+import { getCurrentMember } from "./current-member";
 import { listSponsors } from "./directory-queries";
 import type { SponsorItem } from "./directory-data";
 import { requestCache } from "./request-cache";
@@ -43,6 +44,7 @@ function mapAd(r: Record<string, unknown>): AdCreative {
     active: r.active !== false,
     startsAt: (r.starts_at as string | null) ?? null,
     endsAt: (r.ends_at as string | null) ?? null,
+    tiers: Array.isArray(r.tiers) ? (r.tiers as unknown[]).map(String) : [],
   };
 }
 
@@ -78,24 +80,47 @@ export const listAds = requestCache(async (): Promise<AdCreative[]> => {
   const { data, error } = await supabase
     .from("ads")
     .select(
-      "id, placement_key, kind, title, body, cta_label, url, image_url, sponsor_id, sort, active, starts_at, ends_at",
+      "id, placement_key, kind, title, body, cta_label, url, image_url, sponsor_id, sort, active, starts_at, ends_at, tiers",
     )
     .order("sort");
-  // Pre-migration: no ad manager yet, and the sponsor rail carries on as it
-  // did before. An empty list is the right answer, not an error page.
-  if (error) return [];
+  if (error) {
+    // 0056 ran but 0058 hasn't: the tiers column doesn't exist yet. Retry
+    // without it so every existing ad keeps rendering untargeted, instead
+    // of the whole slot system going dark until the migration runs.
+    if (/tiers/.test(error.message)) {
+      const retry = await supabase
+        .from("ads")
+        .select(
+          "id, placement_key, kind, title, body, cta_label, url, image_url, sponsor_id, sort, active, starts_at, ends_at",
+        )
+        .order("sort");
+      if (!retry.error) return (retry.data ?? []).map(mapAd);
+    }
+    // Pre-migration: no ad manager yet, and the sponsor rail carries on as
+    // it did before. An empty list is the right answer, not an error page.
+    return [];
+  }
   return (data ?? []).map(mapAd);
 });
 
 /** Live creatives for one slot, ready to render. */
 export async function adsFor(placementKey: string): Promise<AdCreative[]> {
   const now = Date.now();
+  // RLS already keeps tier-targeted rows away from members outside the
+  // target list; this re-check is what makes view-as honest (the request
+  // still runs as the admin, so Postgres answers with everything) and what
+  // narrows the admin's own portal browsing when they preview a tier.
+  const member = await getCurrentMember();
+  const seesAllTiers = Boolean(member?.isAdmin && !member.viewingAs);
   return (await listAds()).filter(
     (a) =>
       a.placementKey === placementKey &&
       a.active &&
       (!a.startsAt || new Date(a.startsAt).getTime() <= now) &&
-      (!a.endsAt || new Date(a.endsAt).getTime() > now),
+      (!a.endsAt || new Date(a.endsAt).getTime() > now) &&
+      (a.tiers.length === 0 ||
+        seesAllTiers ||
+        (member !== null && a.tiers.includes(member.tier))),
   );
 }
 

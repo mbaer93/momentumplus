@@ -3,6 +3,7 @@ import { AdsManager } from "@/components/admin/AdsManager";
 import { listAds, listPlacements } from "@/lib/ads";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { listSponsors } from "@/lib/directory-queries";
+import { getAccessMatrix } from "@/lib/tiers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -23,9 +24,10 @@ export default async function AdminAdsPage() {
     if (!auth.ok) redirect("/admin");
   }
 
-  const [placements, sponsors] = await Promise.all([
+  const [placements, sponsors, matrix] = await Promise.all([
     listPlacements(),
     listSponsors(),
+    getAccessMatrix(),
   ]);
 
   // The manager wants everything, including scheduled and switched-off rows;
@@ -62,6 +64,9 @@ export default async function AdminAdsPage() {
           tagline: s.tagline,
           sidebarAdUrl: s.sidebarAdUrl,
         }))}
+        memberTypes={matrix.tiers
+          .filter((t) => !t.archivedAt)
+          .map((t) => ({ slug: t.slug, label: t.label }))}
         needsMigration={needsMigration}
       />
     </div>

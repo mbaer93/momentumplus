@@ -28,6 +28,8 @@ export interface AdCreative {
   active: boolean;
   startsAt: string | null;
   endsAt: string | null;
+  /** Member-type slugs that see this creative. Empty = every member. */
+  tiers: string[];
 }
 
 /* Mirrors the seed in 0056 so the manager renders before the migration runs. */
