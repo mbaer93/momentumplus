@@ -5,6 +5,10 @@
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { seasonEnd, sponsorLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
+import {
+  SPONSOR_PACKAGES_2026,
+  packagePrice,
+} from "@/lib/sponsor-packages";
 import { RAIL_TIERS, SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
 
 /** What members actually see right now — a pre-season sponsor looks identical
@@ -40,11 +44,13 @@ function visibility(s: { archivedAt?: string | null; expiresAt?: string | null }
 import {
   archiveSponsor,
   cancelSponsorInvite,
+  confirmProspect,
   createSponsor,
   deleteSponsor,
   inviteSponsorRep,
   reinstateSponsor,
   linkSponsorMember,
+  saveSponsorEmailsEnabled,
   setSponsorOngoing,
   removePresentedByLogo,
   removeSponsorAd,
@@ -82,6 +88,11 @@ export interface AdminSponsorRow {
   expiresAt?: string | null;
   /** Set when retired to the Past Sponsors archive. */
   archivedAt?: string | null;
+  /** Interest-form contact + notes (migration 0062) — prospect rows mostly. */
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  notes?: string;
 }
 
 const EMPTY: SponsorInput = {
@@ -193,14 +204,18 @@ function SponsorFields({
 export function SponsorsManager({
   sponsors,
   pastSponsors = [],
+  prospects = [],
   pendingInvites = [],
   presentedByLogoUrl,
   initialEditId,
   memberOptions = [],
+  emailsEnabled = false,
 }: {
   sponsors: AdminSponsorRow[];
   /** Archived or term-expired sponsors — admin-only, reinstatable. */
   pastSponsors?: AdminSponsorRow[];
+  /** 2026 interest list — hidden from members until confirmed here. */
+  prospects?: AdminSponsorRow[];
   /** Sponsor onboarding invites that haven't been completed yet. */
   pendingInvites?: {
     id: string;
@@ -214,13 +229,17 @@ export function SponsorsManager({
   initialEditId?: string;
   /** Existing members for the searchable "Link member" picker. */
   memberOptions?: { name: string; email: string }[];
+  /** The sponsor-email master switch (OFF until Matt enables it). */
+  emailsEnabled?: boolean;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<SponsorInput>(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(
     initialEditId ?? null,
   );
-  const editSeed = sponsors.find((s) => s.id === editingId);
+  const editSeed =
+    sponsors.find((s) => s.id === editingId) ??
+    prospects.find((s) => s.id === editingId);
   const [editForm, setEditForm] = useState<SponsorInput>(
     editSeed
       ? {
@@ -313,6 +332,52 @@ export function SponsorsManager({
 
   return (
     <div>
+      {/* Master switch: while paused, nothing in the app emails a sponsor
+          (Matt, 2026-07-29). */}
+      <div
+        className="admin-hint"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+          marginBottom: 16,
+        }}
+      >
+        <span style={{ flex: 1, minWidth: 220 }}>
+          {emailsEnabled ? (
+            <>
+              <strong>Sponsor emails are ON.</strong> Invites and welcome
+              emails send normally.
+            </>
+          ) : (
+            <>
+              <strong>Sponsor emails are paused.</strong> Nothing here emails
+              a sponsor — invites are blocked and linking a member skips the
+              welcome email. Turn them on when the systems are ready.
+            </>
+          )}
+        </span>
+        <button
+          type="button"
+          className="btn-mini"
+          disabled={pending}
+          onClick={() => {
+            if (
+              confirm(
+                emailsEnabled
+                  ? "Pause sponsor emails? Invites will be blocked and welcome emails skipped until you turn this back on."
+                  : "Turn sponsor emails ON? Rep invites and welcome emails will start sending again.",
+              )
+            ) {
+              run(() => saveSponsorEmailsEnabled(!emailsEnabled));
+            }
+          }}
+        >
+          {emailsEnabled ? "Pause sponsor emails" : "Turn sponsor emails on"}
+        </button>
+      </div>
+
       {/* Sponsor self-service onboarding: enter the rep's email; they fill
           in the business + their own details and get Pro access to Oct 1. */}
       <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
@@ -364,7 +429,12 @@ export function SponsorsManager({
           <button
             type="button"
             className="btn-mini"
-            disabled={pending || !invite.email.includes("@")}
+            disabled={pending || !invite.email.includes("@") || !emailsEnabled}
+            title={
+              emailsEnabled
+                ? undefined
+                : "Sponsor emails are paused — turn them on above to send invites."
+            }
             onClick={() => {
               setInviteMsg(null);
               setInviteLink(null);
@@ -513,6 +583,204 @@ export function SponsorsManager({
       </div>
 
       {/* Create */}
+      {/* 2026 interest list: form submissions parked as prospects — members
+          can't see them, nothing emails them. Confirm turns one into a real
+          sponsor on the normal season clock. */}
+      {prospects.length > 0 && (
+        <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
+          <div className="admin-field" style={{ marginBottom: 4 }}>
+            <label style={{ fontSize: 13 }}>
+              2026 interest list — {prospects.length} prospect
+              {prospects.length === 1 ? "" : "s"}
+            </label>
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+            From the TSLS sponsor interest form. Hidden from members and never
+            emailed. <strong>Confirm</strong> makes one a real sponsor (season
+            through October 1) — still without sending anything; invite their
+            rep separately when you&apos;re ready.
+          </div>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Business</th>
+                  <th>Package interest</th>
+                  <th>Contact</th>
+                  <th>Notes</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {prospects.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <div className="admin-row-title">{p.name}</div>
+                      {p.website && (
+                        <div style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                          {p.website.replace(/^https?:\/\//i, "")}
+                        </div>
+                      )}
+                    </td>
+                    <td>{sponsorTierLabel(p.tier)}</td>
+                    <td style={{ fontSize: 12.5 }}>
+                      <div>{p.contactName}</div>
+                      {p.contactEmail && (
+                        <div style={{ color: "var(--mid-gray)" }}>
+                          {p.contactEmail}
+                        </div>
+                      )}
+                      {p.contactPhone && (
+                        <div style={{ color: "var(--mid-gray)" }}>
+                          {p.contactPhone}
+                        </div>
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        fontSize: 12,
+                        color: "var(--mid-gray)",
+                        maxWidth: 340,
+                        whiteSpace: "pre-line",
+                      }}
+                    >
+                      {p.notes}
+                    </td>
+                    <td>
+                      <div
+                        className="admin-actions-cell"
+                        style={{ justifyContent: "flex-end" }}
+                      >
+                        <button
+                          type="button"
+                          className="btn-mini"
+                          disabled={pending}
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Confirm ${p.name} as a ${sponsorTierLabel(p.tier)}? They join the roster on the normal season clock — live to members from October 1, down the October 1 after. No emails are sent — invite their rep separately when you're ready.`,
+                              )
+                            ) {
+                              run(() => confirmProspect(p.id));
+                            }
+                          }}
+                        >
+                          Confirm sponsor
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-mini"
+                          onClick={() =>
+                            editingId === p.id
+                              ? setEditingId(null)
+                              : beginEdit(p)
+                          }
+                        >
+                          {editingId === p.id ? "Close" : "Edit"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-mini danger"
+                          disabled={pending}
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Delete the ${p.name} prospect? This removes their interest-form details permanently.`,
+                              )
+                            ) {
+                              run(() => deleteSponsor(p.id));
+                            }
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* The 2026 package sheet — reference pricing/availability with live
+          sold + interest counts from the tables above. */}
+      <details className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
+        <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+          2026 packages — pricing &amp; availability
+        </summary>
+        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", margin: "8px 0 10px" }}>
+          From the 2026 sponsorship + media partnership sheets. “Sold” counts
+          confirmed sponsors on the roster; “interest” counts prospects above.
+          Media partnerships are in-kind (promotion in lieu of payment).
+        </div>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Package</th>
+                <th>Price</th>
+                <th>Available</th>
+                <th>Sold / interest</th>
+                <th>VIP tickets</th>
+                <th>Headline benefits</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SPONSOR_PACKAGES_2026.map((p) => {
+                const sold = sponsors.filter((s) => s.tier === p.tier).length;
+                const interest = prospects.filter(
+                  (s) => s.tier === p.tier,
+                ).length;
+                const full =
+                  p.soldOut || (p.available !== null && sold >= p.available);
+                return (
+                  <tr key={p.tier}>
+                    <td>
+                      <div className="admin-row-title">
+                        {sponsorTierLabel(p.tier)}
+                      </div>
+                    </td>
+                    <td>{packagePrice(p)}</td>
+                    <td>
+                      {p.available === null ? (
+                        "Unlimited"
+                      ) : (
+                        <span title={p.available === 1 ? "Exclusive — only one exists" : undefined}>
+                          {p.available === 1 ? "Exclusive (1)" : p.available}
+                          {full && (
+                            <span
+                              className="admin-status draft"
+                              style={{ marginLeft: 6 }}
+                            >
+                              {p.soldOut ? "Sold out" : "Full"}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {sold}
+                      {interest > 0 ? ` / ${interest} interested` : ""}
+                    </td>
+                    <td>{p.vipTickets}</td>
+                    <td style={{ fontSize: 12, color: "var(--mid-gray)", maxWidth: 320 }}>
+                      {p.highlights.join(" · ")}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 8 }}>
+          Dining Partner tiers (free listing / Featured $250 / Official
+          Post-Summit Gathering $500) live on the TSLS app under Lunch
+          Downtown — those businesses are restaurants, not sponsors.
+        </div>
+      </details>
+
       <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
         <div className="admin-field" style={{ marginBottom: 4 }}>
           <label style={{ fontSize: 13 }}>Add a sponsor</label>
