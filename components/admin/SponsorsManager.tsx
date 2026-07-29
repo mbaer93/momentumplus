@@ -49,7 +49,7 @@ import {
   deleteSponsor,
   importInterestFormAssets,
   inviteSponsorRep,
-  trimSponsorLogos,
+  restoreFormLogos,
   reinstateSponsor,
   linkSponsorMember,
   saveSponsorEmailsEnabled,
@@ -797,18 +797,17 @@ export function SponsorsManager({
         </div>
       </div>
 
-      {/* Logo cleanup — always visible (unlike the interest list below,
-          which disappears once every prospect is confirmed). */}
+      {/* Logo restore — recovery from the 07-29 trim incident. */}
       <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
         <div className="admin-field" style={{ marginBottom: 4 }}>
-          <label style={{ fontSize: 13 }}>Logo cleanup</label>
+          <label style={{ fontSize: 13 }}>Restore logos</label>
         </div>
         <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
-          Logos with empty margins baked into the file render small — the
-          display caps the whole canvas, padding included. This crops every
-          stored logo tight to the artwork and reports each change. SVGs and
-          already-tight logos are left alone. New uploads are trimmed
-          automatically.
+          Re-downloads each sponsor&apos;s original logo file from their
+          interest-form submission and stores it untouched, replacing the
+          file that&apos;s there now. Sponsors whose logo never came from
+          the form are listed so you can re-upload those by hand (uploads
+          store the exact file — no processing).
         </div>
         <div className="admin-form-actions" style={{ marginTop: 0 }}>
           <button
@@ -818,14 +817,14 @@ export function SponsorsManager({
             onClick={() => {
               if (
                 confirm(
-                  "Trim the empty margins off every sponsor logo? This edits the stored logo files (the originals aren't kept).",
+                  "Restore every sponsor logo from their original interest-form upload? This overwrites the current stored logo files.",
                 )
               ) {
-                run(() => trimSponsorLogos());
+                run(() => restoreFormLogos());
               }
             }}
           >
-            {pending ? "Working…" : "Trim logo margins"}
+            {pending ? "Working…" : "Restore logos from the form"}
           </button>
         </div>
       </div>

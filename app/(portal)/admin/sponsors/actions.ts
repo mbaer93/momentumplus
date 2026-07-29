@@ -488,13 +488,10 @@ async function uploadSponsorImage(
   const admin = createServiceClient();
   const path =
     kind === "logo" ? `${sponsorId}.${ext}` : `${sponsorId}-ad.${ext}`;
-  let bytes: Buffer = Buffer.from(await file.arrayBuffer());
-  if (kind === "logo") {
-    // Logos: trim baked-in margins so the height-capped display shows the
-    // artwork full size. Ad creatives keep their designed canvas.
-    const { trimLogoBuffer } = await import("@/lib/logo-trim");
-    bytes = (await trimLogoBuffer(bytes, file.type)).buffer;
-  }
+  // NOTE: no processing — bytes are stored exactly as uploaded. The 07-29
+  // auto-trim corrupted logos in production (fine in local repro; root cause
+  // not yet identified), so nothing touches image bytes until that's solved.
+  const bytes: Buffer = Buffer.from(await file.arrayBuffer());
 
   const { error: uploadError } = await admin.storage
     .from("sponsor-logos")
@@ -571,10 +568,7 @@ export async function uploadPresentedByLogo(
   }
 
   const admin = createServiceClient();
-  const { trimLogoBuffer } = await import("@/lib/logo-trim");
-  const bytes = (
-    await trimLogoBuffer(Buffer.from(await file.arrayBuffer()), file.type)
-  ).buffer;
+  const bytes = Buffer.from(await file.arrayBuffer());
   const { error } = await admin.storage
     .from("sponsor-logos")
     .upload(PRESENTED_BY_PATH, bytes, { contentType: file.type, upsert: true });
@@ -1139,14 +1133,9 @@ export async function importInterestFormAssets(): Promise<SponsorResult> {
             continue;
           }
           const path = `${t.id}.${kind.ext}`;
-          const { trimLogoBuffer } = await import("@/lib/logo-trim");
-          const trimmed = (await trimLogoBuffer(buf, kind.contentType)).buffer;
           const { error: upErr } = await admin.storage
             .from("sponsor-logos")
-            .upload(path, trimmed, {
-              contentType: kind.contentType,
-              upsert: true,
-            });
+            .upload(path, buf, { contentType: kind.contentType, upsert: true });
           if (upErr) {
             reason = upErr.message;
             continue;
@@ -1206,102 +1195,116 @@ export async function importInterestFormAssets(): Promise<SponsorResult> {
 }
 
 /**
- * One-click cleanup for logos already in the bucket (Matt, 2026-07-29):
- * many uploads carry baked-in transparent/white margins, and since every
- * display spot height-caps the whole canvas, padded logos render tiny.
- * Downloads each sponsor's raster logo, trims the margins (lib/logo-trim),
- * re-uploads in place, and cache-busts logo_url. SVGs and already-tight
- * logos are left alone; every outcome is reported by name.
+ * RECOVERY for the 07-29 trim incident: the batch trim corrupted stored
+ * logo files in production. The originals still exist on GHL (the interest
+ * form's uploads), so this re-downloads each sponsor's original file and
+ * stores it EXACTLY as downloaded — no processing — overwriting whatever
+ * is at the sponsor's logo path now. Covers every sponsor the form knows
+ * by name; logos that never came from the form must be re-uploaded by hand
+ * (uploads no longer touch image bytes either). Each restore also reports
+ * the byte-size and magic bytes of the file it replaced, for diagnosis.
  */
-export async function trimSponsorLogos(): Promise<SponsorResult> {
+export async function restoreFormLogos(): Promise<SponsorResult> {
   if (!isSupabaseConfigured()) {
-    return { ok: true, preview: true, message: "Trimmed (preview mode)." };
+    return { ok: true, preview: true, message: "Restored (preview mode)." };
   }
   const auth = await requireAdmin("sponsors");
   if (!auth.ok) return { ok: false, message: auth.message };
 
-  const { trimLogoBuffer } = await import("@/lib/logo-trim");
+  const { assetsForName, sniffImage } = await import(
+    "@/lib/interest-form-assets"
+  );
   const admin = createServiceClient();
   const { data: rows, error } = await admin
     .from("sponsors")
-    .select("id, name, logo_url")
-    .not("logo_url", "is", null);
+    .select("id, name, logo_url");
   if (error) return { ok: false, message: error.message };
 
-  const EXT_TYPE: Record<string, string> = {
-    png: "image/png",
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    webp: "image/webp",
-  };
-  const trimmedNames: string[] = [];
-  let alreadyTight = 0;
-  let svgs = 0;
+  const restored: string[] = [];
+  const noSource: string[] = [];
   const failed: { name: string; reason: string }[] = [];
 
-  const trimOne = async (r: { id: string; name: string; logo_url: string }) => {
-    // The stored URL is bucket-path + cache-buster; derive the object path
-    // from it so we overwrite the same object the page already points at.
-    const clean = r.logo_url.split("?")[0];
-    const marker = "/sponsor-logos/";
-    const idx = clean.indexOf(marker);
-    if (idx < 0) {
-      failed.push({ name: r.name, reason: "logo isn't in the app's storage" });
+  const restoreOne = async (r: {
+    id: string;
+    name: string;
+    logo_url: string | null;
+  }) => {
+    const assets = assetsForName(r.name);
+    if (!assets || assets.logoUrls.length === 0) {
+      noSource.push(r.name);
       return;
     }
-    const path = decodeURIComponent(clean.slice(idx + marker.length));
-    const ext = path.split(".").pop()?.toLowerCase() ?? "";
-    if (ext === "svg") {
-      svgs += 1;
-      return;
+    // What's in storage right now (the possibly-corrupt file) — captured
+    // for the report so the incident can be diagnosed from real bytes.
+    let brokenNote = "no stored file";
+    if (r.logo_url) {
+      const clean = r.logo_url.split("?")[0];
+      const marker = "/sponsor-logos/";
+      const idx = clean.indexOf(marker);
+      if (idx >= 0) {
+        const { data: cur } = await admin.storage
+          .from("sponsor-logos")
+          .download(decodeURIComponent(clean.slice(idx + marker.length)));
+        if (cur) {
+          const curBuf = Buffer.from(await cur.arrayBuffer());
+          brokenNote = `was ${curBuf.length}B [${curBuf.subarray(0, 4).toString("hex")}]`;
+        }
+      }
     }
-    const contentType = EXT_TYPE[ext];
-    if (!contentType) {
-      failed.push({ name: r.name, reason: `unrecognized file type .${ext}` });
-      return;
+    let reason = "no usable image among their uploads";
+    for (const url of assets.logoUrls) {
+      try {
+        const res = await fetch(url, {
+          signal: AbortSignal.timeout(10000),
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          reason = `download failed (${res.status})`;
+          continue;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        const kind = sniffImage(new Uint8Array(buf.subarray(0, 512)));
+        if (!kind) {
+          reason = "not a web image (likely PDF/EPS)";
+          continue;
+        }
+        const path = `${r.id}.${kind.ext}`;
+        const { error: upErr } = await admin.storage
+          .from("sponsor-logos")
+          .upload(path, buf, { contentType: kind.contentType, upsert: true });
+        if (upErr) {
+          reason = upErr.message;
+          continue;
+        }
+        const { data: pub } = admin.storage
+          .from("sponsor-logos")
+          .getPublicUrl(path);
+        const { error: updErr } = await admin
+          .from("sponsors")
+          .update({ logo_url: `${pub.publicUrl}?v=${Date.now()}` })
+          .eq("id", r.id);
+        if (updErr) {
+          reason = updErr.message;
+          break;
+        }
+        restored.push(`${r.name} (${brokenNote} → ${buf.length}B fresh)`);
+        reason = "";
+        break;
+      } catch {
+        reason = "download timed out or was blocked";
+      }
     }
-    const { data: blob, error: dlErr } = await admin.storage
-      .from("sponsor-logos")
-      .download(path);
-    if (dlErr || !blob) {
-      failed.push({ name: r.name, reason: dlErr?.message ?? "download failed" });
-      return;
-    }
-    const result = await trimLogoBuffer(
-      Buffer.from(await blob.arrayBuffer()),
-      contentType,
-    );
-    if (!result.trimmed) {
-      alreadyTight += 1;
-      return;
-    }
-    const { error: upErr } = await admin.storage
-      .from("sponsor-logos")
-      .upload(path, result.buffer, { contentType, upsert: true });
-    if (upErr) {
-      failed.push({ name: r.name, reason: upErr.message });
-      return;
-    }
-    const { data: pub } = admin.storage
-      .from("sponsor-logos")
-      .getPublicUrl(path);
-    const { error: updErr } = await admin
-      .from("sponsors")
-      .update({ logo_url: `${pub.publicUrl}?v=${Date.now()}` })
-      .eq("id", r.id);
-    if (updErr) {
-      failed.push({ name: r.name, reason: updErr.message });
-      return;
-    }
-    trimmedNames.push(
-      `${r.name} (${result.before.width}×${result.before.height} → ${result.after.width}×${result.after.height})`,
-    );
+    if (reason) failed.push({ name: r.name, reason });
   };
 
-  const targets = (rows ?? []) as { id: string; name: string; logo_url: string }[];
+  const targets = (rows ?? []) as {
+    id: string;
+    name: string;
+    logo_url: string | null;
+  }[];
   const BATCH = 6;
   for (let i = 0; i < targets.length; i += BATCH) {
-    await Promise.all(targets.slice(i, i + BATCH).map(trimOne));
+    await Promise.all(targets.slice(i, i + BATCH).map(restoreOne));
   }
 
   revalidatePath("/admin/sponsors");
@@ -1311,20 +1314,23 @@ export async function trimSponsorLogos(): Promise<SponsorResult> {
   revalidatePath("/", "layout");
 
   const parts = [
-    trimmedNames.length > 0
-      ? `Trimmed ${trimmedNames.length}: ${trimmedNames.slice(0, 8).join("; ")}${trimmedNames.length > 8 ? `; +${trimmedNames.length - 8} more` : ""}`
-      : "Nothing needed trimming",
+    restored.length > 0
+      ? `Restored ${restored.length}: ${restored.slice(0, 10).join("; ")}${restored.length > 10 ? `; +${restored.length - 10} more` : ""}`
+      : "Nothing restored",
   ];
-  if (alreadyTight > 0) parts.push(`${alreadyTight} already tight`);
-  if (svgs > 0) parts.push(`${svgs} SVG${svgs === 1 ? "" : "s"} (vectors — no trim needed)`);
+  if (noSource.length > 0) {
+    parts.push(
+      `no form file for ${noSource.length} (re-upload by hand): ${noSource.slice(0, 6).join(", ")}${noSource.length > 6 ? `, +${noSource.length - 6} more` : ""}`,
+    );
+  }
   const failNote =
     failed.length > 0
-      ? ` Needs a hand: ${failed
+      ? ` Failed: ${failed
           .slice(0, 8)
           .map((f) => `${f.name} — ${f.reason}`)
           .join("; ")}${failed.length > 8 ? `; +${failed.length - 8} more` : ""}.`
       : "";
-  return { ok: true, message: `${parts.join(", ")}.${failNote}` };
+  return { ok: true, message: `${parts.join(". ")}.${failNote}` };
 }
 
 /**
