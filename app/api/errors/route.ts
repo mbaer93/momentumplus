@@ -84,6 +84,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, anonymous: true });
   }
 
+  // Record WHO hit it (migration 0061), so an admin can email exactly the
+  // affected members from Admin → Platform Errors. Best-effort: a missing
+  // table (pre-0061) must not break the report.
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: hit } = await admin
+        .from("error_report_hits")
+        .select("hits")
+        .eq("hash", hash)
+        .eq("profile_id", user.id)
+        .maybeSingle();
+      if (hit) {
+        await admin
+          .from("error_report_hits")
+          .update({ hits: (hit.hits as number) + 1, last_hit: nowIso })
+          .eq("hash", hash)
+          .eq("profile_id", user.id);
+      } else {
+        await admin
+          .from("error_report_hits")
+          .insert({ hash, profile_id: user.id });
+      }
+    }
+  } catch {
+    /* best-effort */
+  }
+
   const lastEmailed = existing?.last_emailed_at
     ? new Date(existing.last_emailed_at as string).getTime()
     : 0;
@@ -140,6 +171,9 @@ export async function POST(req: NextRequest) {
       <p style="margin:0 0 6px;"><strong>Error:</strong> ${esc(message)}</p>
       ${digest ? `<p style="margin:0 0 6px;"><strong>Digest:</strong> ${esc(digest)}</p>` : ""}
       ${existing ? `<p style="margin:0 0 6px;"><strong>Occurrences:</strong> ${(existing.count as number) + 1} since first seen</p>` : ""}
+      <p style="margin:14px 0 0;">
+        <a href="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co"}/admin/errors" style="display:inline-block;background:#B8965A;color:#0B1622;font-weight:bold;padding:9px 16px;border-radius:4px;text-decoration:none;">See who was affected &amp; notify them</a>
+      </p>
       <p style="margin:12px 0 0;font-size:11.5px;color:#9ca3af;">
         You'll get at most one email per distinct error every 6 hours. Ask
         Claude to investigate this message if it keeps recurring.
@@ -165,7 +199,7 @@ export async function POST(req: NextRequest) {
         kind: "platform",
         title: "Error alert: a member hit a crash screen",
         body: `${path || "unknown page"} — ${message.slice(0, 120)}`,
-        link: "/admin",
+        link: "/admin/errors",
       })),
     );
   }
