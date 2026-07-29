@@ -259,11 +259,15 @@ interface SponsorRow {
   expires_at: string | null;
   archived_at: string | null;
   description?: string | null;
+  /** Interest-list rows (migration 0062) — never shown to members. */
+  prospect?: boolean | null;
 }
 
 const SPONSOR_COLUMNS =
+  "id, name, tier, tagline, description, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at, prospect";
+// Pre-migration fallbacks (0062 adds prospect; 0033 adds description).
+const SPONSOR_COLUMNS_NO_PROSPECT =
   "id, name, tier, tagline, description, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at";
-// Pre-migration fallback (before 0033 adds description).
 const SPONSOR_COLUMNS_LEGACY =
   "id, name, tier, tagline, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at";
 
@@ -276,6 +280,14 @@ const cachedSponsorRows = unstable_cache(
     ).data as SponsorRow[] | null;
     if (!data) {
       data = (
+        await admin
+          .from("sponsors")
+          .select(SPONSOR_COLUMNS_NO_PROSPECT)
+          .order("tier")
+      ).data as SponsorRow[] | null;
+    }
+    if (!data) {
+      data = (
         await admin.from("sponsors").select(SPONSOR_COLUMNS_LEGACY).order("tier")
       ).data as SponsorRow[] | null;
     }
@@ -284,6 +296,9 @@ const cachedSponsorRows = unstable_cache(
   ["sponsors-directory"],
   { revalidate: 300, tags: ["sponsors"] },
 );
+
+/** Interest-list rows never appear on any member (or preview) surface. */
+const notProspect = (row: SponsorRow) => !row.prospect;
 
 export async function listSponsors(): Promise<SponsorItem[]> {
   if (!isSupabaseConfigured()) return placeholderSponsors;
@@ -296,6 +311,14 @@ export async function listSponsors(): Promise<SponsorItem[]> {
     let rows = (
       await supabase.from("sponsors").select(SPONSOR_COLUMNS).order("tier")
     ).data as SponsorRow[] | null;
+    if (!rows) {
+      rows = (
+        await supabase
+          .from("sponsors")
+          .select(SPONSOR_COLUMNS_NO_PROSPECT)
+          .order("tier")
+      ).data as SponsorRow[] | null;
+    }
     if (!rows) {
       rows = (
         await supabase
@@ -313,6 +336,7 @@ export async function listSponsors(): Promise<SponsorItem[]> {
   // hidden until October 1). Filtered per-request, not in the cached query,
   // so the cache can't serve a stale list across a season boundary.
   return data
+    .filter(notProspect)
     .filter((row) =>
       sponsorLive({
         archivedAt: row.archived_at ?? null,
@@ -332,6 +356,7 @@ export async function listSponsorsForAdmin(): Promise<SponsorItem[]> {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return listSponsors();
   const data = await cachedSponsorRows();
   return data
+    .filter(notProspect)
     .filter((row) =>
       sponsorActive({
         archivedAt: row.archived_at ?? null,
@@ -386,6 +411,7 @@ export async function listSponsorsNextSeason(): Promise<SponsorItem[]> {
   }
   const data = await cachedSponsorRows();
   return data
+    .filter(notProspect)
     .filter((row) =>
       inNextSeason({
         archivedAt: row.archived_at ?? null,

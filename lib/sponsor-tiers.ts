@@ -3,6 +3,13 @@
  * Sponsor is the platform's own headline sponsor ("Presented by" slot);
  * everything below mirrors the TSLS sponsorship packages; Partner is the
  * bottom (trade/media) tier. Order here is the display order everywhere.
+ *
+ * The 2026 package sheets add Event Program ($2,500, exclusive) and three
+ * in-kind Media Partnership levels (Strategic / Regional / Community).
+ * Prices, availability, and benefits live in lib/sponsor-packages.ts.
+ * NOTE: 2026 pricing puts Lunch/Happy Hour ($6,500) above Gold ($5,000) —
+ * the display order below keeps Matt's confirmed hierarchy until he says
+ * otherwise.
  */
 
 export const SPONSOR_TIERS = [
@@ -18,7 +25,11 @@ export const SPONSOR_TIERS = [
   { value: "breakfast", label: "Breakfast Sponsor" },
   { value: "silver", label: "Silver Sponsor" },
   { value: "coffee_break", label: "Coffee Break Sponsor" },
+  { value: "event_program", label: "Event Program Sponsor" },
   { value: "community", label: "Community Sponsor" },
+  { value: "strategic_media", label: "Strategic Media Partner" },
+  { value: "regional_media", label: "Regional Media Partner" },
+  { value: "community_media", label: "Community Media Partner" },
   { value: "partner", label: "Partner" },
 ] as const;
 

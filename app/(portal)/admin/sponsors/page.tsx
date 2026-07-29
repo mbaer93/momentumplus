@@ -7,6 +7,7 @@ import {} from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { sponsors as placeholderSponsors } from "@/lib/directory-data";
 import { getPresentedByLogoUrl } from "@/lib/presented-by";
+import { sponsorEmailsEnabled } from "@/lib/sponsor-emails";
 import { allSponsorProTickets, getTicketCounts } from "@/lib/sponsor-team";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -75,6 +76,7 @@ export default async function AdminSponsorsPage(
   }));
 
   let pastRows: AdminSponsorRow[] = [];
+  let prospectRows: AdminSponsorRow[] = [];
   let pendingInvites: { id: string; email: string; tier: string; businessName: string; createdAt: string }[] = [];
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
@@ -83,11 +85,22 @@ export default async function AdminSponsorsPage(
         admin
           .from("sponsors")
           .select(
-            "id, name, tier, tagline, description, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
+            "id, name, tier, tagline, description, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at, prospect, contact_name, contact_email, contact_phone, notes",
           )
           .order("tier")
           .then((res) =>
-            // Pre-migration fallback: description arrives with 0033.
+            // Pre-migration fallbacks: prospect columns arrive with 0062,
+            // description with 0033.
+            res.data
+              ? res
+              : admin
+                  .from("sponsors")
+                  .select(
+                    "id, name, tier, tagline, description, offer, website, logo_url, sidebar_ad_url, rail_active, expires_at, archived_at",
+                  )
+                  .order("tier"),
+          )
+          .then((res) =>
             res.data
               ? res
               : admin
@@ -156,8 +169,14 @@ export default async function AdminSponsorsPage(
         seats: seatsBySponsor.get(s.id) ?? [],
         expiresAt: (s as { expires_at?: string | null }).expires_at ?? null,
         archivedAt: (s as { archived_at?: string | null }).archived_at ?? null,
+        contactName: (s as { contact_name?: string | null }).contact_name ?? "",
+        contactEmail: (s as { contact_email?: string | null }).contact_email ?? "",
+        contactPhone: (s as { contact_phone?: string | null }).contact_phone ?? "",
+        notes: (s as { notes?: string | null }).notes ?? "",
       });
       const now = Date.now();
+      const isProspect = (s: (typeof sponsors)[number]) =>
+        Boolean((s as { prospect?: boolean | null }).prospect);
       const isPast = (s: (typeof sponsors)[number]) => {
         const row = s as { archived_at?: string | null; expires_at?: string | null };
         return Boolean(
@@ -165,8 +184,9 @@ export default async function AdminSponsorsPage(
             (row.expires_at && new Date(row.expires_at).getTime() <= now),
         );
       };
-      rows = sponsors.filter((s) => !isPast(s)).map(mapRow);
-      pastRows = sponsors.filter(isPast).map(mapRow);
+      rows = sponsors.filter((s) => !isPast(s) && !isProspect(s)).map(mapRow);
+      pastRows = sponsors.filter((s) => isPast(s) && !isProspect(s)).map(mapRow);
+      prospectRows = sponsors.filter(isProspect).map(mapRow);
     }
   }
 
@@ -205,10 +225,16 @@ export default async function AdminSponsorsPage(
       <SponsorsManager
         sponsors={rows}
         pastSponsors={pastRows}
+        prospects={prospectRows}
         pendingInvites={pendingInvites}
         presentedByLogoUrl={await getPresentedByLogoUrl()}
         initialEditId={searchParams?.edit}
         memberOptions={memberOptions}
+        emailsEnabled={
+          isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY
+            ? await sponsorEmailsEnabled()
+            : false
+        }
       />
       <SponsorTicketSettings
         counts={

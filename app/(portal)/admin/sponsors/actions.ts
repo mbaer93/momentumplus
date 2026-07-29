@@ -298,8 +298,19 @@ export async function linkSponsorMember(
   if (seatError) return { ok: false, message: seatError.message };
 
   // Welcome email: a button into their Sponsor Studio to review the page —
-  // best-effort, the link already succeeded.
+  // best-effort, the link already succeeded. Skipped entirely while sponsor
+  // emails are paused (Matt, 2026-07-29).
   let emailNote = "";
+  const { sponsorEmailsEnabled } = await import("@/lib/sponsor-emails");
+  if (!(await sponsorEmailsEnabled())) {
+    revalidatePath("/admin/sponsors");
+    updateTag("sponsors");
+    updateTag("presented-by");
+    return {
+      ok: true,
+      message: `${email} linked — they hold Pro while sponsoring and can manage the business page. No welcome email was sent (sponsor emails are paused).`,
+    };
+  }
   try {
     const { data: sponsor } = await admin
       .from("sponsors")
@@ -636,6 +647,19 @@ export async function inviteSponsorRep(
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, message: "That doesn't look like a valid email." };
   }
+  // The whole invite flow runs on email (Supabase's invite or our setup
+  // email) — while sponsor emails are paused it would just create a dead
+  // account, so stop before touching anything.
+  {
+    const { sponsorEmailsEnabled } = await import("@/lib/sponsor-emails");
+    if (!(await sponsorEmailsEnabled())) {
+      return {
+        ok: false,
+        message:
+          "Sponsor emails are paused — nothing was sent and no account was created. Turn sponsor emails on above when the systems are ready, or add the business with \"Add a sponsor\" below (that never emails anyone).",
+      };
+    }
+  }
   const { normalizeSponsorTier } = await import("@/lib/sponsor-tiers");
   const tier = normalizeSponsorTier(tierRaw);
 
@@ -964,5 +988,98 @@ export async function reinstateSponsor(
       : liveNow
         ? `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — visible to members again, reps' Pro access restored.`
         : `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — reps' Pro access restored. Members see the page again on ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season until then).`,
+  };
+}
+
+/* =====================================================================
+   2026 interest list (Matt, 2026-07-29): interest-form submissions live
+   as PROSPECT rows — hidden from members, no term, no seats, no emails —
+   until an admin confirms the sponsorship here.
+   ===================================================================== */
+
+/**
+ * Promote a prospect to a real sponsor: same lifecycle as "Add a sponsor"
+ * (season term ending next October 1; Host stays ongoing). Sends nothing —
+ * inviting their rep is a separate, deliberate step.
+ */
+export async function confirmProspect(sponsorId: string): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Confirmed (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { data: row, error: readError } = await admin
+    .from("sponsors")
+    .select("tier, prospect")
+    .eq("id", sponsorId)
+    .maybeSingle();
+  if (readError && /prospect/.test(readError.message)) {
+    return {
+      ok: false,
+      message:
+        "Run migration 0062 in the Supabase SQL editor first — it adds the prospect columns.",
+    };
+  }
+  if (!row) return { ok: false, message: "Could not find that prospect." };
+  if (!row.prospect) {
+    return { ok: false, message: "They're already a confirmed sponsor." };
+  }
+
+  const termEnd = row.tier === "host" ? null : seasonEnd().toISOString();
+  const { error } = await admin
+    .from("sponsors")
+    .update({ prospect: false, expires_at: termEnd })
+    .eq("id", sponsorId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsors");
+  updateTag("sponsors");
+  updateTag("presented-by");
+  const { sponsorLive, upcomingSeasonStart } = await import(
+    "@/lib/sponsor-lifecycle"
+  );
+  const liveNow =
+    !termEnd || sponsorLive({ archivedAt: null, expiresAt: termEnd });
+  const when = termEnd
+    ? new Date(termEnd).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "";
+  return {
+    ok: true,
+    message: !termEnd
+      ? "Confirmed — ongoing sponsor, visible to members now. No emails were sent."
+      : liveNow
+        ? `Confirmed — visible to members now, season ends ${when}. No emails were sent.`
+        : `Confirmed — goes live to members ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, season ends ${when}. No emails were sent; invite their rep when you're ready.`,
+  };
+}
+
+/**
+ * The sponsor-email master switch. OFF by default (Matt, 2026-07-29): no
+ * emails to sponsors from either platform until he flips it on.
+ */
+export async function saveSponsorEmailsEnabled(
+  enabled: boolean,
+): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  const { setSponsorEmailsEnabled } = await import("@/lib/sponsor-emails");
+  const { error } = await setSponsorEmailsEnabled(enabled);
+  if (error) return { ok: false, message: error };
+  revalidatePath("/admin/sponsors");
+  return {
+    ok: true,
+    message: enabled
+      ? "Sponsor emails are ON — invites and welcome emails send normally now."
+      : "Sponsor emails are paused — nothing in the app emails a sponsor until you turn this back on.",
   };
 }
