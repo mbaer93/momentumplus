@@ -10,6 +10,10 @@ import {
 } from "@/lib/directory-queries";
 import { isoToEasternInput } from "@/lib/eastern-time";
 import { listSessionResources } from "@/lib/session-resources";
+import {
+  listInviteeIds,
+  listMemberOptions,
+} from "@/lib/sessions/invitees";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +26,11 @@ export default async function EditSessionPage(
   const params = await props.params;
   const session = await getSession(params.id);
   if (!session) notFound();
-  const [speakerList, adminHosts] = await Promise.all([
+  const [speakerList, adminHosts, members, inviteeIds] = await Promise.all([
     listSpeakersForAdmin(),
     listAdminHostNames(),
+    listMemberOptions(),
+    listInviteeIds(params.id),
   ]);
   const speakers = speakerList.map((s) => ({ id: s.id, name: s.name }));
   const resources = isSupabaseConfigured()
@@ -47,6 +53,7 @@ export default async function EditSessionPage(
         sessionId={session.id}
         speakers={speakers}
         adminHosts={adminHosts}
+        members={members}
         initial={{
           title: session.title,
           description: session.description,
@@ -65,6 +72,8 @@ export default async function EditSessionPage(
             ? isoToEasternInput(session.recurrenceUntil).slice(0, 10)
             : "",
           hostName: session.hostName ?? "",
+          restricted: session.restricted,
+          inviteeIds,
         }}
       />
       <SessionResourcesManager sessionId={session.id} initial={resources} />

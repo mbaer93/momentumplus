@@ -137,6 +137,9 @@ export interface SessionDetail {
   recurrenceUntil: string | null;
   /** Non-speaker host (SLC team member) shown when no speaker is linked. */
   hostName: string | null;
+  /** Invite-only: visible solely to members on its session_invitees roster.
+      RLS does the actual hiding — a member who can read the row can see it. */
+  restricted: boolean;
   zoomJoinUrl: string | null;
   zoomMeetingId: string | null;
   resources: SessionResource[];

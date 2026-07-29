@@ -45,6 +45,7 @@ export function SessionForm({
   initial,
   speakers = [],
   adminHosts = [],
+  members = [],
 }: {
   mode: "create" | "edit";
   sessionId?: string;
@@ -54,10 +55,13 @@ export function SessionForm({
   /** Active admin names — drop-in programs are hosted by the SLC team, so
       their host picker lists admins instead of speakers. */
   adminHosts?: string[];
+  /** Everyone in the system, for the invite-only roster picker. */
+  members?: { id: string; name: string; email: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
 
   const [values, setValues] = useState<SessionFormValues>({
     title: initial?.title ?? "",
@@ -73,6 +77,8 @@ export function SessionForm({
     recurrence: initial?.recurrence ?? "",
     recurrenceUntil: initial?.recurrenceUntil ?? "",
     hostName: initial?.hostName ?? "",
+    restricted: initial?.restricted ?? false,
+    inviteeIds: initial?.inviteeIds ?? [],
   });
 
   function set<K extends keyof SessionFormValues>(
@@ -155,6 +161,11 @@ export function SessionForm({
                     category: "Accountability Session",
                   }
                 : {}),
+              // Invite-only is an A2A concept — leaving the program clears
+              // it so no other tab quietly hides a session.
+              ...(program !== "aspire"
+                ? { restricted: false, inviteeIds: [] }
+                : {}),
             }));
           }}
         >
@@ -180,6 +191,79 @@ export function SessionForm({
           </div>
         )}
       </div>
+
+      {values.program === "aspire" && (
+        <div className="admin-field">
+          <label htmlFor="audience">Who can see it</label>
+          <select
+            id="audience"
+            value={values.restricted ? "specific" : "all"}
+            onChange={(e) => set("restricted", e.target.value === "specific")}
+          >
+            <option value="all">
+              Everyone with Aspire2Achieve access
+            </option>
+            <option value="specific">
+              Specific members only (invite-only)
+            </option>
+          </select>
+          {values.restricted && (
+            <>
+              <div
+                style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}
+              >
+                Only the members picked here can see this session exists —
+                the A2A tab, calendar, and reminders all stay silent for
+                everyone else. {values.inviteeIds.length} selected.
+              </div>
+              <input
+                className="topic-search"
+                style={{ marginTop: 8, width: "100%" }}
+                value={memberSearch}
+                placeholder="Search members by name or email…"
+                aria-label="Search members"
+                onChange={(e) => setMemberSearch(e.target.value)}
+              />
+              <div className="invitee-list">
+                {members
+                  .filter((m) => {
+                    const q = memberSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    return (
+                      m.name.toLowerCase().includes(q) ||
+                      m.email.toLowerCase().includes(q)
+                    );
+                  })
+                  .map((m) => (
+                    <label key={m.id} className="cc-check-row">
+                      <input
+                        type="checkbox"
+                        checked={values.inviteeIds.includes(m.id)}
+                        onChange={(e) =>
+                          set(
+                            "inviteeIds",
+                            e.target.checked
+                              ? [...values.inviteeIds, m.id]
+                              : values.inviteeIds.filter((x) => x !== m.id),
+                          )
+                        }
+                      />
+                      {m.name || m.email}
+                      {m.name && m.email ? (
+                        <span className="cc-sub" style={{ marginTop: 0 }}>
+                          {m.email}
+                        </span>
+                      ) : null}
+                    </label>
+                  ))}
+                {members.length === 0 && (
+                  <div className="cc-sub">No members to pick from yet.</div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {isDropInProgram(values.program) ? (
         /* Drop-ins (Rooted Focus / Aspire2Achieve) are always led by the SLC

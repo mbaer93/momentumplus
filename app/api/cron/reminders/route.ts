@@ -186,14 +186,30 @@ export async function GET(req: NextRequest) {
   let dropinNotified = 0;
   if (!budgetExhausted) {
     const { nextOccurrence } = await import("@/lib/recurrence");
-    const { data: dropins } = await admin
+    let dropinsRes = await admin
       .from("sessions")
-      .select("id, title, starts_at, duration_min, recurrence, recurrence_until")
+      .select(
+        "id, title, starts_at, duration_min, recurrence, recurrence_until, restricted",
+      )
       .in("program", ["rooted_focus", "aspire"])
       .in("status", ["scheduled", "live"]);
+    if (dropinsRes.error && /restricted/.test(dropinsRes.error.message)) {
+      // Deploy window before migration 0059 — nothing is restricted yet.
+      dropinsRes = (await admin
+        .from("sessions")
+        .select("id, title, starts_at, duration_min, recurrence, recurrence_until")
+        .in("program", ["rooted_focus", "aspire"])
+        .in("status", ["scheduled", "live"])) as typeof dropinsRes;
+    }
+    const dropins = dropinsRes.data;
 
     // Occurrences starting within the next 30 minutes.
-    const due: { id: string; title: string; occIso: string }[] = [];
+    const due: {
+      id: string;
+      title: string;
+      occIso: string;
+      restricted: boolean;
+    }[] = [];
     for (const s of dropins ?? []) {
       if (!s.starts_at) continue;
       const occIso = s.recurrence
@@ -208,7 +224,14 @@ export async function GET(req: NextRequest) {
       if (!occIso) continue;
       const occMs = new Date(occIso).getTime();
       if (occMs >= runStart && occMs <= runStart + 30 * 60 * 1000) {
-        due.push({ id: s.id as string, title: s.title as string, occIso });
+        due.push({
+          id: s.id as string,
+          title: s.title as string,
+          occIso,
+          restricted: Boolean(
+            (s as { restricted?: boolean | null }).restricted,
+          ),
+        });
       }
     }
 
@@ -231,10 +254,34 @@ export async function GET(req: NextRequest) {
           .range(from, to),
       );
 
+      // Invite-only sessions (migration 0059) must not be announced to
+      // members who can't see them — intersect the opt-in audience with
+      // each restricted session's roster.
+      const inviteesBySession = new Map<string, Set<string>>();
+      const restrictedDue = due.filter((d) => d.restricted).map((d) => d.id);
+      if (restrictedDue.length > 0) {
+        const { data: inv } = await admin
+          .from("session_invitees")
+          .select("session_id, profile_id")
+          .in("session_id", restrictedDue);
+        for (const r of inv ?? []) {
+          const set =
+            inviteesBySession.get(r.session_id as string) ?? new Set<string>();
+          set.add(r.profile_id as string);
+          inviteesBySession.set(r.session_id as string, set);
+        }
+      }
+
       outer2: for (const session of due) {
         if (optIns.length === 0) break;
+        const audience = session.restricted
+          ? optIns.filter((o) =>
+              inviteesBySession.get(session.id)?.has(o.profile_id),
+            )
+          : optIns;
+        if (audience.length === 0) continue;
         const link = `/sessions/${session.id}?occ=${session.occIso.slice(0, 10)}`;
-        const ids = optIns.map((o) => o.profile_id);
+        const ids = audience.map((o) => o.profile_id);
         const [{ data: already }, { data: profileRows }, { data: contactRows }] =
           await Promise.all([
             admin
@@ -270,7 +317,7 @@ export async function GET(req: NextRequest) {
             timeZone: "America/New_York",
           }) + " ET";
 
-        for (const opt of optIns) {
+        for (const opt of audience) {
           if (done.has(opt.profile_id)) continue;
           const profile = profileBy.get(opt.profile_id);
           if (!profile) continue;
