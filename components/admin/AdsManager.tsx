@@ -24,6 +24,7 @@ const EMPTY: AdInput = {
   active: true,
   startsAt: "",
   endsAt: "",
+  tiers: [],
 };
 
 /** ISO → the value a datetime-local input wants, in Eastern. */
@@ -57,6 +58,7 @@ function toInput(a: AdCreative): AdInput {
     active: a.active,
     startsAt: toLocalInput(a.startsAt),
     endsAt: toLocalInput(a.endsAt),
+    tiers: a.tiers,
   };
 }
 
@@ -64,6 +66,7 @@ export function AdsManager({
   placements,
   ads,
   sponsors,
+  memberTypes,
   needsMigration,
 }: {
   placements: AdPlacement[];
@@ -74,6 +77,8 @@ export function AdsManager({
     tagline?: string;
     sidebarAdUrl?: string | null;
   }[];
+  /** Every live member type, for tier targeting. */
+  memberTypes: { slug: string; label: string }[];
   needsMigration: boolean;
 }) {
   const router = useRouter();
@@ -273,6 +278,32 @@ export function AdsManager({
               onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
             />
           </div>
+          <div className="admin-field">
+            <label>Who sees it</label>
+            <div className="topic-checks">
+              {memberTypes.map((t) => (
+                <label key={t.slug} className="cc-check-row">
+                  <input
+                    type="checkbox"
+                    checked={form.tiers.includes(t.slug)}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        tiers: e.target.checked
+                          ? [...form.tiers, t.slug]
+                          : form.tiers.filter((x) => x !== t.slug),
+                      })
+                    }
+                  />
+                  {t.label}
+                </label>
+              ))}
+            </div>
+            <p className="cc-sub">
+              Nothing ticked = every member sees it. Tick member types to show
+              it only to them.
+            </p>
+          </div>
           <div className="admin-field-row">
             <div className="admin-field">
               <label htmlFor="ad-start">Starts (optional, Eastern)</label>
@@ -388,6 +419,19 @@ export function AdsManager({
                                   ? " — creative comes from the sponsor's profile"
                                   : ""}
                             </div>
+                            {a.tiers.length > 0 && (
+                              <div className="cc-sub">
+                                Only:{" "}
+                                {a.tiers
+                                  .map(
+                                    (slug) =>
+                                      memberTypes.find(
+                                        (t) => t.slug === slug,
+                                      )?.label ?? slug,
+                                  )
+                                  .join(", ")}
+                              </div>
+                            )}
                           </td>
                           <td>
                             <span className={`admin-status ${status.tone}`}>

@@ -30,6 +30,8 @@ export interface AdInput {
   /** Datetime-local strings from the form, or "" for no bound. */
   startsAt: string;
   endsAt: string;
+  /** Member-type slugs that see this creative. Empty = every member. */
+  tiers: string[];
 }
 
 function bust() {
@@ -62,6 +64,9 @@ function toRow(input: AdInput) {
     active: input.active,
     starts_at: iso(input.startsAt),
     ends_at: iso(input.endsAt),
+    // Null (not []) when untargeted, so "every member" reads the same in
+    // the database whether the row predates 0058 or was saved after it.
+    tiers: input.tiers.length > 0 ? input.tiers : null,
   };
 }
 
@@ -104,7 +109,9 @@ export async function createAd(input: AdInput): Promise<AdResult> {
       ok: false,
       message: /relation "ads"|ad_placements/.test(error.message)
         ? "Run 0056_ad_manager.sql in Supabase to turn on the ad manager."
-        : error.message,
+        : /tiers/.test(error.message)
+          ? "Run 0058_ad_tier_targeting.sql in Supabase to turn on tier targeting."
+          : error.message,
     };
   }
   bust();
@@ -122,7 +129,14 @@ export async function updateAd(id: string, input: AdInput): Promise<AdResult> {
     .from("ads")
     .update(toRow(input))
     .eq("id", id);
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    return {
+      ok: false,
+      message: /tiers/.test(error.message)
+        ? "Run 0058_ad_tier_targeting.sql in Supabase to turn on tier targeting."
+        : error.message,
+    };
+  }
   bust();
   return { ok: true, message: "Saved." };
 }
