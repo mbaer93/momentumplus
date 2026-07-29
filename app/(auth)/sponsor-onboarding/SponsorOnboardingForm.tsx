@@ -359,7 +359,7 @@ export function SponsorOnboardingForm({
           {loading ? "Setting up…" : "Finish setup — enter Momentum+"}
         </button>
         <p style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 10 }}>
-          Sponsorships run through October 1. Your listing can be polished
+          Sponsorships run through September 1. Your listing can be polished
           anytime — logo and edits are handled with the Momentum+ team.
         </p>
       </form>

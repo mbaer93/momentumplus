@@ -5,7 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { provisionMember } from "@/lib/onboarding";
 import { PRESENTED_BY_PATH } from "@/lib/presented-by";
-import { seasonEnd } from "@/lib/sponsor-lifecycle";
+import { sponsorTermEnd } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -120,10 +120,10 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
     input.tier,
   );
   // Same lifecycle default as the invite flow: a season term ending next
-  // October 1 (Host Sponsor stays ongoing). A manually-added sponsor used to
+  // September 1 (Host Sponsor stays ongoing). A manually-added sponsor used to
   // get NO term — instantly live and never expiring, the opposite of an
   // invited sponsor, with nothing in the form saying so.
-  const termEnd = tier === "host" ? null : seasonEnd().toISOString();
+  const termEnd = tier === "host" ? null : sponsorTermEnd().toISOString();
   const row = {
     name: input.name.trim(),
     tier,
@@ -146,7 +146,7 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
   updateTag("presented-by");
   revalidatePath("/sponsors");
   updateTag("sponsors");
-  const { sponsorLive, upcomingSeasonStart } = await import(
+  const { sponsorLive, upcomingSponsorReveal } = await import(
     "@/lib/sponsor-lifecycle"
   );
   const liveNow =
@@ -157,7 +157,7 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
       ? "Sponsor created — ongoing Host Sponsor, visible to members now."
       : liveNow
         ? `Sponsor created — visible to members now, season ends ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Use "Make ongoing" to remove the end date.`
-        : `Sponsor created — goes live to members ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, season ends ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Use "Make ongoing" to publish it immediately with no end date.`,
+        : `Sponsor created — goes live to members ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, season ends ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Use "Make ongoing" to publish it immediately with no end date.`,
   };
 }
 
@@ -251,7 +251,7 @@ export async function linkSponsorMember(
   // Season-bound expiry (not null): if the sponsorship simply lapses at the
   // season end and nobody archives it, the reconcile sweep can still revoke
   // this Pro comp. A null expiry would grant Pro forever.
-  const termEnd = seasonEnd().toISOString();
+  const termEnd = sponsorTermEnd().toISOString();
   const res = await provisionMember({
     email,
     tier: "pro",
@@ -623,7 +623,7 @@ export async function removeSponsorAd(sponsorId: string): Promise<SponsorResult>
 /* =====================================================================
    Sponsor lifecycle (Matt, 2026-07-17): invite a sponsor rep by email;
    they self-serve the business + personal details at /sponsor-onboarding.
-   Sponsorships and rep Pro access run through October 1; archived/expired
+   Sponsorships and rep Pro access run through September 1; archived/expired
    sponsors are hidden from members (never deleted) and reinstatable.
    ===================================================================== */
 
@@ -818,7 +818,7 @@ export async function setSponsorOngoing(
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
-  const termEnd = ongoing ? null : seasonEnd().toISOString();
+  const termEnd = ongoing ? null : sponsorTermEnd().toISOString();
   const { error } = await admin
     .from("sponsors")
     .update({ expires_at: termEnd })
@@ -919,7 +919,7 @@ export async function archiveSponsor(sponsorId: string): Promise<SponsorResult> 
   };
 }
 
-/** Bring a past sponsor back: visible again, term through next October 1,
+/** Bring a past sponsor back: visible again, term through next September 1,
     reps' Pro access restored to the same date. */
 export async function reinstateSponsor(
   sponsorId: string,
@@ -938,7 +938,7 @@ export async function reinstateSponsor(
     .maybeSingle();
   // Host Sponsor comes back with no end date; everyone else gets the season.
   const termEnd =
-    row?.tier === "host" ? null : seasonEnd().toISOString();
+    row?.tier === "host" ? null : sponsorTermEnd().toISOString();
   const { error } = await admin
     .from("sponsors")
     .update({ archived_at: null, expires_at: termEnd })
@@ -975,8 +975,8 @@ export async function reinstateSponsor(
   updateTag("sponsors");
   updateTag("presented-by");
   // "Visible again" is only true when the reinstated term is inside the live
-  // season — a July reinstate stays pre-season-hidden until October 1.
-  const { sponsorLive, upcomingSeasonStart } = await import(
+  // season — a July reinstate stays pre-season-hidden until September 1.
+  const { sponsorLive, upcomingSponsorReveal } = await import(
     "@/lib/sponsor-lifecycle"
   );
   const liveNow =
@@ -987,7 +987,7 @@ export async function reinstateSponsor(
       ? "Reinstated as the ongoing Host Sponsor — visible to members again with no end date."
       : liveNow
         ? `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — visible to members again, reps' Pro access restored.`
-        : `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — reps' Pro access restored. Members see the page again on ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season until then).`,
+        : `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — reps' Pro access restored. Members see the page again on ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season until then).`,
   };
 }
 
@@ -999,7 +999,7 @@ export async function reinstateSponsor(
 
 /**
  * Promote a prospect to a real sponsor: same lifecycle as "Add a sponsor"
- * (season term ending next October 1; Host stays ongoing). Sends nothing —
+ * (season term ending next September 1; Host stays ongoing). Sends nothing —
  * inviting their rep is a separate, deliberate step.
  */
 export async function confirmProspect(sponsorId: string): Promise<SponsorResult> {
@@ -1027,7 +1027,7 @@ export async function confirmProspect(sponsorId: string): Promise<SponsorResult>
     return { ok: false, message: "They're already a confirmed sponsor." };
   }
 
-  const termEnd = row.tier === "host" ? null : seasonEnd().toISOString();
+  const termEnd = row.tier === "host" ? null : sponsorTermEnd().toISOString();
   const { error } = await admin
     .from("sponsors")
     .update({ prospect: false, expires_at: termEnd })
@@ -1038,7 +1038,7 @@ export async function confirmProspect(sponsorId: string): Promise<SponsorResult>
   revalidatePath("/sponsors");
   updateTag("sponsors");
   updateTag("presented-by");
-  const { sponsorLive, upcomingSeasonStart } = await import(
+  const { sponsorLive, upcomingSponsorReveal } = await import(
     "@/lib/sponsor-lifecycle"
   );
   const liveNow =
@@ -1056,7 +1056,7 @@ export async function confirmProspect(sponsorId: string): Promise<SponsorResult>
       ? "Confirmed — ongoing sponsor, visible to members now. No emails were sent."
       : liveNow
         ? `Confirmed — visible to members now, season ends ${when}. No emails were sent.`
-        : `Confirmed — goes live to members ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, season ends ${when}. No emails were sent; invite their rep when you're ready.`,
+        : `Confirmed — goes live to members ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, season ends ${when}. No emails were sent; invite their rep when you're ready.`,
   };
 }
 

@@ -4,12 +4,12 @@ import { revalidatePath, updateTag } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { seasonEnd } from "@/lib/sponsor-lifecycle";
+import { sponsorTermEnd } from "@/lib/sponsor-lifecycle";
 import { normalizeSponsorTier } from "@/lib/sponsor-tiers";
 
 /*
  * Completion of a sponsor invite: the signed-in rep submits their business
- * details + their own info. Creates the sponsor (term through October 1),
+ * details + their own info. Creates the sponsor (term through September 1),
  * seats the rep, and grants them Pro access to the same date. The invite
  * row (service-role only) is the authorization: no pending invite for this
  * account, no sponsor creation.
@@ -76,9 +76,9 @@ export async function completeSponsorOnboarding(
   }
 
   // Host Sponsor (the platform's own business) has no term — everyone else
-  // runs through October 1 of next year.
+  // runs through September 1 of next year.
   const tier = normalizeSponsorTier(invite.tier ?? "");
-  const termEnd = tier === "host" ? null : seasonEnd().toISOString();
+  const termEnd = tier === "host" ? null : sponsorTermEnd().toISOString();
 
   // 1) The sponsor page entry (hidden from the rail until the team
   //    activates it; tier was chosen by the admin at invite time).
@@ -150,7 +150,7 @@ export async function completeSponsorOnboarding(
     })
     .eq("id", user.id);
 
-  // 3) Owner seat + sponsor-tier access (Pro-equivalent) through October 1.
+  // 3) Owner seat + sponsor-tier access (Pro-equivalent) through September 1.
   // The rep who completes onboarding is the page's primary manager.
   const { error: seatError } = await admin
     .from("sponsor_members")

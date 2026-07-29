@@ -5,7 +5,8 @@ import type { CSSProperties } from "react";
  * Season preview switch for the Speakers/Sponsors directories. Shown only
  * to admins, speakers, and sponsor managers — members always see the live
  * season. "Next season" previews the roster that goes live at the upcoming
- * October 1 (pre-season speakers/sponsors are otherwise hidden).
+ * the season flips — Oct 1 for speakers, Sept 1 for sponsors (pre-season
+ * profiles are otherwise hidden).
  */
 export function SeasonToggle({
   base,
@@ -47,7 +48,7 @@ export function SeasonToggle({
       </Link>
       {next && (
         <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-          Previewing {nextLabel} — members see this lineup after October 1.
+          Previewing {nextLabel} — members see this lineup when the new season opens.
         </span>
       )}
     </div>
