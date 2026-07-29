@@ -1061,6 +1061,137 @@ export async function confirmProspect(sponsorId: string): Promise<SponsorResult>
 }
 
 /**
+ * Pull the logo files and websites the 2026 interest form collected (GHL
+ * uploads) into the sponsor rows — logo and website fill only where the
+ * row has none, so nothing an admin or sponsor set is ever overwritten.
+ * Every sponsor row is considered, prospect or confirmed. Skipped and
+ * failed items are reported by name so nothing silently vanishes.
+ */
+export async function importInterestFormAssets(): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Imported (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { assetsForName, sniffImage } = await import(
+    "@/lib/interest-form-assets"
+  );
+  const admin = createServiceClient();
+  const { data: rows, error } = await admin
+    .from("sponsors")
+    .select("id, name, logo_url, website");
+  if (error) return { ok: false, message: error.message };
+
+  const targets = (rows ?? [])
+    .map((r) => ({
+      id: r.id as string,
+      name: r.name as string,
+      logoUrl: (r.logo_url as string | null) ?? null,
+      website: (r.website as string | null) ?? null,
+      assets: assetsForName(r.name as string),
+    }))
+    .filter((r) => r.assets);
+
+  const logosDone: string[] = [];
+  const sitesDone: string[] = [];
+  const skipped: string[] = [];
+  const failed: { name: string; reason: string }[] = [];
+
+  const importOne = async (t: (typeof targets)[number]) => {
+    const patch: Record<string, string> = {};
+    if (!t.website?.trim() && t.assets?.website) {
+      patch.website = t.assets.website;
+    }
+    if (t.logoUrl) {
+      skipped.push(t.name);
+    } else {
+      let reason = "no usable image among their uploads";
+      for (const url of t.assets?.logoUrls ?? []) {
+        try {
+          const res = await fetch(url, {
+            signal: AbortSignal.timeout(10000),
+            cache: "no-store",
+          });
+          if (!res.ok) {
+            reason = `download failed (${res.status})`;
+            continue;
+          }
+          const buf = Buffer.from(await res.arrayBuffer());
+          if (buf.length > 4 * 1024 * 1024) {
+            reason = "file over 4 MB";
+            continue;
+          }
+          const kind = sniffImage(new Uint8Array(buf.subarray(0, 512)));
+          if (!kind) {
+            // The form accepted anything — PDFs and EPS files need a
+            // manual export to PNG/JPG/SVG before they can be a logo.
+            reason = "not a web image (likely PDF/EPS — convert manually)";
+            continue;
+          }
+          const path = `${t.id}.${kind.ext}`;
+          const { error: upErr } = await admin.storage
+            .from("sponsor-logos")
+            .upload(path, buf, { contentType: kind.contentType, upsert: true });
+          if (upErr) {
+            reason = upErr.message;
+            continue;
+          }
+          const { data: pub } = admin.storage
+            .from("sponsor-logos")
+            .getPublicUrl(path);
+          patch.logo_url = `${pub.publicUrl}?v=${Date.now()}`;
+          logosDone.push(t.name);
+          reason = "";
+          break;
+        } catch {
+          reason = "download timed out or was blocked";
+        }
+      }
+      if (reason) failed.push({ name: t.name, reason });
+    }
+    if (Object.keys(patch).length > 0) {
+      const { error: updErr } = await admin
+        .from("sponsors")
+        .update(patch)
+        .eq("id", t.id);
+      if (updErr) {
+        failed.push({ name: t.name, reason: updErr.message });
+      } else if (patch.website) {
+        sitesDone.push(t.name);
+      }
+    }
+  };
+
+  // Small parallel batches: ~30 downloads sequentially would flirt with the
+  // action timeout; unbounded parallelism would hammer GHL.
+  const BATCH = 6;
+  for (let i = 0; i < targets.length; i += BATCH) {
+    await Promise.all(targets.slice(i, i + BATCH).map(importOne));
+  }
+
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsors");
+  updateTag("sponsors");
+  updateTag("presented-by");
+  const parts = [
+    `${logosDone.length} logo${logosDone.length === 1 ? "" : "s"} imported`,
+    `${sitesDone.length} website${sitesDone.length === 1 ? "" : "s"} filled`,
+  ];
+  if (skipped.length > 0) {
+    parts.push(`${skipped.length} already had a logo (untouched)`);
+  }
+  const failNote =
+    failed.length > 0
+      ? ` Needs a hand: ${failed
+          .slice(0, 8)
+          .map((f) => `${f.name} — ${f.reason}`)
+          .join("; ")}${failed.length > 8 ? `; +${failed.length - 8} more` : ""}.`
+      : "";
+  return { ok: true, message: `${parts.join(", ")}.${failNote}` };
+}
+
+/**
  * The sponsor-email master switch. OFF by default (Matt, 2026-07-29): no
  * emails to sponsors from either platform until he flips it on.
  */
