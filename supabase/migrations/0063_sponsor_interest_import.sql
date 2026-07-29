@@ -6,23 +6,21 @@
 -- seats, no accounts — and NO emails. Matt confirms each one from Admin →
 -- Sponsors once the agreement is signed.
 --
+-- ONE statement on purpose: the Supabase SQL editor runs statements over a
+-- connection pool, so a temp table created in one statement is gone by the
+-- next (the v1 of this file failed exactly that way). Data-modifying CTEs
+-- keep the whole import atomic on a single connection.
+--
 -- Idempotent, and it never duplicates: a business already in the sponsors
 -- table (several 2025-season sponsors re-submitted for 2026) is skipped by
--- the insert; instead its row gets the 2026 interest note + contact info
--- backfilled, and its tier/description/status stay untouched.
+-- the insert; instead the UPDATE gives its existing row the 2026 interest
+-- note + any missing contact info (the UPDATE's snapshot predates the
+-- insert, so freshly inserted prospects are untouched). Re-running is a
+-- no-op: the insert finds the rows exist, the update sees their notes
+-- already carry "2026 interest".
 
-create temp table interest_2026 (
-  name text,
-  tier text,
-  description text,
-  website text,
-  contact_name text,
-  contact_email text,
-  contact_phone text,
-  notes text
-);
-
-insert into interest_2026 values
+with v (name, tier, description, website, contact_name, contact_email, contact_phone, notes) as (
+  values
   ('Meinelschmidt Distillery', 'happy_hour',
    '',
    'https://www.meineldistillery.com',
@@ -201,22 +199,28 @@ insert into interest_2026 values
    'Work Smarter Digital helps service-based businesses double their revenue without sacrificing the personal, relationship-based sales that define their success. Our Revenue Accelerator System provides teams with automated, scalable sales pipelines, intelligent CRM, and strategic follow-ups that enhance consultative selling rather than replace it.',
    'https://www.worksmarterdigital.com',
    'Mary Sue Dahill', 'marysue@worksmarterdigital.com', null,
-   '2026 interest: Momentum+ Sponsor ($10,000) — requested 3 payments, 50% in trade. CEO. Submitted Jun 30, 2025.');
+   '2026 interest: Momentum+ Sponsor ($10,000) — requested 3 payments, 50% in trade. CEO. Submitted Jun 30, 2025.')
+),
 
 -- New businesses land as hidden prospects. No term, no rail, no emails.
-insert into public.sponsors
-  (name, tier, description, website, rail_active, expires_at, prospect,
-   contact_name, contact_email, contact_phone, notes)
-select v.name, v.tier, nullif(v.description, ''), v.website, false, null, true,
-       v.contact_name, v.contact_email, v.contact_phone, v.notes
-from interest_2026 v
-where not exists (
-  select 1 from public.sponsors s where lower(s.name) = lower(v.name)
-);
+ins as (
+  insert into public.sponsors
+    (name, tier, description, website, rail_active, expires_at, prospect,
+     contact_name, contact_email, contact_phone, notes)
+  select v.name, v.tier, nullif(v.description, ''), v.website, false, null, true,
+         v.contact_name, v.contact_email, v.contact_phone, v.notes
+  from v
+  where not exists (
+    select 1 from public.sponsors s where lower(s.name) = lower(v.name)
+  )
+  returning 1
+)
 
 -- Businesses already in the table (2025 roster re-submitting for 2026) keep
 -- their tier/description/status; they just get the 2026 interest note and
--- any missing contact info. Skips rows that already carry a 2026 note.
+-- any missing contact info. The statement snapshot predates ins, so rows
+-- inserted above are not touched; rows that already carry a 2026 note are
+-- skipped, which makes re-runs no-ops.
 update public.sponsors s
 set contact_name  = coalesce(s.contact_name,  v.contact_name),
     contact_email = coalesce(s.contact_email, v.contact_email),
@@ -225,8 +229,6 @@ set contact_name  = coalesce(s.contact_name,  v.contact_name),
       when coalesce(s.notes, '') = '' then v.notes
       else s.notes || E'\n' || v.notes
     end
-from interest_2026 v
+from v
 where lower(s.name) = lower(v.name)
   and position('2026 interest' in coalesce(s.notes, '')) = 0;
-
-drop table interest_2026;
