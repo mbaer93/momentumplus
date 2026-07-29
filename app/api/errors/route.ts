@@ -107,23 +107,33 @@ export async function POST(req: NextRequest) {
     : 0;
   const emailAllowed = Date.now() - globalLast >= EMAIL_THROTTLE_MS;
 
-  // Email every Super Admin (today: Matt).
-  const { data: supers } = await admin
-    .from("profiles")
-    .select("id, email, full_name")
-    .eq("admin_role", "super");
+  // Alerts go to the operator inbox, not to every super-admin profile —
+  // the shared grow@ account holds a super-admin login, so "email the
+  // supers" was routing alerts to the same mailbox the platform sends
+  // FROM (Matt, 2026-07-29). ERROR_ALERT_EMAIL overrides without a deploy.
+  const alertEmail =
+    process.env.ERROR_ALERT_EMAIL || "matt@socialdrivemedia.com";
   const esc = (t: string) =>
     t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   let emailed = 0;
-  for (const s of emailAllowed ? (supers ?? []) : []) {
+  for (const s of emailAllowed ? [{ email: alertEmail }] : []) {
     if (!s.email) continue;
-    const { data: membership } = await admin
-      .from("memberships")
-      .select("ghl_contact_id")
-      .eq("profile_id", s.id)
-      .not("ghl_contact_id", "is", null)
-      .limit(1)
+    // If the alert inbox belongs to a member, sending through their GHL
+    // contact keeps deliverability history in one place; otherwise plain.
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", s.email)
       .maybeSingle();
+    const { data: membership } = prof
+      ? await admin
+          .from("memberships")
+          .select("ghl_contact_id")
+          .eq("profile_id", prof.id)
+          .not("ghl_contact_id", "is", null)
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
     const res = await sendEmailViaGhl({
       contactId: (membership?.ghl_contact_id as string) ?? null,
       email: s.email as string,
@@ -150,14 +160,19 @@ export async function POST(req: NextRequest) {
     if (res.sent) emailed += 1;
   }
 
-  if (emailed > 0 || (supers ?? []).length === 0) {
+  if (emailed > 0) {
     await admin
       .from("error_reports")
       .update({ last_emailed_at: nowIso })
       .eq("hash", hash);
   }
 
-  // Bell notification for supers as well — works even when GHL is down.
+  // Bell notification still goes to every Super Admin — works even when
+  // GHL is down, and it's in-app so the shared inbox problem doesn't apply.
+  const { data: supers } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("admin_role", "super");
   if (supers?.length) {
     await admin.from("notifications").insert(
       supers.map((s) => ({
