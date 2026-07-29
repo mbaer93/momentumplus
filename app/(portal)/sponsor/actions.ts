@@ -103,7 +103,12 @@ export async function uploadOwnSponsorImage(
     .createBucket("sponsor-logos", { public: true })
     .catch(() => undefined);
   const path = kind === "logo" ? `${sponsorId}.${ext}` : `${sponsorId}-ad.${ext}`;
-  const bytes = Buffer.from(await file.arrayBuffer());
+  let bytes: Buffer = Buffer.from(await file.arrayBuffer());
+  if (kind === "logo") {
+    // Trim baked-in margins (see lib/logo-trim); ads keep their canvas.
+    const { trimLogoBuffer } = await import("@/lib/logo-trim");
+    bytes = (await trimLogoBuffer(bytes, file.type)).buffer;
+  }
   const { error: uploadError } = await admin.storage
     .from("sponsor-logos")
     .upload(path, bytes, { contentType: file.type, upsert: true });

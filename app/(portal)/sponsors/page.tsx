@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SponsorMark } from "@/components/sponsors/SponsorMark";
 import { AdminAddChip, AdminEditChip } from "@/components/admin/AdminChips";
 import { SPONSOR_INTEREST_URL } from "@/lib/links";
+import { hydratedAdsFor } from "@/lib/ads";
 import { requireMember } from "@/lib/current-member";
 import { requireFeature } from "@/lib/entitlements";
 import {
@@ -35,6 +36,11 @@ export default async function SponsorsPage(
   const sponsors = nextView
     ? await listSponsorsNextSeason()
     : await listSponsors();
+  // The footer banner ("Become a partner") is an Ad Manager slot since
+  // migration 0066 — copy, link, and on/off are edited there. The baked-in
+  // banner only renders if the slot has no live rows (pre-migration, or
+  // every row switched off).
+  const footerAds = await hydratedAdsFor("sponsors_footer");
 
   // The Host Sponsor (the platform's own business) leads the page, then the
   // Momentum+ Sponsor hero; every other tier renders as its own labeled
@@ -206,27 +212,51 @@ export default async function SponsorsPage(
         </div>
       ))}
 
-      <div className="admin-banner" style={{ marginTop: 36 }}>
-        <div>
-          <h3>Become a partner</h3>
-          <p>
-            Put your brand in front of a national community of engaged
-            leaders — tasteful, integrated, and measured. This season&apos;s
-            sponsorships are full; submissions are considered when 2027
-            sponsorships open in April 2027.
-          </p>
+      {footerAds.length > 0 ? (
+        footerAds.map((ad) => (
+          <div className="admin-banner" style={{ marginTop: 36 }} key={ad.id}>
+            <div>
+              <h3>{ad.title}</h3>
+              {ad.body && <p>{ad.body}</p>}
+            </div>
+            {ad.url && (
+              <div className="admin-banner-actions">
+                <a
+                  className="btn-sm-gold"
+                  href={ad.url}
+                  {...(ad.url.startsWith("http")
+                    ? { target: "_blank", rel: "noopener noreferrer" }
+                    : {})}
+                >
+                  {ad.ctaLabel || "Learn more"}
+                </a>
+              </div>
+            )}
+          </div>
+        ))
+      ) : (
+        <div className="admin-banner" style={{ marginTop: 36 }}>
+          <div>
+            <h3>Become a partner</h3>
+            <p>
+              Put your brand in front of a national community of engaged
+              leaders — tasteful, integrated, and measured. This season&apos;s
+              sponsorships are full; submissions are considered when 2027
+              sponsorships open in April 2027.
+            </p>
+          </div>
+          <div className="admin-banner-actions">
+            <a
+              className="btn-sm-gold"
+              href={SPONSOR_INTEREST_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Sponsorship Interest Form
+            </a>
+          </div>
         </div>
-        <div className="admin-banner-actions">
-          <a
-            className="btn-sm-gold"
-            href={SPONSOR_INTEREST_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Sponsorship Interest Form
-          </a>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
