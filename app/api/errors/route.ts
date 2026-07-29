@@ -174,6 +174,10 @@ export async function POST(req: NextRequest) {
       <p style="margin:14px 0 0;">
         <a href="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co"}/admin/errors" style="display:inline-block;background:#B8965A;color:#0B1622;font-weight:bold;padding:9px 16px;border-radius:4px;text-decoration:none;">See who was affected &amp; notify them</a>
       </p>
+      <p style="margin:8px 0 0;font-size:12px;">
+        Admin panel not loading either? Use the break-glass
+        <a href="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co"}/rescue" style="color:#B8965A;font-weight:bold;"> rescue console</a> — it works even when the portal is down.
+      </p>
       <p style="margin:12px 0 0;font-size:11.5px;color:#9ca3af;">
         You'll get at most one email per distinct error every 6 hours. Ask
         Claude to investigate this message if it keeps recurring.
