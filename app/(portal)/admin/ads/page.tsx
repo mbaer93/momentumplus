@@ -56,7 +56,12 @@ export default async function AdminAdsPage() {
       <AdsManager
         placements={placements}
         ads={ads}
-        sponsors={sponsors.map((s) => ({ id: s.id, name: s.name }))}
+        sponsors={sponsors.map((s) => ({
+          id: s.id,
+          name: s.name,
+          tagline: s.tagline,
+          sidebarAdUrl: s.sidebarAdUrl,
+        }))}
         needsMigration={needsMigration}
       />
     </div>

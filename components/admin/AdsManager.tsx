@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   createAd,
@@ -68,7 +68,12 @@ export function AdsManager({
 }: {
   placements: AdPlacement[];
   ads: AdCreative[];
-  sponsors: { id: string; name: string }[];
+  sponsors: {
+    id: string;
+    name: string;
+    tagline?: string;
+    sidebarAdUrl?: string | null;
+  }[];
   needsMigration: boolean;
 }) {
   const router = useRouter();
@@ -76,6 +81,16 @@ export function AdsManager({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<AdInput>(EMPTY);
+
+  // The form opens above the placement tables; an Edit clicked on a row
+  // further down the page would otherwise open it out of view — which
+  // reads as the button doing nothing (Matt, 2026-07-28).
+  const formRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (editing) {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [editing]);
 
   function run(fn: () => Promise<AdResult>, silent = false) {
     setMsg(null);
@@ -87,6 +102,13 @@ export function AdsManager({
       if (res.ok) router.refresh();
     });
   }
+
+  // The sponsor the open form is linked to — its profile values render as
+  // placeholders, since blank fields inherit them (Matt, 2026-07-28: an
+  // all-blank seeded row read as "none of the actual content is there").
+  const linked = form.sponsorId
+    ? sponsors.find((s) => s.id === form.sponsorId)
+    : undefined;
 
   function save() {
     const input = form;
@@ -135,7 +157,12 @@ export function AdsManager({
       </div>
 
       {editing && (
-        <div className="admin-form" style={{ marginBottom: 24 }}>
+        <div
+          ref={formRef}
+          className="admin-form"
+          /* scrollMarginTop keeps the form clear of the sticky topbar. */
+          style={{ marginBottom: 24, scrollMarginTop: 84 }}
+        >
           <h3 className="admin-form-title">
             {editing === "__new__" ? "New ad or notice" : "Edit ad or notice"}
           </h3>
@@ -195,6 +222,7 @@ export function AdsManager({
             <input
               id="ad-title"
               value={form.title}
+              placeholder={linked ? `${linked.name} (from their profile)` : ""}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </div>
@@ -204,6 +232,9 @@ export function AdsManager({
               id="ad-body"
               rows={2}
               value={form.body}
+              placeholder={
+                linked?.tagline ? `${linked.tagline} (from their profile)` : ""
+              }
               onChange={(e) => setForm({ ...form, body: e.target.value })}
             />
           </div>
@@ -222,7 +253,9 @@ export function AdsManager({
               <input
                 id="ad-url"
                 value={form.url}
-                placeholder="https://…"
+                placeholder={
+                  linked ? "Their sponsor profile page" : "https://…"
+                }
                 onChange={(e) => setForm({ ...form, url: e.target.value })}
               />
             </div>
@@ -232,6 +265,11 @@ export function AdsManager({
             <input
               id="ad-image"
               value={form.imageUrl}
+              placeholder={
+                linked?.sidebarAdUrl
+                  ? "Their uploaded ad creative (from their profile)"
+                  : ""
+              }
               onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
             />
           </div>
