@@ -156,6 +156,14 @@ const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
         area: "members",
       },
       {
+        href: "/admin/errors",
+        icon: ShieldIcon,
+        title: "Platform Errors",
+        desc: "Crash reports, who was affected, and one-click \"we're on it\" notes.",
+        area: "members",
+        superOnly: true,
+      },
+      {
         href: "/admin/audit",
         icon: AdminIcon,
         title: "Audit Log",
