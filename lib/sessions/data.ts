@@ -300,6 +300,7 @@ export function getPlaceholderSessions(): SessionDetail[] {
       recurrence: seed.recurrence ?? null,
       recurrenceUntil: null,
       hostName: seed.hostName ?? null,
+      restricted: false,
       zoomJoinUrl: "https://zoom.us/j/0000000000",
       zoomMeetingId: "0000000000",
       resources: seed.resources,

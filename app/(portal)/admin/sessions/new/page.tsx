@@ -5,13 +5,15 @@ import {
   listAdminHostNames,
   listSpeakersForAdmin,
 } from "@/lib/directory-queries";
+import { listMemberOptions } from "@/lib/sessions/invitees";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewSessionPage() {
-  const [speakerList, adminHosts] = await Promise.all([
+  const [speakerList, adminHosts, members] = await Promise.all([
     listSpeakersForAdmin(),
     listAdminHostNames(),
+    listMemberOptions(),
   ]);
   const speakers = speakerList.map((s) => ({ id: s.id, name: s.name }));
 
@@ -26,7 +28,12 @@ export default async function NewSessionPage() {
           <p>Add a session to the schedule</p>
         </div>
       </div>
-      <SessionForm mode="create" speakers={speakers} adminHosts={adminHosts} />
+      <SessionForm
+        mode="create"
+        speakers={speakers}
+        adminHosts={adminHosts}
+        members={members}
+      />
     </div>
   );
 }

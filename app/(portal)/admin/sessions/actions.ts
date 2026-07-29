@@ -27,6 +27,9 @@ export interface SessionFormValues {
   recurrenceUntil: string;
   /** Non-speaker host (e.g. an SLC admin) shown when no speaker is linked. */
   hostName: string;
+  /** Invite-only: when true, only inviteeIds can see the session exists. */
+  restricted: boolean;
+  inviteeIds: string[];
 }
 
 export interface AdminResult {
@@ -67,14 +70,46 @@ function toRow(values: SessionFormValues) {
       ? easternInputToIso(`${values.recurrenceUntil}T23:59`)
       : null,
     host_name: values.hostName.trim() || null,
+    restricted: values.restricted,
   };
 }
 
 /** Friendly hint when the Rooted Focus columns aren't deployed yet. */
 function migrationHint(message: string): string {
+  if (/restricted|session_invitees/.test(message)) {
+    return "The database doesn't have invite-only sessions yet — run migration 0059 first.";
+  }
   return /program|recurrence|host_name/.test(message)
     ? "The database doesn't have the Rooted Focus columns yet — run migration 0030 first."
     : message;
+}
+
+/**
+ * Replace-all write of the invite roster. Runs after the session row saves;
+ * an open (unrestricted) session keeps no roster rows, so flipping back to
+ * invite-only later starts from an explicit choice rather than a stale list.
+ */
+async function saveInvitees(
+  admin: ReturnType<typeof createServiceClient>,
+  sessionId: string,
+  values: SessionFormValues,
+): Promise<string> {
+  const { error: clearError } = await admin
+    .from("session_invitees")
+    .delete()
+    .eq("session_id", sessionId);
+  if (clearError) {
+    return ` WARNING: the invite list could not be updated (${migrationHint(clearError.message)}).`;
+  }
+  if (!values.restricted) return "";
+  const ids = Array.from(new Set(values.inviteeIds)).filter(Boolean);
+  if (ids.length === 0) return "";
+  const { error } = await admin
+    .from("session_invitees")
+    .insert(ids.map((profile_id) => ({ session_id: sessionId, profile_id })));
+  return error
+    ? ` WARNING: the invite list could not be saved (${migrationHint(error.message)}) — nobody can see this session until it is.`
+    : "";
 }
 
 export async function createSession(
@@ -89,6 +124,13 @@ export async function createSession(
   }
   const auth = await requireAdmin("sessions");
   if (!auth.ok) return { ok: false, message: auth.message };
+  if (values.restricted && values.inviteeIds.length === 0) {
+    return {
+      ok: false,
+      message:
+        "An invite-only session needs at least one member selected — or switch it back to all members.",
+    };
+  }
 
   const admin = createServiceClient();
   const { data, error } = await admin
@@ -98,10 +140,16 @@ export async function createSession(
     .single();
 
   if (error) return { ok: false, message: migrationHint(error.message) };
+  const inviteNote = await saveInvitees(admin, data.id, values);
   revalidatePath("/admin/sessions");
   revalidatePath("/sessions");
   revalidatePath("/rooted-focus");
-  return { ok: true, id: data.id, message: "Session created." };
+  return {
+    ok: true,
+    id: data.id,
+    warning: Boolean(inviteNote),
+    message: `Session created.${inviteNote}`,
+  };
 }
 
 export async function updateSession(
@@ -113,6 +161,13 @@ export async function updateSession(
   }
   const auth = await requireAdmin("sessions");
   if (!auth.ok) return { ok: false, message: auth.message };
+  if (values.restricted && values.inviteeIds.length === 0) {
+    return {
+      ok: false,
+      message:
+        "An invite-only session needs at least one member selected — or switch it back to all members.",
+    };
+  }
 
   const admin = createServiceClient();
   const row = toRow(values);
@@ -147,6 +202,8 @@ export async function updateSession(
     }
   }
 
+  const inviteNote = await saveInvitees(admin, id, values);
+
   revalidatePath("/admin/sessions");
   revalidatePath(`/sessions/${id}`);
   revalidatePath("/sessions");
@@ -154,8 +211,8 @@ export async function updateSession(
   return {
     ok: true,
     id,
-    warning: Boolean(zoomNote),
-    message: `Session saved.${zoomNote}`,
+    warning: Boolean(zoomNote || inviteNote),
+    message: `Session saved.${zoomNote}${inviteNote}`,
   };
 }
 

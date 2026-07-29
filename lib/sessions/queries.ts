@@ -44,6 +44,7 @@ interface SessionRow {
   recurrence?: string | null;
   recurrence_until?: string | null;
   host_name?: string | null;
+  restricted?: boolean | null;
 }
 
 function mapRow(row: SessionRow): SessionDetail {
@@ -94,6 +95,7 @@ function mapRow(row: SessionRow): SessionDetail {
     recurrence,
     recurrenceUntil: row.recurrence_until ?? null,
     hostName: row.host_name ?? null,
+    restricted: Boolean(row.restricted),
     // Filled by getSession via the service role for enrolled viewers only.
     zoomJoinUrl: null,
     zoomMeetingId: null,
@@ -122,6 +124,11 @@ function mapRow(row: SessionRow): SessionDetail {
 // hide them, and getSession attaches them via the service role only after
 // confirming the viewer is enrolled.
 const SESSION_SELECT =
+  "id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, restricted, speakers ( id, name, title, archived_at, expires_at )";
+// Deploy-window fallback (before 0059 adds `restricted`). RLS also carries
+// the enforcement, so reading without the column is safe — every session is
+// simply unrestricted until the migration runs.
+const SESSION_SELECT_NO_RESTRICTED =
   "id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, speakers ( id, name, title, archived_at, expires_at )";
 // Pre-migration fallback (before 0030 adds the Rooted Focus columns).
 const SESSION_SELECT_LEGACY =
@@ -136,6 +143,13 @@ export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
     .from("sessions")
     .select(SESSION_SELECT)
     .order("starts_at", { ascending: true });
+  if (res.error && /restricted/.test(res.error.message)) {
+    // Deploy window before migration 0059.
+    res = (await supabase
+      .from("sessions")
+      .select(SESSION_SELECT_NO_RESTRICTED)
+      .order("starts_at", { ascending: true })) as typeof res;
+  }
   if (res.error && /program|recurrence|host_name/.test(res.error.message)) {
     // Pre-migration fallback: the columns arrive with migration 0030.
     res = (await supabase
@@ -220,6 +234,14 @@ export const getSession = requestCache(async (id: string): Promise<SessionDetail
     .select(SESSION_SELECT)
     .eq("id", id)
     .maybeSingle();
+  if (res.error && /restricted/.test(res.error.message)) {
+    // Deploy window before migration 0059.
+    res = (await supabase
+      .from("sessions")
+      .select(SESSION_SELECT_NO_RESTRICTED)
+      .eq("id", id)
+      .maybeSingle()) as typeof res;
+  }
   if (res.error && /program|recurrence|host_name/.test(res.error.message)) {
     // Pre-migration fallback: the columns arrive with migration 0030.
     res = (await supabase

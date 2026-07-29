@@ -4742,6 +4742,19 @@ a.course-card:hover {
   text-align: center;
   color: var(--mid-gray);
 }
+/* Invite-only session roster picker (SessionForm, A2A). */
+.invitee-list {
+  max-height: 230px;
+  overflow-y: auto;
+  border: 1px solid var(--warm-gray);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  background: var(--white);
+}
+.invitee-list .cc-check-row { gap: 8px; }
+.invitee-list .cc-check-row .cc-sub { margin-left: 4px; }
+
 /* Ad Manager: each placement gets a plain heading above its table. */
 .ads-slot-head { margin: 26px 0 10px; }
 .ads-slot-head h3 { font-size: 15px; font-weight: 600; color: var(--text); }
