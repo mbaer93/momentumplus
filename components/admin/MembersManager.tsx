@@ -436,10 +436,16 @@ export function MembersManager({
                           type="button"
                           className="btn-mini"
                           style={{ marginBottom: 14 }}
-                          disabled={pending || tierForm === m.tier}
+                          /* Same-level saves are allowed on purpose: they
+                             restamp the membership source to 'admin' (the
+                             disabled button read as "nothing happens" when
+                             re-saving to trigger the restamp — Matt,
+                             2026-07-29). */
+                          disabled={pending}
                           onClick={() => {
                             if (
                               tierForm === "admin" &&
+                              m.tier !== "admin" &&
                               !confirm(
                                 `Change ${m.name || m.email} to ADMIN? They will be able to manage sessions, members, and content across the whole platform.`,
                               )
@@ -451,8 +457,16 @@ export function MembersManager({
                             );
                           }}
                         >
-                          Change level
+                          {pending ? "Saving…" : "Change level"}
                         </button>
+                        {msg && (
+                          <span
+                            className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+                            style={{ marginBottom: 14 }}
+                          >
+                            {msg.text}
+                          </span>
+                        )}
                       </div>
                       <div
                         className="admin-field-row"
