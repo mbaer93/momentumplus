@@ -125,9 +125,13 @@ function mapRow(row: SessionRow): SessionDetail {
 // confirming the viewer is enrolled.
 const SESSION_SELECT =
   "id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, restricted, speakers ( id, name, title, archived_at, expires_at )";
-// Deploy-window fallback (before 0059 adds `restricted`). RLS also carries
-// the enforcement, so reading without the column is safe — every session is
-// simply unrestricted until the migration runs.
+// Deploy-window fallback (before 0059 adds `restricted`, or before 0060
+// grants it — sessions uses COLUMN-level grants since 0020, so an unnamed
+// new column reads as "permission denied for table sessions"). RLS also
+// carries the enforcement, so reading without the column is safe — every
+// session is simply unrestricted until the migrations run.
+const restrictedUnreadable = (message: string) =>
+  /restricted|permission denied/.test(message);
 const SESSION_SELECT_NO_RESTRICTED =
   "id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, speakers ( id, name, title, archived_at, expires_at )";
 // Pre-migration fallback (before 0030 adds the Rooted Focus columns).
@@ -143,8 +147,7 @@ export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
     .from("sessions")
     .select(SESSION_SELECT)
     .order("starts_at", { ascending: true });
-  if (res.error && /restricted/.test(res.error.message)) {
-    // Deploy window before migration 0059.
+  if (res.error && restrictedUnreadable(res.error.message)) {
     res = (await supabase
       .from("sessions")
       .select(SESSION_SELECT_NO_RESTRICTED)
@@ -234,8 +237,7 @@ export const getSession = requestCache(async (id: string): Promise<SessionDetail
     .select(SESSION_SELECT)
     .eq("id", id)
     .maybeSingle();
-  if (res.error && /restricted/.test(res.error.message)) {
-    // Deploy window before migration 0059.
+  if (res.error && restrictedUnreadable(res.error.message)) {
     res = (await supabase
       .from("sessions")
       .select(SESSION_SELECT_NO_RESTRICTED)
