@@ -770,8 +770,13 @@ export async function changeMembershipTier(
     };
   }
 
+  // A hand-changed membership is admin-managed from here on: the source
+  // restamps to 'admin' so the row reads honestly in the Members list, and
+  // so lifecycle sweeps keyed on the old source (sponsor/speaker season
+  // expiry) can't claw back a level an admin set on purpose (Matt,
+  // 2026-07-29: promoted a sponsor to admin and the source didn't change).
   // Gift/VIP are fixed-length comps — never leave one open-ended.
-  const patch: Record<string, unknown> = { tier };
+  const patch: Record<string, unknown> = { tier, source: "admin" };
   const fixed = FIXED_MONTHS[tier];
   if (fixed && !row.access_expires_at) {
     patch.access_expires_at = addMonths(new Date(), fixed).toISOString();

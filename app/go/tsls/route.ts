@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getCurrentMember } from "@/lib/current-member";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,9 @@ function tslsBase(): string {
 async function tslsSsoUrl(
   email: string,
   redirect: string,
+  /** Admins and sponsor reps get a TSLS account created on first crossover. */
+  provision: boolean,
+  name: string,
 ): Promise<{ url: string | null; why: string }> {
   const base = tslsBase();
   const key = process.env.TSLS_SSO_KEY;
@@ -31,7 +35,7 @@ async function tslsSsoUrl(
     const res = await fetch(`${base}/api/sso/handoff`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": key },
-      body: JSON.stringify({ email, redirect }),
+      body: JSON.stringify({ email, redirect, provision, name }),
       cache: "no-store",
     });
     const data = (await res.json().catch(() => ({}))) as { url?: string };
@@ -54,7 +58,26 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser();
   let why = "signed-out";
   if (user?.email) {
-    const sso = await tslsSsoUrl(user.email, to);
+    // Admins and sponsor reps are entitled to the event app even without a
+    // ticket (Matt, 2026-07-29) — the handoff provisions their TSLS account
+    // on first crossover. Everyone else keeps today's rule: crossover only
+    // if a TSLS account already exists. Real identity only — a view-as
+    // preview must not provision anything.
+    let provision = false;
+    let name = "";
+    try {
+      const member = await getCurrentMember();
+      if (member && !member.viewingAs) {
+        provision =
+          member.isAdmin ||
+          member.isSponsorManager ||
+          ["admin", "sponsor"].includes(member.tier);
+        name = member.name;
+      }
+    } catch {
+      /* unprivileged crossover still works */
+    }
+    const sso = await tslsSsoUrl(user.email, to, provision, name);
     if (sso.url) return NextResponse.redirect(sso.url);
     why = sso.why;
     // Diagnosable, not silent: the failure reason lands in Vercel's function
