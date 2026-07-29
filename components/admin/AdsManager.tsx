@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   createAd,
@@ -77,6 +77,16 @@ export function AdsManager({
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<AdInput>(EMPTY);
 
+  // The form opens above the placement tables; an Edit clicked on a row
+  // further down the page would otherwise open it out of view — which
+  // reads as the button doing nothing (Matt, 2026-07-28).
+  const formRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (editing) {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [editing]);
+
   function run(fn: () => Promise<AdResult>, silent = false) {
     setMsg(null);
     startTransition(async () => {
@@ -135,7 +145,12 @@ export function AdsManager({
       </div>
 
       {editing && (
-        <div className="admin-form" style={{ marginBottom: 24 }}>
+        <div
+          ref={formRef}
+          className="admin-form"
+          /* scrollMarginTop keeps the form clear of the sticky topbar. */
+          style={{ marginBottom: 24, scrollMarginTop: 84 }}
+        >
           <h3 className="admin-form-title">
             {editing === "__new__" ? "New ad or notice" : "Edit ad or notice"}
           </h3>
