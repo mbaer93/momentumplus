@@ -286,31 +286,42 @@ export default async function AdminMembersPage(
       // Sponsor-business links for everyone on the page — one query,
       // owner seats win when someone somehow holds several.
       if (members.length > 0) {
-        const { data: seatRows } = await admin
+        // Two flat queries, no embed — a failed join here rendered every
+        // member as "not linked" with the error swallowed (Matt,
+        // 2026-07-29). A lookup failure now logs instead of lying.
+        const { data: seatRows, error: seatError } = await admin
           .from("sponsor_members")
-          .select("profile_id, sponsor_id, role, sponsors ( name )")
+          .select("profile_id, sponsor_id, role")
           .in(
             "profile_id",
             members.map((m) => m.profileId),
           );
+        if (seatError) {
+          console.log(`[admin/members] seat lookup failed: ${seatError.message}`);
+        }
+        const sponsorIds = Array.from(
+          new Set((seatRows ?? []).map((s) => String(s.sponsor_id))),
+        );
+        const { data: spRows } = sponsorIds.length
+          ? await admin.from("sponsors").select("id, name").in("id", sponsorIds)
+          : { data: [] };
+        const nameBy = new Map(
+          (spRows ?? []).map((r) => [String(r.id), String(r.name)]),
+        );
         const weight = (r: string) =>
           r === "owner" ? 2 : r === "manager" ? 1 : 0;
         const seatBy = new Map<
           string,
           { sponsorId: string; sponsorName: string; role: string }
         >();
-        for (const s of (seatRows ?? []) as unknown as {
-          profile_id: string;
-          sponsor_id: string;
-          role: string;
-          sponsors: { name: string } | null;
-        }[]) {
-          const prev = seatBy.get(s.profile_id);
-          if (!prev || weight(s.role) > weight(prev.role)) {
-            seatBy.set(s.profile_id, {
-              sponsorId: s.sponsor_id,
-              sponsorName: s.sponsors?.name ?? "—",
-              role: s.role,
+        for (const s of seatRows ?? []) {
+          const profileId = String(s.profile_id);
+          const prev = seatBy.get(profileId);
+          if (!prev || weight(String(s.role)) > weight(prev.role)) {
+            seatBy.set(profileId, {
+              sponsorId: String(s.sponsor_id),
+              sponsorName: nameBy.get(String(s.sponsor_id)) ?? "—",
+              role: String(s.role),
             });
           }
         }
