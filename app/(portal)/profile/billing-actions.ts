@@ -4,6 +4,8 @@ import { getStripeSettings, priceForTerm, stripeReady, stripeRequest } from "@/l
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getAccessMatrix } from "@/lib/tiers";
+import { grantsMoreContent } from "@/lib/tiers-shared";
 
 export interface BillingActionResult {
   ok: boolean;
@@ -137,6 +139,47 @@ export async function startCheckout(
         };
       }
     }
+    /*
+     * A member whose current access came from somewhere else (comped VIP,
+     * gift, TSLS import, GHL) and hasn't run out yet shouldn't pay twice
+     * for the same period. If the plan they're buying doesn't open any
+     * content beyond what they already reach, the subscription starts as a
+     * Stripe trial that ends when their current access expires — card on
+     * file today, first charge the day the free ride ends. Buying a plan
+     * with MORE content (e.g. an attendee going straight to Pro) charges
+     * now, because the extra content unlocks now.
+     */
+    let trialEnd: number | null = null;
+    const { data: comped } = await createServiceClient()
+      .from("memberships")
+      .select("tier, access_expires_at")
+      .eq("profile_id", ctx.userId)
+      .eq("status", "active")
+      .neq("source", "stripe")
+      .gt("access_expires_at", new Date().toISOString())
+      .order("access_expires_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (comped?.access_expires_at) {
+      const matrix = await getAccessMatrix();
+      const current = matrix.tiers.find(
+        (t) => t.slug === String(comped.tier),
+      );
+      const target = matrix.tiers.find((t) => t.slug === plan);
+      const expiry = new Date(comped.access_expires_at).getTime();
+      // Stripe Checkout refuses a trial_end closer than 48 hours out; with
+      // that little runway left, charging now is the honest behavior anyway.
+      const minTrial = Date.now() + 48 * 60 * 60 * 1000;
+      if (
+        current &&
+        target &&
+        !grantsMoreContent(target, current) &&
+        expiry > minTrial
+      ) {
+        trialEnd = Math.floor(expiry / 1000);
+      }
+    }
+
     const createSession = (cust: string) =>
       stripeRequest<{ url: string }>(
         ctx.settings.secretKey,
@@ -153,6 +196,9 @@ export async function startCheckout(
           "metadata[plan]": plan,
           "subscription_data[metadata][profile_id]": ctx.userId,
           "subscription_data[metadata][plan]": plan,
+          ...(trialEnd
+            ? { "subscription_data[trial_end]": String(trialEnd) }
+            : {}),
           allow_promotion_codes: true,
         },
       );

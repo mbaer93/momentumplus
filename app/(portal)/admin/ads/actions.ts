@@ -78,8 +78,11 @@ function validate(input: AdInput): string | null {
   if (start && end && end <= start) {
     return "The end date has to be after the start date.";
   }
-  if (input.url.trim() && !/^https?:\/\//i.test(input.url.trim())) {
-    return "The link needs to start with http:// or https://";
+  // Site paths ("/upgrade") are first-class: the renderers use client-side
+  // navigation for them, and upgrade/renewal pages are exactly what house
+  // notices want to point at.
+  if (input.url.trim() && !/^(https?:\/\/|\/)/i.test(input.url.trim())) {
+    return "The link needs a full https:// address, or a site page like /upgrade.";
   }
   return null;
 }
