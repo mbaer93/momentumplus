@@ -496,6 +496,18 @@ export function MembersManager({
                               onChange={(e) => setSponsorForm(e.target.value)}
                             >
                               <option value="">— not linked —</option>
+                              {/* A linked business missing from the list
+                                  (e.g. archived) stays selectable — the
+                                  select would otherwise fall back to
+                                  "not linked" and lie about the state. */}
+                              {m.sponsorSeat &&
+                                !sponsors.some(
+                                  (s) => s.id === m.sponsorSeat?.sponsorId,
+                                ) && (
+                                  <option value={m.sponsorSeat.sponsorId}>
+                                    {m.sponsorSeat.sponsorName}
+                                  </option>
+                                )}
                               {sponsors.map((s) => (
                                 <option key={s.id} value={s.id}>
                                   {s.name}
