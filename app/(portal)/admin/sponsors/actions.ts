@@ -488,7 +488,13 @@ async function uploadSponsorImage(
   const admin = createServiceClient();
   const path =
     kind === "logo" ? `${sponsorId}.${ext}` : `${sponsorId}-ad.${ext}`;
-  const bytes = Buffer.from(await file.arrayBuffer());
+  let bytes: Buffer = Buffer.from(await file.arrayBuffer());
+  if (kind === "logo") {
+    // Logos: trim baked-in margins so the height-capped display shows the
+    // artwork full size. Ad creatives keep their designed canvas.
+    const { trimLogoBuffer } = await import("@/lib/logo-trim");
+    bytes = (await trimLogoBuffer(bytes, file.type)).buffer;
+  }
 
   const { error: uploadError } = await admin.storage
     .from("sponsor-logos")
@@ -565,7 +571,10 @@ export async function uploadPresentedByLogo(
   }
 
   const admin = createServiceClient();
-  const bytes = Buffer.from(await file.arrayBuffer());
+  const { trimLogoBuffer } = await import("@/lib/logo-trim");
+  const bytes = (
+    await trimLogoBuffer(Buffer.from(await file.arrayBuffer()), file.type)
+  ).buffer;
   const { error } = await admin.storage
     .from("sponsor-logos")
     .upload(PRESENTED_BY_PATH, bytes, { contentType: file.type, upsert: true });
@@ -1130,9 +1139,14 @@ export async function importInterestFormAssets(): Promise<SponsorResult> {
             continue;
           }
           const path = `${t.id}.${kind.ext}`;
+          const { trimLogoBuffer } = await import("@/lib/logo-trim");
+          const trimmed = (await trimLogoBuffer(buf, kind.contentType)).buffer;
           const { error: upErr } = await admin.storage
             .from("sponsor-logos")
-            .upload(path, buf, { contentType: kind.contentType, upsert: true });
+            .upload(path, trimmed, {
+              contentType: kind.contentType,
+              upsert: true,
+            });
           if (upErr) {
             reason = upErr.message;
             continue;
@@ -1181,6 +1195,128 @@ export async function importInterestFormAssets(): Promise<SponsorResult> {
   if (skipped.length > 0) {
     parts.push(`${skipped.length} already had a logo (untouched)`);
   }
+  const failNote =
+    failed.length > 0
+      ? ` Needs a hand: ${failed
+          .slice(0, 8)
+          .map((f) => `${f.name} — ${f.reason}`)
+          .join("; ")}${failed.length > 8 ? `; +${failed.length - 8} more` : ""}.`
+      : "";
+  return { ok: true, message: `${parts.join(", ")}.${failNote}` };
+}
+
+/**
+ * One-click cleanup for logos already in the bucket (Matt, 2026-07-29):
+ * many uploads carry baked-in transparent/white margins, and since every
+ * display spot height-caps the whole canvas, padded logos render tiny.
+ * Downloads each sponsor's raster logo, trims the margins (lib/logo-trim),
+ * re-uploads in place, and cache-busts logo_url. SVGs and already-tight
+ * logos are left alone; every outcome is reported by name.
+ */
+export async function trimSponsorLogos(): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Trimmed (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { trimLogoBuffer } = await import("@/lib/logo-trim");
+  const admin = createServiceClient();
+  const { data: rows, error } = await admin
+    .from("sponsors")
+    .select("id, name, logo_url")
+    .not("logo_url", "is", null);
+  if (error) return { ok: false, message: error.message };
+
+  const EXT_TYPE: Record<string, string> = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+  };
+  const trimmedNames: string[] = [];
+  let alreadyTight = 0;
+  let svgs = 0;
+  const failed: { name: string; reason: string }[] = [];
+
+  const trimOne = async (r: { id: string; name: string; logo_url: string }) => {
+    // The stored URL is bucket-path + cache-buster; derive the object path
+    // from it so we overwrite the same object the page already points at.
+    const clean = r.logo_url.split("?")[0];
+    const marker = "/sponsor-logos/";
+    const idx = clean.indexOf(marker);
+    if (idx < 0) {
+      failed.push({ name: r.name, reason: "logo isn't in the app's storage" });
+      return;
+    }
+    const path = decodeURIComponent(clean.slice(idx + marker.length));
+    const ext = path.split(".").pop()?.toLowerCase() ?? "";
+    if (ext === "svg") {
+      svgs += 1;
+      return;
+    }
+    const contentType = EXT_TYPE[ext];
+    if (!contentType) {
+      failed.push({ name: r.name, reason: `unrecognized file type .${ext}` });
+      return;
+    }
+    const { data: blob, error: dlErr } = await admin.storage
+      .from("sponsor-logos")
+      .download(path);
+    if (dlErr || !blob) {
+      failed.push({ name: r.name, reason: dlErr?.message ?? "download failed" });
+      return;
+    }
+    const result = await trimLogoBuffer(
+      Buffer.from(await blob.arrayBuffer()),
+      contentType,
+    );
+    if (!result.trimmed) {
+      alreadyTight += 1;
+      return;
+    }
+    const { error: upErr } = await admin.storage
+      .from("sponsor-logos")
+      .upload(path, result.buffer, { contentType, upsert: true });
+    if (upErr) {
+      failed.push({ name: r.name, reason: upErr.message });
+      return;
+    }
+    const { data: pub } = admin.storage
+      .from("sponsor-logos")
+      .getPublicUrl(path);
+    const { error: updErr } = await admin
+      .from("sponsors")
+      .update({ logo_url: `${pub.publicUrl}?v=${Date.now()}` })
+      .eq("id", r.id);
+    if (updErr) {
+      failed.push({ name: r.name, reason: updErr.message });
+      return;
+    }
+    trimmedNames.push(
+      `${r.name} (${result.before.width}×${result.before.height} → ${result.after.width}×${result.after.height})`,
+    );
+  };
+
+  const targets = (rows ?? []) as { id: string; name: string; logo_url: string }[];
+  const BATCH = 6;
+  for (let i = 0; i < targets.length; i += BATCH) {
+    await Promise.all(targets.slice(i, i + BATCH).map(trimOne));
+  }
+
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsors");
+  updateTag("sponsors");
+  updateTag("presented-by");
+  revalidatePath("/", "layout");
+
+  const parts = [
+    trimmedNames.length > 0
+      ? `Trimmed ${trimmedNames.length}: ${trimmedNames.slice(0, 8).join("; ")}${trimmedNames.length > 8 ? `; +${trimmedNames.length - 8} more` : ""}`
+      : "Nothing needed trimming",
+  ];
+  if (alreadyTight > 0) parts.push(`${alreadyTight} already tight`);
+  if (svgs > 0) parts.push(`${svgs} SVG${svgs === 1 ? "" : "s"} (vectors — no trim needed)`);
   const failNote =
     failed.length > 0
       ? ` Needs a hand: ${failed

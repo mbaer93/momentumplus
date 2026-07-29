@@ -49,6 +49,7 @@ import {
   deleteSponsor,
   importInterestFormAssets,
   inviteSponsorRep,
+  trimSponsorLogos,
   reinstateSponsor,
   linkSponsorMember,
   saveSponsorEmailsEnabled,
@@ -832,6 +833,22 @@ export function SponsorsManager({
               }}
             >
               {pending ? "Working…" : "Pull logos & websites from the form"}
+            </button>
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={pending}
+              onClick={() => {
+                if (
+                  confirm(
+                    "Trim the empty margins off every sponsor logo? Logos with baked-in padding render small — this crops them tight so they fill their space. SVGs and already-tight logos are left alone. This edits the stored logo files (the originals aren't kept).",
+                  )
+                ) {
+                  run(() => trimSponsorLogos());
+                }
+              }}
+            >
+              {pending ? "Working…" : "Trim logo margins"}
             </button>
             <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
               Uses the files they uploaded with their submission. PDF/EPS

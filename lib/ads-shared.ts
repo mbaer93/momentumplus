@@ -60,6 +60,13 @@ export const FALLBACK_PLACEMENTS: AdPlacement[] = [
       "Above the fold on the member dashboard. Best for house notices.",
     sort: 40,
   },
+  {
+    key: "sponsors_footer",
+    label: "Sponsors page footer",
+    description:
+      'The banner at the bottom of the member Sponsors page — the "Become a partner" call-to-action lives here.',
+    sort: 50,
+  },
 ];
 
 /** Is a creative on air right now? Drives the status pill in the manager. */
