@@ -8,7 +8,7 @@ import {
   listSponsors,
   listSponsorsNextSeason,
 } from "@/lib/directory-queries";
-import { upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
+import { upcomingSponsorReveal } from "@/lib/sponsor-lifecycle";
 import {
   SPONSOR_TIERS,
   sponsorTierRank,
@@ -30,7 +30,8 @@ export default async function SponsorsPage(
   const canPreview =
     isAdmin || member.isSpeaker || member.isSponsorManager;
   const nextView = canPreview && searchParams?.season === "next";
-  const boundaryYear = upcomingSeasonStart().getUTCFullYear();
+  // Sponsor seasons flip on April 1 (speakers keep October 1).
+  const boundaryYear = upcomingSponsorReveal().getUTCFullYear();
   const sponsors = nextView
     ? await listSponsorsNextSeason()
     : await listSponsors();
@@ -66,7 +67,7 @@ export default async function SponsorsPage(
         <SeasonToggle
           base="/sponsors"
           next={nextView}
-          nextLabel={`Oct 1, ${boundaryYear} – Oct 1, ${boundaryYear + 1}`}
+          nextLabel={`Apr 1, ${boundaryYear} – Apr 1, ${boundaryYear + 1}`}
         />
       )}
 

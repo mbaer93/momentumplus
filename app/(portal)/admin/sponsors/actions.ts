@@ -120,7 +120,7 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
     input.tier,
   );
   // Same lifecycle default as the invite flow: a season term ending next
-  // September 1 (Host Sponsor stays ongoing). A manually-added sponsor used to
+  // April 1 (Host Sponsor stays ongoing). A manually-added sponsor used to
   // get NO term — instantly live and never expiring, the opposite of an
   // invited sponsor, with nothing in the form saying so.
   const termEnd = tier === "host" ? null : sponsorTermEnd().toISOString();
@@ -623,7 +623,7 @@ export async function removeSponsorAd(sponsorId: string): Promise<SponsorResult>
 /* =====================================================================
    Sponsor lifecycle (Matt, 2026-07-17): invite a sponsor rep by email;
    they self-serve the business + personal details at /sponsor-onboarding.
-   Sponsorships and rep Pro access run through September 1; archived/expired
+   Sponsorships and rep Pro access run through April 1; archived/expired
    sponsors are hidden from members (never deleted) and reinstatable.
    ===================================================================== */
 
@@ -919,7 +919,7 @@ export async function archiveSponsor(sponsorId: string): Promise<SponsorResult> 
   };
 }
 
-/** Bring a past sponsor back: visible again, term through next September 1,
+/** Bring a past sponsor back: visible again, term through next April 1,
     reps' Pro access restored to the same date. */
 export async function reinstateSponsor(
   sponsorId: string,
@@ -975,7 +975,7 @@ export async function reinstateSponsor(
   updateTag("sponsors");
   updateTag("presented-by");
   // "Visible again" is only true when the reinstated term is inside the live
-  // season — a July reinstate stays pre-season-hidden until September 1.
+  // season — on the standard April clock that is always the case.
   const { sponsorLive, upcomingSponsorReveal } = await import(
     "@/lib/sponsor-lifecycle"
   );
@@ -999,7 +999,7 @@ export async function reinstateSponsor(
 
 /**
  * Promote a prospect to a real sponsor: same lifecycle as "Add a sponsor"
- * (season term ending next September 1; Host stays ongoing). Sends nothing —
+ * (season term ending next April 1; Host stays ongoing). Sends nothing —
  * inviting their rep is a separate, deliberate step.
  */
 export async function confirmProspect(sponsorId: string): Promise<SponsorResult> {

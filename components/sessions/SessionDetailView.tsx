@@ -166,6 +166,11 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
               description={session.description}
               startsAt={session.startsAt}
               durationMin={session.durationMin}
+              buttonStyle={{
+                background: "rgba(255,255,255,0.06)",
+                color: "#fff",
+                borderColor: "rgba(255,255,255,0.2)",
+              }}
               joinUrl={
                 session.isEnrolled || dropIn ? session.zoomJoinUrl : null
               }

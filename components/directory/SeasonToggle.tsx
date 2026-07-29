@@ -4,9 +4,9 @@ import type { CSSProperties } from "react";
 /*
  * Season preview switch for the Speakers/Sponsors directories. Shown only
  * to admins, speakers, and sponsor managers — members always see the live
- * season. "Next season" previews the roster that goes live at the upcoming
- * the season flips — Oct 1 for speakers, Sept 1 for sponsors (pre-season
- * profiles are otherwise hidden).
+ * season. "Next season" previews the roster that goes live when the season
+ * flips — Oct 1 for speakers, April 1 for sponsors (pre-season profiles
+ * are otherwise hidden).
  */
 export function SeasonToggle({
   base,

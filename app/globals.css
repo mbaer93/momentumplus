@@ -3484,6 +3484,17 @@ a.course-card:hover {
 
 /* ---- Add to Calendar dropdown ---- */
 .cal-add-wrap { position: relative; display: inline-block; }
+/* Session-card footers: the trigger fills the row like its flex:1 siblings,
+   and the menu opens UPWARD over the card body — the card's overflow:hidden
+   would clip a menu dropping below the footer. */
+.cal-add-wrap.grow { flex: 1; }
+.cal-add-wrap.grow > button { width: 100%; }
+.cal-add-wrap.grow .cal-add-menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+  left: auto;
+  right: 0;
+}
 .cal-add-menu {
   position: absolute;
   top: calc(100% + 6px);

@@ -8,6 +8,10 @@ import { CalendarSmallIcon } from "@/components/icons";
  * calendar: Google Calendar and Outlook open prefilled in a new tab;
  * Apple Calendar opens the event via the calendar file (how macOS/iOS
  * import events). The Zoom join link rides along in every option.
+ *
+ * The same three-provider menu backs every "Add to Calendar" in the app —
+ * session detail, session cards, dashboard — restyled per spot via
+ * buttonClassName/buttonStyle.
  */
 export function AddToCalendarButton({
   slug,
@@ -17,6 +21,11 @@ export function AddToCalendarButton({
   durationMin,
   joinUrl,
   rrule = null,
+  buttonClassName = "cal-btn",
+  buttonStyle,
+  label = "Add to Calendar",
+  withIcon = true,
+  grow = false,
 }: {
   slug: string;
   title: string;
@@ -26,6 +35,12 @@ export function AddToCalendarButton({
   joinUrl: string | null;
   /** RFC 5545 rule for recurring series — adds every occurrence at once. */
   rrule?: string | null;
+  buttonClassName?: string;
+  buttonStyle?: React.CSSProperties;
+  label?: string;
+  withIcon?: boolean;
+  /** Fill the row like a flex:1 sibling (session-card footer buttons). */
+  grow?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -68,18 +83,16 @@ export function AddToCalendarButton({
     `&location=${encodeURIComponent(joinUrl ?? "Momentum+ (online)")}`;
 
   return (
-    <div className="cal-add-wrap" ref={wrapRef}>
+    <div className={`cal-add-wrap${grow ? " grow" : ""}`} ref={wrapRef}>
       <button
         type="button"
-        className="cal-btn"
-        style={{
-          background: "rgba(255,255,255,0.06)",
-          color: "#fff",
-          borderColor: "rgba(255,255,255,0.2)",
-        }}
+        className={buttonClassName}
+        style={buttonStyle}
         onClick={() => setOpen((v) => !v)}
       >
-        <CalendarSmallIcon size={12} /> Add to Calendar
+        {withIcon && <CalendarSmallIcon size={12} />}
+        {withIcon ? " " : null}
+        {label}
       </button>
       {open && (
         <div className="cal-add-menu">

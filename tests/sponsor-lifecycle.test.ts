@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   inNextSeason,
+  inNextSponsorSeason,
   nextOctoberFirst,
   seasonEnd,
   speakerLive,
@@ -13,45 +14,80 @@ import {
 } from "../lib/sponsor-lifecycle";
 
 /*
- * Sponsors moved to a September 1 clock (Matt, 2026-07-29): revealed
- * Sept 1, down Sept 1 of the following year. Speakers stay on October 1.
+ * Sponsor seasons run April 1 to April 1 (Matt, 2026-07-29): a sponsor
+ * joins the season in progress — live to members right away — and comes
+ * down at the NEXT April 1. Speakers stay on October 1.
  */
 
-test("sponsorTermEnd is September 1 of the following year (ET)", () => {
+test("sponsorTermEnd is the next April 1 (ET)", () => {
   const july = new Date("2026-07-29T12:00:00Z");
-  assert.equal(sponsorTermEnd(july).toISOString(), "2027-09-01T04:00:00.000Z");
-  // Joining after the reveal boundary still ends the NEXT September.
+  assert.equal(sponsorTermEnd(july).toISOString(), "2027-04-01T04:00:00.000Z");
   const november = new Date("2026-11-02T12:00:00Z");
   assert.equal(
     sponsorTermEnd(november).toISOString(),
-    "2027-09-01T04:00:00.000Z",
+    "2027-04-01T04:00:00.000Z",
   );
+  // January is before the boundary → still this season's April 1.
   const jan27 = new Date("2027-01-15T12:00:00Z");
-  assert.equal(sponsorTermEnd(jan27).toISOString(), "2028-09-01T04:00:00.000Z");
+  assert.equal(sponsorTermEnd(jan27).toISOString(), "2027-04-01T04:00:00.000Z");
+  // Joining in April starts the season just begun → the next April 1.
+  const apr27 = new Date("2027-04-02T12:00:00Z");
+  assert.equal(sponsorTermEnd(apr27).toISOString(), "2028-04-01T04:00:00.000Z");
+  // ET/UTC edge: March 31 11:30 PM ET is April 1 03:30 UTC — the ET date
+  // (March) governs, so the term is the April 1 hours away.
+  assert.equal(
+    sponsorTermEnd(new Date("2027-04-01T03:30:00Z")).toISOString(),
+    "2027-04-01T04:00:00.000Z",
+  );
 });
 
-test("upcomingSponsorReveal is the next September 1 (ET)", () => {
+test("upcomingSponsorReveal is the next April 1 (ET)", () => {
   const july = new Date("2026-07-29T12:00:00Z");
   assert.equal(
     upcomingSponsorReveal(july).toISOString(),
-    "2026-09-01T04:00:00.000Z",
-  );
-  const october = new Date("2026-10-05T12:00:00Z");
-  assert.equal(
-    upcomingSponsorReveal(october).toISOString(),
-    "2027-09-01T04:00:00.000Z",
+    "2027-04-01T04:00:00.000Z",
   );
 });
 
-test("a September term makes sponsors live from Sept 1 to Sept 1", () => {
-  const term = { archivedAt: null, expiresAt: "2027-09-01T04:00:00Z" };
-  // Pre-season in July...
-  assert.equal(sponsorLive(term, new Date("2026-07-29T12:00:00Z")), false);
-  // ...live from the September reveal...
-  assert.equal(sponsorLive(term, new Date("2026-09-01T05:00:00Z")), true);
-  assert.equal(sponsorLive(term, new Date("2027-08-31T12:00:00Z")), true);
-  // ...down at the following September 1.
-  assert.equal(sponsorLive(term, new Date("2027-09-01T05:00:00Z")), false);
+test("an April term makes sponsors live immediately, down next April 1", () => {
+  // Joined July 2026 → term April 1 2027 → live window opened April 2026.
+  const term = { archivedAt: null, expiresAt: "2027-04-01T04:00:00Z" };
+  assert.equal(sponsorLive(term, new Date("2026-07-29T12:00:00Z")), true);
+  assert.equal(sponsorLive(term, new Date("2027-03-31T12:00:00Z")), true);
+  // Down at April 1.
+  assert.equal(sponsorLive(term, new Date("2027-04-01T05:00:00Z")), false);
+});
+
+test("inNextSponsorSeason splits cohorts on the April boundary", () => {
+  const july = new Date("2026-07-29T12:00:00Z");
+  // Current-season sponsor (down April 1 2027) is NOT next season...
+  assert.equal(
+    inNextSponsorSeason(
+      { archivedAt: null, expiresAt: "2027-04-01T04:00:00.000Z" },
+      july,
+    ),
+    false,
+  );
+  // ...a term pushed past next April is...
+  assert.equal(
+    inNextSponsorSeason(
+      { archivedAt: null, expiresAt: "2028-04-01T04:00:00.000Z" },
+      july,
+    ),
+    true,
+  );
+  // ...ongoing sponsors are in every season; archived in none.
+  assert.equal(
+    inNextSponsorSeason({ archivedAt: null, expiresAt: null }, july),
+    true,
+  );
+  assert.equal(
+    inNextSponsorSeason(
+      { archivedAt: "2026-07-01T00:00:00Z", expiresAt: null },
+      july,
+    ),
+    false,
+  );
 });
 
 test("nextOctoberFirst rolls to this year's Oct 1 before it, next year's after", () => {
