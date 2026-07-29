@@ -797,6 +797,39 @@ export function SponsorsManager({
         </div>
       </div>
 
+      {/* Logo cleanup — always visible (unlike the interest list below,
+          which disappears once every prospect is confirmed). */}
+      <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
+        <div className="admin-field" style={{ marginBottom: 4 }}>
+          <label style={{ fontSize: 13 }}>Logo cleanup</label>
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+          Logos with empty margins baked into the file render small — the
+          display caps the whole canvas, padding included. This crops every
+          stored logo tight to the artwork and reports each change. SVGs and
+          already-tight logos are left alone. New uploads are trimmed
+          automatically.
+        </div>
+        <div className="admin-form-actions" style={{ marginTop: 0 }}>
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => {
+              if (
+                confirm(
+                  "Trim the empty margins off every sponsor logo? This edits the stored logo files (the originals aren't kept).",
+                )
+              ) {
+                run(() => trimSponsorLogos());
+              }
+            }}
+          >
+            {pending ? "Working…" : "Trim logo margins"}
+          </button>
+        </div>
+      </div>
+
       {/* Create */}
       {/* 2026 interest list: form submissions parked as prospects — members
           can't see them, nothing emails them. Confirm turns one into a real
@@ -833,22 +866,6 @@ export function SponsorsManager({
               }}
             >
               {pending ? "Working…" : "Pull logos & websites from the form"}
-            </button>
-            <button
-              type="button"
-              className="btn-mini"
-              disabled={pending}
-              onClick={() => {
-                if (
-                  confirm(
-                    "Trim the empty margins off every sponsor logo? Logos with baked-in padding render small — this crops them tight so they fill their space. SVGs and already-tight logos are left alone. This edits the stored logo files (the originals aren't kept).",
-                  )
-                ) {
-                  run(() => trimSponsorLogos());
-                }
-              }}
-            >
-              {pending ? "Working…" : "Trim logo margins"}
             </button>
             <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
               Uses the files they uploaded with their submission. PDF/EPS
