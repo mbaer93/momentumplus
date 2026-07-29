@@ -4759,6 +4759,21 @@ a.course-card:hover {
 .ads-slot-head { margin: 26px 0 10px; }
 .ads-slot-head h3 { font-size: 15px; font-weight: 600; color: var(--text); }
 .ads-slot-head p { font-size: 12.5px; color: var(--mid-gray); margin-top: 2px; }
+/* Ad Manager: live preview inside the edit form. The dashed frame marks it
+   as staging; the cream backdrop matches the member pages the slot sits on. */
+.ad-preview {
+  border: 1px dashed var(--warm-gray);
+  border-radius: 8px;
+  padding: 16px;
+  background: #f8f6f1;
+  overflow-x: auto;
+}
+.ad-preview-mark {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+}
 
 /* ===== VIEW AS ===== */
 .view-as-bar {

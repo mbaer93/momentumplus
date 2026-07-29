@@ -62,6 +62,137 @@ function toInput(a: AdCreative): AdInput {
   };
 }
 
+/*
+ * The creative rendered with the REAL member-facing classes for its chosen
+ * slot, straight from the form state — so what's on screen here is what
+ * members get, before it ever goes live (Matt, 2026-07-29). Blank fields on
+ * a sponsor-linked ad show the inherited profile values, same as at render
+ * time. Static markup only: nothing here navigates or tracks.
+ */
+function AdPreview({
+  form,
+  linked,
+}: {
+  form: AdInput;
+  linked?: { id: string; name: string; tagline?: string; sidebarAdUrl?: string | null };
+}) {
+  const title = form.title || linked?.name || "Headline";
+  const body = form.body || linked?.tagline || "";
+  const image = form.imageUrl || linked?.sidebarAdUrl || "";
+  const cta = form.ctaLabel || (linked || form.url ? "Learn more" : "");
+  const notice = form.kind === "notice";
+
+  if (form.placementKey === "rail" && !notice) {
+    return (
+      <div className="sponsor-ad-card" style={{ width: 200 }}>
+        <span className="sponsor-ad-tag">Sponsored</span>
+        {image ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            className="sponsor-ad-creative"
+            src={image}
+            alt=""
+            style={{ width: "100%", height: "auto" }}
+          />
+        ) : (
+          <div className="sponsor-ad-logo">
+            <span className="ad-preview-mark">{title}</span>
+          </div>
+        )}
+        <div className="sponsor-ad-body">
+          <div className="sponsor-ad-name">{title}</div>
+          {!image && body && <div className="sponsor-ad-tagline">{body}</div>}
+          <div className="sponsor-ad-link">{cta || "Learn more"}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (form.placementKey === "rail" && notice) {
+    return (
+      <div className="rail-become" style={{ width: 200 }}>
+        <div className="rail-become-title">{title}</div>
+        {body && <div className="rail-become-sub">{body}</div>}
+        {cta && (
+          <span
+            className="btn-gold"
+            style={{
+              display: "block",
+              textAlign: "center",
+              marginTop: 12,
+              padding: "9px 12px",
+              fontSize: 12,
+            }}
+          >
+            {cta}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (form.placementKey === "body_banner" && !notice) {
+    return (
+      <div className="body-ad-banner" style={{ pointerEvents: "none", width: "100%" }}>
+        {form.sponsorId && <span className="sponsor-ad-tag">Sponsored</span>}
+        {image ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            className="body-ad-creative"
+            src={image}
+            alt=""
+            style={{ maxWidth: 220, height: "auto" }}
+          />
+        ) : (
+          <div className="body-ad-mark">
+            <span className="ad-preview-mark">{title}</span>
+          </div>
+        )}
+        <div className="body-ad-body">
+          <div className="body-ad-name">{title}</div>
+          {body && <div className="body-ad-tagline">{body}</div>}
+        </div>
+        <span className="body-ad-cta">{cta || "Learn more"}</span>
+      </div>
+    );
+  }
+
+  if (form.placementKey === "body_tile" && !notice) {
+    return (
+      <div className="body-ad-tile" style={{ pointerEvents: "none", width: 260 }}>
+        <span className="sponsor-ad-tag">Sponsored</span>
+        <div className="body-ad-tile-mark">
+          {image ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={image} alt="" style={{ maxWidth: "100%", maxHeight: 60 }} />
+          ) : (
+            <span className="ad-preview-mark">{title}</span>
+          )}
+        </div>
+        <div className="body-ad-tile-name">{title}</div>
+        {body && <div className="body-ad-tagline">{body}</div>}
+      </div>
+    );
+  }
+
+  // Dashboard notice and every notice outside the rail: the generic slot.
+  return (
+    <div className="ad-slot" style={{ width: "100%" }}>
+      <div className={`ad-slot-item${notice ? " notice" : ""}`}>
+        {image && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img className="ad-slot-image" src={image} alt="" />
+        )}
+        <div className="ad-slot-copy">
+          <div className="ad-slot-title">{title}</div>
+          {body && <div className="ad-slot-body">{body}</div>}
+        </div>
+        {form.url && cta && <span className="ad-slot-cta">{cta}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function AdsManager({
   placements,
   ads,
@@ -335,6 +466,22 @@ export function AdsManager({
               />
               Running
             </label>
+          </div>
+          <div className="admin-field">
+            <label>
+              Preview — how it renders in{" "}
+              {placements.find((p) => p.key === form.placementKey)?.label ??
+                "this slot"}
+            </label>
+            <div className="ad-preview">
+              <AdPreview form={form} linked={linked} />
+            </div>
+            <p className="cc-sub">
+              Live preview from this form&apos;s values
+              {linked ? ", with blanks inherited from the sponsor's profile" : ""}
+              . Set Running off (or a future start date) to stage it without
+              members seeing it.
+            </p>
           </div>
           <div className="admin-form-actions">
             <button
