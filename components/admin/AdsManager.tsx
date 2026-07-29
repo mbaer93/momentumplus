@@ -259,7 +259,9 @@ export function AdsManager({
                 id="ad-url"
                 value={form.url}
                 placeholder={
-                  linked ? "Their sponsor profile page" : "https://…"
+                  linked
+                    ? "Their sponsor profile page"
+                    : "https://… or a site page like /upgrade"
                 }
                 onChange={(e) => setForm({ ...form, url: e.target.value })}
               />
