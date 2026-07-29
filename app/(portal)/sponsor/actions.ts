@@ -103,12 +103,9 @@ export async function uploadOwnSponsorImage(
     .createBucket("sponsor-logos", { public: true })
     .catch(() => undefined);
   const path = kind === "logo" ? `${sponsorId}.${ext}` : `${sponsorId}-ad.${ext}`;
-  let bytes: Buffer = Buffer.from(await file.arrayBuffer());
-  if (kind === "logo") {
-    // Trim baked-in margins (see lib/logo-trim); ads keep their canvas.
-    const { trimLogoBuffer } = await import("@/lib/logo-trim");
-    bytes = (await trimLogoBuffer(bytes, file.type)).buffer;
-  }
+  // Stored exactly as uploaded — the 07-29 auto-trim corrupted production
+  // logos, so no image processing here until the root cause is found.
+  const bytes: Buffer = Buffer.from(await file.arrayBuffer());
   const { error: uploadError } = await admin.storage
     .from("sponsor-logos")
     .upload(path, bytes, { contentType: file.type, upsert: true });
