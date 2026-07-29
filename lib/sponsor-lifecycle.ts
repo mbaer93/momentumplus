@@ -110,44 +110,52 @@ export function seasonEnd(joined: Date = new Date()): Date {
 
 /*
  * SPONSOR seasons run April 1 to April 1 (Matt, 2026-07-29, correcting the
- * short-lived September clock): a sponsor joins the season already in
- * progress — visible to members right away — and comes down at the NEXT
- * April 1. Speakers stay on the October 1 cycle above. Because the term
- * end is always less than a year out, the live window (sponsorLive:
- * expiry minus one year) opens immediately, so there is no pre-season
- * hiding for sponsors on this clock.
+ * short-lived September clock), with an OCTOBER 1 sales cutoff (Matt,
+ * 2026-07-29): a sponsor brought on between April and September joins the
+ * season already in progress — visible to members right away, down at the
+ * next April 1. From October 1 on, new sponsors are sold for the FOLLOWING
+ * season: they onboard and build their page now, members see them when
+ * that season opens on April 1. Speakers stay on the October 1 cycle
+ * above. The live window (sponsorLive: expiry minus one year) produces
+ * both behaviors from the term end alone.
  */
 
-/** Term end for a sponsor joining at `joined`: the next April 1 (ET).
-    Joining July 2026 → live right away, down April 1 2027. Joining
-    April 2027 → down April 1 2028. */
-export function sponsorTermEnd(joined: Date = new Date()): Date {
+const ET_YEAR_MONTH = (d: Date) => {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     year: "numeric",
     month: "numeric",
-  }).formatToParts(joined);
+  }).formatToParts(d);
   const get = (t: string) =>
     Number(parts.find((p) => p.type === t)?.value ?? 0);
-  // April 1 00:00 ET is 04:00 UTC — April is always inside EDT.
-  const pastBoundary = get("month") >= 4;
-  return new Date(Date.UTC(get("year") + (pastBoundary ? 1 : 0), 3, 1, 4, 0, 0));
+  return { year: get("year"), month: get("month") };
+};
+
+/** Term end for a sponsor joining at `joined` (ET; April 1 00:00 ET is
+    04:00 UTC — April is always inside EDT).
+    Apr–Sep → current season, next April 1 (July 2026 → April 1 2027,
+    live right away). Oct 1 onward → the following season (Nov 2026 and
+    Feb 2027 both → April 1 2028, live from April 1 2027). */
+export function sponsorTermEnd(joined: Date = new Date()): Date {
+  const { year, month } = ET_YEAR_MONTH(joined);
+  return new Date(Date.UTC(year + (month >= 10 ? 2 : 1), 3, 1, 4, 0, 0));
 }
 
-/** The next April 1 (ET) — the season boundary. Only sponsors whose term
-    was manually pushed past next April are pre-season; on the standard
-    clock everyone is live from the moment they're confirmed. */
+/** The next April 1 (ET) — when the upcoming season opens and its
+    pre-season sponsors go live. */
 export function upcomingSponsorReveal(now: Date = new Date()): Date {
-  return sponsorTermEnd(now);
+  const { year, month } = ET_YEAR_MONTH(now);
+  return new Date(Date.UTC(year + (month >= 4 ? 1 : 0), 3, 1, 4, 0, 0));
 }
 
 /** Sponsor counterpart of inNextSeason on the April boundary: does this
-    term run past the next April 1? (The season tab's "next season" view.) */
+    term run past the next April 1? (The season tab's "next season" view —
+    October-cutoff joiners land here until their season opens.) */
 export function inNextSponsorSeason(
   s: SponsorLifecycleRow,
   now: Date = new Date(),
 ): boolean {
   if (s.archivedAt) return false;
   if (!s.expiresAt) return true; // ongoing — in every season
-  return new Date(s.expiresAt) > sponsorTermEnd(now);
+  return new Date(s.expiresAt) > upcomingSponsorReveal(now);
 }

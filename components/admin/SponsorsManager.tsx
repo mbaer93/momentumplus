@@ -810,10 +810,11 @@ export function SponsorsManager({
           </div>
           <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
             From the TSLS sponsor interest form. Hidden from members and never
-            emailed. <strong>Confirm</strong> makes one a real sponsor (live
-            to members right away, season through April 1) — still without
-            sending anything; invite their rep separately when you&apos;re
-            ready.
+            emailed. <strong>Confirm</strong> makes one a real sponsor on the
+            season clock (confirmed April–September: live to members right
+            away through next April 1; from October 1 on they join the
+            following season, live when it opens) — still without sending
+            anything; invite their rep separately when you&apos;re ready.
           </div>
           <div className="admin-form-actions" style={{ marginBottom: 12 }}>
             <button
@@ -905,7 +906,7 @@ export function SponsorsManager({
                           onClick={() => {
                             if (
                               confirm(
-                                `Confirm ${p.name} as a ${sponsorTierLabel(p.tier)}? They join the roster on the normal season clock — live to members right away, down at the next April 1. No emails are sent — invite their rep separately when you're ready.`,
+                                `Confirm ${p.name} as a ${sponsorTierLabel(p.tier)}? They join the roster on the season clock, through ${sponsorTermEnd().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. No emails are sent — invite their rep separately when you're ready.`,
                               )
                             ) {
                               run(() => confirmProspect(p.id));
@@ -1162,7 +1163,7 @@ export function SponsorsManager({
                         title={
                           s.expiresAt
                             ? "Remove the season end — they stay up until you archive them"
-                            : "Put them back on the season clock (ends next April 1)"
+                            : "Put them back on the season clock (ends April 1)"
                         }
                         onClick={() => {
                           const makeOngoing = Boolean(s.expiresAt);
@@ -1170,7 +1171,7 @@ export function SponsorsManager({
                             confirm(
                               makeOngoing
                                 ? `Make ${s.name} an ongoing sponsor? Their season end date is removed — they stay visible to members, never come down automatically, and their team's access doesn't expire. You can put them back on the season clock anytime.`
-                                : `Put ${s.name} back on the season clock? Their sponsorship and their team's access will end next April 1.`,
+                                : `Put ${s.name} back on the season clock? Their sponsorship and their team's access will end ${sponsorTermEnd().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`,
                             )
                           ) {
                             run(() => setSponsorOngoing(s.id, makeOngoing));
@@ -1277,8 +1278,8 @@ export function SponsorsManager({
                               s.tier === "host"
                                 ? `Reinstate ${s.name}? Host Sponsors return ONGOING — visible to members right away, with no end date.`
                                 : backLive
-                                  ? `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through next April 1.`
-                                  : `Reinstate ${s.name} as a sponsor? Their reps' Pro access is restored through next April 1, but members won't see the page until ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season).`;
+                                  ? `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through ${sponsorTermEnd().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`
+                                  : `Reinstate ${s.name} as a sponsor? Their reps' Pro access is restored through ${sponsorTermEnd().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, but members won't see the page until ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season).`;
                             if (confirm(text)) {
                               run(() => reinstateSponsor(s.id));
                             }
