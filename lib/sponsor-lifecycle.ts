@@ -95,6 +95,8 @@ export const sponsorLive = speakerLive;
  * Term end for a supporter who joins at `joined`: October 1 of the FOLLOWING
  * year (ET). Joining in July 2026 → prep through Oct 1 2026, live for the
  * season, down Oct 1 2027. Joining in November 2026 → also Oct 1 2027.
+ * SPEAKERS only since 2026-07-29 — sponsors moved to the September clock
+ * below.
  */
 export function seasonEnd(joined: Date = new Date()): Date {
   const yearEt = Number(
@@ -104,4 +106,40 @@ export function seasonEnd(joined: Date = new Date()): Date {
     }).format(joined),
   );
   return new Date(Date.UTC(yearEt + 1, 9, 1, 4, 0, 0));
+}
+
+/*
+ * SPONSOR seasons run on a September 1 clock (Matt, 2026-07-29): every
+ * sponsorship is revealed on September 1 and ends September 1 of the
+ * following year. Speakers stay on the October 1 cycle above. The live
+ * window (sponsorLive: season starts at expiry minus one year) already
+ * lands the Sept 1 reveal once terms end Sept 1 — only the term-end
+ * helper and the display copy change.
+ */
+
+/** Term end for a sponsor joining at `joined`: September 1 of the
+    FOLLOWING year (ET). Joining July 2026 → hidden until Sept 1 2026,
+    live for the season, down Sept 1 2027. */
+export function sponsorTermEnd(joined: Date = new Date()): Date {
+  const yearEt = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+    }).format(joined),
+  );
+  // Sept 1 00:00 ET is 04:00 UTC — September is always inside EDT.
+  return new Date(Date.UTC(yearEt + 1, 8, 1, 4, 0, 0));
+}
+
+/** The next September 1 (ET) — when pre-season sponsors go live. */
+export function upcomingSponsorReveal(now: Date = new Date()): Date {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(now);
+  const get = (t: string) =>
+    Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const pastBoundary = get("month") >= 9;
+  return new Date(Date.UTC(get("year") + (pastBoundary ? 1 : 0), 8, 1, 4, 0, 0));
 }

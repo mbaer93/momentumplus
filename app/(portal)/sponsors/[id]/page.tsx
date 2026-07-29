@@ -23,7 +23,7 @@ export default async function SponsorDetailPage(
   const params = await props.params;
   const member = await requireMember();
   let sponsor = await getSponsor(params.id);
-  // Pre-season sponsors are hidden from members until October 1, but the
+  // Pre-season sponsors are hidden from members until September 1, but the
   // preview audience (admins, speakers, sponsor managers — the same set the
   // next-season toggle serves) can still open their profile pages.
   if (!sponsor && (member.isAdmin || member.isSpeaker || member.isSponsorManager)) {

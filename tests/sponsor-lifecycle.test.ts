@@ -7,8 +7,52 @@ import {
   speakerLive,
   sponsorActive,
   sponsorLive,
+  sponsorTermEnd,
   upcomingSeasonStart,
+  upcomingSponsorReveal,
 } from "../lib/sponsor-lifecycle";
+
+/*
+ * Sponsors moved to a September 1 clock (Matt, 2026-07-29): revealed
+ * Sept 1, down Sept 1 of the following year. Speakers stay on October 1.
+ */
+
+test("sponsorTermEnd is September 1 of the following year (ET)", () => {
+  const july = new Date("2026-07-29T12:00:00Z");
+  assert.equal(sponsorTermEnd(july).toISOString(), "2027-09-01T04:00:00.000Z");
+  // Joining after the reveal boundary still ends the NEXT September.
+  const november = new Date("2026-11-02T12:00:00Z");
+  assert.equal(
+    sponsorTermEnd(november).toISOString(),
+    "2027-09-01T04:00:00.000Z",
+  );
+  const jan27 = new Date("2027-01-15T12:00:00Z");
+  assert.equal(sponsorTermEnd(jan27).toISOString(), "2028-09-01T04:00:00.000Z");
+});
+
+test("upcomingSponsorReveal is the next September 1 (ET)", () => {
+  const july = new Date("2026-07-29T12:00:00Z");
+  assert.equal(
+    upcomingSponsorReveal(july).toISOString(),
+    "2026-09-01T04:00:00.000Z",
+  );
+  const october = new Date("2026-10-05T12:00:00Z");
+  assert.equal(
+    upcomingSponsorReveal(october).toISOString(),
+    "2027-09-01T04:00:00.000Z",
+  );
+});
+
+test("a September term makes sponsors live from Sept 1 to Sept 1", () => {
+  const term = { archivedAt: null, expiresAt: "2027-09-01T04:00:00Z" };
+  // Pre-season in July...
+  assert.equal(sponsorLive(term, new Date("2026-07-29T12:00:00Z")), false);
+  // ...live from the September reveal...
+  assert.equal(sponsorLive(term, new Date("2026-09-01T05:00:00Z")), true);
+  assert.equal(sponsorLive(term, new Date("2027-08-31T12:00:00Z")), true);
+  // ...down at the following September 1.
+  assert.equal(sponsorLive(term, new Date("2027-09-01T05:00:00Z")), false);
+});
 
 test("nextOctoberFirst rolls to this year's Oct 1 before it, next year's after", () => {
   const july = new Date("2026-07-17T12:00:00Z");

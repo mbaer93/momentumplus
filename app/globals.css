@@ -1667,6 +1667,15 @@
      crushing the columns (buttons were wrapping mid-word). */
   overflow-x: auto;
 }
+/* Inline row editor (sponsors): the expanded row spans the table's full
+   scroll width, so on phones the form would live off-screen to the right.
+   Sticky-left pins it to the viewport as the table scrolls sideways, and
+   the width cap keeps the form itself from ever needing that scroll. */
+.admin-editor-panel {
+  position: sticky;
+  left: 8px;
+  max-width: min(92vw, 780px);
+}
 .admin-table { width: 100%; border-collapse: collapse; }
 .admin-table th {
   text-align: left;

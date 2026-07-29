@@ -14,7 +14,7 @@ export const metadata = {
  * sends them here). One form: the business's public listing + the rep's own
  * details (+ a password when the invite created their account). Submitting
  * creates the sponsor entry, seats the rep, and grants Pro access through
- * October 1.
+ * September 1.
  */
 export default async function SponsorOnboardingPage() {
   const invite = await getPendingSponsorInvite();

@@ -4,7 +4,7 @@
 
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { seasonEnd, sponsorLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
+import { sponsorLive, sponsorTermEnd, upcomingSponsorReveal } from "@/lib/sponsor-lifecycle";
 import {
   SPONSOR_PACKAGES_2026,
   packagePrice,
@@ -22,7 +22,7 @@ function visibility(s: { archivedAt?: string | null; expiresAt?: string | null }
   if (
     !sponsorLive({ archivedAt: s.archivedAt ?? null, expiresAt: s.expiresAt ?? null })
   ) {
-    const goLive = upcomingSeasonStart().toLocaleDateString("en-US", {
+    const goLive = upcomingSponsorReveal().toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -47,6 +47,7 @@ import {
   confirmProspect,
   createSponsor,
   deleteSponsor,
+  importInterestFormAssets,
   inviteSponsorRep,
   reinstateSponsor,
   linkSponsorMember,
@@ -84,7 +85,7 @@ export interface AdminSponsorRow {
   clicks: number;
   /** Members holding a seat (each gets Pro while linked). */
   seats: SponsorSeat[];
-  /** Sponsorship term end (October 1); null = no term. */
+  /** Sponsorship term end (September 1); null = no term. */
   expiresAt?: string | null;
   /** Set when retired to the Past Sponsors archive. */
   archivedAt?: string | null;
@@ -330,6 +331,219 @@ export function SponsorsManager({
     );
   }
 
+  // The editor expands directly under the row whose Edit was clicked — in
+  // whichever table (roster or interest list) that row lives.
+  const editorPanel = !editSeed ? null : (
+    <div
+      className="card admin-editor-panel"
+      style={{ padding: "14px 16px", background: "#fbfaf8" }}
+    >
+      <div className="admin-row-title" style={{ marginBottom: 8 }}>
+        Editing {editSeed.name}
+      </div>
+      <div style={{ padding: "6px 4px" }}>
+        <SponsorFields
+          value={editForm}
+          onChange={setEditForm}
+          idPrefix={`edit-${editSeed.id}`}
+        />
+        <div className="admin-form-actions" style={{ marginTop: 4 }}>
+          <button
+            type="button"
+            className="btn-purple"
+            disabled={pending || !editForm.name.trim()}
+            onClick={() =>
+              run(async () => {
+                const res = await updateSponsor(editSeed.id, editForm);
+                if (res.ok) setEditingId(null);
+                return res;
+              })
+            }
+          >
+            Save changes
+          </button>
+        </div>
+        {/* Two graphics: logo (profile + cards) and the
+            left-panel sidebar ad creative. */}
+        <div className="admin-form-actions" style={{ marginTop: 10 }}>
+          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+            Logo — sponsor profile and cards; also the
+            left-panel fallback when no dedicated presented-by
+            logo is uploaded (PNG/JPG/SVG/WebP, &lt;2 MB):
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+            ref={(el) => {
+              fileRefs.current[`${editSeed.id}-logo`] = el;
+            }}
+            style={{ fontSize: 12 }}
+          />
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => uploadImage(editSeed.id, "logo")}
+          >
+            Upload logo
+          </button>
+        </div>
+        <div className="admin-form-actions" style={{ marginTop: 6 }}>
+          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+            Ad graphic — shown on the sponsor&rsquo;s card in
+            the right-hand rail (roughly 400×300, &lt;2 MB):
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+            ref={(el) => {
+              fileRefs.current[`${editSeed.id}-ad`] = el;
+            }}
+            style={{ fontSize: 12 }}
+          />
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => uploadImage(editSeed.id, "ad")}
+          >
+            Upload ad graphic
+          </button>
+          {editSeed.sidebarAdUrl && (
+            <button
+              type="button"
+              className="btn-mini danger"
+              disabled={pending}
+              onClick={() => run(() => removeSponsorAd(editSeed.id))}
+            >
+              Remove ad
+            </button>
+          )}
+        </div>
+        {editSeed.sidebarAdUrl && (
+          <div style={{ marginTop: 8 }}>
+            <img
+              src={editSeed.sidebarAdUrl}
+              alt={`${editSeed.name} ad graphic`}
+              style={{
+                maxWidth: 180,
+                borderRadius: 4,
+                border: "1px solid var(--border)",
+              }}
+            />
+          </div>
+        )}
+        {/* Sponsor team seats — each linked member holds Pro
+            while they keep a seat with any sponsor. */}
+        <div style={{ marginTop: 14 }}>
+          <div className="admin-field" style={{ marginBottom: 6 }}>
+            <label style={{ fontSize: 13 }}>
+              Linked members — each gets a Pro membership for
+              as long as they&apos;re linked (optional; add as
+              many as the sponsorship includes)
+            </label>
+          </div>
+          {editSeed.seats.length === 0 && (
+            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+              No members linked yet.
+            </div>
+          )}
+          {editSeed.seats.map((seat) => (
+            <div
+              key={seat.profileId}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "6px 0",
+                borderBottom: "1px solid var(--warm-gray)",
+              }}
+            >
+              <div style={{ flex: 1, fontSize: 13 }}>
+                <strong>{seat.name || seat.email}</strong>
+                {seat.name && (
+                  <span
+                    style={{
+                      color: "var(--mid-gray)",
+                      marginLeft: 8,
+                      fontSize: 12,
+                    }}
+                  >
+                    {seat.email}
+                  </span>
+                )}
+              </div>
+              <span className="admin-status draft" style={{ fontSize: 10 }}>
+                Pro
+              </span>
+              <button
+                type="button"
+                className="btn-mini danger"
+                disabled={pending}
+                onClick={() => {
+                  if (
+                    confirm(
+                      `Unlink ${seat.name || seat.email}? Their sponsor Pro access ends unless another sponsor links them.`,
+                    )
+                  ) {
+                    run(() =>
+                      unlinkSponsorMember(editSeed.id, seat.profileId),
+                    );
+                  }
+                }}
+              >
+                Unlink
+              </button>
+            </div>
+          ))}
+          <div className="admin-form-actions" style={{ marginTop: 8 }}>
+            {/* Searchable member picker: a datalist filters as the
+                admin types a name or email; a brand-new email still
+                works (it invites them through the normal flow). */}
+            <input
+              type="email"
+              list="link-member-options"
+              placeholder="Search members by name or email…"
+              value={seatEmail}
+              onChange={(e) => setSeatEmail(e.target.value)}
+              style={{ minWidth: 260 }}
+              aria-label="Member to link (search by name or email)"
+            />
+            <datalist id="link-member-options">
+              {memberOptions.map((m) => (
+                <option key={m.email} value={m.email}>
+                  {m.name || m.email}
+                </option>
+              ))}
+            </datalist>
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={pending || !seatEmail.includes("@")}
+              onClick={() =>
+                run(async () => {
+                  const res = await linkSponsorMember(editSeed.id, seatEmail);
+                  if (res.ok) setSeatEmail("");
+                  return res;
+                })
+              }
+            >
+              Link member
+            </button>
+          </div>
+        </div>
+        {msg && (
+          <div
+            className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+            style={{ marginTop: 8 }}
+          >
+            {msg.text}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div>
       {/* Master switch: while paused, nothing in the app emails a sponsor
@@ -388,7 +602,7 @@ export function SponsorsManager({
           Enter the sponsor representative&apos;s email and pick their tier.
           They get an email that walks them through adding the business and
           their own details — no data entry on your side. The rep receives
-          Momentum+ Pro access, and the sponsorship runs through October 1.
+          Momentum+ Pro access, and the sponsorship runs through September 1.
         </div>
         <div className="admin-field-row" style={{ gridTemplateColumns: "1.4fr 1fr 1.2fr auto", alignItems: "end" }}>
           <div className="admin-field">
@@ -597,9 +811,40 @@ export function SponsorsManager({
           <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
             From the TSLS sponsor interest form. Hidden from members and never
             emailed. <strong>Confirm</strong> makes one a real sponsor (season
-            through October 1) — still without sending anything; invite their
+            through September 1) — still without sending anything; invite their
             rep separately when you&apos;re ready.
           </div>
+          <div className="admin-form-actions" style={{ marginBottom: 12 }}>
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={pending}
+              onClick={() => {
+                if (
+                  confirm(
+                    "Pull the logo files and websites each business submitted on the interest form? Fills only sponsors that don't have a logo or website yet — nothing is overwritten, and nothing is emailed. Downloads take a moment.",
+                  )
+                ) {
+                  run(() => importInterestFormAssets());
+                }
+              }}
+            >
+              {pending ? "Working…" : "Pull logos & websites from the form"}
+            </button>
+            <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+              Uses the files they uploaded with their submission. PDF/EPS
+              uploads can&apos;t become logos automatically — those get
+              listed so you can convert them.
+            </span>
+          </div>
+          {msg && (
+            <div
+              className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+              style={{ marginBottom: 10 }}
+            >
+              {msg.text}
+            </div>
+          )}
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead>
@@ -613,7 +858,8 @@ export function SponsorsManager({
               </thead>
               <tbody>
                 {prospects.map((p) => (
-                  <tr key={p.id}>
+                  <Fragment key={p.id}>
+                  <tr>
                     <td>
                       <div className="admin-row-title">{p.name}</div>
                       {p.website && (
@@ -658,7 +904,7 @@ export function SponsorsManager({
                           onClick={() => {
                             if (
                               confirm(
-                                `Confirm ${p.name} as a ${sponsorTierLabel(p.tier)}? They join the roster on the normal season clock — live to members from October 1, down the October 1 after. No emails are sent — invite their rep separately when you're ready.`,
+                                `Confirm ${p.name} as a ${sponsorTierLabel(p.tier)}? They join the roster on the normal season clock — live to members from September 1, down the September 1 after. No emails are sent — invite their rep separately when you're ready.`,
                               )
                             ) {
                               run(() => confirmProspect(p.id));
@@ -697,6 +943,14 @@ export function SponsorsManager({
                       </div>
                     </td>
                   </tr>
+                  {editingId === p.id && editorPanel && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: "10px 8px" }}>
+                        {editorPanel}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -907,15 +1161,15 @@ export function SponsorsManager({
                         title={
                           s.expiresAt
                             ? "Remove the season end — they stay up until you archive them"
-                            : "Put them back on the season clock (ends next October 1)"
+                            : "Put them back on the season clock (ends next September 1)"
                         }
                         onClick={() => {
                           const makeOngoing = Boolean(s.expiresAt);
                           if (
                             confirm(
                               makeOngoing
-                                ? `Make ${s.name} an ongoing sponsor? Their season end date is removed — they become visible to members right away (even before October 1), never come down automatically, and their team's access doesn't expire. You can put them back on the season clock anytime.`
-                                : `Put ${s.name} back on the season clock? Their sponsorship and their team's access will end next October 1.`,
+                                ? `Make ${s.name} an ongoing sponsor? Their season end date is removed — they become visible to members right away (even before September 1), never come down automatically, and their team's access doesn't expire. You can put them back on the season clock anytime.`
+                                : `Put ${s.name} back on the season clock? Their sponsorship and their team's access will end next September 1.`,
                             )
                           ) {
                             run(() => setSponsorOngoing(s.id, makeOngoing));
@@ -956,228 +1210,18 @@ export function SponsorsManager({
                     </div>
                   </td>
                 </tr>
+                {editingId === s.id && editorPanel && (
+                  <tr>
+                    <td colSpan={8} style={{ padding: "10px 8px" }}>
+                      {editorPanel}
+                    </td>
+                  </tr>
+                )}
               </Fragment>
             ))}
           </tbody>
         </table>
       </div>
-
-
-      {/* Editor: rendered below the table (not inside a row) so it's
-          fully usable on phones, where the table scrolls sideways. */}
-      {editSeed && (
-        <div className="card" style={{ marginTop: 14, padding: "14px 16px", background: "#fbfaf8" }}>
-          <div className="admin-row-title" style={{ marginBottom: 8 }}>
-            Editing {editSeed.name}
-          </div>
-          <div style={{ padding: "6px 4px" }}>
-              <SponsorFields
-                value={editForm}
-                onChange={setEditForm}
-                idPrefix={`edit-${editSeed.id}`}
-              />
-              <div className="admin-form-actions" style={{ marginTop: 4 }}>
-                <button
-                  type="button"
-                  className="btn-purple"
-                  disabled={pending || !editForm.name.trim()}
-                  onClick={() =>
-                    run(async () => {
-                      const res = await updateSponsor(editSeed.id, editForm);
-                      if (res.ok) setEditingId(null);
-                      return res;
-                    })
-                  }
-                >
-                  Save changes
-                </button>
-              </div>
-              {/* Two graphics: logo (profile + cards) and the
-                  left-panel sidebar ad creative. */}
-              <div className="admin-form-actions" style={{ marginTop: 10 }}>
-                <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-                  Logo — sponsor profile and cards; also the
-                  left-panel fallback when no dedicated presented-by
-                  logo is uploaded (PNG/JPG/SVG/WebP, &lt;2 MB):
-                </span>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                  ref={(el) => {
-                    fileRefs.current[`${editSeed.id}-logo`] = el;
-                  }}
-                  style={{ fontSize: 12 }}
-                />
-                <button
-                  type="button"
-                  className="btn-mini"
-                  disabled={pending}
-                  onClick={() => uploadImage(editSeed.id, "logo")}
-                >
-                  Upload logo
-                </button>
-              </div>
-              <div className="admin-form-actions" style={{ marginTop: 6 }}>
-                <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
-                  Ad graphic — shown on the sponsor&rsquo;s card in
-                  the right-hand rail (roughly 400×300, &lt;2 MB):
-                </span>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                  ref={(el) => {
-                    fileRefs.current[`${editSeed.id}-ad`] = el;
-                  }}
-                  style={{ fontSize: 12 }}
-                />
-                <button
-                  type="button"
-                  className="btn-mini"
-                  disabled={pending}
-                  onClick={() => uploadImage(editSeed.id, "ad")}
-                >
-                  Upload ad graphic
-                </button>
-                {editSeed.sidebarAdUrl && (
-                  <button
-                    type="button"
-                    className="btn-mini danger"
-                    disabled={pending}
-                    onClick={() => run(() => removeSponsorAd(editSeed.id))}
-                  >
-                    Remove ad
-                  </button>
-                )}
-              </div>
-              {editSeed.sidebarAdUrl && (
-                <div style={{ marginTop: 8 }}>
-                  <img
-                    src={editSeed.sidebarAdUrl}
-                    alt={`${editSeed.name} ad graphic`}
-                    style={{
-                      maxWidth: 180,
-                      borderRadius: 4,
-                      border: "1px solid var(--border)",
-                    }}
-                  />
-                </div>
-              )}
-              {/* Sponsor team seats — each linked member holds Pro
-                  while they keep a seat with any sponsor. */}
-              <div style={{ marginTop: 14 }}>
-                <div className="admin-field" style={{ marginBottom: 6 }}>
-                  <label style={{ fontSize: 13 }}>
-                    Linked members — each gets a Pro membership for
-                    as long as they&apos;re linked (optional; add as
-                    many as the sponsorship includes)
-                  </label>
-                </div>
-                {editSeed.seats.length === 0 && (
-                  <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
-                    No members linked yet.
-                  </div>
-                )}
-                {editSeed.seats.map((seat) => (
-                  <div
-                    key={seat.profileId}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "6px 0",
-                      borderBottom: "1px solid var(--warm-gray)",
-                    }}
-                  >
-                    <div style={{ flex: 1, fontSize: 13 }}>
-                      <strong>{seat.name || seat.email}</strong>
-                      {seat.name && (
-                        <span
-                          style={{
-                            color: "var(--mid-gray)",
-                            marginLeft: 8,
-                            fontSize: 12,
-                          }}
-                        >
-                          {seat.email}
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      className="admin-status draft"
-                      style={{ fontSize: 10 }}
-                    >
-                      Pro
-                    </span>
-                    <button
-                      type="button"
-                      className="btn-mini danger"
-                      disabled={pending}
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `Unlink ${seat.name || seat.email}? Their sponsor Pro access ends unless another sponsor links them.`,
-                          )
-                        ) {
-                          run(() =>
-                            unlinkSponsorMember(editSeed.id, seat.profileId),
-                          );
-                        }
-                      }}
-                    >
-                      Unlink
-                    </button>
-                  </div>
-                ))}
-                <div className="admin-form-actions" style={{ marginTop: 8 }}>
-                  {/* Searchable member picker: a datalist filters as the
-                      admin types a name or email; a brand-new email still
-                      works (it invites them through the normal flow). */}
-                  <input
-                    type="email"
-                    list="link-member-options"
-                    placeholder="Search members by name or email…"
-                    value={seatEmail}
-                    onChange={(e) => setSeatEmail(e.target.value)}
-                    style={{ minWidth: 260 }}
-                    aria-label="Member to link (search by name or email)"
-                  />
-                  <datalist id="link-member-options">
-                    {memberOptions.map((m) => (
-                      <option key={m.email} value={m.email}>
-                        {m.name || m.email}
-                      </option>
-                    ))}
-                  </datalist>
-                  <button
-                    type="button"
-                    className="btn-mini"
-                    disabled={pending || !seatEmail.includes("@")}
-                    onClick={() =>
-                      run(async () => {
-                        const res = await linkSponsorMember(
-                          editSeed.id,
-                          seatEmail,
-                        );
-                        if (res.ok) setSeatEmail("");
-                        return res;
-                      })
-                    }
-                  >
-                    Link member
-                  </button>
-                </div>
-              </div>
-              {msg && (
-                <div
-                  className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
-                  style={{ marginTop: 8 }}
-                >
-                  {msg.text}
-                </div>
-              )}
-            </div>
-        </div>
-      )}
 
       {pastSponsors.length > 0 && (
         <div style={{ marginTop: 28 }}>
@@ -1226,14 +1270,14 @@ export function SponsorsManager({
                               s.tier === "host" ||
                               sponsorLive({
                                 archivedAt: null,
-                                expiresAt: seasonEnd().toISOString(),
+                                expiresAt: sponsorTermEnd().toISOString(),
                               });
                             const text =
                               s.tier === "host"
                                 ? `Reinstate ${s.name}? Host Sponsors return ONGOING — visible to members right away, with no end date.`
                                 : backLive
-                                  ? `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through next October 1.`
-                                  : `Reinstate ${s.name} as a sponsor? Their reps' Pro access is restored through next October 1, but members won't see the page until ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season).`;
+                                  ? `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through next September 1.`
+                                  : `Reinstate ${s.name} as a sponsor? Their reps' Pro access is restored through next September 1, but members won't see the page until ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season).`;
                             if (confirm(text)) {
                               run(() => reinstateSponsor(s.id));
                             }
