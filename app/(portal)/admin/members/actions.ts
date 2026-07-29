@@ -230,15 +230,18 @@ export async function setSponsorLink(
     .eq("profile_id", profileId);
   if (readError) return { ok: false, message: readError.message };
   const owner = (seats ?? []).find((s) => s.role === "owner");
-  if (owner && owner.sponsor_id !== (sponsorId || null)) {
-    return {
-      ok: false,
-      message:
-        "They hold their sponsor's OWNER seat (the free membership rides on it) — transfer ownership in Admin → Sponsors first, then relink here.",
-    };
-  }
 
   if (!sponsorId) {
+    // Owner seats never clear from here — the sponsorship's free
+    // membership rides on them, so ownership moves only via the transfer
+    // flow in Admin → Sponsors.
+    if (owner) {
+      return {
+        ok: false,
+        message:
+          "They hold their sponsor's OWNER seat (owners already manage that page) — to unlink them, transfer ownership in Admin → Sponsors first.",
+      };
+    }
     const { error } = await admin
       .from("sponsor_members")
       .delete()
@@ -249,15 +252,22 @@ export async function setSponsorLink(
   }
 
   if (owner && owner.sponsor_id === sponsorId) {
-    return { ok: true, message: "Already the owner of that sponsor — nothing to change." };
+    return {
+      ok: true,
+      message:
+        "They already OWN that sponsor — owners have full manage rights on its page, nothing to add.",
+    };
   }
 
-  // One business per person from this control: seats elsewhere clear first.
+  // One MANAGED business per person from this control — but an ownership
+  // elsewhere is never touched: a manager seat is simply added alongside it
+  // (Matt, 2026-07-29: the hard error here blocked linking an owner).
   const { error: clearError } = await admin
     .from("sponsor_members")
     .delete()
     .eq("profile_id", profileId)
-    .neq("sponsor_id", sponsorId);
+    .neq("sponsor_id", sponsorId)
+    .neq("role", "owner");
   if (clearError) return { ok: false, message: clearError.message };
   const { error } = await admin
     .from("sponsor_members")
@@ -270,7 +280,9 @@ export async function setSponsorLink(
   revalidatePath("/admin/members");
   return {
     ok: true,
-    message: "Linked — they can now manage that sponsor's business profile.",
+    message: owner
+      ? "Linked as manager of that business — their ownership of the other sponsor is untouched."
+      : "Linked — they can now manage that sponsor's business profile.",
   };
 }
 
