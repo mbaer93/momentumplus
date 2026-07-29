@@ -5,6 +5,7 @@ import { canAccess } from "@/lib/access";
 import { RAIL_TIERS, normalizeSponsorTier } from "@/lib/sponsor-tiers";
 import {
   inNextSeason,
+  inNextSponsorSeason,
   sponsorActive,
   sponsorLive,
   speakerLive,
@@ -413,7 +414,8 @@ export async function listSponsorsNextSeason(): Promise<SponsorItem[]> {
   return data
     .filter(notProspect)
     .filter((row) =>
-      inNextSeason({
+      // April boundary, not the speakers' October one.
+      inNextSponsorSeason({
         archivedAt: row.archived_at ?? null,
         expiresAt: row.expires_at ?? null,
       }),

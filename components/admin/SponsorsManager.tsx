@@ -85,7 +85,7 @@ export interface AdminSponsorRow {
   clicks: number;
   /** Members holding a seat (each gets Pro while linked). */
   seats: SponsorSeat[];
-  /** Sponsorship term end (September 1); null = no term. */
+  /** Sponsorship term end (April 1); null = no term. */
   expiresAt?: string | null;
   /** Set when retired to the Past Sponsors archive. */
   archivedAt?: string | null;
@@ -602,7 +602,7 @@ export function SponsorsManager({
           Enter the sponsor representative&apos;s email and pick their tier.
           They get an email that walks them through adding the business and
           their own details — no data entry on your side. The rep receives
-          Momentum+ Pro access, and the sponsorship runs through September 1.
+          Momentum+ Pro access, and the sponsorship runs through April 1.
         </div>
         <div className="admin-field-row" style={{ gridTemplateColumns: "1.4fr 1fr 1.2fr auto", alignItems: "end" }}>
           <div className="admin-field">
@@ -810,9 +810,10 @@ export function SponsorsManager({
           </div>
           <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
             From the TSLS sponsor interest form. Hidden from members and never
-            emailed. <strong>Confirm</strong> makes one a real sponsor (season
-            through September 1) — still without sending anything; invite their
-            rep separately when you&apos;re ready.
+            emailed. <strong>Confirm</strong> makes one a real sponsor (live
+            to members right away, season through April 1) — still without
+            sending anything; invite their rep separately when you&apos;re
+            ready.
           </div>
           <div className="admin-form-actions" style={{ marginBottom: 12 }}>
             <button
@@ -904,7 +905,7 @@ export function SponsorsManager({
                           onClick={() => {
                             if (
                               confirm(
-                                `Confirm ${p.name} as a ${sponsorTierLabel(p.tier)}? They join the roster on the normal season clock — live to members from September 1, down the September 1 after. No emails are sent — invite their rep separately when you're ready.`,
+                                `Confirm ${p.name} as a ${sponsorTierLabel(p.tier)}? They join the roster on the normal season clock — live to members right away, down at the next April 1. No emails are sent — invite their rep separately when you're ready.`,
                               )
                             ) {
                               run(() => confirmProspect(p.id));
@@ -1161,15 +1162,15 @@ export function SponsorsManager({
                         title={
                           s.expiresAt
                             ? "Remove the season end — they stay up until you archive them"
-                            : "Put them back on the season clock (ends next September 1)"
+                            : "Put them back on the season clock (ends next April 1)"
                         }
                         onClick={() => {
                           const makeOngoing = Boolean(s.expiresAt);
                           if (
                             confirm(
                               makeOngoing
-                                ? `Make ${s.name} an ongoing sponsor? Their season end date is removed — they become visible to members right away (even before September 1), never come down automatically, and their team's access doesn't expire. You can put them back on the season clock anytime.`
-                                : `Put ${s.name} back on the season clock? Their sponsorship and their team's access will end next September 1.`,
+                                ? `Make ${s.name} an ongoing sponsor? Their season end date is removed — they stay visible to members, never come down automatically, and their team's access doesn't expire. You can put them back on the season clock anytime.`
+                                : `Put ${s.name} back on the season clock? Their sponsorship and their team's access will end next April 1.`,
                             )
                           ) {
                             run(() => setSponsorOngoing(s.id, makeOngoing));
@@ -1264,8 +1265,8 @@ export function SponsorsManager({
                           onClick={() => {
                             // Honest outcome: Host Sponsors come back
                             // ongoing (no end date, live now); everyone else
-                            // gets the season term and may still be
-                            // pre-season-hidden until Oct 1.
+                            // gets the season term (next April 1), which on
+                            // the April clock is live immediately.
                             const backLive =
                               s.tier === "host" ||
                               sponsorLive({
@@ -1276,8 +1277,8 @@ export function SponsorsManager({
                               s.tier === "host"
                                 ? `Reinstate ${s.name}? Host Sponsors return ONGOING — visible to members right away, with no end date.`
                                 : backLive
-                                  ? `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through next September 1.`
-                                  : `Reinstate ${s.name} as a sponsor? Their reps' Pro access is restored through next September 1, but members won't see the page until ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season).`;
+                                  ? `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through next April 1.`
+                                  : `Reinstate ${s.name} as a sponsor? Their reps' Pro access is restored through next April 1, but members won't see the page until ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season).`;
                             if (confirm(text)) {
                               run(() => reinstateSponsor(s.id));
                             }

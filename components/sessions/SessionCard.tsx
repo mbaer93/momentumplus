@@ -10,6 +10,9 @@ import {
   timeLabel,
 } from "@/lib/sessions/view";
 import { CalendarSmallIcon, ClockIcon, TimerIcon, UsersIcon } from "@/components/icons";
+import { isDropInProgram } from "@/lib/programs";
+import { rruleFor } from "@/lib/recurrence";
+import { AddToCalendarButton } from "./AddToCalendarButton";
 
 const STATUS_LABEL: Record<string, string> = {
   live: "Live Now",
@@ -115,13 +118,29 @@ export function SessionCard({
               </a>
             ) : (
               /* "Add to calendar" — a distinct second action, not a second
-                 button to the same detail page. */
-              <a
-                href={`/api/sessions/${session.slug}/ics`}
-                className="card-btn btn-card-secondary"
-              >
-                Add to calendar
-              </a>
+                 button to the same detail page. Same Google/Outlook/Apple
+                 menu as the detail page. */
+              <AddToCalendarButton
+                slug={session.slug}
+                title={session.title}
+                description={session.description}
+                startsAt={session.startsAt}
+                durationMin={session.durationMin}
+                joinUrl={
+                  session.isEnrolled || isDropInProgram(session.program)
+                    ? session.zoomJoinUrl
+                    : null
+                }
+                rrule={
+                  session.recurrence
+                    ? rruleFor(session.recurrence, session.recurrenceUntil)
+                    : null
+                }
+                buttonClassName="card-btn btn-card-secondary"
+                label="Add to calendar"
+                withIcon={false}
+                grow
+              />
             )}
           </>
         )}

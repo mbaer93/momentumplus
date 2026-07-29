@@ -7,7 +7,6 @@ import { hasTestimonial } from "./testimonial-actions";
 import Link from "next/link";
 import {
   CalendarIcon,
-  CalendarSmallIcon,
   ChannelIcon,
   ChevronRightIcon,
   MessageIcon,
@@ -23,6 +22,9 @@ import {
   placeholderUpcoming,
 } from "@/lib/placeholder-data";
 import { listSessions } from "@/lib/sessions/queries";
+import { AddToCalendarButton } from "@/components/sessions/AddToCalendarButton";
+import { isDropInProgram } from "@/lib/programs";
+import { rruleFor } from "@/lib/recurrence";
 import {
   dateLabel,
   dayOfMonth,
@@ -83,6 +85,12 @@ export default async function DashboardPage() {
     dateLabel: string;
     timeLabel: string;
     durationLabel: string;
+    // Event payload for the Google/Outlook/Apple calendar menu.
+    description: string;
+    startsAt: string;
+    durationMin: number;
+    joinUrl: string | null;
+    rrule: string | null;
   } | null = null;
   let memberSinceDays = placeholderStats.memberSinceDays;
   // Getting-started tour signals (server truth; visit-steps live client-side).
@@ -161,6 +169,16 @@ export default async function DashboardPage() {
         dateLabel: dateLabel(next.startsAt),
         timeLabel: timeLabel(next.startsAt),
         durationLabel: durationLabel(next.durationMin),
+        description: next.description,
+        startsAt: next.startsAt,
+        durationMin: next.durationMin,
+        joinUrl:
+          next.isEnrolled || isDropInProgram(next.program)
+            ? next.zoomJoinUrl
+            : null,
+        rrule: next.recurrence
+          ? rruleFor(next.recurrence, next.recurrenceUntil)
+          : null,
       };
     }
 
@@ -251,10 +269,15 @@ export default async function DashboardPage() {
             <Link href={`/sessions/${nextUp.id}`} className="btn-primary">
               View Details
             </Link>
-            <a href={`/api/sessions/${nextUp.id}/ics`} className="cal-btn">
-              <CalendarSmallIcon size={12} />
-              Add to Calendar
-            </a>
+            <AddToCalendarButton
+              slug={nextUp.id}
+              title={nextUp.title}
+              description={nextUp.description}
+              startsAt={nextUp.startsAt}
+              durationMin={nextUp.durationMin}
+              joinUrl={nextUp.joinUrl}
+              rrule={nextUp.rrule}
+            />
           </div>
         </div>
       ) : (

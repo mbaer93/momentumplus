@@ -133,7 +133,9 @@ export default async function SponsorStudioPage(
         sidebarAdUrl: (sponsor.sidebar_ad_url as string | null) ?? null,
         // Pre-season truth: the page exists but members can't see it yet —
         // without this the Studio says "live through ..." while the listing,
-        // profile, and rail are all hidden until September 1.
+        // profile, and rail are hidden until the season starts. (On the
+        // standard April clock sponsors are live immediately; this only
+        // fires for a manually pushed-out term.)
         goLiveLabel:
           !sponsor.archived_at &&
           !sponsorLive({

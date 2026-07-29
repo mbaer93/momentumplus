@@ -51,6 +51,12 @@ export const placeholderNextSession = {
   dateLabel: "Feb 18, 2026",
   timeLabel: "11:00 AM EST",
   durationLabel: "90 min",
+  description:
+    "Practical resilience habits for leaders who run at full speed.",
+  startsAt: "2026-02-18T16:00:00Z",
+  durationMin: 90,
+  joinUrl: null,
+  rrule: null,
 };
 
 export const placeholderUpcoming: (SessionSummary & {

@@ -9,7 +9,7 @@ import { normalizeSponsorTier } from "@/lib/sponsor-tiers";
 
 /*
  * Completion of a sponsor invite: the signed-in rep submits their business
- * details + their own info. Creates the sponsor (term through September 1),
+ * details + their own info. Creates the sponsor (term through April 1),
  * seats the rep, and grants them Pro access to the same date. The invite
  * row (service-role only) is the authorization: no pending invite for this
  * account, no sponsor creation.
@@ -76,7 +76,7 @@ export async function completeSponsorOnboarding(
   }
 
   // Host Sponsor (the platform's own business) has no term — everyone else
-  // runs through September 1 of next year.
+  // runs through the next April 1.
   const tier = normalizeSponsorTier(invite.tier ?? "");
   const termEnd = tier === "host" ? null : sponsorTermEnd().toISOString();
 
@@ -150,7 +150,7 @@ export async function completeSponsorOnboarding(
     })
     .eq("id", user.id);
 
-  // 3) Owner seat + sponsor-tier access (Pro-equivalent) through September 1.
+  // 3) Owner seat + sponsor-tier access (Pro-equivalent) through April 1.
   // The rep who completes onboarding is the page's primary manager.
   const { error: seatError } = await admin
     .from("sponsor_members")
