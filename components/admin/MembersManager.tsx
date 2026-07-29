@@ -16,6 +16,7 @@ import {
   resendInvite,
   sendPasswordReset,
   setAdminAccess,
+  setSponsorLink,
   updateMemberProfile,
 } from "@/app/(portal)/admin/members/actions";
 
@@ -42,6 +43,8 @@ export interface AdminMemberRow {
   profilePhone: string;
   adminRole: "super" | "standard" | null;
   adminPerms: Record<string, boolean>;
+  /** Sponsor-business seat, when linked (owner seats managed in Sponsors). */
+  sponsorSeat: { sponsorId: string; sponsorName: string; role: string } | null;
   /** Additional access grants beyond the effective one (e.g. a Stripe sub
       plus a speaker/sponsor comp) — shown inside the person's single row. */
   otherMemberships: {
@@ -68,9 +71,12 @@ const FIXED_MONTHS: Partial<Record<Tier, number>> = { gift: 1, vip: 3 };
 
 export function MembersManager({
   members,
+  sponsors = [],
   viewerIsSuper = false,
 }: {
   members: AdminMemberRow[];
+  /** Sponsor businesses, for the link-to-business picker. */
+  sponsors?: { id: string; name: string }[];
   /** Super Admin sees admin-access controls on admin members. */
   viewerIsSuper?: boolean;
 }) {
@@ -93,6 +99,7 @@ export function MembersManager({
     role: "super" | "standard";
     perms: Record<string, boolean>;
   }>({ role: "standard", perms: {} });
+  const [sponsorForm, setSponsorForm] = useState("");
 
   function run(
     fn: () => Promise<{ ok: boolean; message?: string; loginLink?: string | null }>,
@@ -124,6 +131,7 @@ export function MembersManager({
       role: m.adminRole === "super" ? "super" : "standard",
       perms: { ...m.adminPerms },
     });
+    setSponsorForm(m.sponsorSeat?.sponsorId ?? "");
   }
 
   return (
@@ -468,6 +476,54 @@ export function MembersManager({
                           </span>
                         )}
                       </div>
+                      {(["admin", "sponsor"].includes(m.tier) ||
+                        m.sponsorSeat) && (
+                        <div
+                          className="admin-field-row"
+                          style={{
+                            gridTemplateColumns: "1.3fr auto",
+                            alignItems: "end",
+                          }}
+                        >
+                          <div className="admin-field">
+                            <label htmlFor={`sponsor-link-${m.membershipId}`}>
+                              Sponsor business — linking lets them manage that
+                              sponsor&apos;s profile page
+                            </label>
+                            <select
+                              id={`sponsor-link-${m.membershipId}`}
+                              value={sponsorForm}
+                              onChange={(e) => setSponsorForm(e.target.value)}
+                            >
+                              <option value="">— not linked —</option>
+                              {sponsors.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                            {m.sponsorSeat && (
+                              <div className="cc-sub">
+                                Currently {m.sponsorSeat.role} of{" "}
+                                {m.sponsorSeat.sponsorName}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-mini"
+                            style={{ marginBottom: 18 }}
+                            disabled={pending}
+                            onClick={() =>
+                              run(() =>
+                                setSponsorLink(m.profileId, sponsorForm),
+                              )
+                            }
+                          >
+                            {pending ? "Saving…" : "Save link"}
+                          </button>
+                        </div>
+                      )}
                       <div
                         className="admin-field-row"
                         style={{ gridTemplateColumns: "1.3fr 1fr 1fr 1fr" }}
