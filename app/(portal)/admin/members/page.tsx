@@ -11,6 +11,7 @@ import {
 import {} from "@/components/icons";
 import { tierLabel } from "@/lib/access";
 import { allRows } from "@/lib/db-utils";
+import { listSponsors } from "@/lib/directory-queries";
 import { effectiveMembership } from "@/lib/membership";
 import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
@@ -29,6 +30,7 @@ const PREVIEW_PROFILE_DEFAULTS = {
   profilePhone: "",
   adminRole: null,
   adminPerms: {},
+  sponsorSeat: null,
 } as const;
 
 const PREVIEW_MEMBERS: AdminMemberRow[] = [
@@ -270,6 +272,7 @@ export default async function AdminMembersPage(
           profilePhone: (p.phone as string) ?? "",
           adminRole: (p.admin_role as "super" | "standard" | null) ?? null,
           adminPerms: (p.admin_perms as Record<string, boolean>) ?? {},
+          sponsorSeat: null,
           otherMemberships: others.map((o) => ({
             membershipId: o.id,
             tierLabel: tierLabel(o.tier as Tier),
@@ -279,6 +282,42 @@ export default async function AdminMembersPage(
           })),
         } satisfies AdminMemberRow;
       });
+
+      // Sponsor-business links for everyone on the page — one query,
+      // owner seats win when someone somehow holds several.
+      if (members.length > 0) {
+        const { data: seatRows } = await admin
+          .from("sponsor_members")
+          .select("profile_id, sponsor_id, role, sponsors ( name )")
+          .in(
+            "profile_id",
+            members.map((m) => m.profileId),
+          );
+        const weight = (r: string) =>
+          r === "owner" ? 2 : r === "manager" ? 1 : 0;
+        const seatBy = new Map<
+          string,
+          { sponsorId: string; sponsorName: string; role: string }
+        >();
+        for (const s of (seatRows ?? []) as unknown as {
+          profile_id: string;
+          sponsor_id: string;
+          role: string;
+          sponsors: { name: string } | null;
+        }[]) {
+          const prev = seatBy.get(s.profile_id);
+          if (!prev || weight(s.role) > weight(prev.role)) {
+            seatBy.set(s.profile_id, {
+              sponsorId: s.sponsor_id,
+              sponsorName: s.sponsors?.name ?? "—",
+              role: s.role,
+            });
+          }
+        }
+        for (const m of members) {
+          m.sponsorSeat = seatBy.get(m.profileId) ?? null;
+        }
+      }
     }
 
     // Accounts holding NO membership row are invisible to the
@@ -365,6 +404,7 @@ export default async function AdminMembersPage(
 
       <MembersManager
         members={members}
+        sponsors={(await listSponsors()).map((s) => ({ id: s.id, name: s.name }))}
         viewerIsSuper={access?.role === "super"}
       />
 

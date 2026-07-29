@@ -206,6 +206,75 @@ export async function updateMemberProfile(
 }
 
 /**
+ * Link a member to a sponsor's business profile (Matt, 2026-07-29: "I want
+ * to be able to link admin and sponsors to their sponsor business
+ * profile"). The link is a sponsor_members seat with role 'manager' — it
+ * lets them edit that sponsor's page, and grants NO membership (the free
+ * membership rides only on the 'owner' seat, which is transferred in
+ * Admin → Sponsors, never here).
+ */
+export async function setSponsorLink(
+  profileId: string,
+  sponsorId: string,
+): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Linked (preview mode)." };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { data: seats, error: readError } = await admin
+    .from("sponsor_members")
+    .select("sponsor_id, role")
+    .eq("profile_id", profileId);
+  if (readError) return { ok: false, message: readError.message };
+  const owner = (seats ?? []).find((s) => s.role === "owner");
+  if (owner && owner.sponsor_id !== (sponsorId || null)) {
+    return {
+      ok: false,
+      message:
+        "They hold their sponsor's OWNER seat (the free membership rides on it) — transfer ownership in Admin → Sponsors first, then relink here.",
+    };
+  }
+
+  if (!sponsorId) {
+    const { error } = await admin
+      .from("sponsor_members")
+      .delete()
+      .eq("profile_id", profileId);
+    if (error) return { ok: false, message: error.message };
+    revalidatePath("/admin/members");
+    return { ok: true, message: "Sponsor link removed." };
+  }
+
+  if (owner && owner.sponsor_id === sponsorId) {
+    return { ok: true, message: "Already the owner of that sponsor — nothing to change." };
+  }
+
+  // One business per person from this control: seats elsewhere clear first.
+  const { error: clearError } = await admin
+    .from("sponsor_members")
+    .delete()
+    .eq("profile_id", profileId)
+    .neq("sponsor_id", sponsorId);
+  if (clearError) return { ok: false, message: clearError.message };
+  const { error } = await admin
+    .from("sponsor_members")
+    .upsert(
+      { sponsor_id: sponsorId, profile_id: profileId, role: "manager" },
+      { onConflict: "sponsor_id,profile_id" },
+    );
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin/members");
+  return {
+    ok: true,
+    message: "Linked — they can now manage that sponsor's business profile.",
+  };
+}
+
+/**
  * Super Admin only: set another admin's role and per-area permissions.
  * Areas default to allowed — unchecking removes access; enforcement is in
  * requireAdmin(area) on every admin mutation.
