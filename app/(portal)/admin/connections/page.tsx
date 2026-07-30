@@ -189,7 +189,9 @@ export default async function AdminConnectionsPage() {
           <ConnectionCard
             title="Zapier — auto-onboarding"
             powers="Any tool that can send a webhook can enroll members automatically"
-            connected={Boolean(process.env.ZAPIER_WEBHOOK_SECRET)}
+            connected={Boolean(
+              process.env.MOMENTUM_BRIDGE_KEY || process.env.ZAPIER_WEBHOOK_SECRET,
+            )}
             optional
           >
             <div style={{ fontSize: 12.5, color: "var(--mid-gray)", lineHeight: 1.7 }}>

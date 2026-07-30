@@ -300,6 +300,15 @@ export async function setupStripeWebhook(): Promise<BillingResult> {
   }
 
   try {
+    // Re-running setup must not pile up endpoints in Stripe (each old one
+    // keeps firing and failing signature checks) — retire ours first.
+    if (settings.webhookEndpointId) {
+      await stripeRequest(
+        settings.secretKey,
+        "DELETE",
+        `/webhook_endpoints/${settings.webhookEndpointId}`,
+      ).catch(() => undefined);
+    }
     const endpoint = await stripeRequest<{ id: string; secret: string }>(
       settings.secretKey,
       "POST",

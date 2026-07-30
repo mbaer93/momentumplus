@@ -7,6 +7,17 @@
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
 
+/** Names/headings come from member-editable fields — escape them so a
+    display name like `<img onerror=…>` can't run in an admin's mail view. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function brandedEmailHtml(input: {
   /** First line: "Hi {name}," — pass "" to skip the greeting. */
   greetingName?: string;
@@ -33,11 +44,11 @@ export function brandedEmailHtml(input: {
       <span style="font-family:Georgia,serif;font-size:20px;color:#F8F6F1;">Momentum<span style="color:#B8965A;">+</span></span>
     </div>
     <div style="border:1px solid #E8E4DC;border-top:none;padding:22px;border-radius:0 0 4px 4px;background:#ffffff;">
-      ${input.heading ? `<h2 style="font-family:Georgia,serif;font-size:19px;font-weight:normal;color:#0B1622;margin:0 0 14px;">${input.heading}</h2>` : ""}
-      ${input.greetingName === "" ? "" : `<p style="margin:0 0 14px;line-height:1.65;">Hi ${input.greetingName || "there"},</p>`}
+      ${input.heading ? `<h2 style="font-family:Georgia,serif;font-size:19px;font-weight:normal;color:#0B1622;margin:0 0 14px;">${escapeHtml(input.heading)}</h2>` : ""}
+      ${input.greetingName === "" ? "" : `<p style="margin:0 0 14px;line-height:1.65;">Hi ${escapeHtml(input.greetingName || "there")},</p>`}
       <div style="line-height:1.65;">${input.bodyHtml}</div>
       ${cta}
-      ${input.footnote ? `<p style="margin:14px 0 0;font-size:11.5px;color:#9ca3af;">${input.footnote}</p>` : ""}
+      ${input.footnote ? `<p style="margin:14px 0 0;font-size:11.5px;color:#9ca3af;">${escapeHtml(input.footnote)}</p>` : ""}
     </div>
     <p style="text-align:center;font-size:11px;color:#9ca3af;margin:14px 0 0;">
       Momentum+ &middot; Tri-State Leadership Summit &middot; Sierra Learnership Collaborative

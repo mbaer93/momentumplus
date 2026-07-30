@@ -42,9 +42,16 @@ export async function GET(req: NextRequest) {
 
   const range = process.env.TSLS_SHEET_RANGE ?? "Sheet1!A1:Z";
   const sheetPrefix = range.includes("!") ? range.split("!")[0] : "";
-  const eventYear = Number(
-    process.env.TSLS_EVENT_YEAR ?? new Date().getUTCFullYear(),
-  );
+  // Fail loudly rather than guessing the year from the clock: import_log
+  // idempotency is keyed on event_year, so a January run silently defaulting
+  // to the NEW year would re-import (and re-grant) everyone from October.
+  const eventYear = Number(process.env.TSLS_EVENT_YEAR);
+  if (!Number.isInteger(eventYear) || eventYear < 2020) {
+    return NextResponse.json(
+      { error: "TSLS_EVENT_YEAR is not set — set it (e.g. 2026) before the import can run." },
+      { status: 503 },
+    );
+  }
 
   const token = await getSheetsAccessToken();
   const values = await readSheetRange(token, range);
@@ -150,6 +157,27 @@ export async function GET(req: NextRequest) {
         { onConflict: "id" },
       );
 
+      // Ledger BEFORE grant: if the run dies between the two, the next run
+      // sees the log entry and skips — a stray log row costs one missed
+      // import to investigate, while the old order (grant first) re-granted
+      // a duplicate membership on every crash in the gap.
+      const { data: logRow, error: logError } = await admin
+        .from("import_log")
+        .insert({
+          email: row.email,
+          event_year: eventYear,
+          registration_type: row.registrationType,
+          tier: mapping.tier,
+          months: mapping.months,
+          profile_id: profileId,
+        })
+        .select("id")
+        .single();
+      if (logError) {
+        summary.errors.push(`${redactEmail(row.email)}: ${logError.message}`);
+        continue;
+      }
+
       const now = new Date();
       const { error: memberError } = await admin.from("memberships").insert({
         profile_id: profileId,
@@ -160,18 +188,11 @@ export async function GET(req: NextRequest) {
         source: "tsls_import",
       });
       if (memberError) {
+        // Roll the claim back so tomorrow retries this person.
+        await admin.from("import_log").delete().eq("id", logRow.id);
         summary.errors.push(`${redactEmail(row.email)}: ${memberError.message}`);
         continue;
       }
-
-      await admin.from("import_log").insert({
-        email: row.email,
-        event_year: eventYear,
-        registration_type: row.registrationType,
-        tier: mapping.tier,
-        months: mapping.months,
-        profile_id: profileId,
-      });
 
       await markProcessed(token, sheetPrefix, processedCol, row.rowNumber);
       summary.imported++;

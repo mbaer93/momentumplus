@@ -7,11 +7,12 @@
  * the next edit.
  */
 
-function tslsUrl(path: string): string {
-  const base = (
-    process.env.NEXT_PUBLIC_TSLS_EVENT_URL ?? "https://app.thetsls.com"
-  ).replace(/\/$/, "");
-  return `${base}${path}`;
+function tslsUrl(path: string): string | null {
+  // Fail closed when unset (matches app/go/tsls/route.ts): a hardcoded
+  // fallback would silently POST member data at a domain we may not own
+  // in this deployment.
+  const base = (process.env.NEXT_PUBLIC_TSLS_EVENT_URL ?? "").replace(/\/$/, "");
+  return base ? `${base}${path}` : null;
 }
 
 async function push(
@@ -19,8 +20,15 @@ async function push(
 ): Promise<{ ok: boolean; message?: string }> {
   const key = process.env.TSLS_SSO_KEY;
   if (!key) return { ok: false, message: "TSLS bridge not configured" };
+  const url = tslsUrl("/api/bridge/update");
+  if (!url) {
+    return {
+      ok: false,
+      message: "TSLS bridge not configured (NEXT_PUBLIC_TSLS_EVENT_URL unset)",
+    };
+  }
   try {
-    const res = await fetch(tslsUrl("/api/bridge/update"), {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": key },
       body: JSON.stringify(body),

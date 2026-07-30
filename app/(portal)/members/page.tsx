@@ -74,7 +74,7 @@ export default async function MembersPage(
   await requireFeature("members");
   // Strip PostgREST filter syntax so the search string can ride in .or()
   // safely; it's a human name/company either way.
-  const q = (searchParams?.q ?? "").trim().slice(0, 80).replace(/[,%()]/g, "");
+  const q = (searchParams?.q ?? "").trim().slice(0, 80).replace(/[,%()*\\]/g, "");
   const page = Math.max(1, Number(searchParams?.page) || 1);
 
   // Preview fixtures appear ONLY with no Supabase at all — a configured

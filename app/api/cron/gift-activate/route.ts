@@ -65,7 +65,11 @@ export async function GET(req: NextRequest) {
       deferred++;
       continue;
     }
-    const res = await activateScheduledGift(row as unknown as ScheduledGiftRow);
+    // One throwing row (Stripe 5xx, GHL outage) must not abort the whole
+    // batch — record it and keep draining; unstamped rows retry tomorrow.
+    const res = await activateScheduledGift(
+      row as unknown as ScheduledGiftRow,
+    ).catch((e) => ({ ok: false, result: (e as Error).message || "threw" }));
     if (res.ok) {
       await admin
         .from("scheduled_gifts")

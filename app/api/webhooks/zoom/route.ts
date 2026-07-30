@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -68,12 +68,23 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Signature check on real events.
+  // Signature check on real events: constant-time compare, and reject
+  // stale timestamps (>5 min) so a captured request can't be replayed.
   const ts = req.headers.get("x-zm-request-timestamp") ?? "";
   const sig = req.headers.get("x-zm-signature") ?? "";
   const expected = `v0=${hmacHex(secret, `v0:${ts}:${raw}`)}`;
-  if (!sig || sig !== expected) {
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (
+    !sig ||
+    sigBuf.length !== expBuf.length ||
+    !timingSafeEqual(sigBuf, expBuf)
+  ) {
     return NextResponse.json({ error: "Bad signature" }, { status: 401 });
+  }
+  const tsMs = Number(ts) * 1000;
+  if (!Number.isFinite(tsMs) || Math.abs(Date.now() - tsMs) > 5 * 60 * 1000) {
+    return NextResponse.json({ error: "Stale timestamp" }, { status: 401 });
   }
 
   if (body.event !== "recording.completed") {

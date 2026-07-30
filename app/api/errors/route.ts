@@ -64,24 +64,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, note: "error_reports table missing" });
   }
 
+  if (!authenticated) {
+    // Anonymous reports are acknowledged but recorded NOWHERE — even a
+    // count bump on a known error lets bots inflate "Occurrences" until
+    // the admin page tells a false story about impact.
+    return NextResponse.json({ ok: true, anonymous: true });
+  }
+
   if (existing) {
     await admin
       .from("error_reports")
       .update({ count: (existing.count as number) + 1, last_seen: nowIso, message, path })
       .eq("hash", hash);
-  } else if (authenticated) {
+  } else {
     await admin
       .from("error_reports")
       .insert({ hash, message, path, count: 1, first_seen: nowIso, last_seen: nowIso });
-  } else {
-    // Anonymous + never-seen error: counted nowhere. Accepting it would let
-    // anyone spam rows and alert emails with fabricated reports.
-    return NextResponse.json({ ok: true, anonymous: true });
-  }
-
-  if (!authenticated) {
-    // Counter bumped above; alerts stay member-triggered only.
-    return NextResponse.json({ ok: true, anonymous: true });
   }
 
   // Record WHO hit it (migration 0061), so an admin can email exactly the
@@ -196,7 +194,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Bell notification for supers as well — works even when GHL is down.
-  if (supers?.length) {
+  // Same global throttle as email: without it, unique forged messages ring
+  // the bell once each even while the email side stays capped.
+  if (emailAllowed && supers?.length) {
     await admin.from("notifications").insert(
       supers.map((s) => ({
         profile_id: s.id,
