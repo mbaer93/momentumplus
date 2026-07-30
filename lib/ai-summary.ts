@@ -7,10 +7,6 @@
 
 export const SUMMARY_MODEL = "claude-sonnet-5";
 
-export function isAnthropicConfigured(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
-}
-
 export interface GeneratedSummary {
   takeaways: string[];
   quotes: string[];

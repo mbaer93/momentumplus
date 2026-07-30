@@ -27,7 +27,8 @@ export interface ProfileSessionRow {
 
 export interface ProfileActivityRow {
   id: string;
-  icon: string;
+  /** Rendered inside the avatar circle — an icon element, per design law. */
+  icon: React.ReactNode;
   iconBg: string;
   iconColor: string;
   text: string;

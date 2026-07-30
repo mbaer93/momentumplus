@@ -1,5 +1,6 @@
 import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
+import { recordCronRun } from "@/lib/cron-health";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getGhlContact } from "@/lib/ghl";
@@ -104,6 +105,7 @@ export async function GET(req: NextRequest) {
     .select("id");
   const prunedEvents = eventsPruned?.length ?? 0;
 
+  await recordCronRun("reconcile");
   return NextResponse.json({
     ok: true,
     expiredCount: expired?.length ?? 0,

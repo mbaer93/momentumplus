@@ -6,6 +6,7 @@ import {
   enrollInSession,
   unenrollFromSession,
 } from "@/app/(portal)/sessions/actions";
+import { CheckIcon } from "@/components/icons";
 
 export function EnrollButton({
   sessionId,
@@ -66,21 +67,32 @@ export function EnrollButton({
         disabled={pending}
         style={
           enrolled
-            ? { background: "rgba(255,255,255,0.12)", color: "#fff" }
+            ? { background: "rgba(255,255,255,0.12)", color: "var(--white)" }
             : undefined
         }
       >
-        {pending
-          ? "…"
-          : enrolled
-            ? "✓ Enrolled · tap to cancel"
-            : "Enroll"}
+        {pending ? (
+          enrolled ? (
+            "Cancelling…"
+          ) : (
+            "Enrolling…"
+          )
+        ) : enrolled ? (
+          <span
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <CheckIcon size={14} />
+            Enrolled · tap to cancel
+          </span>
+        ) : (
+          "Enroll"
+        )}
       </button>
       {message && (
         <span
           style={{
             fontSize: 12,
-            color: isError ? "#e08585" : "var(--gold-light)",
+            color: isError ? "var(--accent-red-light)" : "var(--gold-light)",
           }}
         >
           {message}

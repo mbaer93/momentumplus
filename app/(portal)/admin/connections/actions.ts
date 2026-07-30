@@ -95,6 +95,30 @@ export async function connectZoomSdk(
   };
 }
 
+/** Zoom step 3: recording-webhook Secret Token. Without it Zoom's
+    "recording completed" calls are rejected and nothing reaches the
+    Library — previously env-only and invisible to this wizard. */
+export async function saveZoomWebhookToken(
+  token: string,
+): Promise<ConnectResult> {
+  const early = await guardSuper();
+  if (early) return early;
+  if (!token.trim()) {
+    return { ok: false, message: "Paste the Secret Token from the Zoom app's Feature → Event Subscriptions page." };
+  }
+  const existing = (await getServiceSettings<Partial<ZoomCreds>>("zoom")) ?? {};
+  await saveServiceSettings("zoom", {
+    ...existing,
+    webhookSecretToken: token.trim(),
+  });
+  refresh();
+  return {
+    ok: true,
+    message:
+      "Recording webhook token saved — finished session recordings now flow into the Library automatically.",
+  };
+}
+
 /** Anthropic: validated with a lightweight models call before saving. */
 export async function connectAnthropic(apiKey: string): Promise<ConnectResult> {
   const early = await guardSuper();

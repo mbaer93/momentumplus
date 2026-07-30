@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { setLessonComplete } from "@/app/(portal)/education/actions";
 import type { CourseLesson } from "@/lib/education";
+import { CheckIcon } from "@/components/icons";
 
 /*
  * Course lesson list: each lesson opens its own page (video, image,
@@ -91,7 +92,7 @@ export function LessonList({
         return (
           <div className="lesson-row" key={lesson.id}>
             <div className={`lesson-num${isDone ? " done" : ""}`}>
-              {isDone ? "✓" : i + 1}
+              {isDone ? <CheckIcon size={12} /> : i + 1}
             </div>
             <div style={{ flex: 1 }}>
               <Link

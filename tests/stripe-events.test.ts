@@ -27,8 +27,14 @@ test("a cancelled subscription is cancelled, not merely late", () => {
   assert.equal(mapStatus("incomplete_expired"), "canceled");
 });
 
+test("incomplete grants nothing — checkout hasn't settled its first payment", () => {
+  // Mapping incomplete to past_due used to enroll a perfectly fine card in
+  // the dunning sequence AND hand out the grace window pre-payment.
+  assert.equal(mapStatus("incomplete"), "canceled");
+});
+
 test("everything else degrades to past_due, including statuses Stripe hasn't invented yet", () => {
-  for (const s of ["past_due", "unpaid", "incomplete", "paused"]) {
+  for (const s of ["past_due", "unpaid", "paused"]) {
     assert.equal(mapStatus(s), "past_due", s);
   }
   // The important half: an unknown status is not evidence of payment, so it

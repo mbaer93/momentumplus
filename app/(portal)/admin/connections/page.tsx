@@ -8,9 +8,12 @@ import {
   SmtpWizard,
   ZoomWizard,
 } from "@/components/admin/ConnectWizards";
-import {} from "@/components/icons";
 import { getAdminAccess } from "@/lib/auth-helpers";
+import { readCronHealth } from "@/lib/cron-health";
+import { isMuxConfigured } from "@/lib/mux";
+import { pushConfigured } from "@/lib/push";
 import {
+  getZoomCreds,
   isAnthropicReady,
   isGhlReady,
   isSmtpMarkedDone,
@@ -18,6 +21,7 @@ import {
   isZoomSdkReady,
 } from "@/lib/service-config";
 import { isSheetsConfigured } from "@/lib/sheets";
+import { isStreamConfigured } from "@/lib/stream";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -97,16 +101,19 @@ export default async function AdminConnectionsPage() {
   const access = await getAdminAccess();
   const isSuper = access?.role === "super";
 
-  const [stripe, zoomOk, zoomSdkOk, anthropicOk, ghlOk, smtpDone] =
+  const [stripe, zoomOk, zoomSdkOk, zoomCreds, anthropicOk, ghlOk, smtpDone, cronHealth] =
     await Promise.all([
       getStripeSettings(),
       isZoomReady(),
       isZoomSdkReady(),
+      getZoomCreds(),
       isAnthropicReady(),
       isGhlReady(),
       isSmtpMarkedDone(),
+      readCronHealth(),
     ]);
   const stripeDone = stripeReady(stripe);
+  const zoomHookOk = Boolean(zoomCreds.webhookSecretToken);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
   const billingStatus: BillingStatus = {
@@ -152,12 +159,14 @@ export default async function AdminConnectionsPage() {
 
           <ConnectionCard
             title="Zoom — sessions"
-            powers="Creates the meeting when a session is published; members join live inside the portal"
-            connected={zoomOk && zoomSdkOk}
+            powers="Creates the meeting when a session is published; members join live inside the portal; recordings flow into the Library"
+            connected={zoomOk && zoomSdkOk && zoomHookOk}
           >
             <ZoomWizard
               meetingsConnected={zoomOk}
               liveRoomConnected={zoomSdkOk}
+              recordingHookConnected={zoomHookOk}
+              recordingHookUrl={`${siteUrl}/api/webhooks/zoom`}
             />
           </ConnectionCard>
 
@@ -187,18 +196,21 @@ export default async function AdminConnectionsPage() {
           </ConnectionCard>
 
           <ConnectionCard
-            title="Zapier — auto-onboarding"
-            powers="Any tool that can send a webhook can enroll members automatically"
+            title="TSLS bridge / Zapier — auto-onboarding"
+            powers="TSLS ticket buyers (and any webhook-capable tool) get accounts and gifts here automatically"
             connected={Boolean(
               process.env.MOMENTUM_BRIDGE_KEY || process.env.ZAPIER_WEBHOOK_SECRET,
             )}
             optional
           >
             <div style={{ fontSize: 12.5, color: "var(--mid-gray)", lineHeight: 1.7 }}>
-              1. In Vercel add <code>ZAPIER_WEBHOOK_SECRET</code> (any long
-              random string) and Redeploy. &nbsp;2. In Zapier: Webhooks by
-              Zapier → POST → URL <code>{siteUrl}/api/webhooks/zapier</code>,
-              header <code>x-api-key</code> = your secret, JSON body with{" "}
+              1. In Vercel add <code>MOMENTUM_BRIDGE_KEY</code> (any long
+              random string; the older <code>ZAPIER_WEBHOOK_SECRET</code> also
+              still works) and Redeploy — the TSLS app uses the same value as
+              its <code>MOMENTUM_PROVISION_KEY</code>. &nbsp;2. For Zapier:
+              Webhooks by Zapier → POST → URL{" "}
+              <code>{siteUrl}/api/webhooks/zapier</code>, header{" "}
+              <code>x-api-key</code> = your key, JSON body with{" "}
               <code>email</code>, <code>name</code>, <code>plan</code> (basic,
               gift, vip, pro, …).
             </div>
@@ -218,6 +230,133 @@ export default async function AdminConnectionsPage() {
               <code>TSLS_REGISTRATION_SHEET_ID</code>, then Redeploy.
             </div>
           </ConnectionCard>
+
+          {/* Env-configured services with no wizard — previously invisible
+              here, so a missing key looked identical to a healthy one. */}
+          <div className="section-header" style={{ marginTop: 26 }}>
+            <div>
+              <h2 style={{ fontSize: 17 }}>Also monitored</h2>
+              <p>Set in Vercel — shown read-only so nothing can break silently</p>
+            </div>
+          </div>
+          <div className="card" style={{ padding: 0, maxWidth: 860 }}>
+            {[
+              {
+                name: "Stream Chat",
+                ok: isStreamConfigured(),
+                what: "The Community tab",
+                note: "NEXT_PUBLIC_STREAM_API_KEY + STREAM_API_SECRET",
+              },
+              {
+                name: "Mux video",
+                ok: isMuxConfigured(),
+                what: "Library and lesson playback. Note: there is no Mux webhook — new uploads become playable via the hourly summaries cron, so allow up to an hour.",
+                note: "MUX_TOKEN_ID + MUX_TOKEN_SECRET",
+              },
+              {
+                name: "Resend webhook",
+                ok: Boolean(process.env.RESEND_WEBHOOK_SECRET),
+                what: "Email delivery/open events on Admin → Email Activity",
+                note: "RESEND_WEBHOOK_SECRET (register the endpoint in Resend)",
+              },
+              {
+                name: "Web push",
+                ok: pushConfigured(),
+                what: "Push notifications to installed apps (both VAPID keys, or sends quietly do nothing)",
+                note: "NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY",
+              },
+              {
+                name: "TSLS one-tap sign-in (inbound)",
+                ok: Boolean(process.env.SSO_HANDOFF_SECRET),
+                what: "TSLS members crossing over into Momentum+ with one tap",
+                note: "SSO_HANDOFF_SECRET (= TSLS's MOMENTUM_SSO_KEY)",
+              },
+              {
+                name: "TSLS sync (outbound)",
+                ok: Boolean(
+                  process.env.TSLS_SSO_KEY && process.env.NEXT_PUBLIC_TSLS_EVENT_URL,
+                ),
+                what: "Pushing profile/sponsor edits into the TSLS app + the Open TSLS button",
+                note: "TSLS_SSO_KEY (= TSLS's TSLS_SSO_SECRET) + NEXT_PUBLIC_TSLS_EVENT_URL",
+              },
+              {
+                name: "Cron jobs",
+                ok: Boolean(process.env.CRON_SECRET),
+                what: "Reminders, dunning, gifts, imports, recordings — all scheduled work",
+                note: "CRON_SECRET (unset = every cron silently does nothing)",
+              },
+            ].map((r, i) => (
+              <div
+                key={r.name}
+                style={{
+                  display: "flex",
+                  gap: 14,
+                  alignItems: "baseline",
+                  padding: "12px 18px",
+                  borderTop: i === 0 ? "none" : "1px solid var(--warm-gray)",
+                }}
+              >
+                <strong
+                  style={{
+                    minWidth: 96,
+                    color: r.ok ? "var(--accent-green)" : "var(--gold)",
+                    fontSize: 13,
+                  }}
+                >
+                  {r.ok ? "Connected" : "Not set up"}
+                </strong>
+                <div>
+                  <strong style={{ fontSize: 13.5 }}>{r.name}</strong>
+                  <div style={{ fontSize: 13 }}>{r.what}</div>
+                  <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>{r.note}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="section-header" style={{ marginTop: 26 }}>
+            <div>
+              <h2 style={{ fontSize: 17 }}>Scheduled jobs</h2>
+              <p>Last successful run of each cron — a job missing or stale here needs attention</p>
+            </div>
+          </div>
+          <div className="card" style={{ padding: "12px 18px", maxWidth: 860 }}>
+            {Object.keys(cronHealth).length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--mid-gray)" }}>
+                No runs recorded yet — each cron appears here after its first
+                successful run. If this stays empty for a day, check that{" "}
+                <code>CRON_SECRET</code> is set and the Vercel cron schedule is
+                active.
+              </div>
+            ) : (
+              Object.entries(cronHealth)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([name, run]) => (
+                  <div
+                    key={name}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      fontSize: 13,
+                      padding: "4px 0",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>{name}</span>
+                    <span style={{ color: "var(--mid-gray)" }}>
+                      {new Date(run.at).toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                      {run.note ? ` — ${run.note}` : ""}
+                    </span>
+                  </div>
+                ))
+            )}
+          </div>
         </div>
       )}
     </div>

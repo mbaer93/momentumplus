@@ -308,7 +308,7 @@ export function EntityManager({
                 </tr>
                 {editingId === r.id && (
                   <tr>
-                    <td colSpan={3} style={{ background: "#fbfaf8" }}>
+                    <td colSpan={3} style={{ background: "var(--row-alt)" }}>
                       <div style={{ padding: "6px 4px" }}>
                         <Fields
                           fields={fields}

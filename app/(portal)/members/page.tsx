@@ -230,7 +230,18 @@ export default async function MembersPage(
       <BodyAd variant="tile" />
 
       {visible.length === 0 ? (
-        <div className="sessions-empty">No members match that search.</div>
+        <div className="sessions-empty">
+          {q ? (
+            <>
+              No members match &ldquo;{q}&rdquo;.{" "}
+              <Link href="/members" style={{ color: "var(--gold)" }}>
+                Show all members
+              </Link>
+            </>
+          ) : (
+            "The directory is filling up — check back soon."
+          )}
+        </div>
       ) : (
         <div className="resources-grid">
           {visible.map((m) => (

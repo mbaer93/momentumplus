@@ -50,6 +50,9 @@ export interface ZoomCreds {
   clientSecret: string | null;
   sdkClientId: string | null;
   sdkClientSecret: string | null;
+  /** Event Subscriptions "Secret Token" — verifies the recording webhook.
+      Without it, finished recordings never reach the Library. */
+  webhookSecretToken: string | null;
 }
 
 export async function getZoomCreds(): Promise<ZoomCreds> {
@@ -61,6 +64,8 @@ export async function getZoomCreds(): Promise<ZoomCreds> {
     sdkClientId: db?.sdkClientId ?? process.env.ZOOM_SDK_CLIENT_ID ?? null,
     sdkClientSecret:
       db?.sdkClientSecret ?? process.env.ZOOM_SDK_CLIENT_SECRET ?? null,
+    webhookSecretToken:
+      db?.webhookSecretToken ?? process.env.ZOOM_WEBHOOK_SECRET_TOKEN ?? null,
   };
 }
 

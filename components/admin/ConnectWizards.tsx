@@ -8,6 +8,7 @@ import {
   connectZoomS2S,
   connectZoomSdk,
   markSmtpDone,
+  saveZoomWebhookToken,
   sendSmtpTestEmail,
 } from "@/app/(portal)/admin/connections/actions";
 
@@ -61,18 +62,23 @@ const stepStyle: React.CSSProperties = {
 export function ZoomWizard({
   meetingsConnected,
   liveRoomConnected,
+  recordingHookConnected,
+  recordingHookUrl,
 }: {
   meetingsConnected: boolean;
   liveRoomConnected: boolean;
+  recordingHookConnected: boolean;
+  recordingHookUrl: string;
 }) {
   const { pending, msg, run } = useRun();
   const [s2s, setS2s] = useState({ accountId: "", clientId: "", clientSecret: "" });
   const [sdk, setSdk] = useState({ id: "", secret: "" });
+  const [hookToken, setHookToken] = useState("");
 
   return (
     <div>
       <div style={{ fontWeight: 600, fontSize: 13.5, marginTop: 4 }}>
-        Part 1 of 2 — Meetings ({meetingsConnected ? "done" : "not connected"})
+        Part 1 of 3 — Meetings ({meetingsConnected ? "done" : "not connected"})
       </div>
       <div style={stepStyle}>
         1. Go to <strong>marketplace.zoom.us</strong> and sign in with the Zoom
@@ -124,7 +130,7 @@ export function ZoomWizard({
       </div>
 
       <div style={{ fontWeight: 600, fontSize: 13.5, marginTop: 16 }}>
-        Part 2 of 2 — In-portal live room (
+        Part 2 of 3 — In-portal live room (
         {liveRoomConnected ? "done" : "not connected"})
       </div>
       <div style={stepStyle}>
@@ -161,6 +167,43 @@ export function ZoomWizard({
           }
         >
           Connect live room
+        </button>
+      </div>
+
+      <div style={{ fontWeight: 600, fontSize: 13.5, marginTop: 16 }}>
+        Part 3 of 3 — Automatic recordings (
+        {recordingHookConnected ? "done" : "not connected"})
+      </div>
+      <div style={stepStyle}>
+        This is what moves a finished session recording into the Library.
+        In the <strong>Server-to-Server</strong> app from Part 1: open{" "}
+        <strong>Feature → Event Subscriptions</strong>, add a subscription for{" "}
+        <strong>&ldquo;All Recordings have completed&rdquo;</strong>, set the
+        Event notification endpoint URL to <code>{recordingHookUrl}</code>,
+        then copy the app&rsquo;s <strong>Secret Token</strong> (same page)
+        and paste it here:
+      </div>
+      <div className="admin-form-actions" style={{ marginTop: 0, flexWrap: "wrap" }}>
+        <input
+          type="password"
+          placeholder="Secret Token"
+          value={hookToken}
+          onChange={(e) => setHookToken(e.target.value)}
+          aria-label="Zoom webhook Secret Token"
+        />
+        <button
+          type="button"
+          className="btn-purple"
+          disabled={pending || !hookToken.trim()}
+          onClick={() =>
+            run(async () => {
+              const res = await saveZoomWebhookToken(hookToken);
+              if (res.ok) setHookToken("");
+              return res;
+            })
+          }
+        >
+          Save recording token
         </button>
       </div>
       <Msg msg={msg} />

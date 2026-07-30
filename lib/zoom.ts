@@ -15,14 +15,6 @@ export class ZoomNotConfiguredError extends Error {
   }
 }
 
-export function isZoomConfigured(): boolean {
-  return Boolean(
-    process.env.ZOOM_ACCOUNT_ID &&
-      process.env.ZOOM_CLIENT_ID &&
-      process.env.ZOOM_CLIENT_SECRET,
-  );
-}
-
 export interface ZoomS2SCreds {
   accountId: string;
   clientId: string;

@@ -73,7 +73,7 @@ export function LoginForm() {
           }
           throw error;
         }
-        setNotice("Check your email for a magic sign-in link.");
+        setNotice("Check your email for a sign-in link.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -108,13 +108,20 @@ export function LoginForm() {
           : "Sign in to your Momentum+ member portal."}
       </p>
 
-      {!configured && (
-        <div className="login-success">
-          Preview mode: Supabase isn&apos;t configured yet, so sign-in is
-          bypassed. Set the Supabase env vars in <code>.env.local</code> to
-          enable real auth.
-        </div>
-      )}
+      {!configured &&
+        (process.env.NODE_ENV !== "production" ? (
+          <div className="login-success">
+            Preview mode: Supabase isn&apos;t configured yet, so sign-in is
+            bypassed. Set the Supabase env vars in <code>.env.local</code> to
+            enable real auth.
+          </div>
+        ) : (
+          // If env config ever drops in production, members must not read
+          // developer setup notes.
+          <div className="login-error">
+            Sign-in is temporarily unavailable — please try again shortly.
+          </div>
+        ))}
       {error && <div className="login-error">{error}</div>}
       {notice && <div className="login-success">{notice}</div>}
 
@@ -151,7 +158,7 @@ export function LoginForm() {
           {loading
             ? "Please wait…"
             : mode === "magic"
-              ? "Send magic link"
+              ? "Send sign-in link"
               : "Sign in"}
         </button>
       </form>
@@ -161,7 +168,7 @@ export function LoginForm() {
           <>
             Prefer a passwordless link?{" "}
             <button type="button" onClick={() => setMode("magic")}>
-              Email me a magic link
+              Email me a sign-in link
             </button>
           </>
         ) : (

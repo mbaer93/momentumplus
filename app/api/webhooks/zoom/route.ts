@@ -33,10 +33,13 @@ function hmacHex(secret: string, value: string): string {
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.ZOOM_WEBHOOK_SECRET_TOKEN;
+  // Db-first like the rest of the Zoom creds: the Connections wizard's
+  // "Automatic recordings" step stores it; the env var remains a fallback.
+  const { getZoomCreds } = await import("@/lib/service-config");
+  const secret = (await getZoomCreds()).webhookSecretToken;
   if (!secret) {
     return NextResponse.json(
-      { error: "ZOOM_WEBHOOK_SECRET_TOKEN is not configured" },
+      { error: "Zoom recording webhook token not configured (Admin → Connections → Zoom, Part 3)" },
       { status: 503 },
     );
   }

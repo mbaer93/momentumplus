@@ -151,6 +151,16 @@ export function CommunityView({
   // #speaker-qa: which speaker the question is addressed to (required).
   const [qaSpeakerId, setQaSpeakerId] = useState("");
   const [dmPickerOpen, setDmPickerOpen] = useState(false);
+
+  // Escape closes the DM picker (mirrors the VendorMaps modal pattern).
+  useEffect(() => {
+    if (!dmPickerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDmPickerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dmPickerOpen]);
   const [directory, setDirectory] = useState<DirectoryMember[] | null>(null);
   const [dmSearch, setDmSearch] = useState("");
   // Per-conversation unread counts drive the badges in the channel rail.
@@ -876,7 +886,13 @@ export function CommunityView({
       {/* New-DM member picker */}
       {dmPickerOpen && (
         <div className="dm-picker-backdrop" onClick={() => setDmPickerOpen(false)}>
-          <div className="dm-picker" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="dm-picker"
+            role="dialog"
+            aria-modal="true"
+            aria-label="New direct message"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="dm-picker-head">
               <span>New direct message</span>
               <button

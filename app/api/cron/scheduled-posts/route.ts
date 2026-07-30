@@ -1,5 +1,6 @@
 import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
+import { recordCronRun } from "@/lib/cron-health";
 import { isStreamConfigured, sendCommunityMessage } from "@/lib/stream";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -58,5 +59,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  await recordCronRun("scheduled-posts");
   return NextResponse.json({ ok: true, processed: results });
 }

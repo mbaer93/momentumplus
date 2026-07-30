@@ -742,7 +742,7 @@ export function CoursesManager({
                 </tr>
                 {editingId === c.id && (
                   <tr>
-                    <td colSpan={4} style={{ background: "#fbfaf8" }}>
+                    <td colSpan={4} style={{ background: "var(--row-alt)" }}>
                       <div style={{ padding: "6px 4px" }}>
                         <CourseFields
                           value={editForm}

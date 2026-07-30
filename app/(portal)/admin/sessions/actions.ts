@@ -325,9 +325,11 @@ export async function cancelSession(id: string): Promise<AdminResult> {
       " This session already ended, so its Zoom meeting and recording link were left intact.";
   } else if (updated?.zoom_meeting_id) {
     try {
-      const { deleteZoomMeeting, isZoomConfigured } = await import("@/lib/zoom");
+      const { deleteZoomMeeting } = await import("@/lib/zoom");
       const { isZoomReady } = await import("@/lib/service-config");
-      if (isZoomConfigured() || (await isZoomReady())) {
+      // Db-first check only — the env-only helper could disagree with what
+      // the Connections wizard actually stored.
+      if (await isZoomReady()) {
         await deleteZoomMeeting(updated.zoom_meeting_id as string);
         await admin
           .from("sessions")

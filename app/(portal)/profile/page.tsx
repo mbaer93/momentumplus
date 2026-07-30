@@ -3,6 +3,7 @@ import {
   type ProfileActivityRow,
   type ProfileSessionRow,
 } from "@/components/profile/ProfileView";
+import { CalendarSmallIcon, CheckIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
 import { mergePrefs, PREF_DEFINITIONS, type PrefRow } from "@/lib/notifications";
 import { placeholderStats } from "@/lib/placeholder-data";
@@ -206,7 +207,7 @@ export default async function ProfilePage() {
 
   const activity: ProfileActivityRow[] = mine.slice(0, 5).map((s, i) => ({
     id: `${s.slug}-${i}`,
-    icon: s.attended ? "✓" : "Cal",
+    icon: s.attended ? <CheckIcon size={14} /> : <CalendarSmallIcon size={14} />,
     iconBg: s.attended ? "rgba(58,112,85,0.1)" : "var(--gold-pale)",
     iconColor: s.attended ? "var(--accent-green)" : "var(--gold)",
     text: s.attended

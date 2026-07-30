@@ -62,9 +62,3 @@ export function generateZoomSignature({
 
   return `${signingInput}.${signature}`;
 }
-
-export function isZoomSdkConfigured(): boolean {
-  return Boolean(
-    process.env.ZOOM_SDK_CLIENT_ID && process.env.ZOOM_SDK_CLIENT_SECRET,
-  );
-}

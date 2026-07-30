@@ -18,12 +18,12 @@ export default function TermsPage() {
   const pStyle = {
     margin: "0 0 12px",
     lineHeight: 1.7,
-    color: "#3d4247",
+    color: "var(--text)",
     fontSize: 15,
   } as const;
 
   return (
-    <div style={{ background: "#F8F6F1", minHeight: "100vh", padding: "40px 20px" }}>
+    <div style={{ background: "var(--cream)", minHeight: "100vh", padding: "40px 20px" }}>
       <div
         style={{
           maxWidth: 760,
@@ -36,16 +36,16 @@ export default function TermsPage() {
       >
         <div style={{ textAlign: "center", marginBottom: 8 }}>
           <div
-            style={{ fontFamily: "Georgia, serif", fontSize: 28, color: "#0B1622" }}
+            style={{ fontFamily: "Georgia, serif", fontSize: 28, color: "var(--navy)" }}
           >
-            Momentum<span style={{ color: "#B8965A" }}>+</span>
+            Momentum<span style={{ color: "var(--gold)" }}>+</span>
           </div>
           <div
             style={{
               fontSize: 10,
               letterSpacing: 3,
               textTransform: "uppercase",
-              color: "#B8965A",
+              color: "var(--gold)",
               marginTop: 4,
             }}
           >
@@ -56,7 +56,7 @@ export default function TermsPage() {
         <div
           style={{
             fontSize: 12.5,
-            color: "#8a8f94",
+            color: "var(--mid-gray)",
             margin: "12px 0 20px",
             textAlign: "center",
           }}
@@ -158,7 +158,7 @@ export default function TermsPage() {
         <p style={pStyle}>
           Parts of the platform run on third-party services (Stripe, Zoom,
           Stream, Mux, and others listed in our{" "}
-          <Link href="/privacy" style={{ color: "#0B1622" }}>
+          <Link href="/privacy" style={{ color: "var(--navy)" }}>
             Privacy Policy
           </Link>
           ). Their availability isn&apos;t fully within our control, and brief
@@ -199,7 +199,7 @@ export default function TermsPage() {
         <h2 style={sectionStyle}>Contact</h2>
         <p style={pStyle}>
           Questions, billing issues, or cancellation help:{" "}
-          <a href="mailto:hello@momentumplus.co" style={{ color: "#0B1622" }}>
+          <a href="mailto:hello@momentumplus.co" style={{ color: "var(--navy)" }}>
             hello@momentumplus.co
           </a>
           .
@@ -209,7 +209,7 @@ export default function TermsPage() {
         </p>
 
         <div style={{ marginTop: 24, textAlign: "center" }}>
-          <Link href="/" style={{ color: "#0B1622", fontSize: 13 }}>
+          <Link href="/" style={{ color: "var(--navy)", fontSize: 13 }}>
             ← Back to Momentum+
           </Link>
         </div>

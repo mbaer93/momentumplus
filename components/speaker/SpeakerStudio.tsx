@@ -249,7 +249,7 @@ export function SpeakerStudio({
             </div>
 
             {resourcesFor === s.id && (
-              <div style={{ marginTop: 12, background: "#fbfaf8", borderRadius: 8, padding: 14 }}>
+              <div style={{ marginTop: 12, background: "var(--row-alt)", borderRadius: 8, padding: 14 }}>
                 <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
                   Materials members see on the session page and inside the
                   live room (Resources tab) — a workbook, slides, or a link.
@@ -340,7 +340,7 @@ export function SpeakerStudio({
             )}
 
             {noticeFor === s.id && (
-              <div style={{ marginTop: 12, background: "#fbfaf8", borderRadius: 8, padding: 14 }}>
+              <div style={{ marginTop: 12, background: "var(--row-alt)", borderRadius: 8, padding: 14 }}>
                 <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
                   Goes by email to all {s.enrolled} enrolled member
                   {s.enrolled === 1 ? "" : "s"}. You won&apos;t see their
