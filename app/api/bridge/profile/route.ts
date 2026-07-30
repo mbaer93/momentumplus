@@ -92,6 +92,17 @@ export async function POST(req: NextRequest) {
   const profileId = await findAuthUserIdByEmail(email);
 
   if (kind === "sponsor") {
+    // Two-way sync (Matt, 2026-07-29): a TSLS edit updates the LIVE
+    // Momentum+ listing when this business already has one; the invite
+    // prefill below still covers sponsors who haven't onboarded yet.
+    await updateLiveSponsorListing({
+      name,
+      tier: cleanStr(body.tier),
+      tagline: cleanStr(body.tagline),
+      description: cleanStr(body.description),
+      website: cleanStr(body.website),
+      logoUrl: cleanStr(body.logoUrl),
+    });
     return syncSponsorInvite({
       email,
       name,
@@ -171,6 +182,63 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ ok: true, created: true }, { status: 200 });
+}
+
+/*
+ * Live-listing update: when the business already has a published (non-
+ * prospect, non-archived) sponsor row, mirror TSLS's edits onto it —
+ * non-empty fields only, so a TSLS blank never wipes a Momentum+ value.
+ * TSLS sends the tier as its display LABEL; map it to our slug via the
+ * synced catalog, keeping the current tier when the label is unknown.
+ * Never creates a listing (that stays the onboarding flow's job) and
+ * never throws — the invite prefill below must still run.
+ */
+async function updateLiveSponsorListing(input: {
+  name: string;
+  tier: string;
+  tagline: string;
+  description: string;
+  website: string;
+  logoUrl: string;
+}): Promise<void> {
+  try {
+    const admin = createServiceClient();
+    const { data: row } = await admin
+      .from("sponsors")
+      .select("id")
+      .ilike("name", input.name)
+      .is("archived_at", null)
+      .or("prospect.is.null,prospect.eq.false")
+      .limit(1)
+      .maybeSingle();
+    if (!row?.id) return;
+
+    const patch: Record<string, string> = {};
+    if (input.tagline) patch.tagline = input.tagline;
+    if (input.description) patch.description = input.description;
+    if (input.website) patch.website = input.website;
+    if (input.logoUrl) patch.logo_url = input.logoUrl;
+    if (input.tier) {
+      const { data: cat } = await admin
+        .from("sponsor_tiers")
+        .select("value")
+        .ilike("label", input.tier)
+        .maybeSingle();
+      const { SPONSOR_TIERS } = await import("@/lib/sponsor-tiers");
+      const byLabel = SPONSOR_TIERS.find(
+        (t) => t.label.toLowerCase() === input.tier.toLowerCase(),
+      );
+      const slug = cat?.value ?? byLabel?.value;
+      if (slug) patch.tier = String(slug);
+    }
+    if (Object.keys(patch).length === 0) return;
+    await admin.from("sponsors").update(patch).eq("id", row.id);
+    const { updateTag } = await import("next/cache");
+    updateTag("sponsors");
+    updateTag("presented-by");
+  } catch {
+    // Best-effort mirror; the prefill path continues regardless.
+  }
 }
 
 /*

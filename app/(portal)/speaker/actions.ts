@@ -66,6 +66,17 @@ export async function updateOwnSpeakerPage(input: {
   revalidatePath("/speakers");
   revalidatePath("/speaker");
   updateTag("speakers");
+  // Two-way sync: speaker-page edits mirror to the TSLS lineup by email.
+  if (ctx.user.email) {
+    const { pushPersonToTsls } = await import("@/lib/tsls-bridge");
+    await pushPersonToTsls({
+      email: ctx.user.email,
+      name,
+      title: input.title.trim() || null,
+      bio: input.bio.trim() || null,
+      tags: input.industries.trim() || null,
+    });
+  }
   return { ok: true, message: "Speaker page saved." };
 }
 

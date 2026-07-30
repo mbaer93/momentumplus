@@ -10,10 +10,7 @@ import {
   listSponsorsNextSeason,
 } from "@/lib/directory-queries";
 import { upcomingSponsorReveal } from "@/lib/sponsor-lifecycle";
-import {
-  SPONSOR_TIERS,
-  sponsorTierRank,
-} from "@/lib/sponsor-tiers";
+import { listTierCatalog } from "@/lib/tier-catalog";
 import { SeasonToggle } from "@/components/directory/SeasonToggle";
 import { SponsorWebsiteLink } from "@/components/sponsors/SponsorWebsiteLink";
 
@@ -44,20 +41,20 @@ export default async function SponsorsPage(
 
   // The Host Sponsor (the platform's own business) leads the page, then the
   // Momentum+ Sponsor hero; every other tier renders as its own labeled
-  // section, in hierarchy order, only when it has sponsors.
+  // section in catalog order (synced from TSLS Admin → Event Planning),
+  // only when it has sponsors.
+  const catalog = await listTierCatalog();
   const host = sponsors.filter((s) => s.tier === "host");
   const title = sponsors.filter((s) => s.tier === "momentum_plus");
-  const tierSections = SPONSOR_TIERS.filter(
-    (t) => t.value !== "momentum_plus" && t.value !== "host",
-  )
+  const tierSections = catalog
+    .filter((t) => t.value !== "momentum_plus" && t.value !== "host")
     .map((t) => ({
       ...t,
       items: sponsors
         .filter((s) => s.tier === t.value)
         .sort((a, b) => a.name.localeCompare(b.name)),
     }))
-    .filter((t) => t.items.length > 0)
-    .sort((a, b) => sponsorTierRank(a.value) - sponsorTierRank(b.value));
+    .filter((t) => t.items.length > 0);
 
   return (
     <div className="sponsors-pad">
