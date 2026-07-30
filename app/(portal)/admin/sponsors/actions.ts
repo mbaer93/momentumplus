@@ -436,6 +436,19 @@ export async function updateSponsor(
   updateTag("presented-by");
   revalidatePath("/sponsors");
   updateTag("sponsors");
+  // Two-way sync (Matt, 2026-07-29): mirror the edit onto TSLS's sponsor
+  // page. TSLS stores tier labels, so send the label.
+  {
+    const { sponsorTierLabel } = await import("@/lib/sponsor-tiers");
+    const { pushSponsorToTsls } = await import("@/lib/tsls-bridge");
+    await pushSponsorToTsls({
+      name: row.name,
+      tier: sponsorTierLabel(row.tier),
+      tagline: row.tagline,
+      description: row.description,
+      website: row.website,
+    });
+  }
   return { ok: true, message: "Sponsor saved." };
 }
 

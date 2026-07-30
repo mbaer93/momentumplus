@@ -141,7 +141,8 @@ export async function updateSponsorPage(
   if (website && !/^https?:\/\//i.test(website)) {
     return { ok: false, message: "The website link needs to start with http(s)://." };
   }
-  const { error } = await createServiceClient()
+  const admin = createServiceClient();
+  const { error } = await admin
     .from("sponsors")
     .update({
       tagline: input.tagline.trim().slice(0, 200) || null,
@@ -152,6 +153,21 @@ export async function updateSponsorPage(
     .eq("id", sponsorId);
   if (error) return { ok: false, message: error.message };
   refreshSponsorSurfaces();
+  // Two-way sync: the sponsor's own edits mirror to their TSLS listing.
+  const { data: s } = await admin
+    .from("sponsors")
+    .select("name")
+    .eq("id", sponsorId)
+    .maybeSingle();
+  if (s?.name) {
+    const { pushSponsorToTsls } = await import("@/lib/tsls-bridge");
+    await pushSponsorToTsls({
+      name: String(s.name),
+      tagline: input.tagline.trim() || null,
+      description: input.description.trim() || null,
+      website: website || null,
+    });
+  }
   return { ok: true, message: "Page updated." };
 }
 
