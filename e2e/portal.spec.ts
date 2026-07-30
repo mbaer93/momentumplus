@@ -1,14 +1,19 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("auth + portal shell", () => {
-  test("login page renders the Momentum+ brand and preview note", async ({
+  test("login page renders the Momentum+ brand and unconfigured notice", async ({
     page,
   }) => {
     await page.goto("/login");
     await expect(page.locator(".login-logo")).toContainText("Momentum+");
     await expect(page.locator(".login-badge")).toContainText("Members Only");
-    // Preview mode banner (no Supabase creds in test env)
-    await expect(page.locator(".login-success")).toContainText("Preview mode");
+    // No Supabase creds in the test env. e2e runs the PRODUCTION build, so
+    // the developer "Preview mode" note must NOT render — members get the
+    // neutral outage message instead (audit: dev copy never ships to prod).
+    await expect(page.locator(".login-error")).toContainText(
+      "temporarily unavailable",
+    );
+    await expect(page.locator("body")).not.toContainText("Preview mode");
   });
 
   test("public home page shows perks, pricing, and login", async ({ page }) => {
