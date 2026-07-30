@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { bridgeAuthorized } from "@/lib/bridge-auth";
 import { planToTier, provisionMember } from "@/lib/onboarding";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { Tier } from "@/lib/types";
@@ -33,21 +34,13 @@ const ALLOWED_TIERS: Tier[] = [
   "sponsor",
 ];
 
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.ZAPIER_WEBHOOK_SECRET;
-  if (!secret) return false;
-  const key =
-    req.headers.get("x-api-key") ??
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
-    "";
-  const { timingSafeEqual, createHash } = require("crypto") as typeof import("crypto");
-  const a = createHash("sha256").update(key).digest();
-  const b = createHash("sha256").update(secret).digest();
-  return timingSafeEqual(a, b);
-}
+// bridgeAuthorized accepts MOMENTUM_BRIDGE_KEY *or* ZAPIER_WEBHOOK_SECRET —
+// the same dual check as /api/bridge/*. This route previously accepted only
+// the Zapier secret, so configuring the documented "preferred" bridge key
+// alone made every TSLS attendee provisioning silently 401.
 
 export async function POST(req: NextRequest) {
-  if (!authorized(req)) {
+  if (!bridgeAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -86,6 +79,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  /*
+   * Speaker/sponsor grants ride the season clocks, never "forever": a null
+   * expiry here minted permanent Pro-level access that the Oct 1 / Apr 1
+   * expiries could not touch (and that the real onboarding flows couldn't
+   * see, because they look for their own source values).
+   */
+  let accessExpiresAt: string | undefined;
+  if (mapping.tier === "speaker" || mapping.tier === "sponsor") {
+    const { nextOctoberFirst, sponsorTermEnd } = await import(
+      "@/lib/sponsor-lifecycle"
+    );
+    accessExpiresAt =
+      mapping.tier === "speaker"
+        ? nextOctoberFirst().toISOString()
+        : sponsorTermEnd().toISOString();
+  }
+
   const result = await provisionMember({
     email,
     name,
@@ -94,6 +104,7 @@ export async function POST(req: NextRequest) {
     source: "zapier",
     quiet,
     startAt,
+    ...(accessExpiresAt !== undefined ? { accessExpiresAt } : {}),
   });
 
   // Never echo the one-time login link into the webhook response — it would
@@ -115,7 +126,7 @@ export async function POST(req: NextRequest) {
 
 /** Connection test: confirms the endpoint + key work without creating anyone. */
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) {
+  if (!bridgeAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return NextResponse.json({
