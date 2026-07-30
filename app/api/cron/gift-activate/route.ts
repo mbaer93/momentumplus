@@ -21,7 +21,15 @@ export const dynamic = "force-dynamic";
 
 const BATCH = 100;
 
+// Each activation is a serial chain (memberships read, maybe Stripe pause,
+// GHL email, audit write) — realistically 1-3s. Without these two guards a
+// 2,500-gift event morning would time out partway on the default budget and
+// drain over weeks instead of days.
+export const maxDuration = 300;
+const TIME_BUDGET_MS = 240_000;
+
 export async function GET(req: NextRequest) {
+  const startedAt = Date.now();
   if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -49,8 +57,14 @@ export async function GET(req: NextRequest) {
   }
 
   let applied = 0;
+  let deferred = 0;
   const failures: string[] = [];
   for (const row of rows ?? []) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      // Out of time — the rest stays pending and the next run continues.
+      deferred++;
+      continue;
+    }
     const res = await activateScheduledGift(row as unknown as ScheduledGiftRow);
     if (res.ok) {
       await admin
@@ -68,5 +82,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, applied, failures });
+  return NextResponse.json({ ok: true, applied, deferred, failures });
 }

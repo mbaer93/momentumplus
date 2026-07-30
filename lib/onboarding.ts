@@ -127,13 +127,27 @@ export function planToTier(plan: string): { tier: Tier; months: number } | null 
 /**
  * Find an existing login by email even when its profiles row is missing or
  * carries a different email (accounts created before profiles were wired,
- * or edited by hand). Pages through auth users; fine at community scale.
+ * or edited by hand). One indexed query via the auth_user_id_by_email RPC
+ * (migration 0069) — paging the whole Auth admin list cost up to 25 API
+ * calls per lookup and stopped working past 5,000 accounts, which a
+ * 2,500-attendee TSLS season approaches. The paging survives only as the
+ * pre-migration fallback.
  */
 export async function findAuthUserIdByEmail(
   email: string,
 ): Promise<string | null> {
   const admin = createServiceClient();
   const target = email.trim().toLowerCase();
+
+  try {
+    const { data, error } = await admin.rpc("auth_user_id_by_email", {
+      p_email: target,
+    });
+    if (!error) return (data as string | null) ?? null;
+  } catch {
+    // fall through to the pre-0069 paging
+  }
+
   for (let page = 1; page <= 25; page++) {
     const { data, error } = await admin.auth.admin.listUsers({
       page,

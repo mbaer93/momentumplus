@@ -62,47 +62,90 @@ function initialsOf(name: string): string {
     .toUpperCase();
 }
 
+const PAGE_SIZE = 60;
+
 export default async function MembersPage(
   props: {
-    searchParams?: Promise<{ q?: string }>;
+    searchParams?: Promise<{ q?: string; page?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
   await requireMember();
   await requireFeature("members");
-  const q = (searchParams?.q ?? "").trim().toLowerCase().slice(0, 80);
+  // Strip PostgREST filter syntax so the search string can ride in .or()
+  // safely; it's a human name/company either way.
+  const q = (searchParams?.q ?? "").trim().slice(0, 80).replace(/[,%()]/g, "");
+  const page = Math.max(1, Number(searchParams?.page) || 1);
 
   // Preview fixtures appear ONLY with no Supabase at all — a configured
   // deployment missing its service key shows an empty directory, never
   // fake members presented as real ones.
   let rows: DirectoryRow[] = isSupabaseConfigured() ? [] : PREVIEW_ROWS;
+  let total = rows.length;
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
-    // Active members only; admin/system rows stay out of the directory.
-    const { data: memberships } = await admin
-      .from("memberships")
-      .select("profile_id, tier")
-      .in("status", ["active", "past_due"])
-      .neq("tier", "admin");
-    const tierByProfile = new Map<string, string>();
-    for (const m of memberships ?? []) {
-      if (!tierByProfile.has(m.profile_id)) {
-        tierByProfile.set(m.profile_id, m.tier as string);
+    /*
+     * One DB-side query: filter, search, sort, and paginate in Postgres.
+     * The old shape pulled EVERY membership row and every profile on every
+     * view — at 2,500 members that was ~5,000 rows per view, and the
+     * unbounded membership read silently truncated at PostgREST's
+     * 1,000-row cap, so the directory was wrong as well as slow.
+     * memberships!inner keeps only active members; admin rows stay out.
+     */
+    const buildQuery = () => {
+      let query = admin
+        .from("profiles")
+        .select(
+          "id, full_name, title, company, industry, email, phone, share_contact, memberships!inner(tier, status)",
+          { count: "exact" },
+        )
+        .in("memberships.status", ["active", "past_due"])
+        .neq("memberships.tier", "admin")
+        .not("full_name", "is", null);
+      if (q) {
+        query = query.or(
+          `full_name.ilike.%${q}%,company.ilike.%${q}%,industry.ilike.%${q}%,title.ilike.%${q}%`,
+        );
       }
+      return query
+        .order("full_name", { ascending: true })
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+    };
+
+    interface ProfileHit {
+      id: string;
+      full_name: string | null;
+      title: string | null;
+      company: string | null;
+      industry: string | null;
+      email: string | null;
+      phone: string | null;
+      share_contact?: boolean;
+      memberships: { tier: string; status: string }[];
     }
+    let profiles: ProfileHit[] | null = null;
+    let count: number | null = null;
+    {
+      const res = await buildQuery();
+      profiles = res.data as ProfileHit[] | null;
+      count = res.count;
+    }
+
     // Pre-season speakers are hidden until October 1 of the year they
     // join — they hold a Speaker membership for portal access, but the
-    // community doesn't see them yet.
-    const speakerProfiles = Array.from(tierByProfile.entries())
-      .filter(([, tier]) => tier === "speaker")
-      .map(([id]) => id);
-    if (speakerProfiles.length > 0) {
+    // community doesn't see them yet. Only this page's speaker rows need
+    // checking (≤ PAGE_SIZE), not the whole roster.
+    const hidden = new Set<string>();
+    const speakerIds = (profiles ?? [])
+      .filter((p) => p.memberships.some((m) => m.tier === "speaker"))
+      .map((p) => p.id);
+    if (speakerIds.length > 0) {
       const { speakerLive } = await import("@/lib/sponsor-lifecycle");
       const { data: speakerRows } = await admin
         .from("speakers")
         .select("profile_id, expires_at, archived_at")
-        .in("profile_id", speakerProfiles);
+        .in("profile_id", speakerIds);
       for (const s of speakerRows ?? []) {
         if (
           s.profile_id &&
@@ -111,73 +154,34 @@ export default async function MembersPage(
             expiresAt: (s.expires_at as string | null) ?? null,
           })
         ) {
-          tierByProfile.delete(s.profile_id as string);
+          hidden.add(s.profile_id as string);
         }
       }
     }
-    const ids = Array.from(tierByProfile.keys());
-    rows = [];
-    // Page through profiles (PostgREST caps responses at 1,000 rows).
-    for (let from = 0; from < ids.length; from += 1000) {
-      const batch = ids.slice(from, from + 1000);
-      let profiles = (
-        await admin
-          .from("profiles")
-          .select(
-            "id, full_name, title, company, industry, email, phone, share_contact",
-          )
-          .in("id", batch)
-      ).data as
-        | {
-            id: string;
-            full_name: string | null;
-            title: string | null;
-            company: string | null;
-            industry: string | null;
-            email: string | null;
-            phone: string | null;
-            share_contact?: boolean;
-          }[]
-        | null;
-      if (!profiles) {
-        // Pre-migration fallback: share_contact arrives with 0034 —
-        // contact info stays hidden for everyone until then.
-        profiles = (
-          await admin
-            .from("profiles")
-            .select("id, full_name, title, company, industry, email, phone")
-            .in("id", batch)
-        ).data as typeof profiles;
-      }
-      for (const p of profiles ?? []) {
-        if (!p.full_name) continue;
-        const shared = Boolean(
-          (p as { share_contact?: boolean }).share_contact,
-        );
-        rows.push({
-          id: p.id as string,
+
+    rows = (profiles ?? [])
+      .filter((p) => p.full_name && !hidden.has(p.id))
+      .map((p) => {
+        const shared = Boolean(p.share_contact);
+        return {
+          id: p.id,
           name: p.full_name as string,
-          title: (p.title as string) ?? "",
-          company: (p.company as string) ?? "",
-          industry: (p.industry as string) ?? "",
-          tier: tierLabel((tierByProfile.get(p.id as string) ?? "basic") as Tier),
+          title: p.title ?? "",
+          company: p.company ?? "",
+          industry: p.industry ?? "",
+          tier: tierLabel((p.memberships[0]?.tier ?? "basic") as Tier),
           // Contact info is opt-in only — never leaks otherwise.
-          email: shared ? ((p.email as string) ?? null) : null,
-          phone: shared ? ((p.phone as string) ?? null) : null,
-        });
-      }
-    }
-    rows.sort((a, b) => a.name.localeCompare(b.name));
+          email: shared ? (p.email ?? null) : null,
+          phone: shared ? (p.phone ?? null) : null,
+        };
+      });
+    total = count ?? rows.length;
   }
 
-  const visible = q
-    ? rows.filter((r) =>
-        [r.name, r.title, r.company, r.industry]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      )
-    : rows;
+  const visible = rows;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageHref = (p: number) =>
+    `/members?${new URLSearchParams({ ...(q ? { q } : {}), ...(p > 1 ? { page: String(p) } : {}) }).toString()}`;
 
   return (
     <div className="resources-pad">
@@ -204,7 +208,8 @@ export default async function MembersPage(
           Search
         </button>
         <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
-          {visible.length} member{visible.length === 1 ? "" : "s"}
+          {total} member{total === 1 ? "" : "s"}
+          {totalPages > 1 ? ` — page ${page} of ${totalPages}` : ""}
         </span>
       </form>
 
@@ -273,6 +278,24 @@ export default async function MembersPage(
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div
+          className="admin-form-actions"
+          style={{ marginTop: 18, justifyContent: "center" }}
+        >
+          {page > 1 && (
+            <Link className="btn-mini" href={pageHref(page - 1)}>
+              ← Previous
+            </Link>
+          )}
+          {page < totalPages && (
+            <Link className="btn-mini" href={pageHref(page + 1)}>
+              Next →
+            </Link>
+          )}
         </div>
       )}
     </div>
