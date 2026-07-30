@@ -50,6 +50,8 @@ import {
   importInterestFormAssets,
   inviteSponsorRep,
   restoreFormLogos,
+  trimLogosSafe,
+  undoTrimLogos,
   reinstateSponsor,
   linkSponsorMember,
   saveSponsorEmailsEnabled,
@@ -797,17 +799,20 @@ export function SponsorsManager({
         </div>
       </div>
 
-      {/* Logo restore — recovery from the 07-29 trim incident. */}
+      {/* Logo cleanup — non-destructive trim: originals are never touched,
+          each trimmed copy is verified byte-for-byte before it's used, and
+          Undo points everything back at the originals. */}
       <div className="admin-form" style={{ maxWidth: "none", marginBottom: 20 }}>
         <div className="admin-field" style={{ marginBottom: 4 }}>
-          <label style={{ fontSize: 13 }}>Restore logos</label>
+          <label style={{ fontSize: 13 }}>Logo cleanup</label>
         </div>
         <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
-          Re-downloads each sponsor&apos;s original logo file from their
-          interest-form submission and stores it untouched, replacing the
-          file that&apos;s there now. Sponsors whose logo never came from
-          the form are listed so you can re-upload those by hand (uploads
-          store the exact file — no processing).
+          Logos with empty margins baked into the file render small. Trim
+          crops a <strong>copy</strong> of each logo tight to the artwork —
+          the uploaded original is never modified, every trimmed copy is
+          verified before it&apos;s shown anywhere, and Undo switches all
+          logos back to the originals. Anything that can&apos;t be verified
+          is left exactly as it is.
         </div>
         <div className="admin-form-actions" style={{ marginTop: 0 }}>
           <button
@@ -817,14 +822,46 @@ export function SponsorsManager({
             onClick={() => {
               if (
                 confirm(
-                  "Restore every sponsor logo from their original interest-form upload? This overwrites the current stored logo files.",
+                  "Trim the margins off every sponsor logo? Originals are kept untouched and Undo reverts everything.",
+                )
+              ) {
+                run(() => trimLogosSafe());
+              }
+            }}
+          >
+            {pending ? "Working…" : "Trim logo margins"}
+          </button>
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => {
+              if (
+                confirm(
+                  "Switch every trimmed logo back to its untouched original file?",
+                )
+              ) {
+                run(() => undoTrimLogos());
+              }
+            }}
+          >
+            Undo trim
+          </button>
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => {
+              if (
+                confirm(
+                  "Restore every sponsor logo from their original interest-form upload? This overwrites the current stored original files.",
                 )
               ) {
                 run(() => restoreFormLogos());
               }
             }}
           >
-            {pending ? "Working…" : "Restore logos from the form"}
+            Restore from the form
           </button>
         </div>
       </div>

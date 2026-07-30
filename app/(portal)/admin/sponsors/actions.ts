@@ -1334,6 +1334,150 @@ export async function restoreFormLogos(): Promise<SponsorResult> {
 }
 
 /**
+ * Trim margins off every sponsor logo — the rebuilt, non-destructive
+ * version (see lib/logo-derivative for the safety design: originals are
+ * never touched, every write is verified byte-for-byte before a row
+ * points at it, and undoTrimLogos flips everything back).
+ */
+export async function trimLogosSafe(): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Trimmed (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { applyTrimmedLogo, rawPathFor, storagePathFromUrl } = await import(
+    "@/lib/logo-derivative"
+  );
+  const admin = createServiceClient();
+  const { data: rows, error } = await admin
+    .from("sponsors")
+    .select("id, name, logo_url")
+    .not("logo_url", "is", null);
+  if (error) return { ok: false, message: error.message };
+
+  const trimmed: string[] = [];
+  let untouched = 0;
+  const failed: { name: string; reason: string }[] = [];
+
+  const doOne = async (r: { id: string; name: string; logo_url: string }) => {
+    const path = storagePathFromUrl(r.logo_url);
+    if (!path) {
+      failed.push({ name: r.name, reason: "logo isn't in the app's storage" });
+      return;
+    }
+    // Always trim from the ORIGINAL, so re-runs never re-trim a trim.
+    const result = await applyTrimmedLogo(admin, rawPathFor(path));
+    if (result.outcome === "trimmed" && result.url) {
+      const { error: updErr } = await admin
+        .from("sponsors")
+        .update({ logo_url: result.url })
+        .eq("id", r.id);
+      if (updErr) failed.push({ name: r.name, reason: updErr.message });
+      else trimmed.push(`${r.name} (${result.detail})`);
+    } else if (
+      result.outcome === "already-tight" ||
+      result.outcome === "svg"
+    ) {
+      untouched += 1;
+    } else {
+      failed.push({ name: r.name, reason: result.detail });
+    }
+  };
+
+  const targets = (rows ?? []) as { id: string; name: string; logo_url: string }[];
+  const BATCH = 6;
+  for (let i = 0; i < targets.length; i += BATCH) {
+    await Promise.all(targets.slice(i, i + BATCH).map(doOne));
+  }
+
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsors");
+  updateTag("sponsors");
+  updateTag("presented-by");
+  revalidatePath("/", "layout");
+
+  const parts = [
+    trimmed.length > 0
+      ? `Trimmed ${trimmed.length}: ${trimmed.slice(0, 10).join("; ")}${trimmed.length > 10 ? `; +${trimmed.length - 10} more` : ""}`
+      : "Nothing needed trimming",
+  ];
+  if (untouched > 0) parts.push(`${untouched} already tight or SVG`);
+  parts.push("originals kept — Undo restores them");
+  const failNote =
+    failed.length > 0
+      ? ` Left as-is: ${failed
+          .slice(0, 8)
+          .map((f) => `${f.name} — ${f.reason}`)
+          .join("; ")}${failed.length > 8 ? `; +${failed.length - 8} more` : ""}.`
+      : "";
+  return { ok: true, message: `${parts.join(", ")}.${failNote}` };
+}
+
+/** Point every trimmed logo back at its untouched original. */
+export async function undoTrimLogos(): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Undone (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { BUCKET, isTrimPath, rawPathFor, storagePathFromUrl } = await import(
+    "@/lib/logo-derivative"
+  );
+  const admin = createServiceClient();
+  const { data: rows, error } = await admin
+    .from("sponsors")
+    .select("id, name, logo_url")
+    .not("logo_url", "is", null);
+  if (error) return { ok: false, message: error.message };
+
+  const reverted: string[] = [];
+  const failed: { name: string; reason: string }[] = [];
+  for (const r of (rows ?? []) as {
+    id: string;
+    name: string;
+    logo_url: string;
+  }[]) {
+    const path = storagePathFromUrl(r.logo_url);
+    if (!path || !isTrimPath(path)) continue;
+    const rawPath = rawPathFor(path);
+    const { data: exists } = await admin.storage
+      .from(BUCKET)
+      .download(rawPath);
+    if (!exists) {
+      failed.push({ name: r.name, reason: "original file not found" });
+      continue;
+    }
+    const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(rawPath);
+    const { error: updErr } = await admin
+      .from("sponsors")
+      .update({ logo_url: `${pub.publicUrl}?v=${Date.now()}` })
+      .eq("id", r.id);
+    if (updErr) failed.push({ name: r.name, reason: updErr.message });
+    else reverted.push(r.name);
+  }
+
+  revalidatePath("/admin/sponsors");
+  revalidatePath("/sponsors");
+  updateTag("sponsors");
+  updateTag("presented-by");
+  revalidatePath("/", "layout");
+
+  const failNote =
+    failed.length > 0
+      ? ` Couldn't revert: ${failed.map((f) => `${f.name} — ${f.reason}`).join("; ")}.`
+      : "";
+  return {
+    ok: true,
+    message:
+      (reverted.length > 0
+        ? `Back to originals for ${reverted.length}: ${reverted.slice(0, 10).join(", ")}${reverted.length > 10 ? `, +${reverted.length - 10} more` : ""}`
+        : "No trimmed logos to undo") + `.${failNote}`,
+  };
+}
+
+/**
  * The sponsor-email master switch. OFF by default (Matt, 2026-07-29): no
  * emails to sponsors from either platform until he flips it on.
  */
