@@ -101,7 +101,9 @@ export function LoginForm() {
   return (
     <div className="login-card">
       <div className="login-badge">Members Only · Tri-State Leadership Summit</div>
-      <h2>Welcome back</h2>
+      {/* Not "Welcome back": a brand-new invitee whose link expired lands
+          here too, and this is the first screen they ever see. */}
+      <h2>Welcome</h2>
       <p>
         {mode === "magic"
           ? "Enter your email and we'll send a secure sign-in link."
