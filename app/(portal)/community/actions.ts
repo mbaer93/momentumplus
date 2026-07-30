@@ -24,6 +24,23 @@ export async function askSpeakerQuestion(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
+  // ACTIVE members only — a lapsed or never-activated account could still
+  // sign in, and this action emails a real person.
+  const { getCurrentMember } = await import("@/lib/current-member");
+  const member = await getCurrentMember();
+  if (!member?.membershipActive) {
+    return { ok: false, message: "An active membership is required to message speakers." };
+  }
+  // Each call lands in a speaker's inbox AND their bell — cap the rate so a
+  // loop can't spam a real person (audit, 2026-07-30).
+  const { allowAction } = await import("@/lib/throttle");
+  if (!(await allowAction(user.id, "speaker_question", 5, 3600_000))) {
+    return {
+      ok: false,
+      message:
+        "You've sent several questions this hour — give the speaker a moment to reply before sending more.",
+    };
+  }
   const { data: asker } = await supabase
     .from("profiles")
     .select("full_name")
