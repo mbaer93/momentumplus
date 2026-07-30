@@ -114,6 +114,26 @@ export function pauseResumesAtUnix(
   return Math.floor(addMonths(new Date(now), months).getTime() / 1000);
 }
 
+/**
+ * Gift start date off the bridge ("automatic when their ticket is purchased,
+ * but the free months don't start until the month of the event" — Matt,
+ * 2026-07-30). TSLS sends the first of the event month; anything unparseable
+ * means "no scheduling — apply now".
+ */
+export function parseGiftStart(raw: unknown): string | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const t = new Date(raw.trim()).getTime();
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+}
+
+/** Schedule (true) or apply immediately (false)? */
+export function isFutureStart(
+  startIso: string | null,
+  now: number = Date.now(),
+): boolean {
+  return Boolean(startIso && new Date(startIso).getTime() > now);
+}
+
 /** "November 14, 2026" — how dates read in the gift emails. */
 export function giftDateLabel(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {

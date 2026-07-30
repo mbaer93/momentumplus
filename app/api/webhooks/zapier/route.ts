@@ -68,6 +68,10 @@ export async function POST(req: NextRequest) {
   // TSLS Companion bridge, which sends the single invite and crosses members
   // over via SSO. Defaults to the normal invite-email behaviour.
   const quiet = body.quiet === true || body.quiet === "true";
+  // startAt (ISO, gift plans only): a future date creates the account now
+  // but holds the gift until then — TSLS sends the first of the event month
+  // so the free months start with the event, not the ticket purchase.
+  const startAt = typeof body.startAt === "string" ? body.startAt : null;
   if (!email) {
     return NextResponse.json({ error: "email is required" }, { status: 400 });
   }
@@ -89,6 +93,7 @@ export async function POST(req: NextRequest) {
     months: mapping.months,
     source: "zapier",
     quiet,
+    startAt,
   });
 
   // Never echo the one-time login link into the webhook response — it would

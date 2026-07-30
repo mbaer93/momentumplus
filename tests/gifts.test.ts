@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {
   giftExtendedExpiry,
   giftPlanFor,
+  isFutureStart,
   isGiftTier,
   isPaidTier,
+  parseGiftStart,
   pauseResumesAtUnix,
   type BilledRow,
 } from "../lib/gifts";
@@ -104,6 +106,23 @@ test("giftExtendedExpiry restarts from now when lapsed or open-ended", () => {
   assert.equal(fromLapsed, new Date("2027-01-14T17:00:00.000Z").toISOString());
   const fromNull = giftExtendedExpiry(null, 1, NOW);
   assert.equal(fromNull, new Date("2026-11-14T17:00:00.000Z").toISOString());
+});
+
+test("parseGiftStart accepts ISO dates and rejects junk", () => {
+  assert.equal(
+    parseGiftStart("2026-10-01T00:00:00-04:00"),
+    "2026-10-01T04:00:00.000Z",
+  );
+  assert.equal(parseGiftStart("not-a-date"), null);
+  assert.equal(parseGiftStart(""), null);
+  assert.equal(parseGiftStart(undefined), null);
+  assert.equal(parseGiftStart(20261001), null);
+});
+
+test("isFutureStart schedules only genuinely future dates", () => {
+  assert.equal(isFutureStart("2026-10-01T04:00:00.000Z", NOW), false); // past
+  assert.equal(isFutureStart("2026-10-14T17:00:01.000Z", NOW), true);
+  assert.equal(isFutureStart(null, NOW), false);
 });
 
 test("pauseResumesAtUnix is the gift months from now, in seconds", () => {
