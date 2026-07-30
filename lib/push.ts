@@ -33,8 +33,13 @@ export function pushConfigured(): boolean {
 export async function sendPushToProfiles(
   profileIds: string[],
   payload: PushPayload,
-): Promise<{ sent: number }> {
-  if (!pushConfigured() || profileIds.length === 0) return { sent: 0 };
+): Promise<{ sent: number; reason?: string }> {
+  if (!pushConfigured()) {
+    // Callers surface this in send reports — a silent 0 reads as "nobody
+    // subscribed" when the real story is "push isn't set up".
+    return { sent: 0, reason: "Push not configured (VAPID keys missing)" };
+  }
+  if (profileIds.length === 0) return { sent: 0 };
 
   const webpush = (await import("web-push")).default;
   webpush.setVapidDetails(

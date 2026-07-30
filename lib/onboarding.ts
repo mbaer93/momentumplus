@@ -219,18 +219,44 @@ async function scheduleGift(input: {
 }): Promise<Pick<ProvisionResult, "ok" | "alreadyActive" | "message">> {
   const admin = createServiceClient();
 
-  // A retried bridge call must not stack a second pending gift.
+  // A retried bridge call must not stack a second pending gift — but a
+  // DIFFERENT pending gift (a General → VIP ticket upgrade, or a stale one
+  // from a moved event date) upgrades in place rather than blocking. The
+  // dedup is scoped to match the unique index: (profile_id, starts_at).
   const { data: pending } = await admin
     .from("scheduled_gifts")
-    .select("id, starts_at")
+    .select("id, starts_at, tier, months")
     .eq("profile_id", input.profileId)
     .is("applied_at", null)
     .limit(1);
   if (pending?.length) {
+    const row = pending[0];
+    const sameStart =
+      new Date(String(row.starts_at)).getTime() ===
+      new Date(input.startsAt).getTime();
+    if (sameStart && row.tier === input.tier && row.months === input.months) {
+      return {
+        ok: true,
+        alreadyActive: true,
+        message: `${input.email}: gift already scheduled for ${String(row.starts_at).slice(0, 10)}.`,
+      };
+    }
+    const { error: upErr } = await admin
+      .from("scheduled_gifts")
+      .update({
+        tier: input.tier,
+        months: input.months,
+        starts_at: input.startsAt,
+      })
+      .eq("id", row.id)
+      .is("applied_at", null);
+    if (upErr) {
+      return { ok: false, alreadyActive: false, message: upErr.message };
+    }
     return {
       ok: true,
-      alreadyActive: true,
-      message: `${input.email}: gift already scheduled for ${String(pending[0].starts_at).slice(0, 10)}.`,
+      alreadyActive: false,
+      message: `${input.email}: pending gift updated — ${input.months} month${input.months === 1 ? "" : "s"} from ${input.startsAt.slice(0, 10)}.`,
     };
   }
 
@@ -294,6 +320,9 @@ export async function activateScheduledGift(
     email: row.email,
     name: row.name ?? "",
     months: row.months,
+    // Anchor on the scheduled start: a late activation (retry, backlog)
+    // must not silently run the gift long.
+    anchor: new Date(row.starts_at).getTime(),
   });
   if (gifted) {
     return { ok: gifted.ok, result: gifted.message ?? "applied to paying member" };
@@ -346,10 +375,14 @@ async function applyGiftToPayingMember(input: {
   email: string;
   name: string;
   months: number;
+  /** Gift clock anchor — the scheduled start for parked gifts, so a
+      late-running activation doesn't silently run long. Defaults to now. */
+  anchor?: number;
 }): Promise<Pick<
   ProvisionResult,
   "ok" | "invited" | "alreadyActive" | "message"
 > | null> {
+  const anchor = input.anchor ?? Date.now();
   const admin = createServiceClient();
   const { data: rows } = await admin
     .from("memberships")
@@ -379,7 +412,7 @@ async function applyGiftToPayingMember(input: {
 
   const months = input.months;
   const monthsLabel = `${months} month${months === 1 ? "" : "s"}`;
-  const newExpiry = giftExtendedExpiry(plan.row.access_expires_at, months);
+  const newExpiry = giftExtendedExpiry(plan.row.access_expires_at, months, anchor);
 
   let paused = false;
   let pauseNote = "";
@@ -388,7 +421,14 @@ async function applyGiftToPayingMember(input: {
     const settings = await getStripeSettings();
     if (settings?.secretKey && plan.row.stripe_subscription_id) {
       try {
-        const sub = await stripeRequest<{ pause_collection?: unknown }>(
+        const sub = await stripeRequest<{
+          pause_collection?: unknown;
+          items?: {
+            data?: {
+              price?: { recurring?: { interval?: string; interval_count?: number } };
+            }[];
+          };
+        }>(
           settings.secretKey,
           "GET",
           `/subscriptions/${plan.row.stripe_subscription_id}`,
@@ -401,20 +441,35 @@ async function applyGiftToPayingMember(input: {
             message: `${input.email}: billing is already paused — gift already applied.`,
           };
         }
-        // behavior=void: invoices raised during the pause are voided, so a
-        // monthly member simply skips the gift months. (A member mid-way
-        // through a prepaid 3/6/12-month term has no invoice due inside the
-        // window — their gift is the access extension below.)
-        await stripeRequest(
-          settings.secretKey,
-          "POST",
-          `/subscriptions/${plan.row.stripe_subscription_id}`,
-          {
-            "pause_collection[behavior]": "void",
-            "pause_collection[resumes_at]": pauseResumesAtUnix(months),
-          },
-        );
-        paused = true;
+        /*
+         * behavior=void voids every invoice raised inside the pause window.
+         * For a monthly plan that's exactly "skip the gift months" — but a
+         * 3/6/12-month term whose renewal lands inside the window would
+         * have its WHOLE term invoice voided (12 free months for a 3-month
+         * gift). Only pause when the billing interval fits inside the gift;
+         * longer terms get the access extension below instead.
+         */
+        const recurring = sub.items?.data?.[0]?.price?.recurring;
+        const intervalMonths =
+          recurring?.interval === "year"
+            ? 12 * (recurring.interval_count ?? 1)
+            : recurring?.interval === "month"
+              ? (recurring.interval_count ?? 1)
+              : null;
+        if (intervalMonths !== null && intervalMonths <= months) {
+          await stripeRequest(
+            settings.secretKey,
+            "POST",
+            `/subscriptions/${plan.row.stripe_subscription_id}`,
+            {
+              "pause_collection[behavior]": "void",
+              "pause_collection[resumes_at]": pauseResumesAtUnix(months, anchor),
+            },
+          );
+          paused = true;
+        } else {
+          pauseNote = "";
+        }
       } catch (e) {
         pauseNote = ` (Stripe pause failed: ${(e as Error).message} — pause the subscription by hand in Stripe)`;
       }
@@ -422,6 +477,22 @@ async function applyGiftToPayingMember(input: {
       pauseNote = " (Stripe isn't connected — pause the subscription by hand)";
     }
   }
+
+  /*
+   * LEDGER BEFORE MUTATION: the audit row doubles as the once-per-season
+   * guard, so it must exist before the expiry is extended — a crash between
+   * the extension and a late ledger write would re-extend on every retry.
+   * (The action label is corrected below if the pause outcome differs.)
+   */
+  const { logAdminAction } = await import("@/lib/admin-audit");
+  await logAdminAction({
+    actorId: null,
+    actorEmail: "system (tsls gift)",
+    action: paused ? "tsls_gift_paused" : "tsls_gift_extended",
+    targetProfileId: input.profileId,
+    targetEmail: input.email,
+    detail: `${monthsLabel} TSLS gift on a paying member (${plan.row.tier}); access through ${newExpiry.slice(0, 10)}${paused ? "; Stripe billing paused" : ""}${pauseNote}`,
+  });
 
   await admin
     .from("memberships")
@@ -458,16 +529,6 @@ async function applyGiftToPayingMember(input: {
   } catch (e) {
     emailNote = ` (email not sent: ${(e as Error).message})`;
   }
-
-  const { logAdminAction } = await import("@/lib/admin-audit");
-  await logAdminAction({
-    actorId: null,
-    actorEmail: "system (tsls gift)",
-    action: paused ? "tsls_gift_paused" : "tsls_gift_extended",
-    targetProfileId: input.profileId,
-    targetEmail: input.email,
-    detail: `${monthsLabel} TSLS gift on a paying member (${plan.row.tier}); access through ${newExpiry.slice(0, 10)}${paused ? "; Stripe billing paused" : ""}${pauseNote}`,
-  });
 
   return {
     ok: true,
