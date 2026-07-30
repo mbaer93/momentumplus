@@ -17,13 +17,37 @@ export interface CatalogTier {
   label: string;
   price: number;
   inKind: boolean;
+  available: number | null;
   soldOut: boolean;
+  vipTickets: number;
+  highlights: string[];
   active: boolean;
 }
 
+const mPlus = SPONSOR_PACKAGES_2026.find((p) => p.tier === "momentum_plus");
 const PLATFORM_TIERS: CatalogTier[] = [
-  { value: "host", label: "Host Sponsor", price: 0, inKind: false, soldOut: false, active: true },
-  { value: "momentum_plus", label: "Momentum+ Sponsor", price: 10000, inKind: false, soldOut: false, active: true },
+  {
+    value: "host",
+    label: "Host Sponsor",
+    price: 0,
+    inKind: false,
+    available: 1,
+    soldOut: false,
+    vipTickets: 0,
+    highlights: ["The platform's own headline sponsor"],
+    active: true,
+  },
+  {
+    value: "momentum_plus",
+    label: "Momentum+ Sponsor",
+    price: mPlus?.price ?? 10000,
+    inKind: false,
+    available: mPlus?.available ?? 1,
+    soldOut: mPlus?.soldOut ?? false,
+    vipTickets: mPlus?.vipTickets ?? 2,
+    highlights: mPlus?.highlights ?? [],
+    active: true,
+  },
 ];
 
 const FALLBACK_EVENT_TIERS: CatalogTier[] = SPONSOR_TIERS.filter(
@@ -35,7 +59,10 @@ const FALLBACK_EVENT_TIERS: CatalogTier[] = SPONSOR_TIERS.filter(
     label: t.label,
     price: p?.price ?? 0,
     inKind: p?.inKind ?? false,
+    available: p?.available ?? null,
     soldOut: p?.soldOut ?? false,
+    vipTickets: p?.vipTickets ?? 0,
+    highlights: p?.highlights ?? [],
     active: true,
   };
 });
@@ -48,7 +75,9 @@ export const listTierCatalog = requestCache(
       const supabase = await createClient();
       const { data, error } = await supabase
         .from("sponsor_tiers")
-        .select("value, label, price, in_kind, sold_out, active, sort")
+        .select(
+          "value, label, price, in_kind, available, sold_out, vip_tickets, highlights, active, sort",
+        )
         .order("sort");
       if (!error && data?.length) {
         event = data.map((r) => ({
@@ -56,7 +85,12 @@ export const listTierCatalog = requestCache(
           label: String(r.label),
           price: Number(r.price ?? 0),
           inKind: Boolean(r.in_kind),
+          available: r.available === null ? null : Number(r.available),
           soldOut: Boolean(r.sold_out),
+          vipTickets: Number(r.vip_tickets ?? 0),
+          highlights: Array.isArray(r.highlights)
+            ? r.highlights.map(String)
+            : [],
           active: r.active !== false,
         }));
       }

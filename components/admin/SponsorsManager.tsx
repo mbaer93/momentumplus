@@ -5,10 +5,7 @@
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { sponsorLive, sponsorTermEnd, upcomingSponsorReveal } from "@/lib/sponsor-lifecycle";
-import {
-  SPONSOR_PACKAGES_2026,
-  packagePrice,
-} from "@/lib/sponsor-packages";
+import { SPONSOR_PACKAGES_2026 } from "@/lib/sponsor-packages";
 import { RAIL_TIERS, SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
 
 /** What members actually see right now — a pre-season sponsor looks identical
@@ -109,14 +106,45 @@ const EMPTY: SponsorInput = {
   railActive: false,
 };
 
+export interface TierOption {
+  value: string;
+  label: string;
+  price: number;
+  inKind: boolean;
+  available: number | null;
+  soldOut: boolean;
+  vipTickets: number;
+  highlights: string[];
+  active: boolean;
+}
+
+/** Dropdown options: the synced TSLS catalog when the page provides it,
+    the static hierarchy otherwise; a stored tier outside either list is
+    preserved as its own option so editing can't silently change it. */
+function tierOptionsFor(
+  catalog: TierOption[],
+  current?: string,
+): { value: string; label: string }[] {
+  const base =
+    catalog.length > 0
+      ? catalog.filter((t) => t.active).map((t) => ({ value: t.value, label: t.label }))
+      : SPONSOR_TIERS.map((t) => ({ value: t.value, label: t.label }));
+  if (current && !base.some((t) => t.value === current)) {
+    base.push({ value: current, label: `${sponsorTierLabel(current)} (existing)` });
+  }
+  return base;
+}
+
 function SponsorFields({
   value,
   onChange,
   idPrefix,
+  tierCatalog = [],
 }: {
   value: SponsorInput;
   onChange: (v: SponsorInput) => void;
   idPrefix: string;
+  tierCatalog?: TierOption[];
 }) {
   return (
     <>
@@ -135,11 +163,9 @@ function SponsorFields({
           <select
             id={`${idPrefix}-tier`}
             value={value.tier}
-            onChange={(e) =>
-              onChange({ ...value, tier: e.target.value as SponsorInput["tier"] })
-            }
+            onChange={(e) => onChange({ ...value, tier: e.target.value })}
           >
-            {SPONSOR_TIERS.map((t) => (
+            {tierOptionsFor(tierCatalog, value.tier).map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
               </option>
@@ -214,6 +240,7 @@ export function SponsorsManager({
   initialEditId,
   memberOptions = [],
   emailsEnabled = false,
+  tierCatalog = [],
 }: {
   sponsors: AdminSponsorRow[];
   /** Archived or term-expired sponsors — admin-only, reinstatable. */
@@ -235,6 +262,8 @@ export function SponsorsManager({
   memberOptions?: { name: string; email: string }[];
   /** The sponsor-email master switch (OFF until Matt enables it). */
   emailsEnabled?: boolean;
+  /** Synced tier catalog (TSLS Event Planning); static list when empty. */
+  tierCatalog?: TierOption[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState<SponsorInput>(EMPTY);
@@ -349,6 +378,7 @@ export function SponsorsManager({
           value={editForm}
           onChange={setEditForm}
           idPrefix={`edit-${editSeed.id}`}
+          tierCatalog={tierCatalog}
         />
         <div className="admin-form-actions" style={{ marginTop: 4 }}>
           <button
@@ -625,7 +655,7 @@ export function SponsorsManager({
               value={invite.tier}
               onChange={(e) => setInvite({ ...invite, tier: e.target.value })}
             >
-              {SPONSOR_TIERS.map((t) => (
+              {tierOptionsFor(tierCatalog).map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
@@ -1054,21 +1084,34 @@ export function SponsorsManager({
               </tr>
             </thead>
             <tbody>
-              {SPONSOR_PACKAGES_2026.map((p) => {
-                const sold = sponsors.filter((s) => s.tier === p.tier).length;
+              {(tierCatalog.length > 0
+                ? tierCatalog.filter((t) => t.value !== "host" && t.active)
+                : SPONSOR_PACKAGES_2026.map((p) => ({
+                    value: p.tier,
+                    label: sponsorTierLabel(p.tier),
+                    price: p.price,
+                    inKind: p.inKind,
+                    available: p.available,
+                    soldOut: Boolean(p.soldOut),
+                    vipTickets: p.vipTickets,
+                    highlights: p.highlights,
+                    active: true,
+                  }))
+              ).map((p) => {
+                const sold = sponsors.filter((s) => s.tier === p.value).length;
                 const interest = prospects.filter(
-                  (s) => s.tier === p.tier,
+                  (s) => s.tier === p.value,
                 ).length;
                 const full =
                   p.soldOut || (p.available !== null && sold >= p.available);
                 return (
-                  <tr key={p.tier}>
+                  <tr key={p.value}>
                     <td>
-                      <div className="admin-row-title">
-                        {sponsorTierLabel(p.tier)}
-                      </div>
+                      <div className="admin-row-title">{p.label}</div>
                     </td>
-                    <td>{packagePrice(p)}</td>
+                    <td>
+                      {`$${p.price.toLocaleString("en-US")}${p.inKind ? " in-kind" : ""}`}
+                    </td>
                     <td>
                       {p.available === null ? (
                         "Unlimited"
@@ -1111,7 +1154,12 @@ export function SponsorsManager({
         <div className="admin-field" style={{ marginBottom: 4 }}>
           <label style={{ fontSize: 13 }}>Add a sponsor</label>
         </div>
-        <SponsorFields value={form} onChange={setForm} idPrefix="new" />
+        <SponsorFields
+          value={form}
+          onChange={setForm}
+          idPrefix="new"
+          tierCatalog={tierCatalog}
+        />
         <div className="admin-form-actions">
           <button
             type="button"

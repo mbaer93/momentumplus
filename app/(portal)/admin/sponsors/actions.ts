@@ -11,7 +11,8 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export interface SponsorInput {
   name: string;
-  tier: import("@/lib/sponsor-tiers").SponsorTier;
+  /** Tier slug — static hierarchy or a custom tier synced from TSLS. */
+  tier: string;
   tagline: string;
   /** Long-form "about" text on the sponsor's profile page. */
   description: string;
@@ -24,6 +25,32 @@ export interface SponsorResult {
   ok: boolean;
   message?: string;
   preview?: boolean;
+}
+
+/**
+ * Resolve a tier value against the synced TSLS catalog before falling back
+ * to the static normalizer — a custom tier created in TSLS Event Planning
+ * must survive a save here instead of collapsing to "partner".
+ */
+async function resolveTierValue(raw: string): Promise<string> {
+  const { normalizeSponsorTier, SPONSOR_TIERS } = await import(
+    "@/lib/sponsor-tiers"
+  );
+  const value = raw.trim();
+  if (SPONSOR_TIERS.some((t) => t.value === value)) return value;
+  if (value) {
+    try {
+      const { data } = await createServiceClient()
+        .from("sponsor_tiers")
+        .select("value")
+        .eq("value", value)
+        .maybeSingle();
+      if (data?.value) return value;
+    } catch {
+      // pre-0067 — static list decides
+    }
+  }
+  return normalizeSponsorTier(value);
 }
 
 /** Per-tier VIP ticket allotments (Admin → Sponsors). */
@@ -116,9 +143,7 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const admin = createServiceClient();
-  const tier = (await import("@/lib/sponsor-tiers")).normalizeSponsorTier(
-    input.tier,
-  );
+  const tier = await resolveTierValue(input.tier);
   // Same lifecycle default as the invite flow: a season term ending next
   // April 1 (Host Sponsor stays ongoing). A manually-added sponsor used to
   // get NO term — instantly live and never expiring, the opposite of an
@@ -417,7 +442,7 @@ export async function updateSponsor(
   const admin = createServiceClient();
   const row = {
     name: input.name.trim(),
-    tier: (await import("@/lib/sponsor-tiers")).normalizeSponsorTier(input.tier),
+    tier: await resolveTierValue(input.tier),
     tagline: input.tagline.trim() || null,
     description: input.description.trim() || null,
     offer: input.offer.trim() || null,
@@ -676,8 +701,7 @@ export async function inviteSponsorRep(
       };
     }
   }
-  const { normalizeSponsorTier } = await import("@/lib/sponsor-tiers");
-  const tier = normalizeSponsorTier(tierRaw);
+  const tier = await resolveTierValue(tierRaw);
 
   const admin = createServiceClient();
 
