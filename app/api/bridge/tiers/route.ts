@@ -13,18 +13,7 @@ import { revalidatePath } from "next/cache";
  * MOMENTUM_PROVISION_KEY).
  */
 
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.ZAPIER_WEBHOOK_SECRET;
-  if (!secret) return false;
-  const key =
-    req.headers.get("x-api-key") ??
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
-    "";
-  const { timingSafeEqual, createHash } = require("crypto") as typeof import("crypto");
-  const a = createHash("sha256").update(key).digest();
-  const b = createHash("sha256").update(secret).digest();
-  return timingSafeEqual(a, b);
-}
+import { bridgeAuthorized as authorized } from "@/lib/bridge-auth";
 
 export async function POST(req: NextRequest) {
   if (!authorized(req)) {
