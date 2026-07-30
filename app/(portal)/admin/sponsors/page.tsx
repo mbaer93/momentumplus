@@ -11,6 +11,7 @@ import { sponsorEmailsEnabled } from "@/lib/sponsor-emails";
 import { allSponsorProTickets, getTicketCounts } from "@/lib/sponsor-team";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { listTierCatalog } from "@/lib/tier-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -223,6 +224,7 @@ export default async function AdminSponsorsPage(
         </div>
       )}
       <SponsorsManager
+        tierCatalog={await listTierCatalog()}
         sponsors={rows}
         pastSponsors={pastRows}
         prospects={prospectRows}
