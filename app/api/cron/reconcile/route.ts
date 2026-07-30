@@ -90,11 +90,26 @@ export async function GET(req: NextRequest) {
     .select("id");
   prunedOld = oldPruned?.length ?? 0;
 
+  // 4. Sponsor-event retention: impressions/clicks accrue on every page view
+  // (~375k rows/month at 2,500 members) and the table previously grew
+  // forever, dragging the per-view dedup check with it. Keep 13 months —
+  // this season plus the full prior one for year-over-year sponsor reports.
+  const eventsCutoff = new Date(
+    Date.now() - 395 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const { data: eventsPruned } = await admin
+    .from("sponsor_events")
+    .delete()
+    .lt("at", eventsCutoff)
+    .select("id");
+  const prunedEvents = eventsPruned?.length ?? 0;
+
   return NextResponse.json({
     ok: true,
     expiredCount: expired?.length ?? 0,
     ghlChecked: ghlReady,
     missingContacts,
     prunedNotifications: { read: prunedRead, old: prunedOld },
+    prunedSponsorEvents: prunedEvents,
   });
 }

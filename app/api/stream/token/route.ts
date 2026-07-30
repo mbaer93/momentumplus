@@ -73,66 +73,112 @@ export async function POST() {
 
   const channels = channelsForTier(member.tier);
 
+  // Channel membership only changes when the member's tier / admin state /
+  // display name does — provisioning is ~16 Stream API calls, so at 2,500
+  // members re-running it on every community open would rate-limit Stream
+  // on event day. The synced key marks "already provisioned for exactly
+  // this state"; any change (or a missing 0069 column) re-provisions.
+  const syncKey = [
+    member.tier,
+    member.isAdmin ? "1" : "0",
+    member.name,
+    member.adminTitle ?? "",
+  ].join("|");
+  let alreadyProvisioned = false;
+  if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const { createServiceClient } = await import("@/lib/supabase/admin");
+      const { data: marker } = await createServiceClient()
+        .from("profiles")
+        .select("stream_synced_key")
+        .eq("id", userId)
+        .maybeSingle();
+      alreadyProvisioned = marker?.stream_synced_key === syncKey;
+    } catch {
+      // pre-0069 — provision every time, as before
+    }
+  }
+
   // Upsert the Stream user server-side (admins get Stream's admin role and
   // their title as a custom field), then ADD the user as a member of every
   // channel their tier allows. Without the membership grant, non-admin
   // users can't even read the channels — Stream's "user" role only sees
   // channels it belongs to. Best-effort per step so a hiccup on one channel
   // doesn't block the rest.
-  try {
-    const { StreamChat } = await import("stream-chat");
-    const server = StreamChat.getInstance(
-      process.env.NEXT_PUBLIC_STREAM_API_KEY!,
-      process.env.STREAM_API_SECRET!,
-    );
-    const streamUser = {
-      id: userId,
-      name: member.name,
-      role: member.isAdmin ? "admin" : "user",
-      // Custom field rendered next to the Admin badge in chat.
-      adminTitle: member.isAdmin ? (member.adminTitle ?? "") : "",
-    };
-    const teamUser = {
-      id: "momentum-team",
-      name: "Momentum+ Team",
-      role: "admin",
-      adminTitle: "Momentum+ Team",
-    };
-    await server.upsertUsers([streamUser, teamUser] as unknown as Parameters<
-      typeof server.upsertUsers
-    >[0]);
+  if (!alreadyProvisioned) {
+    try {
+      const { StreamChat } = await import("stream-chat");
+      const server = StreamChat.getInstance(
+        process.env.NEXT_PUBLIC_STREAM_API_KEY!,
+        process.env.STREAM_API_SECRET!,
+      );
+      const streamUser = {
+        id: userId,
+        name: member.name,
+        role: member.isAdmin ? "admin" : "user",
+        // Custom field rendered next to the Admin badge in chat.
+        adminTitle: member.isAdmin ? (member.adminTitle ?? "") : "",
+      };
+      const teamUser = {
+        id: "momentum-team",
+        name: "Momentum+ Team",
+        role: "admin",
+        adminTitle: "Momentum+ Team",
+      };
+      await server.upsertUsers([streamUser, teamUser] as unknown as Parameters<
+        typeof server.upsertUsers
+      >[0]);
 
-    const allowedIds = new Set(channels.map((c) => c.id));
-    const { COMMUNITY_CHANNELS } = await import("@/lib/stream");
-    await Promise.all(
-      COMMUNITY_CHANNELS.map(async (c) => {
+      const allowedIds = new Set(channels.map((c) => c.id));
+      const { COMMUNITY_CHANNELS } = await import("@/lib/stream");
+      const results = await Promise.all(
+        COMMUNITY_CHANNELS.map(async (c) => {
+          try {
+            const channel = server.channel("messaging", c.id, {
+              created_by_id: "momentum-team",
+              ...({ name: c.name } as object),
+            });
+            await channel.create();
+            // Admin-post-only is enforced BY STREAM, not just our UI: frozen
+            // channels reject client-side sends, so a member connecting with
+            // the SDK directly still can't post. Team posts go through the
+            // server (announcement composer + scheduled-posts cron), which
+            // frozen doesn't block.
+            if (c.adminPostOnly) {
+              await channel.updatePartial({ set: { frozen: true } });
+            }
+            if (allowedIds.has(c.id)) {
+              await channel.addMembers([userId]);
+            } else if (!member.isAdmin) {
+              // Downgraded tier: revoke gated rooms, don't just hide them.
+              await channel.removeMembers([userId]);
+            }
+            return true;
+          } catch {
+            return false; // per-channel best-effort
+          }
+        }),
+      );
+      // Stamp only a COMPLETE provisioning — a partial one (Stream hiccup on
+      // one channel) retries on the next open instead of sticking forever.
+      if (
+        results.every(Boolean) &&
+        isSupabaseConfigured() &&
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      ) {
         try {
-          const channel = server.channel("messaging", c.id, {
-            created_by_id: "momentum-team",
-            ...({ name: c.name } as object),
-          });
-          await channel.create();
-          // Admin-post-only is enforced BY STREAM, not just our UI: frozen
-          // channels reject client-side sends, so a member connecting with
-          // the SDK directly still can't post. Team posts go through the
-          // server (announcement composer + scheduled-posts cron), which
-          // frozen doesn't block.
-          if (c.adminPostOnly) {
-            await channel.updatePartial({ set: { frozen: true } });
-          }
-          if (allowedIds.has(c.id)) {
-            await channel.addMembers([userId]);
-          } else if (!member.isAdmin) {
-            // Downgraded tier: revoke gated rooms, don't just hide them.
-            await channel.removeMembers([userId]);
-          }
+          const { createServiceClient } = await import("@/lib/supabase/admin");
+          await createServiceClient()
+            .from("profiles")
+            .update({ stream_synced_key: syncKey })
+            .eq("id", userId);
         } catch {
-          // per-channel best-effort
+          // pre-0069 — nothing to stamp
         }
-      }),
-    );
-  } catch {
-    // non-fatal
+      }
+    } catch {
+      // non-fatal
+    }
   }
 
   return NextResponse.json(

@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { requestCache } from "@/lib/request-cache";
 
 /*
  * In-app service connections (Admin → Connections). Credentials pasted into
@@ -96,14 +97,17 @@ export interface GhlCreds {
   webhookSecret: string | null;
 }
 
-export async function getGhlCreds(): Promise<GhlCreds> {
+// requestCache: the reminder/dunning/gift loops send hundreds of emails in
+// one invocation, and each send used to re-read app_settings — one read per
+// invocation is plenty.
+export const getGhlCreds = requestCache(async (): Promise<GhlCreds> => {
   const db = await getServiceSettings<Partial<GhlCreds>>("ghl");
   return {
     apiKey: db?.apiKey ?? process.env.GHL_API_KEY ?? null,
     locationId: db?.locationId ?? process.env.GHL_LOCATION_ID ?? null,
     webhookSecret: db?.webhookSecret ?? process.env.GHL_WEBHOOK_SECRET ?? null,
   };
-}
+});
 
 export async function isGhlReady(): Promise<boolean> {
   const c = await getGhlCreds();
