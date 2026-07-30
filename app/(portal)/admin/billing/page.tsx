@@ -3,10 +3,11 @@ import {
   type BillingStatus,
 } from "@/components/admin/BillingSetup";
 import { PricingManager, type PricingInitial } from "@/components/admin/PricingManager";
-import {} from "@/components/icons";
+import { TslsPerksCard } from "@/components/admin/TslsPerksCard";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { getStripeSettings, pricesModeMismatch } from "@/lib/stripe";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getTslsPerks } from "@/lib/tsls-perks";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function AdminBillingPage() {
   const access = await getAdminAccess();
   const isSuper = access?.role === "super";
   const settings = isSuper ? await getStripeSettings() : null;
+  const perks = await getTslsPerks();
 
   const status: BillingStatus = {
     connected: Boolean(settings?.secretKey),
@@ -74,6 +76,7 @@ export default async function AdminBillingPage() {
             basic={pricingFor("basic")}
             pro={pricingFor("pro")}
           />
+          <TslsPerksCard initial={perks} />
           <div className="section-header" style={{ marginTop: 8 }}>
             <div>
               <h3 style={{ fontSize: 15 }}>Stripe connection</h3>

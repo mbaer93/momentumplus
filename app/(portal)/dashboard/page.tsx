@@ -35,6 +35,7 @@ import {
 } from "@/lib/sessions/view";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getTslsPerks } from "@/lib/tsls-perks";
 import { unstable_cache } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -201,6 +202,11 @@ export default async function DashboardPage() {
   const askForTestimonial =
     stats.memberSinceDays >= 14 && !(await hasTestimonial());
 
+  // TSLS ticket perk (Admin → Billing): the member discount on next year's
+  // summit tickets, shown while the offer is switched on.
+  const perks = preview ? null : await getTslsPerks();
+  const showPerk = Boolean(perks?.enabled && perks.url);
+
   const renewsLabel = member.accessExpiresAt
     ? new Date(member.accessExpiresAt).toLocaleDateString("en-US", {
         month: "short",
@@ -298,6 +304,42 @@ export default async function DashboardPage() {
               </Link>
             </div>
           )}
+        </div>
+      )}
+
+      {/* TSLS ticket perk — the member discount on next year's summit. */}
+      {showPerk && perks && (
+        <div className="admin-banner">
+          <div className="admin-banner-icon">
+            <StarIcon size={24} />
+          </div>
+          <div>
+            <h3>{perks.headline || "Your TSLS ticket discount"}</h3>
+            <p>
+              {perks.blurb ||
+                "Your Momentum+ membership includes a discount on next year's Tri-State Leadership Summit tickets."}
+              {perks.code && (
+                <>
+                  {" "}
+                  Use code{" "}
+                  <strong style={{ letterSpacing: "0.04em" }}>
+                    {perks.code}
+                  </strong>{" "}
+                  at checkout.
+                </>
+              )}
+            </p>
+          </div>
+          <div className="admin-banner-actions">
+            <a
+              href={perks.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-sm-gold"
+            >
+              Get my ticket
+            </a>
+          </div>
         </div>
       )}
 

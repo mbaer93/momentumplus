@@ -9,6 +9,7 @@ import {
   type StripeSettings,
 } from "@/lib/stripe";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { saveTslsPerks, type TslsPerks } from "@/lib/tsls-perks";
 
 export interface BillingResult {
   ok: boolean;
@@ -340,4 +341,39 @@ export async function saveWebhookSecret(secret: string): Promise<BillingResult> 
   await saveStripeSettings({ ...settings, webhookSecret: secret.trim() });
   refresh();
   return { ok: true, message: "Webhook signing secret saved." };
+}
+
+/**
+ * TSLS member perk: the next-year ticket discount card members see on their
+ * dashboard (Matt, 2026-07-29). Lives on the billing page because it's a
+ * money surface — same Super Admin gate as everything else here.
+ */
+export async function saveTslsPerksAction(
+  input: TslsPerks,
+): Promise<BillingResult> {
+  const early = await guardSuper();
+  if (early) return early;
+
+  const clean: TslsPerks = {
+    enabled: input.enabled === true,
+    headline: String(input.headline ?? "").trim().slice(0, 120),
+    blurb: String(input.blurb ?? "").trim().slice(0, 400),
+    code: String(input.code ?? "").trim().slice(0, 60),
+    url: String(input.url ?? "").trim().slice(0, 300),
+  };
+  if (clean.enabled && !/^https?:\/\//.test(clean.url)) {
+    return {
+      ok: false,
+      message: "Add the ticket link (https://…) before turning the perk on.",
+    };
+  }
+  await saveTslsPerks(clean);
+  revalidatePath("/admin/billing");
+  revalidatePath("/dashboard");
+  return {
+    ok: true,
+    message: clean.enabled
+      ? "Saved — members now see the ticket perk on their dashboard."
+      : "Saved. The perk stays hidden until you turn it on.",
+  };
 }

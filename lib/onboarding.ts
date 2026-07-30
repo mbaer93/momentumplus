@@ -1,4 +1,12 @@
 import { emailPattern } from "@/lib/db-utils";
+import {
+  giftDateLabel,
+  giftExtendedExpiry,
+  giftPlanFor,
+  isGiftTier,
+  pauseResumesAtUnix,
+  type BilledRow,
+} from "@/lib/gifts";
 import { addMonths } from "@/lib/membership";
 import { requestSiteUrl } from "@/lib/site-url";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -177,6 +185,156 @@ export async function createAccountWithoutEmail(
   };
 }
 
+/**
+ * A TSLS gift arriving on someone who already PAYS for Momentum+ (Matt,
+ * 2026-07-29): Stripe-billed members get their collection paused for the
+ * gift length (Stripe resumes it by itself at resumes_at) and their paid
+ * access pushed out the same amount; members billed elsewhere get the
+ * months added to the end of their membership. Either way the member gets
+ * an email saying exactly what happened, and the audit log keeps a
+ * once-per-season ledger so a bridge retry can't pause or extend twice.
+ *
+ * Returns null when the member isn't a paying member — the caller then
+ * inserts the normal gift membership row.
+ */
+async function applyGiftToPayingMember(input: {
+  profileId: string;
+  email: string;
+  name: string;
+  months: number;
+}): Promise<Pick<
+  ProvisionResult,
+  "ok" | "invited" | "alreadyActive" | "message"
+> | null> {
+  const admin = createServiceClient();
+  const { data: rows } = await admin
+    .from("memberships")
+    .select("id, tier, status, access_expires_at, source, stripe_subscription_id")
+    .eq("profile_id", input.profileId);
+  const plan = giftPlanFor((rows ?? []) as BilledRow[]);
+  if (plan.kind === "grant") return null;
+
+  // Once-per-season ledger: ~10 months comfortably covers a season without
+  // blocking next year's gift.
+  const since = new Date(Date.now() - 300 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: prior } = await admin
+    .from("admin_audit_log")
+    .select("id")
+    .eq("target_profile_id", input.profileId)
+    .in("action", ["tsls_gift_paused", "tsls_gift_extended"])
+    .gte("at", since)
+    .limit(1);
+  if (prior?.length) {
+    return {
+      ok: true,
+      invited: false,
+      alreadyActive: true,
+      message: `${input.email}: TSLS gift already applied this season.`,
+    };
+  }
+
+  const months = input.months;
+  const monthsLabel = `${months} month${months === 1 ? "" : "s"}`;
+  const newExpiry = giftExtendedExpiry(plan.row.access_expires_at, months);
+
+  let paused = false;
+  let pauseNote = "";
+  if (plan.kind === "pause") {
+    const { getStripeSettings, stripeRequest } = await import("@/lib/stripe");
+    const settings = await getStripeSettings();
+    if (settings?.secretKey && plan.row.stripe_subscription_id) {
+      try {
+        const sub = await stripeRequest<{ pause_collection?: unknown }>(
+          settings.secretKey,
+          "GET",
+          `/subscriptions/${plan.row.stripe_subscription_id}`,
+        );
+        if (sub.pause_collection) {
+          return {
+            ok: true,
+            invited: false,
+            alreadyActive: true,
+            message: `${input.email}: billing is already paused — gift already applied.`,
+          };
+        }
+        // behavior=void: invoices raised during the pause are voided, so a
+        // monthly member simply skips the gift months. (A member mid-way
+        // through a prepaid 3/6/12-month term has no invoice due inside the
+        // window — their gift is the access extension below.)
+        await stripeRequest(
+          settings.secretKey,
+          "POST",
+          `/subscriptions/${plan.row.stripe_subscription_id}`,
+          {
+            "pause_collection[behavior]": "void",
+            "pause_collection[resumes_at]": pauseResumesAtUnix(months),
+          },
+        );
+        paused = true;
+      } catch (e) {
+        pauseNote = ` (Stripe pause failed: ${(e as Error).message} — pause the subscription by hand in Stripe)`;
+      }
+    } else {
+      pauseNote = " (Stripe isn't connected — pause the subscription by hand)";
+    }
+  }
+
+  await admin
+    .from("memberships")
+    .update({ access_expires_at: newExpiry })
+    .eq("id", plan.row.id);
+
+  // Tell the member — a silent billing change is how trust dies.
+  let emailNote = "";
+  try {
+    const [{ sendEmailViaGhl }, { brandedEmailHtml }] = await Promise.all([
+      import("@/lib/notifications"),
+      import("@/lib/email-template"),
+    ]);
+    const expiryLabel = giftDateLabel(newExpiry);
+    const bodyHtml = paused
+      ? `<p style="margin:0 0 14px;">Thank you for being at the Tri-State Leadership Summit! Your attendee gift — <strong>${monthsLabel} of Momentum+ on us</strong> — is now active.</p>
+         <p style="margin:0 0 14px;">Since you're already a member, we've <strong>paused your billing for ${monthsLabel}</strong>. You keep full access the entire time, there's nothing you need to do, and billing resumes on its own afterward. Your paid access now runs through ${expiryLabel}.</p>`
+      : `<p style="margin:0 0 14px;">Thank you for being at the Tri-State Leadership Summit! Your attendee gift — <strong>${monthsLabel} of Momentum+ on us</strong> — is now active.</p>
+         <p style="margin:0 0 14px;">Since you're already a member, we've <strong>added the ${monthsLabel} to the end of your membership</strong> — your access now runs through ${expiryLabel}.</p>`;
+    const res = await sendEmailViaGhl({
+      email: input.email,
+      subject: "[Momentum+] Your TSLS gift is live",
+      html: brandedEmailHtml({
+        greetingName: input.name.split(" ")[0] || "",
+        heading: "Your TSLS gift is live",
+        bodyHtml,
+        ctaLabel: "Open Momentum+",
+        ctaUrl: "/dashboard",
+        footnote:
+          "You're getting this because you attended the Tri-State Leadership Summit as a Momentum+ member.",
+      }),
+    });
+    if (!res.sent) emailNote = ` (email not sent: ${res.reason ?? "unknown"})`;
+  } catch (e) {
+    emailNote = ` (email not sent: ${(e as Error).message})`;
+  }
+
+  const { logAdminAction } = await import("@/lib/admin-audit");
+  await logAdminAction({
+    actorId: null,
+    actorEmail: "system (tsls gift)",
+    action: paused ? "tsls_gift_paused" : "tsls_gift_extended",
+    targetProfileId: input.profileId,
+    targetEmail: input.email,
+    detail: `${monthsLabel} TSLS gift on a paying member (${plan.row.tier}); access through ${newExpiry.slice(0, 10)}${paused ? "; Stripe billing paused" : ""}${pauseNote}`,
+  });
+
+  return {
+    ok: true,
+    invited: false,
+    alreadyActive: false,
+    message: paused
+      ? `${input.email}: paying member — Stripe billing paused ${monthsLabel}, access extended to ${newExpiry.slice(0, 10)}.${emailNote}`
+      : `${input.email}: paying member — ${monthsLabel} added to their membership (now ${newExpiry.slice(0, 10)}).${pauseNote}${emailNote}`,
+  };
+}
+
 export async function provisionMember(
   input: ProvisionInput,
 ): Promise<ProvisionResult> {
@@ -268,6 +426,19 @@ export async function provisionMember(
     },
     { onConflict: "id" },
   );
+
+  // TSLS gift landing on a PAYING member: don't bury a free row under their
+  // subscription — pause their Stripe billing (or add the months to the end
+  // of a non-Stripe membership) and tell them. See lib/gifts.ts.
+  if (isGiftTier(input.tier) && (input.months ?? 0) > 0) {
+    const gifted = await applyGiftToPayingMember({
+      profileId,
+      email,
+      name: input.name ?? "",
+      months: input.months ?? 1,
+    });
+    if (gifted) return { ...base, ...gifted };
+  }
 
   // Idempotency: an active membership of the same tier that hasn't expired
   // means a retried Zapier task / re-pasted CSV row shouldn't double-grant.

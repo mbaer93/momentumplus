@@ -50,6 +50,8 @@ const ACTION_LABELS: Record<string, string> = {
   grant_admin: "Granted admin",
   change_to_admin: "Changed member to admin",
   invite_email_failed: "Invite email failed (needs re-send)",
+  tsls_gift_paused: "TSLS gift — billing paused",
+  tsls_gift_extended: "TSLS gift — membership extended",
 };
 
 /** Recent admin actions for the super-admin audit page. */

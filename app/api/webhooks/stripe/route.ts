@@ -217,7 +217,20 @@ export async function POST(req: NextRequest) {
         );
         const end = periodEndIso(sub);
         const patch: Record<string, unknown> = { status: mapStatus(sub.status) };
-        if (end) patch.access_expires_at = end;
+        // Only ever EXTEND. A TSLS gift (lib/gifts.ts) pushes the expiry past
+        // the current paid period; the first invoice after the pause must not
+        // pull it back.
+        if (end) {
+          const { data: row } = await admin
+            .from("memberships")
+            .select("access_expires_at")
+            .eq("stripe_subscription_id", subId)
+            .maybeSingle();
+          const current = row?.access_expires_at
+            ? new Date(row.access_expires_at as string).getTime()
+            : 0;
+          if (new Date(end).getTime() > current) patch.access_expires_at = end;
+        }
         await admin
           .from("memberships")
           .update(patch)
