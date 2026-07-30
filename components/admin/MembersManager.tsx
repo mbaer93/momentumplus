@@ -410,7 +410,7 @@ export function MembersManager({
               </tr>
               {editingId === m.membershipId && (
                 <tr>
-                  <td colSpan={7} style={{ background: "#fbfaf8" }}>
+                  <td colSpan={7} style={{ background: "var(--row-alt)" }}>
                     <div style={{ padding: "6px 4px" }}>
                       <div
                         className="admin-field-row"

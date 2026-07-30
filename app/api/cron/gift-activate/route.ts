@@ -1,5 +1,6 @@
 import { bearerAuthorized, redactEmail } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
+import { recordCronRun } from "@/lib/cron-health";
 import {
   activateScheduledGift,
   type ScheduledGiftRow,
@@ -86,5 +87,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  await recordCronRun("gift-activate");
   return NextResponse.json({ ok: true, applied, deferred, failures });
 }

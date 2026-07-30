@@ -1,5 +1,6 @@
 import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
+import { recordCronRun } from "@/lib/cron-health";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { getMeetingParticipants, getMeetingRecordings } from "@/lib/zoom";
 import { ingestSessionRecording, type IngestSession } from "@/lib/zoom-recordings";
@@ -345,6 +346,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  await recordCronRun("attendance");
   return NextResponse.json({
     ok: true,
     wentLive,

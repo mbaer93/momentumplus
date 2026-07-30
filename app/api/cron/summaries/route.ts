@@ -1,6 +1,7 @@
 import { bearerAuthorized } from "@/lib/db-utils";
 import { revalidatePath } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
+import { recordCronRun } from "@/lib/cron-health";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
@@ -357,5 +358,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  await recordCronRun("summaries");
   return NextResponse.json({ ok: true, summary });
 }

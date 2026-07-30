@@ -369,7 +369,7 @@ export function SponsorsManager({
   const editorPanel = !editSeed ? null : (
     <div
       className="card admin-editor-panel"
-      style={{ padding: "14px 16px", background: "#fbfaf8" }}
+      style={{ padding: "14px 16px", background: "var(--row-alt)" }}
     >
       <div className="admin-row-title" style={{ marginBottom: 8 }}>
         Editing {editSeed.name}

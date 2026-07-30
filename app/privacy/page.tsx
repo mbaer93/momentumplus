@@ -17,12 +17,12 @@ export default function PrivacyPage() {
   const pStyle = {
     margin: "0 0 12px",
     lineHeight: 1.7,
-    color: "#3d4247",
+    color: "var(--text)",
     fontSize: 15,
   } as const;
 
   return (
-    <div style={{ background: "#F8F6F1", minHeight: "100vh", padding: "40px 20px" }}>
+    <div style={{ background: "var(--cream)", minHeight: "100vh", padding: "40px 20px" }}>
       <div
         style={{
           maxWidth: 760,
@@ -38,17 +38,17 @@ export default function PrivacyPage() {
             style={{
               fontFamily: "Georgia, serif",
               fontSize: 28,
-              color: "#0B1622",
+              color: "var(--navy)",
             }}
           >
-            Momentum<span style={{ color: "#B8965A" }}>+</span>
+            Momentum<span style={{ color: "var(--gold)" }}>+</span>
           </div>
           <div
             style={{
               fontSize: 10,
               letterSpacing: 3,
               textTransform: "uppercase",
-              color: "#B8965A",
+              color: "var(--gold)",
               marginTop: 4,
             }}
           >
@@ -109,13 +109,13 @@ export default function PrivacyPage() {
         <div style={{ overflowX: "auto", margin: "0 0 12px" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
             <thead>
-              <tr style={{ textAlign: "left", borderBottom: "2px solid #0B1622" }}>
+              <tr style={{ textAlign: "left", borderBottom: "2px solid var(--navy)" }}>
                 <th style={{ padding: "6px 8px" }}>Provider</th>
                 <th style={{ padding: "6px 8px" }}>What they receive</th>
                 <th style={{ padding: "6px 8px" }}>Purpose</th>
               </tr>
             </thead>
-            <tbody style={{ color: "#3d4247" }}>
+            <tbody style={{ color: "var(--text)" }}>
               {[
                 ["Stripe", "Name, email, payment details (entered on Stripe), plan", "Subscription billing"],
                 ["Go High Level", "Name, email, phone (for opted-in SMS), message content", "Billing sync, email/SMS notifications"],
@@ -191,7 +191,7 @@ export default function PrivacyPage() {
         <h2 style={sectionStyle}>Contact</h2>
         <p style={pStyle}>
           Questions or requests:{" "}
-          <a href="mailto:hello@momentumplus.co" style={{ color: "#0B1622" }}>
+          <a href="mailto:hello@momentumplus.co" style={{ color: "var(--navy)" }}>
             hello@momentumplus.co
           </a>
           .
@@ -201,7 +201,7 @@ export default function PrivacyPage() {
         </p>
 
         <div style={{ marginTop: 24, textAlign: "center" }}>
-          <Link href="/" style={{ color: "#0B1622", fontSize: 13 }}>
+          <Link href="/" style={{ color: "var(--navy)", fontSize: 13 }}>
             ← Back to Momentum+
           </Link>
         </div>

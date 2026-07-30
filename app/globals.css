@@ -25,8 +25,19 @@
   --gold-pale: #f4ede0;
   --white: #ffffff;
   --accent-red: #a04040;
+  /* Readable error tint for text sitting on the navy hero panels, where
+     --accent-red itself is too dark to read. */
+  --accent-red-light: #e08585;
   --accent-blue: #3a6b96;
   --accent-green: #3a7055;
+  /* Aliases several components reference (audit: an undefined var() inside a
+     border shorthand invalidates the declaration, so borders rendered in
+     currentColor ink instead of the intended hairline). */
+  --border: var(--warm-gray);
+  --line: var(--warm-gray);
+  --navy-light: var(--navy-3);
+  /* Expanded/hover row background — was hard-coded #fbfaf8 in 6 components. */
+  --row-alt: #fbfaf8;
   --purple: #5c3d7a;
   --sidebar-width: 240px;
   --header-height: 60px;

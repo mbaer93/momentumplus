@@ -30,7 +30,9 @@ speaker profiles, partner resources, sponsor content, and a personal learning re
 2. **GHL is the source of truth for payment status.** Webhooks update `memberships`;
    the app never assumes access without checking `access_expires_at` and status.
 3. **Design fidelity.** Navy #0B1622, gold #B8965A, cream #F8F6F1, Playfair Display
-   headings, Inter body, 4px radii, stroke-only SVG icons, NO emoji in UI.
+   headings, Inter body, radii from the mockup scale (2/4/8/10/12/14/16/20px — 4px
+   is the default for inputs, buttons, and cards), stroke-only SVG icons, NO emoji
+   in UI.
 4. **Every session tracks three things:** enrollments (signup), attendance (from Zoom
    join data), and notes (private per member). These feed the member profile stats.
 5. Secrets go in `.env.local` (gitignored). Never hardcode keys. `.env.example` lists

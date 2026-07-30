@@ -177,6 +177,26 @@ async function upsertGhlContact(
   }
 }
 
+/** GHL rate-limits burst sends with 429s. A couple of short, header-aware
+    retries turn a dropped reminder into a delivered one; anything past that
+    still reports the failure to the caller. */
+async function retryOn429(
+  doFetch: () => Promise<Response>,
+): Promise<Response> {
+  let res = await doFetch();
+  for (const fallbackMs of [1500, 3000]) {
+    if (res.status !== 429) return res;
+    const retryAfter = Number(res.headers.get("retry-after"));
+    const waitMs =
+      Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 10_000)
+        : fallbackMs;
+    await new Promise((r) => setTimeout(r, waitMs));
+    res = await doFetch();
+  }
+  return res;
+}
+
 export async function sendEmailViaGhl(input: {
   contactId?: string | null;
   email: string;
@@ -219,12 +239,12 @@ export async function sendEmailViaGhl(input: {
   // Overridable via env.
   const fromFull =
     process.env.GHL_EMAIL_FROM || "Momentum+ Team <grow@sierralearnership.com>";
-  let res = await send(fromFull);
+  let res = await retryOn429(() => send(fromFull));
   if (!res.ok && (res.status === 400 || res.status === 422)) {
     // Some GHL validators reject the `Name <address>` form — retry with
     // just the bare address before giving up.
     const bare = /<([^>]+)>/.exec(fromFull)?.[1];
-    if (bare) res = await send(bare);
+    if (bare) res = await retryOn429(() => send(bare));
   }
   if (!res.ok) {
     // Surface WHY — "1 email failed" with no reason is undebuggable from
@@ -279,20 +299,22 @@ export async function sendSmsViaGhl(input: {
   if (!contactId) {
     return { sent: false, reason: "no contact/phone" };
   }
-  const res = await fetch(`${GHL_API_BASE}/conversations/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${creds.apiKey}`,
-      Version: "2021-04-15",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      type: "SMS",
-      contactId,
-      message: input.message,
+  const res = await retryOn429(() =>
+    fetch(`${GHL_API_BASE}/conversations/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${creds.apiKey}`,
+        Version: "2021-04-15",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "SMS",
+        contactId,
+        message: input.message,
+      }),
+      cache: "no-store",
     }),
-    cache: "no-store",
-  });
+  );
   if (!res.ok) {
     // Surface WHY (GHL's error text, no member PII) — silent SMS failures
     // burned a test run already.

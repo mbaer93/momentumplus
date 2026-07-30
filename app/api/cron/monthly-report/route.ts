@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { recordCronRun } from "@/lib/cron-health";
 import { bearerAuthorized } from "@/lib/db-utils";
 import { brandedEmailHtml } from "@/lib/email-template";
 import { sendEmailViaGhl } from "@/lib/notifications";
@@ -193,5 +194,6 @@ export async function GET(req: NextRequest) {
     { onConflict: "key" },
   );
 
+  await recordCronRun("monthly-report");
   return NextResponse.json({ ok: true, month: reportKey, emailed });
 }

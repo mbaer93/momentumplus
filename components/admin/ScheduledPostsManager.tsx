@@ -168,7 +168,7 @@ export function ScheduledPostsManager({ rows }: { rows: ScheduledPostRow[] }) {
                   borderRadius: 4,
                   padding: 12,
                   marginBottom: 8,
-                  background: "#fbfaf8",
+                  background: "var(--row-alt)",
                 }}
               >
                 <div className="admin-field-row" style={{ gridTemplateColumns: "1fr 1fr" }}>

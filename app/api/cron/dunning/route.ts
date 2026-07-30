@@ -1,5 +1,6 @@
 import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
+import { recordCronRun } from "@/lib/cron-health";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { sendEmailViaGhl } from "@/lib/notifications";
@@ -154,6 +155,7 @@ export async function GET(req: NextRequest) {
     results.push({ membershipId: m.id as string, step: nextStep });
   }
 
+  await recordCronRun("dunning");
   return NextResponse.json({
     ok: true,
     pastDue: pastDue?.length ?? 0,

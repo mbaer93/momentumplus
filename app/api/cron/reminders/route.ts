@@ -1,5 +1,6 @@
 import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
+import { recordCronRun } from "@/lib/cron-health";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { brandedEmailHtml } from "@/lib/email-template";
@@ -376,6 +377,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  await recordCronRun("reminders");
   return NextResponse.json({
     ok: true,
     sessionsInWindow: sessions?.length ?? 0,

@@ -12,10 +12,6 @@ import { createHmac, timingSafeEqual } from "crypto";
  * Both compare timing-safe. No secret configured → reject everything.
  */
 
-export function isGhlConfigured(): boolean {
-  return Boolean(process.env.GHL_API_KEY && process.env.GHL_LOCATION_ID);
-}
-
 function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { CheckIcon } from "@/components/icons";
 import {
   connectStripe,
   saveWebhookSecret,
@@ -42,7 +43,7 @@ function StepBadge({ done, n }: { done: boolean; n: number }) {
         color: "#fff",
       }}
     >
-      {done ? "✓" : n}
+      {done ? <CheckIcon size={13} /> : n}
     </span>
   );
 }

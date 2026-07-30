@@ -44,7 +44,15 @@ export function mapStatus(
   stripeStatus: string,
 ): "active" | "past_due" | "canceled" {
   if (stripeStatus === "active" || stripeStatus === "trialing") return "active";
-  if (stripeStatus === "canceled" || stripeStatus === "incomplete_expired") {
+  if (
+    stripeStatus === "canceled" ||
+    stripeStatus === "incomplete" ||
+    stripeStatus === "incomplete_expired"
+  ) {
+    // `incomplete` is the moments between checkout starting and the first
+    // payment settling — mapping it to past_due used to enroll a fine card
+    // in the dunning sequence AND hand out the grace window before any
+    // payment existed. No access until invoice.paid flips it active.
     return "canceled";
   }
   return "past_due";
