@@ -1515,6 +1515,57 @@ export async function undoTrimLogos(): Promise<SponsorResult> {
 }
 
 /**
+ * Push every live sponsor listing to TSLS in one pass (Matt, 2026-07-29:
+ * the Momentum+ Sponsor — and anything else that only exists here — must
+ * appear on the TSLS sponsors page too). Uses the same per-sponsor bridge
+ * as edit-triggered syncs; TSLS matches by name, creates what's missing,
+ * and never overwrites a filled field with a blank.
+ */
+export async function syncRosterToTsls(): Promise<SponsorResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Synced (preview mode)." };
+  }
+  const auth = await requireAdmin("sponsors");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { data: rows, error } = await admin
+    .from("sponsors")
+    .select("name, tier, tagline, description, website, logo_url, prospect, archived_at")
+    .is("archived_at", null);
+  if (error) return { ok: false, message: error.message };
+
+  const { sponsorTierLabel } = await import("@/lib/sponsor-tiers");
+  const { pushSponsorToTsls } = await import("@/lib/tsls-bridge");
+  const live = (rows ?? []).filter((r) => !r.prospect);
+  const pushed: string[] = [];
+  const failed: { name: string; reason: string }[] = [];
+  for (const r of live) {
+    const result = await pushSponsorToTsls({
+      name: String(r.name),
+      tier: sponsorTierLabel(String(r.tier ?? "")),
+      tagline: (r.tagline as string | null) ?? null,
+      description: (r.description as string | null) ?? null,
+      website: (r.website as string | null) ?? null,
+      logoUrl: (r.logo_url as string | null) ?? null,
+    });
+    if (result.ok) pushed.push(String(r.name));
+    else failed.push({ name: String(r.name), reason: result.message ?? "failed" });
+  }
+  const failNote =
+    failed.length > 0
+      ? ` Failed: ${failed
+          .slice(0, 6)
+          .map((f) => `${f.name} — ${f.reason}`)
+          .join("; ")}${failed.length > 6 ? `; +${failed.length - 6} more` : ""}.`
+      : "";
+  return {
+    ok: failed.length === 0,
+    message: `Pushed ${pushed.length} sponsor${pushed.length === 1 ? "" : "s"} to TSLS.${failNote}`,
+  };
+}
+
+/**
  * The sponsor-email master switch. OFF by default (Matt, 2026-07-29): no
  * emails to sponsors from either platform until he flips it on.
  */

@@ -47,6 +47,7 @@ import {
   importInterestFormAssets,
   inviteSponsorRep,
   restoreFormLogos,
+  syncRosterToTsls,
   trimLogosSafe,
   undoTrimLogos,
   reinstateSponsor,
@@ -892,6 +893,22 @@ export function SponsorsManager({
             }}
           >
             Restore from the form
+          </button>
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => {
+              if (
+                confirm(
+                  "Push every live sponsor (name, tier, tagline, description, website, logo) to the TSLS sponsors page? TSLS matches by name and never overwrites a filled field with a blank.",
+                )
+              ) {
+                run(() => syncRosterToTsls());
+              }
+            }}
+          >
+            Sync roster to TSLS
           </button>
         </div>
       </div>

@@ -14,19 +14,30 @@ function tslsUrl(path: string): string {
   return `${base}${path}`;
 }
 
-async function push(body: Record<string, unknown>): Promise<void> {
+async function push(
+  body: Record<string, unknown>,
+): Promise<{ ok: boolean; message?: string }> {
   const key = process.env.TSLS_SSO_KEY;
-  if (!key) return; // bridge not configured — off-season is normal
+  if (!key) return { ok: false, message: "TSLS bridge not configured" };
   try {
-    await fetch(tslsUrl("/api/bridge/update"), {
+    const res = await fetch(tslsUrl("/api/bridge/update"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": key },
       body: JSON.stringify(body),
       cache: "no-store",
       signal: AbortSignal.timeout(8000),
     });
-  } catch {
-    // Never let a cross-app hiccup fail the save that triggered it.
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, message: data.error ?? `TSLS returned ${res.status}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    // Save-triggered callers ignore this; the roster-sync button reports it.
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "TSLS unreachable",
+    };
   }
 }
 
@@ -39,9 +50,9 @@ export async function pushSponsorToTsls(input: {
   description?: string | null;
   website?: string | null;
   logoUrl?: string | null;
-}): Promise<void> {
-  if (!input.name.trim()) return;
-  await push({ kind: "sponsor", ...input });
+}): Promise<{ ok: boolean; message?: string }> {
+  if (!input.name.trim()) return { ok: false, message: "no name" };
+  return push({ kind: "sponsor", ...input });
 }
 
 /** A person's profile changed here (member, admin, sponsor rep, speaker) —
@@ -55,7 +66,7 @@ export async function pushPersonToTsls(input: {
   website?: string | null;
   /** Comma-separated topic tags (TSLS stores them as one string). */
   tags?: string | null;
-}): Promise<void> {
-  if (!input.email.trim()) return;
-  await push({ kind: "person", ...input });
+}): Promise<{ ok: boolean; message?: string }> {
+  if (!input.email.trim()) return { ok: false, message: "no email" };
+  return push({ kind: "person", ...input });
 }
