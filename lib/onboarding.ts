@@ -3,7 +3,9 @@ import {
   giftDateLabel,
   giftExtendedExpiry,
   giftPlanFor,
+  isFutureStart,
   isGiftTier,
+  parseGiftStart,
   pauseResumesAtUnix,
   type BilledRow,
 } from "@/lib/gifts";
@@ -37,6 +39,12 @@ export interface ProvisionInput {
       email. Used by the TSLS Companion bridge, where TSLS is the single
       inviter and members cross over via SSO — so nobody gets two emails. */
   quiet?: boolean;
+  /** Gift start (ISO). In the future → the account is created now but the
+      gift itself waits in scheduled_gifts until the gift-activate cron
+      applies it on that date (TSLS sends the first of the event month —
+      "free months don't start until the month of the event"). Past/absent
+      → the gift applies immediately. Gift tiers only. */
+  startAt?: string | null;
 }
 
 export interface ProvisionResult {
@@ -182,6 +190,128 @@ export async function createAccountWithoutEmail(
       ? `${siteUrl ?? ""}/auth/confirm?token_hash=${hashed}&type=recovery&redirect=/welcome`
       : (linkData?.properties?.action_link ?? null),
     error: null,
+  };
+}
+
+/** Park a gift until its start date (the month of the event). */
+async function scheduleGift(input: {
+  profileId: string;
+  email: string;
+  name: string;
+  tier: Tier;
+  months: number;
+  startsAt: string;
+  source: string;
+}): Promise<Pick<ProvisionResult, "ok" | "alreadyActive" | "message">> {
+  const admin = createServiceClient();
+
+  // A retried bridge call must not stack a second pending gift.
+  const { data: pending } = await admin
+    .from("scheduled_gifts")
+    .select("id, starts_at")
+    .eq("profile_id", input.profileId)
+    .is("applied_at", null)
+    .limit(1);
+  if (pending?.length) {
+    return {
+      ok: true,
+      alreadyActive: true,
+      message: `${input.email}: gift already scheduled for ${String(pending[0].starts_at).slice(0, 10)}.`,
+    };
+  }
+
+  const { error } = await admin.from("scheduled_gifts").insert({
+    profile_id: input.profileId,
+    email: input.email,
+    name: input.name || null,
+    tier: input.tier,
+    months: input.months,
+    starts_at: input.startsAt,
+    source: input.source,
+  });
+  if (error) {
+    if (/relation .*scheduled_gifts.* does not exist/i.test(error.message)) {
+      return {
+        ok: false,
+        alreadyActive: false,
+        message: "Run migration 0068 in Supabase first.",
+      };
+    }
+    // Unique-index race with a parallel call: someone else scheduled it.
+    if (error.code === "23505") {
+      return {
+        ok: true,
+        alreadyActive: true,
+        message: `${input.email}: gift already scheduled.`,
+      };
+    }
+    return { ok: false, alreadyActive: false, message: error.message };
+  }
+  return {
+    ok: true,
+    alreadyActive: false,
+    message: `${input.email}: account ready — ${input.months} gift month${input.months === 1 ? "" : "s"} start ${input.startsAt.slice(0, 10)} (the month of the event).`,
+  };
+}
+
+export interface ScheduledGiftRow {
+  id: string;
+  profile_id: string;
+  email: string;
+  name: string | null;
+  tier: Tier;
+  months: number;
+  starts_at: string;
+  source: string | null;
+}
+
+/**
+ * Apply a scheduled gift whose start date has arrived (gift-activate cron).
+ * Same behavior as an immediate gift: paying members get the billing
+ * pause / end-of-membership extension (with the email), everyone else gets
+ * the membership row — its clock anchored on the scheduled start, not on
+ * when the cron happened to run.
+ */
+export async function activateScheduledGift(
+  row: ScheduledGiftRow,
+): Promise<{ ok: boolean; result: string }> {
+  const gifted = await applyGiftToPayingMember({
+    profileId: row.profile_id,
+    email: row.email,
+    name: row.name ?? "",
+    months: row.months,
+  });
+  if (gifted) {
+    return { ok: gifted.ok, result: gifted.message ?? "applied to paying member" };
+  }
+
+  const admin = createServiceClient();
+  const { data: existing } = await admin
+    .from("memberships")
+    .select("id, access_expires_at")
+    .eq("profile_id", row.profile_id)
+    .eq("tier", row.tier)
+    .eq("status", "active");
+  const stillActive = (existing ?? []).some(
+    (m) => !m.access_expires_at || new Date(m.access_expires_at) > new Date(),
+  );
+  if (stillActive) {
+    return { ok: true, result: "already has an active membership of this tier" };
+  }
+
+  const starts = new Date(row.starts_at);
+  const { error } = await admin.from("memberships").insert({
+    profile_id: row.profile_id,
+    tier: row.tier,
+    status: "active",
+    access_starts_at: starts.toISOString(),
+    access_expires_at: addMonths(starts, row.months).toISOString(),
+    source: row.source ?? "zapier",
+  });
+  if (error) return { ok: false, result: error.message };
+  return {
+    ok: true,
+    result: `granted ${row.months} month${row.months === 1 ? "" : "s"} from ${row.starts_at.slice(0, 10)}`,
   };
 }
 
@@ -426,6 +556,24 @@ export async function provisionMember(
     },
     { onConflict: "id" },
   );
+
+  // Gift with a future start (ticket bought before the event): the account
+  // now exists, but the free months must not start until the month of the
+  // event (Matt, 2026-07-30) — park the gift in scheduled_gifts for the
+  // gift-activate cron and stop here.
+  const startAt = parseGiftStart(input.startAt);
+  if (isGiftTier(input.tier) && (input.months ?? 0) > 0 && isFutureStart(startAt)) {
+    const scheduled = await scheduleGift({
+      profileId,
+      email,
+      name: input.name ?? "",
+      tier: input.tier,
+      months: input.months ?? 1,
+      startsAt: startAt as string,
+      source: input.source,
+    });
+    return { ...base, invited, ...scheduled };
+  }
 
   // TSLS gift landing on a PAYING member: don't bury a free row under their
   // subscription — pause their Stripe billing (or add the months to the end
