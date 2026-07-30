@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentMember } from "@/lib/current-member";
 import { getAnthropicApiKey } from "@/lib/service-config";
+import { createClient } from "@/lib/supabase/server";
+import { allowAction } from "@/lib/throttle";
 
 /*
  * AI help chat: answers member questions about using Momentum+. Runs on the
@@ -9,20 +11,6 @@ import { getAnthropicApiKey } from "@/lib/service-config";
  */
 
 export const dynamic = "force-dynamic";
-
-// Best-effort per-user throttle (per server instance): 20 requests/hour.
-const usage = new Map<string, number[]>();
-function overLimit(key: string): boolean {
-  const now = Date.now();
-  const recent = (usage.get(key) ?? []).filter((t) => now - t < 3600_000);
-  if (recent.length >= 20) {
-    usage.set(key, recent);
-    return true;
-  }
-  recent.push(now);
-  usage.set(key, recent);
-  return false;
-}
 
 const HELP_MODEL = "claude-haiku-4-5-20251001";
 
@@ -58,7 +46,13 @@ export async function POST(req: Request) {
   if (!member || !member.membershipActive) {
     return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   }
-  if (overLimit(member.email || member.name)) {
+  // Durable 20-requests/hour cap (action_events, migration 0071). The old
+  // in-process Map reset on every cold start and never saw sibling
+  // serverless instances, so the paid-API cap was advisory.
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser();
+  if (user && !(await allowAction(user.id, "help_chat", 20, 3600_000))) {
     return NextResponse.json({
       reply:
         "You've reached the helper's hourly limit — give it a little while and ask again, or post in the Community chat.",

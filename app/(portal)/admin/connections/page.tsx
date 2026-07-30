@@ -137,7 +137,20 @@ export default async function AdminConnectionsPage() {
           </p>
         </div>
         <span className="admin-status draft">
-          Core database: {isSupabaseConfigured() ? "Connected" : "Preview mode"}
+          {/* The host answers "which database am I on?" — with separate
+              production and staging Supabase projects, a preview deploy
+              must visibly NOT be production (docs/environments.md). */}
+          Core database:{" "}
+          {isSupabaseConfigured()
+            ? (() => {
+                try {
+                  return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL as string)
+                    .hostname;
+                } catch {
+                  return "Connected";
+                }
+              })()
+            : "Preview mode"}
         </span>
       </div>
 
