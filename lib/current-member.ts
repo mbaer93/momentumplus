@@ -51,7 +51,12 @@ export async function requireMember(): Promise<CurrentMember> {
   // First login without a name (email-only invites, magic links): the
   // directory and chat would show a bare email address, so collect the
   // name before opening the portal.
-  if (!member.profileComplete) redirect("/welcome?step=profile");
+  // Full welcome, not ?step=profile: a member with no name yet has almost
+  // certainly never onboarded, and the profile-only shortcut silently
+  // skipped the set-a-password step (Matt, 2026-07-30: invitees who signed
+  // in via a magic link were never prompted). Step 1 offers a skip for the
+  // rare already-passworded member who's only missing their name.
+  if (!member.profileComplete) redirect("/welcome");
   return member;
 }
 

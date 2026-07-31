@@ -273,6 +273,18 @@ export function WelcomeForm({
           {loading ? "Saving…" : mode === "reset" ? "Save new password" : "Continue"}
         </button>
       </form>
+      {mode !== "reset" && (
+        <div className="login-alt">
+          {/* The portal gate sends anyone without a name through the FULL
+              welcome so the password step can't be skipped by accident —
+              this is the escape hatch for the rare member who already set
+              one and only needs the profile step. */}
+          Already set your password?{" "}
+          <button type="button" onClick={() => setStep(2)}>
+            Skip to your profile
+          </button>
+        </div>
+      )}
     </div>
   );
 }
