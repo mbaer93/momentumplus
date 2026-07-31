@@ -19,6 +19,12 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # The staging one-paste schema (supabase/baseline.sql) must never
+      # drift behind the migrations — regenerate and fail if it changed.
+      - name: Baseline schema is current
+        run: |
+          node scripts/make-baseline.mjs
+          git diff --exit-code supabase/baseline.sql
       # A build-breaking change must fail CI, not just the Vercel preview.
       - run: npm run build
 
