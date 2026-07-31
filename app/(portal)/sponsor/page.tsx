@@ -37,7 +37,10 @@ export default async function SponsorStudioPage(
         <div className="section-header">
           <div>
             <h2>Sponsor Studio</h2>
-            <p>Preview mode — connect Supabase to manage a sponsor page.</p>
+            <p>
+              Sponsor tools appear here once your account is linked to a
+              sponsor business.
+            </p>
           </div>
         </div>
       </div>

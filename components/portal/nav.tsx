@@ -136,6 +136,7 @@ export function titleForPath(pathname: string): string {
   if (pathname === "/upgrade" || pathname.startsWith("/upgrade/")) {
     return "Plans & Upgrades";
   }
+  if (pathname === "/search") return "Search";
   const all = NAV_SECTIONS.flatMap((s) => s.items);
   const match = all.find(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),

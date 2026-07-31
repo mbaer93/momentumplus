@@ -137,7 +137,9 @@ export function AnnouncementComposer() {
 
       <div className="admin-field">
         <label>Channels</label>
-        <div style={{ display: "flex", gap: 8 }}>
+        {/* flexWrap: four chips overflow a 360px phone and the SMS chip
+            became unreachable (clipped by the content area). */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             type="button"
             className={`tier-chip${channels.includes("email") ? " selected" : ""}`}
