@@ -29,10 +29,17 @@ test("a cron inside 2x its interval is on schedule", () => {
   assert.equal(neverRan.length, 0);
 });
 
-test("the 90-minute floor keeps hourly jobs from paging at minute 61", () => {
-  const { late } = lateCrons({ summaries: 60 }, { summaries: minutesAgo(89) }, NOW);
+test("the 90-minute floor keeps fast jobs from paging over one quiet hour", () => {
+  const { late } = lateCrons({ reminders: 5 }, { reminders: minutesAgo(89) }, NOW);
   assert.equal(late.length, 0);
-  const after = lateCrons({ summaries: 60 }, { summaries: minutesAgo(95) }, NOW);
+  const after = lateCrons({ reminders: 5 }, { reminders: minutesAgo(95) }, NOW);
+  assert.deepEqual(after.late.map((l) => l.name), ["reminders"]);
+});
+
+test("an hourly job pages only after 2x its interval, not at the floor", () => {
+  const { late } = lateCrons({ summaries: 60 }, { summaries: minutesAgo(110) }, NOW);
+  assert.equal(late.length, 0);
+  const after = lateCrons({ summaries: 60 }, { summaries: minutesAgo(130) }, NOW);
   assert.deepEqual(after.late.map((l) => l.name), ["summaries"]);
 });
 
