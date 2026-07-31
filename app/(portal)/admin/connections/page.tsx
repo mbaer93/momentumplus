@@ -10,6 +10,8 @@ import {
 } from "@/components/admin/ConnectWizards";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { readCronHealth } from "@/lib/cron-health";
+import { readHealthReport } from "@/lib/health";
+import { runHealthNowAction } from "./health-actions";
 import { isMuxConfigured } from "@/lib/mux";
 import { pushConfigured } from "@/lib/push";
 import {
@@ -101,17 +103,27 @@ export default async function AdminConnectionsPage() {
   const access = await getAdminAccess();
   const isSuper = access?.role === "super";
 
-  const [stripe, zoomOk, zoomSdkOk, zoomCreds, anthropicOk, ghlOk, smtpDone, cronHealth] =
-    await Promise.all([
-      getStripeSettings(),
-      isZoomReady(),
-      isZoomSdkReady(),
-      getZoomCreds(),
-      isAnthropicReady(),
-      isGhlReady(),
-      isSmtpMarkedDone(),
-      readCronHealth(),
-    ]);
+  const [
+    stripe,
+    zoomOk,
+    zoomSdkOk,
+    zoomCreds,
+    anthropicOk,
+    ghlOk,
+    smtpDone,
+    cronHealth,
+    healthReport,
+  ] = await Promise.all([
+    getStripeSettings(),
+    isZoomReady(),
+    isZoomSdkReady(),
+    getZoomCreds(),
+    isAnthropicReady(),
+    isGhlReady(),
+    isSmtpMarkedDone(),
+    readCronHealth(),
+    readHealthReport(),
+  ]);
   const stripeDone = stripeReady(stripe);
   const zoomHookOk = Boolean(zoomCreds.webhookSecretToken);
 
@@ -325,6 +337,81 @@ export default async function AdminConnectionsPage() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="section-header" style={{ marginTop: 26 }}>
+            <div>
+              <h2 style={{ fontSize: 17 }}>Health checks</h2>
+              <p>
+                Every 6 hours each service is probed for real — a live API
+                call, not just &ldquo;the key is set&rdquo;. You get an email
+                when something breaks or recovers.
+              </p>
+            </div>
+            <form action={runHealthNowAction}>
+              <button type="submit" className="btn-sm-gold">
+                Run checks now
+              </button>
+            </form>
+          </div>
+          <div className="card" style={{ padding: 0, maxWidth: 860 }}>
+            {!healthReport ? (
+              <div style={{ fontSize: 13, color: "var(--mid-gray)", padding: "12px 18px" }}>
+                No report yet — run the checks now, or wait for the first
+                6-hour cycle after this deploy.
+              </div>
+            ) : (
+              <>
+                {healthReport.checks.map((c, i) => (
+                  <div
+                    key={c.name}
+                    style={{
+                      display: "flex",
+                      gap: 14,
+                      alignItems: "baseline",
+                      padding: "10px 18px",
+                      borderTop: i === 0 ? "none" : "1px solid var(--warm-gray)",
+                    }}
+                  >
+                    <strong
+                      style={{
+                        minWidth: 96,
+                        color: c.skipped
+                          ? "var(--mid-gray)"
+                          : c.ok
+                            ? "var(--accent-green)"
+                            : "#c0392b",
+                        fontSize: 13,
+                      }}
+                    >
+                      {c.skipped ? "Not set up" : c.ok ? "Passing" : "FAILING"}
+                    </strong>
+                    <div>
+                      <strong style={{ fontSize: 13.5 }}>{c.name}</strong>
+                      <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                        {c.note}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--mid-gray)",
+                    padding: "10px 18px",
+                    borderTop: "1px solid var(--warm-gray)",
+                  }}
+                >
+                  Last checked{" "}
+                  {new Date(healthReport.at).toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="section-header" style={{ marginTop: 26 }}>

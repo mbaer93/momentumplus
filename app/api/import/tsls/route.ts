@@ -1,5 +1,6 @@
 import { bearerAuthorized, emailPattern, redactEmail } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
+import { recordCronRun } from "@/lib/cron-health";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { addMonths, mapTslsRegistration } from "@/lib/membership";
@@ -201,6 +202,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // The only cron here that didn't stamp a heartbeat — the health check's
+  // Scheduled-jobs probe reads these to spot a silently dead import.
+  await recordCronRun(
+    "tsls-import",
+    `imported=${summary.imported} errors=${summary.errors.length}`,
+  );
   return NextResponse.json({ ok: true, eventYear, ...summary });
 }
 
