@@ -1703,7 +1703,10 @@
    row off-screen — but only as a LAST resort (overflow-wrap: anywhere keeps
    whole words together unless a single word alone exceeds the column).
    word-break: break-word split emails one letter early ("gmail.co / m"). */
-.admin-table td { overflow-wrap: anywhere; word-break: normal; }
+/* break-word, not anywhere: "anywhere" folded ordinary words in narrow
+   columns ("Mo/nthly", "202/6") — break-word only splits a word when it
+   alone exceeds the column, and .admin-table-wrap scrolls before that. */
+.admin-table td { overflow-wrap: break-word; word-break: normal; }
 /* The identity column (name + email) keeps room for a full address — the
    wrap (.admin-table-wrap) scrolls sideways before this column crushes
    emails into fragments. */
@@ -4929,3 +4932,75 @@ a.ad-slot-item:hover {
 .studio-fieldset:disabled {
   opacity: 0.92;
 }
+
+/* =========================================================================
+   Layout regression fixes — 2026-07-31 full design audit.
+   Kept together and late in the file on purpose: each rule out-ranks an
+   earlier, broader rule that was flattening a specific component.
+   ========================================================================= */
+
+/* .admin-field label{display:block} + input{width:100%} were crushing
+   toggle rows inside field wrappers (EntityManager checkboxes on
+   /admin/speakers, /admin/resources, …): the pill switch stretched into a
+   full-width bar with its label stranded underneath. */
+label.admin-check-row,
+.admin-field label.admin-check-row { display: flex; }
+.admin-field input[type="checkbox"],
+.admin-field input[type="radio"] {
+  width: auto;
+  padding: 0;
+  border: none;
+  background: none;
+}
+.admin-field input.pref-toggle,
+input.pref-toggle { width: 34px; padding: 0; border: none; }
+
+/* Dark onboarding cards (/speaker-onboarding, /sponsor-onboarding): the
+   dark input styling never covered textareas, which rendered default
+   white-on-navy next to correctly dark inputs. */
+.login-field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: var(--white);
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.login-field textarea:focus { border-color: var(--gold); }
+
+/* Featured sponsor hero: desktop flex row left ~28px for text at 360px
+   (one word per line). Stack below tablet width. */
+@media (max-width: 560px) {
+  .sp-title-card { flex-direction: column; gap: 16px; padding: 22px 18px; }
+  .sp-logo-lg { width: 100%; max-width: 240px; }
+  .sp-title-info { padding-right: 0; }
+}
+
+/* Control Center tier matrix: the wide table's width propagated up the
+   flex chain and panned the whole document sideways. Clamp the chain so
+   the .admin-table-wrap scrolls instead. */
+.admin-pad { min-width: 0; max-width: 100%; }
+.admin-table-wrap { max-width: 100%; }
+.content-area > * { max-width: 100%; }
+
+/* Admin form action rows overflowed 360px phones (buttons clipped and
+   unreachable behind the content-area clip). */
+.admin-form-actions { flex-wrap: wrap; }
+.admin-form { max-width: min(680px, 100%); }
+
+/* Backstop: the portal never means the DOCUMENT to pan sideways — inner
+   wraps (.admin-table-wrap, .content-area) own horizontal scrolling. The
+   Control Center tier matrix still bled ~800px of blank pannable space at
+   the html level; clip (not hidden: no new scroll container, sticky
+   elements unaffected) ends that class of bug outright. */
+html, body { overflow-x: clip; }
+
+/* Control Center tier matrix: nowrap tier headers inflated the table to
+   ~2050px, which leaked blank pannable space at the document level even
+   with the wrap scrolling. Two-line headers keep 11 tier columns inside
+   ordinary widths; the wrap still scrolls on phones. */
+.cc-grid th.cc-tier-head { white-space: normal; min-width: 76px; }
