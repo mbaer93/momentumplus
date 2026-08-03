@@ -135,12 +135,15 @@ export const getCurrentMember = requestCache(
    * narrows — the cookie is checked against the signer's REAL super-admin
    * role on every request, so it does nothing in anyone else's browser.
    */
+  // The tier registry names Lite and any Control-Center-created tier that the
+  // static label map doesn't know — resolve the plan label against it below.
+  const matrix = await getAccessMatrix();
   const requested = realIsAdmin ? await readViewAsCookie() : null;
   let viewingAs: CurrentMember["viewingAs"] = null;
   let simulated: ReturnType<typeof viewAsStateFor> | null = null;
   if (requested) {
     const isSuper = profile?.admin_role === "super";
-    const known = findTier(await getAccessMatrix(), requested);
+    const known = findTier(matrix, requested);
     if (isSuper && known) {
       simulated = viewAsStateFor(requested);
       viewingAs = { tier: known.slug, label: known.label };
@@ -153,9 +156,9 @@ export const getCurrentMember = requestCache(
     initials: initials(name),
     tier: simulated ? (simulated.tier as Tier) : realTier,
     tierLabel: simulated
-      ? (viewingAs?.label ?? tierLabel(realTier))
+      ? (viewingAs?.label ?? tierLabel(realTier, matrix))
       : effective
-        ? tierLabel(realTier)
+        ? tierLabel(realTier, matrix)
         : "Membership lapsed",
     isAdmin: simulated ? simulated.isAdmin : realIsAdmin,
     isSpeaker: simulated

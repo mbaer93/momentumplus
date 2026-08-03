@@ -44,7 +44,10 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
     const sessions = await listSessions();
     return sessions
       .filter(
-        (s) => s.isEnrolled && new Date(s.startsAt).getTime() > Date.now(),
+        (s) =>
+          s.isEnrolled &&
+          s.status !== "cancelled" &&
+          new Date(s.startsAt).getTime() > Date.now(),
       )
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
       .slice(0, 4)
@@ -60,6 +63,7 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
     id: string;
     title: string;
     starts_at: string | null;
+    status?: string | null;
     duration_min?: number | null;
     recurrence?: string | null;
     recurrence_until?: string | null;
@@ -67,13 +71,13 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
   let res = await supabase
     .from("enrollments")
     .select(
-      "sessions ( id, title, starts_at, duration_min, recurrence, recurrence_until )",
+      "sessions ( id, title, starts_at, status, duration_min, recurrence, recurrence_until )",
     )
     .eq("profile_id", user.id);
   if (res.error && /recurrence|duration_min/.test(res.error.message)) {
     res = (await supabase
       .from("enrollments")
-      .select("sessions ( id, title, starts_at )")
+      .select("sessions ( id, title, starts_at, status )")
       .eq("profile_id", user.id)) as typeof res;
   }
   const { nextOccurrence } = await import("@/lib/recurrence");
@@ -87,6 +91,9 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
     })
     .map((s) => {
       if (!s?.starts_at) return null;
+      // A cancelled session is no longer something to attend — keep it out of
+      // the bell's "upcoming enrolled" list.
+      if (s.status === "cancelled") return null;
       // A recurring series counts as upcoming at its NEXT occurrence — the
       // raw starts_at is the series start, which is soon in the past.
       const rec =

@@ -47,6 +47,7 @@ export default async function CalendarPage() {
         program: s.program,
         speakerName: s.speaker.name,
         isEnrolled: s.isEnrolled,
+        cancelled: s.status === "cancelled",
       }));
     });
 

@@ -40,7 +40,11 @@ export default async function CommunityPage() {
     listSpeakers(),
   ]);
   const next = sessions
-    .filter((s) => new Date(s.startsAt).getTime() > Date.now())
+    .filter(
+      (s) =>
+        s.status !== "cancelled" &&
+        new Date(s.startsAt).getTime() > Date.now(),
+    )
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
 
   return (

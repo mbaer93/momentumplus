@@ -19,6 +19,9 @@ export interface CalendarEvent {
   program?: string;
   speakerName: string;
   isEnrolled: boolean;
+  /** A cancelled session stays on the grid (struck through) but is dropped
+      from the "Upcoming Events" list — it is no longer something to attend. */
+  cancelled?: boolean;
 }
 
 type EventColor = "blue" | "green" | "gold" | "purple" | "neutral" | "teal";
@@ -118,7 +121,9 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
   const upcoming = useMemo(
     () =>
       events
-        .filter((e) => new Date(e.startsAt).getTime() > Date.now())
+        .filter(
+          (e) => !e.cancelled && new Date(e.startsAt).getTime() > Date.now(),
+        )
         .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
         .slice(0, 5),
     [events],
@@ -183,11 +188,15 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
                     <button
                       key={e.id}
                       type="button"
-                      className={`cal-event ${colorFor(e)}`}
-                      title={`${e.title} — ${e.speakerName}`}
+                      className={`cal-event ${colorFor(e)}${
+                        e.cancelled ? " cancelled" : ""
+                      }`}
+                      title={`${e.title} — ${e.speakerName}${
+                        e.cancelled ? " (Cancelled)" : ""
+                      }`}
                       onClick={() => router.push(`/sessions/${e.slug}`)}
                     >
-                      {e.title}
+                      {e.cancelled ? `Cancelled: ${e.title}` : e.title}
                     </button>
                   ))}
               </div>

@@ -233,6 +233,11 @@ export function upgradeTierFor(
   matrix: AccessMatrix,
   featureKey: string,
 ): TierDef | null {
+  // An unlaunched feature is reachable through NO tier (tierHasFeature gates
+  // on isLaunched), so no upgrade unlocks it — recommending one would promise
+  // access buying can't deliver. Grants may still say every tier "has" it.
+  const feature = matrix.features.find((f) => f.key === featureKey);
+  if (feature && !feature.isLaunched) return null;
   const candidates = matrix.tiers
     // Internal tiers are excluded even if a row was ever flipped public —
     // "included with Administrator" is never useful upgrade copy.

@@ -252,7 +252,9 @@ export default async function AdminPage() {
       members: profiles.count ?? 0,
       activeMemberships: active.count ?? 0,
       upcomingSessions: sessions.filter(
-        (s) => new Date(s.startsAt).getTime() > Date.now(),
+        (s) =>
+          s.status !== "cancelled" &&
+          new Date(s.startsAt).getTime() > Date.now(),
       ).length,
       pastDue: pastDue.count ?? 0,
     };
