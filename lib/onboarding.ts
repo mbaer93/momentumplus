@@ -484,8 +484,8 @@ async function applyGiftToPayingMember(input: {
    * the extension and a late ledger write would re-extend on every retry.
    * (The action label is corrected below if the pause outcome differs.)
    */
-  const { logAdminAction } = await import("@/lib/admin-audit");
-  await logAdminAction({
+  const { logAdminActionStrict } = await import("@/lib/admin-audit");
+  const ledgered = await logAdminActionStrict({
     actorId: null,
     actorEmail: "system (tsls gift)",
     action: paused ? "tsls_gift_paused" : "tsls_gift_extended",
@@ -493,6 +493,18 @@ async function applyGiftToPayingMember(input: {
     targetEmail: input.email,
     detail: `${monthsLabel} TSLS gift on a paying member (${plan.row.tier}); access through ${newExpiry.slice(0, 10)}${paused ? "; Stripe billing paused" : ""}${pauseNote}`,
   });
+  if (!ledgered) {
+    // The audit row IS the once-per-season guard. If it didn't persist, do
+    // NOT extend — the caller (TSLS bridge / Zapier) retries the whole gift,
+    // and a completed extension without a ledger row would re-extend on
+    // every retry, so access would outlive what was paid. Bail cleanly.
+    return {
+      ok: false,
+      invited: false,
+      alreadyActive: false,
+      message: "gift ledger write failed — not applied, will retry",
+    };
+  }
 
   await admin
     .from("memberships")
