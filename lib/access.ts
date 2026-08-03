@@ -1,4 +1,5 @@
 import type { AccessLevel, Membership, Tier } from "./types";
+import type { AccessMatrix } from "./tiers";
 
 // Tiers that satisfy the `vip_plus` gate (SPEC.md §2). Pro members get
 // everything, so they clear this gate too. (The new `vip` level is a
@@ -72,7 +73,12 @@ export function canAccess(
 }
 
 // Human-readable tier label used in the sidebar / profile.
-export function tierLabel(tier: Tier): string {
+//
+// Tiers are registry rows now (migration 0054 seeds "lite"; the Control Center
+// creates tiers without a deploy), so the static map can't name every slug. If
+// it misses, resolve the label from the access matrix; only if that also misses
+// do we humanize the raw slug — never render a blank plan line.
+export function tierLabel(tier: Tier, matrix?: AccessMatrix): string {
   const map: Record<Tier, string> = {
     tsls_attendee: "Summit Attendee",
     tsls_vip: "VIP Member",
@@ -88,5 +94,11 @@ export function tierLabel(tier: Tier): string {
     speaker: "Speaker",
     admin: "Administrator",
   };
-  return map[tier];
+  const known = map[tier];
+  if (known) return known;
+  const fromRegistry = matrix?.tiers.find((t) => t.slug === tier)?.label;
+  if (fromRegistry) return fromRegistry;
+  return tier
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }

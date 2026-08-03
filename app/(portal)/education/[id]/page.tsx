@@ -56,8 +56,12 @@ export default async function CoursePage(
             <p>
               Upgrade your membership to unlock all{" "}
               {course.lessonCount ?? course.lessons.length} lessons
-              {effectiveCeHours(course)
-                ? ` and earn a certificate of completion (${effectiveCeHours(course)} educational hours)`
+              {/* Locked teasers have no lessons (RLS hides them), so
+                  effectiveCeHours would always read test-less and cap at 0.5.
+                  Advertise the course's configured CE hours instead — the
+                  certificate still prints the real earned hours post-unlock. */}
+              {course.ceHours
+                ? ` and earn a certificate of completion (${course.ceHours} educational hours)`
                 : ""}
               .
             </p>

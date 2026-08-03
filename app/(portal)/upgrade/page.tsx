@@ -87,7 +87,10 @@ export default async function UpgradePage(
       {wanted && (
         <div className="upgrade-callout">
           <strong>{wanted.label}</strong>{" "}
-          {unlockedBy ? (
+          {!wanted.isLaunched ? (
+            <>isn&apos;t available yet — it&apos;ll open to members soon. No plan
+            unlocks it just yet.</>
+          ) : unlockedBy ? (
             <>
               isn&apos;t part of {member.tierLabel}. It&apos;s included with{" "}
               <strong>{unlockedBy.label}</strong>.
