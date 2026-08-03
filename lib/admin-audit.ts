@@ -17,20 +17,47 @@ export interface AdminAuditEntry {
   detail?: string | null;
 }
 
+function auditRow(entry: AdminAuditEntry) {
+  return {
+    actor_id: entry.actorId,
+    actor_email: entry.actorEmail ?? null,
+    action: entry.action,
+    target_profile_id: entry.targetProfileId ?? null,
+    target_email: entry.targetEmail ?? null,
+    detail: entry.detail ?? null,
+  };
+}
+
 /** Record an admin action. Best-effort — never blocks the action itself. */
 export async function logAdminAction(entry: AdminAuditEntry): Promise<void> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
   try {
-    await createServiceClient().from("admin_audit_log").insert({
-      actor_id: entry.actorId,
-      actor_email: entry.actorEmail ?? null,
-      action: entry.action,
-      target_profile_id: entry.targetProfileId ?? null,
-      target_email: entry.targetEmail ?? null,
-      detail: entry.detail ?? null,
-    });
+    await createServiceClient().from("admin_audit_log").insert(auditRow(entry));
   } catch {
     // Auditing must not break the operation it records.
+  }
+}
+
+/**
+ * Record an admin action and report whether it persisted. For callers that
+ * use the audit row itself as an idempotency guard (e.g. the once-per-season
+ * TSLS gift) and must NOT proceed with a repeatable mutation if the ledger
+ * write failed — otherwise a retry re-runs the mutation. Returns true when
+ * there's no database (preview) so those flows aren't blocked in dev.
+ */
+export async function logAdminActionStrict(
+  entry: AdminAuditEntry,
+): Promise<boolean> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return true;
+  }
+  try {
+    const { error } = await createServiceClient()
+      .from("admin_audit_log")
+      .insert(auditRow(entry));
+    return !error;
+  } catch {
+    return false;
   }
 }
 

@@ -139,8 +139,12 @@ function isMomentumInvoice(inv: StripeInvoice, ownPriceIds: Set<string>): boolea
     inv.subscription_details?.metadata ??
     inv.parent?.subscription_details?.metadata ??
     {};
+  // Every Momentum+ subscription carries plan (basic/pro) in its metadata —
+  // set by both the public /join flow and the in-app billing flow. A bare
+  // profile_id is NOT used as a signal: it's a generic key other product
+  // lines on the shared account could also set, and would inflate revenue
+  // (and the 15% speaker payout derived from it).
   if (subMeta.plan === "basic" || subMeta.plan === "pro") return true;
-  if (subMeta.profile_id) return true;
   if (inv.metadata?.momentum_plan) return true;
   for (const line of inv.lines?.data ?? []) {
     if (line.price?.metadata?.momentum_plan) return true;
@@ -203,6 +207,7 @@ async function computeMonthRevenueCents(
     totals.set(key, (totals.get(key) ?? 0) + cents);
 
   let startingAfter: string | undefined;
+  let complete = false;
   for (let page = 0; page < MAX_INVOICE_PAGES; page++) {
     const res = await stripeRequest<StripeList<StripeInvoice>>(
       settings.secretKey,
@@ -221,10 +226,23 @@ async function computeMonthRevenueCents(
     for (const inv of res.data) {
       if (isMomentumInvoice(inv, ownPriceIds)) allocate(inv, add);
     }
-    if (!res.has_more || res.data.length === 0) break;
+    if (!res.has_more || res.data.length === 0) {
+      complete = true;
+      break;
+    }
     startingAfter = res.data[res.data.length - 1].id;
   }
 
+  if (!complete) {
+    // Hit the page cap with invoices still unread. Caching this partial sum
+    // would silently understate speaker pay forever (oldest invoices, whose
+    // term slices reach the queried month, drop off newest-first). Throw so
+    // the caller serves the last good cached value instead of freezing a
+    // wrong number.
+    throw new Error(
+      `revenue: invoice pagination exceeded ${MAX_INVOICE_PAGES} pages for ${monthKey}`,
+    );
+  }
   return Math.round(totals.get(monthKey) ?? 0);
 }
 

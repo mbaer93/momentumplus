@@ -78,13 +78,32 @@ export async function POST(req: NextRequest) {
           payment_status?: string;
         };
         let profileId = s.metadata?.profile_id;
-        const plan = s.metadata?.plan === "pro" ? "pro" : "basic";
+        const planMeta = s.metadata?.plan;
+        const plan = planMeta === "pro" ? "pro" : "basic";
         const subId = s.subscription;
         if (!subId) break;
-        // Delayed payment methods (ACH) complete checkout with
-        // payment_status "unpaid"; the membership is created when the
-        // async_payment_succeeded event confirms the money actually moved.
-        if (s.payment_status && s.payment_status !== "paid") break;
+        // Shared Stripe account: Go High Level, Aspire2Achieve, and coaching
+        // all invoice through this same webhook endpoint. Provision ONLY when
+        // the session carries a Momentum+ fingerprint — our own checkouts
+        // always set metadata.plan (public /join) and/or metadata.profile_id
+        // (in-app upgrade). A foreign subscription checkout has neither, and
+        // minting a Momentum+ account + active membership for, say, a
+        // coaching client is exactly the bug this guards against.
+        const isMomentumCheckout =
+          Boolean(profileId) || planMeta === "basic" || planMeta === "pro";
+        if (!isMomentumCheckout) break;
+        // Delayed payment methods (ACH) complete as "unpaid" and are
+        // provisioned later on async_payment_succeeded. Trials complete as
+        // "no_payment_required" and must provision NOW — the subscription is
+        // live, and the membership row is what billing's duplicate-
+        // subscription guard keys off; skipping it would let a comped member
+        // start a second, billable subscription.
+        if (
+          s.payment_status &&
+          s.payment_status !== "paid" &&
+          s.payment_status !== "no_payment_required"
+        )
+          break;
 
         // Public signup (momentumplus.co home page): no account yet — find
         // or invite one by the checkout email. The invite email lands them
