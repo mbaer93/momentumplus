@@ -6,11 +6,10 @@
       "Bash(npm install *)",
       "Bash(npx *)",
       "Bash(node *)",
-      "Bash(git add *)",
-      "Bash(git commit *)",
-      "Bash(git status)",
-      "Bash(git diff *)",
-      "Bash(git log *)",
+      "Bash(git *)",
+      "mcp__github",
+      "Bash(rm *)",
+      "Edit(/.env*)",
       "Edit(/app/**)",
       "Edit(/components/**)",
       "Edit(/lib/**)",
@@ -23,12 +22,8 @@
       "WebFetch(domain:*.zoom.us)",
       "WebFetch(domain:getstream.io)",
       "WebFetch(domain:*.mux.com)"
-      "Bash(git push *)",
-      "Bash(rm *)",
-      "Edit(/.env*)"
     ],
-    "ask": [
-    ],
+    "ask": [],
     "deny": [
       "Bash(curl * | bash)",
       "Read(./.env.local)"

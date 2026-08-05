@@ -131,9 +131,10 @@ export const getCurrentMember = requestCache(
   const realIsAdmin = effective?.tier === "admin";
 
   /*
-   * View as: a Super Admin previewing the portal as another tier. Only ever
-   * narrows — the cookie is checked against the signer's REAL super-admin
-   * role on every request, so it does nothing in anyone else's browser.
+   * View as: an admin previewing the portal as another tier (any admin, not
+   * just Super — Matt, 2026-08-05). Only ever narrows — the cookie is
+   * checked against the signer's REAL admin role on every request, so it
+   * does nothing in anyone else's browser.
    */
   // The tier registry names Lite and any Control-Center-created tier that the
   // static label map doesn't know — resolve the plan label against it below.
@@ -142,9 +143,8 @@ export const getCurrentMember = requestCache(
   let viewingAs: CurrentMember["viewingAs"] = null;
   let simulated: ReturnType<typeof viewAsStateFor> | null = null;
   if (requested) {
-    const isSuper = profile?.admin_role === "super";
     const known = findTier(matrix, requested);
-    if (isSuper && known) {
+    if (known) {
       simulated = viewAsStateFor(requested);
       viewingAs = { tier: known.slug, label: known.label };
     }

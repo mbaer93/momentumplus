@@ -1,9 +1,8 @@
 import { AnnouncementComposer } from "@/components/admin/AnnouncementComposer";
 import {
-  ScheduledPostsManager,
-  type ScheduledPostRow,
-} from "@/components/admin/ScheduledPostsManager";
-import {} from "@/components/icons";
+  ScheduledAnnouncements,
+  type ScheduledAnnouncementRow,
+} from "@/components/admin/ScheduledAnnouncements";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -11,28 +10,42 @@ export const dynamic = "force-dynamic";
 // Server actions on this page fan out per-member work — allow the full window.
 export const maxDuration = 300;
 
+/* One composer, both timings (Matt, 2026-08-05): Send Now or Schedule live
+   together — the old separate "scheduled posts" section is gone. Scheduled
+   announcements appear in the Scheduled card until the cron delivers them. */
 export default async function AdminAnnouncementsPage() {
   let recent: { id: string; title: string; sent_at: string; audience: string }[] = [];
-  let scheduled: ScheduledPostRow[] = [];
+  let scheduled: ScheduledAnnouncementRow[] = [];
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
-    // Tolerant of the table not existing yet (pre-migration deploys).
-    const { data: sp } = await admin
-      .from("scheduled_posts")
-      .select("id, channel, body, send_at, sent_at")
+    // Pre-migration-0075 (no send_at column) degrades to an empty list.
+    const { data: due } = await admin
+      .from("announcements")
+      .select("id, title, send_at, audience_tiers, channels")
+      .is("sent_at", null)
+      .not("send_at", "is", null)
       .order("send_at", { ascending: true })
       .limit(50);
-    scheduled = (sp ?? []).map((r) => ({
-      id: r.id,
-      channel: r.channel,
-      body: r.body,
-      sendAt: r.send_at,
-      sentAt: r.sent_at,
+    scheduled = (due ?? []).map((a) => ({
+      id: a.id as string,
+      title: a.title as string,
+      whenLabel: a.send_at
+        ? new Date(a.send_at as string).toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          })
+        : "",
+      audience: ((a.audience_tiers as string[]) ?? []).join(", "),
+      channels: ((a.channels as string[]) ?? []).join(" + "),
     }));
+
     const { data } = await admin
       .from("announcements")
       .select("id, title, sent_at, audience_tiers")
+      .not("sent_at", "is", null)
       .order("sent_at", { ascending: false })
       .limit(10);
     recent = (data ?? []).map((a) => ({
@@ -55,38 +68,41 @@ export default async function AdminAnnouncementsPage() {
       <div className="section-header">
         <div>
           <h2>Announcements</h2>
-          <p>Compose and send to members by tier — respects member preferences</p>
+          <p>
+            Compose, then send now or schedule — respects member preferences
+          </p>
         </div>
       </div>
 
       <div className="two-col" style={{ alignItems: "start" }}>
         <AnnouncementComposer />
-        <div className="card">
-          <div className="card-header">
-            <h3>Recently sent</h3>
-          </div>
-          <div style={{ padding: 16 }}>
-            {recent.length === 0 ? (
-              <div className="sess-empty-note">
-                {isSupabaseConfigured()
-                  ? "Nothing sent yet."
-                  : "Preview mode — sent announcements will appear here."}
-              </div>
-            ) : (
-              recent.map((a) => (
-                <div key={a.id} className="profile-kv">
-                  <div className="k">
-                    {a.sent_at} · {a.audience}
-                  </div>
-                  <strong>{a.title}</strong>
+        <div style={{ display: "grid", gap: 16 }}>
+          <ScheduledAnnouncements rows={scheduled} />
+          <div className="card">
+            <div className="card-header">
+              <h3>Recently sent</h3>
+            </div>
+            <div style={{ padding: 16 }}>
+              {recent.length === 0 ? (
+                <div className="sess-empty-note">
+                  {isSupabaseConfigured()
+                    ? "Nothing sent yet."
+                    : "Preview mode — sent announcements will appear here."}
                 </div>
-              ))
-            )}
+              ) : (
+                recent.map((a) => (
+                  <div key={a.id} className="profile-kv">
+                    <div className="k">
+                      {a.sent_at} · {a.audience}
+                    </div>
+                    <strong>{a.title}</strong>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      <ScheduledPostsManager rows={scheduled} />
     </div>
   );
 }

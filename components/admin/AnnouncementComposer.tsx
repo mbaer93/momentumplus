@@ -5,6 +5,7 @@ import type { Tier } from "@/lib/types";
 import { tierLabel } from "@/lib/access";
 import {
   previewAnnouncementAudience,
+  scheduleAnnouncement,
   sendAnnouncement,
 } from "@/app/(portal)/admin/announcements/actions";
 
@@ -32,6 +33,11 @@ export function AnnouncementComposer() {
   const [confirmSmsCount, setConfirmSmsCount] = useState(0);
   // Set when a send partially failed — resending skips everyone reached.
   const [resumeId, setResumeId] = useState<string | undefined>(undefined);
+  // Send now, or schedule for later (Matt, 2026-08-05): one composer, both
+  // timings. Scheduling records the announcement; the cron delivers it
+  // through the exact same channels when the time comes.
+  const [timing, setTiming] = useState<"now" | "schedule">("now");
+  const [sendAt, setSendAt] = useState("");
 
   // Any edit after "Review & send" disarms the confirm — the count shown
   // must always describe exactly what the Confirm click will send. It also
@@ -71,10 +77,16 @@ export function AnnouncementComposer() {
     }
 
     startTransition(async () => {
-      const res = await sendAnnouncement(
-        { title, body, audienceTiers: tiers, channels },
-        resumeId,
-      );
+      const res =
+        timing === "schedule"
+          ? await scheduleAnnouncement(
+              { title, body, audienceTiers: tiers, channels },
+              new Date(sendAt).toISOString(),
+            )
+          : await sendAnnouncement(
+              { title, body, audienceTiers: tiers, channels },
+              resumeId,
+            );
       setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "Sent." : "Error") });
       if (res.ok) {
         setConfirmCount(null);
@@ -82,8 +94,10 @@ export function AnnouncementComposer() {
         if (!res.preview) {
           setTitle("");
           setBody("");
+          setSendAt("");
+          setTiming("now");
         }
-      } else {
+      } else if (timing === "now") {
         // Keep the confirm armed and remember the announcement so a retry
         // resumes it instead of double-sending.
         setResumeId(res.announcementId ?? resumeId);
@@ -179,6 +193,51 @@ export function AnnouncementComposer() {
         </div>
       </div>
 
+      <div className="admin-field">
+        <label>When</label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            className={`tier-chip${timing === "now" ? " selected" : ""}`}
+            onClick={() => {
+              disarm();
+              setTiming("now");
+            }}
+          >
+            Send now
+          </button>
+          <button
+            type="button"
+            className={`tier-chip${timing === "schedule" ? " selected" : ""}`}
+            onClick={() => {
+              disarm();
+              setTiming("schedule");
+            }}
+          >
+            Schedule
+          </button>
+          {timing === "schedule" && (
+            <input
+              type="datetime-local"
+              aria-label="Send at"
+              value={sendAt}
+              onChange={(e) => {
+                disarm();
+                setSendAt(e.target.value);
+              }}
+              style={{ maxWidth: 230 }}
+            />
+          )}
+        </div>
+        {timing === "schedule" && (
+          <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 6 }}>
+            Sends automatically within a few minutes of the chosen time,
+            through the same channels selected above. Scheduled announcements
+            appear below and can be cancelled until they go out.
+          </div>
+        )}
+      </div>
+
       <div className="admin-form-actions" style={{ flexWrap: "wrap" }}>
         <button
           type="submit"
@@ -186,18 +245,25 @@ export function AnnouncementComposer() {
           disabled={
             pending ||
             channels.length === 0 ||
-            (tiers.length === 0 && !channels.includes("community"))
+            (tiers.length === 0 && !channels.includes("community")) ||
+            (timing === "schedule" && !sendAt)
           }
         >
           {pending
             ? confirmCount === null
               ? "Counting audience…"
-              : "Sending…"
+              : timing === "schedule"
+                ? "Scheduling…"
+                : "Sending…"
             : confirmCount === null
-              ? "Review & send"
+              ? timing === "schedule"
+                ? "Review & schedule"
+                : "Review & send"
               : resumeId
                 ? `Retry failed sends (${confirmCount} members)`
-                : `Confirm — send to ${confirmCount} member${confirmCount === 1 ? "" : "s"}`}
+                : timing === "schedule"
+                  ? `Confirm — schedule for ${confirmCount} member${confirmCount === 1 ? "" : "s"}`
+                  : `Confirm — send to ${confirmCount} member${confirmCount === 1 ? "" : "s"}`}
         </button>
         {confirmCount !== null && !pending && (
           <button

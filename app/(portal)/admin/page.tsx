@@ -15,11 +15,13 @@ import {
   SpeakersIcon,
   SponsorsIcon,
 } from "@/components/icons";
+import { ViewAsPicker } from "@/components/admin/ViewAsPicker";
 import { canAccessArea, type AdminArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { listSessions } from "@/lib/sessions/queries";
+import { getAccessMatrix } from "@/lib/tiers";
 
 export const dynamic = "force-dynamic";
 
@@ -312,6 +314,17 @@ export default async function AdminPage() {
           live against real data once Supabase is connected.
         </div>
       )}
+
+      {/* Every admin can preview the member experience (Matt, 2026-08-05);
+          the Control Center itself stays Super Admin only. */}
+      <div style={{ marginTop: 22 }}>
+        <ViewAsPicker
+          tiers={(await getAccessMatrix()).tiers.map((t) => ({
+            slug: t.slug,
+            label: t.label,
+          }))}
+        />
+      </div>
 
       {groups.map((g) => (
         <div key={g.heading} style={{ marginTop: 26 }}>

@@ -25,9 +25,9 @@ export async function startViewAs(tier: string): Promise<ViewAsResult> {
   }
   const auth = await requireRealAdmin();
   if (!auth.ok) return { ok: false, message: auth.message };
-  if (auth.access.role !== "super") {
-    return { ok: false, message: "Viewing as a member is Super Admin only." };
-  }
+  // Any admin may preview (Matt, 2026-08-05) — View As only ever narrows
+  // what the signer already sees, so it's safe beyond Super Admins. The
+  // Control Center itself stays Super Admin only.
 
   const known = findTier(await getAccessMatrix(), tier);
   if (!known) return { ok: false, message: "No such member type." };

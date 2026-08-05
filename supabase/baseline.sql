@@ -1,5 +1,5 @@
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/make-baseline.mjs
--- Full schema baseline: every migration in order (0001_init.sql … 0074_speaker_contact_email.sql).
+-- Full schema baseline: every migration in order (0001_init.sql … 0075_scheduled_announcements.sql).
 -- Run ONCE against a FRESH Supabase project to mirror production's schema.
 -- Never run this against the production database.
 
@@ -3724,3 +3724,19 @@ from profiles p
 where s.profile_id = p.id
   and s.contact_email is null
   and p.email is not null;
+
+-- ============================================================
+-- 0075_scheduled_announcements.sql
+-- ============================================================
+-- Scheduled announcements (Matt, 2026-08-05): Send Now and Schedule live in
+-- the same composer. A scheduled announcement is an announcements row with
+-- send_at set and sent_at NULL; the scheduled-posts cron delivers it when
+-- due through the same fan-out as Send Now (community, in-app + push,
+-- email, SMS), then stamps sent_at. The old scheduled_posts table (chat-only
+-- posts) stays for anything already queued, but the admin UI now schedules
+-- full announcements instead.
+
+alter table announcements add column if not exists send_at timestamptz;
+
+create index if not exists announcements_due_idx
+  on announcements (send_at) where sent_at is null;
