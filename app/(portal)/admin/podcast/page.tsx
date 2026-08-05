@@ -14,6 +14,7 @@ export default async function AdminPodcastPage() {
   return (
     <PodcastManager
       channelId={settings.channelId}
+      spotifyUrl={settings.spotifyUrl}
       episodes={episodes.map((e) => ({
         id: e.id,
         youtubeVideoId: e.youtubeVideoId,
@@ -22,6 +23,7 @@ export default async function AdminPodcastPage() {
         publishedAt: e.publishedAt,
         source: e.source,
         hidden: e.hidden,
+        season: e.season,
       }))}
     />
   );

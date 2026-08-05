@@ -21,11 +21,15 @@ export interface PodcastEpisode {
   publishedAt: string | null;
   source: "auto" | "manual";
   hidden: boolean;
+  /** Admin-assigned season number; null = unassigned ("Extras"). */
+  season: number | null;
 }
 
 export interface PodcastSettings {
   /** UC… channel id the sync cron reads. Empty = sync disabled. */
   channelId: string;
+  /** The show's Spotify URL — powers the "Follow on Spotify" button. */
+  spotifyUrl: string;
 }
 
 export const PODCAST_SETTINGS_KEY = "podcast_settings";
@@ -705,6 +709,7 @@ interface EpisodeRow {
   published_at: string | null;
   source: string;
   hidden: boolean;
+  season?: number | null;
 }
 
 function toEpisode(row: EpisodeRow): PodcastEpisode {
@@ -717,6 +722,7 @@ function toEpisode(row: EpisodeRow): PodcastEpisode {
     publishedAt: row.published_at,
     source: row.source === "manual" ? "manual" : "auto",
     hidden: Boolean(row.hidden),
+    season: typeof row.season === "number" ? row.season : null,
   };
 }
 
@@ -739,7 +745,7 @@ export async function listEpisodes(
 
 export async function readPodcastSettings(): Promise<PodcastSettings> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return { channelId: "" };
+    return { channelId: "", spotifyUrl: "" };
   }
   try {
     const { data } = await createServiceClient()
@@ -748,9 +754,12 @@ export async function readPodcastSettings(): Promise<PodcastSettings> {
       .eq("key", PODCAST_SETTINGS_KEY)
       .maybeSingle();
     const value = (data?.value ?? {}) as Partial<PodcastSettings>;
-    return { channelId: value.channelId ?? "" };
+    return {
+      channelId: value.channelId ?? "",
+      spotifyUrl: value.spotifyUrl ?? "",
+    };
   } catch {
-    return { channelId: "" };
+    return { channelId: "", spotifyUrl: "" };
   }
 }
 
@@ -837,6 +846,7 @@ function placeholderEpisodes(): PodcastEpisode[] {
       publishedAt: new Date(Date.now() - 3 * DAY).toISOString(),
       source: "auto",
       hidden: false,
+      season: 2,
     },
     {
       id: "pe2",
@@ -848,6 +858,7 @@ function placeholderEpisodes(): PodcastEpisode[] {
       publishedAt: new Date(Date.now() - 10 * DAY).toISOString(),
       source: "manual",
       hidden: false,
+      season: 1,
     },
   ];
 }
