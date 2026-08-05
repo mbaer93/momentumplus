@@ -25,7 +25,8 @@ const PREVIEW: PodcastActionResult = {
 export async function savePodcastSettings(
   channelInput: string,
 ): Promise<PodcastActionResult> {
-  await requireAdmin();
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
   if (!isSupabaseConfigured()) return PREVIEW;
   const trimmed = channelInput.trim();
   const channelId =
@@ -52,7 +53,8 @@ export async function savePodcastSettings(
 }
 
 export async function syncPodcastNow(): Promise<PodcastActionResult> {
-  await requireAdmin();
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
   if (!isSupabaseConfigured()) return PREVIEW;
   const result = await syncFromYoutube();
   if (!result.ok) return { ok: false, message: result.message };
@@ -73,7 +75,8 @@ export async function addEpisodeManual(values: {
   showNotes: string;
   publishedAt: string; // "YYYY-MM-DD" or ""
 }): Promise<PodcastActionResult> {
-  await requireAdmin();
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
   if (!isSupabaseConfigured()) return PREVIEW;
   const videoId = extractYoutubeVideoId(values.url);
   if (!videoId) {
@@ -122,7 +125,8 @@ export async function setEpisodeHidden(
   id: string,
   hidden: boolean,
 ): Promise<PodcastActionResult> {
-  await requireAdmin();
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
   if (!isSupabaseConfigured()) return PREVIEW;
   const admin = createServiceClient();
   const { error } = await admin
@@ -136,7 +140,8 @@ export async function setEpisodeHidden(
 }
 
 export async function deleteEpisode(id: string): Promise<PodcastActionResult> {
-  await requireAdmin();
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
   if (!isSupabaseConfigured()) return PREVIEW;
   const admin = createServiceClient();
   const { error } = await admin

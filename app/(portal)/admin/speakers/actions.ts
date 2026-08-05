@@ -89,6 +89,128 @@ export async function cancelSpeakerInvite(inviteId: string): Promise<AdminResult
   return { ok: true, message: "Invite cancelled — that email now logs in as a regular account." };
 }
 
+/**
+ * Pull the TSLS speaker lineup into Momentum+ (Matt, 2026-08-05). The rule:
+ * every TSLS speaker becomes a Momentum+ speaker — main stage AND panelists —
+ * except the Emcee, the one exception. Momentum+-only speakers are never
+ * touched, existing speakers only gain missing fields (a filled field is
+ * never overwritten), and NO accounts are provisioned and NO emails sent —
+ * this creates listings; invites stay a deliberate separate step.
+ */
+export async function pullSpeakersFromTsls(): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+
+  const { fetchTslsSpeakers, speakerNameKey } = await import("@/lib/tsls-speakers");
+  const fetched = await fetchTslsSpeakers();
+  if (!fetched.ok) return { ok: false, message: fetched.message };
+
+  const admin = createServiceClient();
+  const { data: existingRows, error } = await admin
+    .from("speakers")
+    .select("id, name, profile_id, title, bio, headshot_url, website, industries, tsls_main_speaker");
+  if (error) return { ok: false, message: error.message };
+  const existing = existingRows ?? [];
+
+  // Match by account email first, then by normalized name (credentials,
+  // middle initials, and casing vary between the two apps).
+  const profileIds = existing
+    .map((s) => s.profile_id as string | null)
+    .filter((v): v is string => Boolean(v));
+  const emailToSpeaker = new Map<string, (typeof existing)[number]>();
+  if (profileIds.length > 0) {
+    const { data: profs } = await admin
+      .from("profiles")
+      .select("id, email")
+      .in("id", profileIds);
+    const byProfile = new Map(existing.map((s) => [s.profile_id, s]));
+    for (const p of profs ?? []) {
+      const sp = byProfile.get(p.id);
+      if (sp && p.email) emailToSpeaker.set(String(p.email).toLowerCase(), sp);
+    }
+  }
+  const nameToSpeaker = new Map(
+    existing.map((s) => [speakerNameKey(String(s.name)), s]),
+  );
+
+  let added = 0;
+  let updated = 0;
+  let unchanged = 0;
+  let emcees = 0;
+  const failed: string[] = [];
+
+  for (const ts of fetched.speakers) {
+    // The Emcee is the exception to "all TSLS speakers are Momentum+
+    // speakers" — never imported.
+    if (ts.role === "emcee") {
+      emcees++;
+      continue;
+    }
+    const match =
+      (ts.email ? emailToSpeaker.get(ts.email) : undefined) ??
+      nameToSpeaker.get(speakerNameKey(ts.name));
+
+    if (match) {
+      // Fill blanks only; an admin- or speaker-curated field always wins.
+      const patch: Record<string, unknown> = {};
+      if (!match.title && ts.title) patch.title = ts.title;
+      if (!match.bio && ts.bio) patch.bio = ts.bio;
+      if (!match.headshot_url && ts.headshotUrl) patch.headshot_url = ts.headshotUrl;
+      if (!match.website && ts.website) patch.website = ts.website;
+      if ((match.industries ?? []).length === 0 && ts.tags.length > 0) {
+        patch.industries = ts.tags;
+      }
+      if (ts.role === "main" && !match.tsls_main_speaker) {
+        patch.tsls_main_speaker = true;
+      }
+      if (Object.keys(patch).length === 0) {
+        unchanged++;
+        continue;
+      }
+      const { error: upErr } = await admin
+        .from("speakers")
+        .update(patch)
+        .eq("id", match.id);
+      if (upErr) failed.push(`${ts.name} — ${upErr.message}`);
+      else updated++;
+      continue;
+    }
+
+    // New to Momentum+: create the listing. Link an account only if one
+    // already exists for the email — never create one here.
+    let profileId: string | null = null;
+    if (ts.email) {
+      const { findAuthUserIdByEmail } = await import("@/lib/onboarding");
+      profileId = await findAuthUserIdByEmail(ts.email);
+    }
+    const { error: insErr } = await admin.from("speakers").insert({
+      profile_id: profileId,
+      name: ts.name,
+      title: ts.title,
+      bio: ts.bio,
+      headshot_url: ts.headshotUrl,
+      industries: ts.tags,
+      links: ts.website ? { website: ts.website } : {},
+      website: ts.website,
+      tsls_main_speaker: ts.role === "main",
+    });
+    if (insErr) failed.push(`${ts.name} — ${migrationHint(insErr.message)}`);
+    else added++;
+  }
+
+  refresh();
+  const failNote =
+    failed.length > 0
+      ? ` Failed: ${failed.slice(0, 5).join("; ")}${failed.length > 5 ? `; +${failed.length - 5} more` : ""}.`
+      : "";
+  return {
+    ok: failed.length === 0,
+    message:
+      `Pulled ${fetched.speakers.length} from TSLS: ${added} added, ${updated} updated, ` +
+      `${unchanged} already current, ${emcees} emcee${emcees === 1 ? "" : "s"} skipped.${failNote}`,
+  };
+}
+
 export async function createSpeaker(input: SpeakerInput): Promise<AdminResult> {
   const early = await guard();
   if (early) return early;

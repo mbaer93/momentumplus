@@ -1,4 +1,5 @@
 import { SpeakersManager } from "@/components/admin/SpeakersManager";
+import { PullTslsSpeakersButton } from "@/components/admin/PullTslsSpeakersButton";
 import {
   SpeakerLifecyclePanel,
   type PastSpeakerRow,
@@ -165,6 +166,9 @@ export default async function AdminSpeakersPage(
           <h2>Speakers</h2>
           <p>Profiles shown in the member speaker directory</p>
         </div>
+        {/* All TSLS speakers (main stage + panelists) belong here too; the
+            Emcee is the one exception and is skipped by the pull. */}
+        <PullTslsSpeakersButton />
       </div>
       {!isSupabaseConfigured() && (
         <div className="admin-hint">
