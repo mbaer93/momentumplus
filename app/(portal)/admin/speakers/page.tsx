@@ -1,5 +1,6 @@
 import { SpeakersManager } from "@/components/admin/SpeakersManager";
 import { PullTslsSpeakersButton } from "@/components/admin/PullTslsSpeakersButton";
+import { InviteAllSpeakersButton } from "@/components/admin/InviteAllSpeakersButton";
 import {
   SpeakerLifecyclePanel,
   type PastSpeakerRow,
@@ -34,6 +35,8 @@ interface AdminSpeakerRow {
   archived_at?: string | null;
   speaker_month?: string | null;
   tsls_main_speaker?: boolean | null;
+  contact_email?: string | null;
+  profile_id?: string | null;
 }
 
 export default async function AdminSpeakersPage(
@@ -68,19 +71,23 @@ export default async function AdminSpeakersPage(
     stats: SpeakerMonthStats;
   }[] = [];
   let isSuper = false;
+  let uninvitedCount = 0;
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
     const FULL =
-      "id, name, title, bio, industries, website, headshot_url, featured, expires_at, archived_at, speaker_month, tsls_main_speaker";
-    // Pre-migration fallbacks: month columns arrive with 0053, lifecycle
-    // columns with 0028 — degrade gracefully until each is run.
+      "id, name, title, bio, industries, website, headshot_url, featured, expires_at, archived_at, speaker_month, tsls_main_speaker, contact_email, profile_id";
+    // Pre-migration fallbacks: contact_email arrives with 0074, month
+    // columns with 0053, lifecycle columns with 0028 — degrade gracefully
+    // until each is run.
+    const PRE_0074 =
+      "id, name, title, bio, industries, website, headshot_url, featured, expires_at, archived_at, speaker_month, tsls_main_speaker, profile_id";
     const PRE_0053 =
       "id, name, title, bio, industries, website, headshot_url, featured, expires_at, archived_at";
     const LEGACY =
       "id, name, title, bio, industries, website, headshot_url, featured";
     let data: AdminSpeakerRow[] | null = null;
-    for (const columns of [FULL, PRE_0053, LEGACY]) {
+    for (const columns of [FULL, PRE_0074, PRE_0053, LEGACY]) {
       data = (
         await admin
           .from("speakers")
@@ -97,6 +104,17 @@ export default async function AdminSpeakersPage(
         expiresAt: s.expires_at ?? null,
       });
 
+    // Pending invites feed both the lifecycle panel and each row's
+    // invite-state line, so load them before building the rows.
+    const { data: invites } = await admin
+      .from("speaker_invites")
+      .select("id, email, display_name, created_at")
+      .is("completed_at", null)
+      .order("created_at", { ascending: false });
+    const pendingEmails = new Set(
+      (invites ?? []).map((i) => String(i.email).toLowerCase()),
+    );
+
     rows = all.filter(isActive).map((s) => ({
       id: s.id,
       title: s.name,
@@ -106,14 +124,27 @@ export default async function AdminSpeakersPage(
         name: s.name,
         title: s.title ?? "",
         industries: (s.industries ?? []).join(", "),
+        contactEmail: s.contact_email ?? "",
         website: s.website ?? "",
         bio: s.bio ?? "",
         featured: Boolean(s.featured),
         headshotUrl: s.headshot_url ?? "",
         speakerMonth: s.speaker_month ?? "",
         tslsMainSpeaker: Boolean(s.tsls_main_speaker),
+        hasAccount: Boolean(s.profile_id),
+        invitePending: Boolean(
+          s.contact_email &&
+            pendingEmails.has(String(s.contact_email).toLowerCase()),
+        ),
       },
     }));
+    uninvitedCount = all.filter(
+      (s) =>
+        isActive(s) &&
+        !s.profile_id &&
+        s.contact_email &&
+        !pendingEmails.has(String(s.contact_email).toLowerCase()),
+    ).length;
     activeSpeakers = all.filter(isActive).map((s) => ({
       id: s.id,
       name: s.name,
@@ -129,11 +160,6 @@ export default async function AdminSpeakersPage(
         expiresAt: s.expires_at ?? null,
       }));
 
-    const { data: invites } = await admin
-      .from("speaker_invites")
-      .select("id, email, display_name, created_at")
-      .is("completed_at", null)
-      .order("created_at", { ascending: false });
     pendingInvites = (invites ?? []).map((i) => ({
       id: i.id as string,
       email: i.email as string,
@@ -167,8 +193,15 @@ export default async function AdminSpeakersPage(
           <p>Profiles shown in the member speaker directory</p>
         </div>
         {/* All TSLS speakers (main stage + panelists) belong here too; the
-            Emcee is the one exception and is skipped by the pull. */}
-        <PullTslsSpeakersButton />
+            Emcee is the one exception and is skipped by the pull. Login
+            invites go out only when an admin clicks — per speaker in the
+            editor, or everyone at once here. */}
+        <div
+          style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
+        >
+          <InviteAllSpeakersButton uninvitedCount={uninvitedCount} />
+          <PullTslsSpeakersButton />
+        </div>
       </div>
       {!isSupabaseConfigured() && (
         <div className="admin-hint">
