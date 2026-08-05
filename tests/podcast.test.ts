@@ -10,9 +10,11 @@ import {
   extractYoutubeVideoId,
   parseIsoDuration,
   parsePlaylistItemsPage,
+  parsePlaylistsPage,
   parseVideoDurationsPage,
   parseWatchPageMeta,
   parseYoutubeFeed,
+  seasonFromText,
 } from "../lib/podcast";
 
 describe("extractYoutubeVideoId", () => {
@@ -368,5 +370,49 @@ describe("parseVideoDurationsPage", () => {
     assert.equal(map.get("abcDEF123-_"), 3660);
     assert.equal(map.get("shortvid001"), 45);
     assert.equal(map.size, 2);
+  });
+});
+
+describe("seasonFromText", () => {
+  it("reads Season N in playlist and episode titles", () => {
+    assert.equal(seasonFromText("Season 2"), 2);
+    assert.equal(seasonFromText("Branching Out — Season 3"), 3);
+    assert.equal(seasonFromText("Season #4 premiere"), 4);
+  });
+
+  it("reads SxEy episode markers", () => {
+    assert.equal(seasonFromText("S2E14 — Growing Together"), 2);
+    assert.equal(seasonFromText("S02 E05: Roots"), 2);
+    assert.equal(seasonFromText("S3, Ep. 1 — New Beginnings"), 3);
+  });
+
+  it("ignores titles without a season marker", () => {
+    assert.equal(seasonFromText("Why this season matters"), null);
+    assert.equal(seasonFromText("Favorites and best-ofs"), null);
+    assert.equal(seasonFromText("Season 2026 kickoff"), null); // > 999
+    assert.equal(seasonFromText(""), null);
+  });
+});
+
+describe("parsePlaylistsPage", () => {
+  it("collects playlist ids and titles", () => {
+    const { playlists, nextPageToken } = parsePlaylistsPage({
+      nextPageToken: "T2",
+      items: [
+        { id: "PL111", snippet: { title: "Season 1" } },
+        { id: "PL222", snippet: { title: "Shorts & clips" } },
+        { snippet: { title: "no id — skipped" } },
+      ],
+    });
+    assert.equal(nextPageToken, "T2");
+    assert.deepEqual(playlists, [
+      { id: "PL111", title: "Season 1" },
+      { id: "PL222", title: "Shorts & clips" },
+    ]);
+  });
+
+  it("degrades to empty on malformed payloads", () => {
+    assert.deepEqual(parsePlaylistsPage(null), { playlists: [], nextPageToken: null });
+    assert.deepEqual(parsePlaylistsPage({}), { playlists: [], nextPageToken: null });
   });
 });

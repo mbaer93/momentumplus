@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   addEpisodeManual,
   assignSeasonRange,
+  importPodcastSeasons,
   deleteEpisode,
   importPodcastBackCatalog,
   savePodcastSettings,
@@ -267,10 +268,24 @@ export function PodcastManager({
         <h3 style={{ marginTop: 0, marginBottom: 6 }}>Seasons</h3>
         <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
           Group episodes into seasons so members can browse them easily.
-          Assign a whole date range at once here, or set a single
+          <strong> Import from YouTube</strong> reads &ldquo;Season N&rdquo;
+          playlists on the channel and season markers in titles (&ldquo;Season
+          2&rdquo;, &ldquo;S2 E5&rdquo;) and assigns everything it finds.
+          Or assign a whole date range at once below, or set a single
           episode&apos;s season in its Edit panel. The member tab shows
           season tabs as soon as any episode has one.
         </p>
+        <div style={{ marginBottom: 12 }}>
+          <button
+            type="button"
+            className="btn-gold"
+            disabled={pending || !channelId}
+            title={channelId ? "" : "Save the channel first"}
+            onClick={() => run(() => importPodcastSeasons())}
+          >
+            {pending ? "Working…" : "Import seasons from YouTube"}
+          </button>
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
           <div>
             <label style={labelStyle}>From</label>
