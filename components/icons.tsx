@@ -76,6 +76,17 @@ export function EducationIcon(p: IconProps) {
   );
 }
 
+export function MicIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="6" y="1.5" width="4" height="7.5" rx="2" />
+      <path d="M3.5 7.5a4.5 4.5 0 009 0" />
+      <path d="M8 12v2.5" />
+      <path d="M5.5 14.5h5" />
+    </Svg>
+  );
+}
+
 export function SpeakersIcon(p: IconProps) {
   return (
     <Svg {...p}>

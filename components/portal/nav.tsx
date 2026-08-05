@@ -7,6 +7,7 @@ import {
   DashboardIcon,
   EducationIcon,
   LibraryIcon,
+  MicIcon,
   ProfileIcon,
   ResourcesIcon,
   SessionsIcon,
@@ -52,10 +53,17 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Rooted Focus", href: "/rooted-focus", icon: TargetIcon, feature: "rooted_focus" },
       { label: "Calendar", href: "/calendar", icon: CalendarIcon, feature: "calendar" },
       { label: "Library", href: "/library", icon: LibraryIcon, feature: "library" },
-      // "Grow on the Go" (Education) is hidden for now (Matt, 2026-08-05).
-      // The /education route and its entitlement stay intact — this only
-      // removes the member-facing nav entry; restore this line to re-show it.
+      // "Grow on the Go" (Education) is hidden for now (Matt, 2026-08-05);
+      // "Branching Out" (the podcast) takes its slot. The /education route
+      // and its entitlement stay intact — restore the commented line to
+      // re-show it.
       // { label: "Grow on the Go", href: "/education", icon: EducationIcon, feature: "education" },
+      {
+        label: "Branching Out",
+        href: "/branching-out",
+        icon: MicIcon,
+        feature: "branching_out",
+      },
       // Unreleased. `is_launched` in the feature registry keeps it to admins
       // now; Control Center → Launch switches is what ships it.
       {

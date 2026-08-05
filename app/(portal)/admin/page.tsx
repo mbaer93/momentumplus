@@ -6,6 +6,7 @@ import {
   ChevronRightIcon,
   CommunityIcon,
   EducationIcon,
+  MicIcon,
   LibraryIcon,
   ResourcesIcon,
   SessionsIcon,
@@ -92,6 +93,13 @@ const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
         icon: EducationIcon,
         title: "Grow on the Go",
         desc: "Courses and learning tracks built from the library.",
+        area: "content",
+      },
+      {
+        href: "/admin/podcast",
+        icon: MicIcon,
+        title: "Branching Out",
+        desc: "Podcast episodes — YouTube auto-sync and manual adds.",
         area: "content",
       },
       {
