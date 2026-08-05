@@ -3,7 +3,11 @@ import { EpisodeBrowser } from "@/components/podcast/EpisodeBrowser";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { requireMember } from "@/lib/current-member";
 import { requireFeature } from "@/lib/entitlements";
-import { listEpisodes, readPodcastSettings } from "@/lib/podcast";
+import {
+  listEpisodes,
+  readMyEpisodeProgress,
+  readPodcastSettings,
+} from "@/lib/podcast";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +17,10 @@ export const dynamic = "force-dynamic";
 export default async function BranchingOutPage() {
   const member = await requireMember();
   await requireFeature("branching_out");
-  const [episodes, settings] = await Promise.all([
+  const [episodes, settings, progress] = await Promise.all([
     listEpisodes(),
     readPodcastSettings(),
+    readMyEpisodeProgress(),
   ]);
 
   return (
@@ -40,6 +45,7 @@ export default async function BranchingOutPage() {
           episodes={episodes}
           channelId={settings.channelId}
           spotifyUrl={settings.spotifyUrl}
+          progress={progress}
         />
       )}
     </div>

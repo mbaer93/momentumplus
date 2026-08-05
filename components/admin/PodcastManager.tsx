@@ -4,14 +4,23 @@ import { useState, useTransition } from "react";
 import {
   addEpisodeManual,
   assignSeasonRange,
+  deletePodcastQuestion,
   importPodcastSeasons,
   deleteEpisode,
   importPodcastBackCatalog,
   savePodcastSettings,
   setEpisodeHidden,
+  setPodcastQuestionStatus,
   syncPodcastNow,
   updateEpisode,
 } from "@/app/(portal)/admin/podcast/actions";
+import type { PodcastQuestion } from "@/lib/podcast";
+
+const QUESTION_KIND_LABELS: Record<PodcastQuestion["kind"], string> = {
+  question: "Question for a guest",
+  challenge: "Leadership challenge",
+  unscripted: "Leadership Unscripted",
+};
 
 export interface AdminEpisodeRow {
   id: string;
@@ -31,6 +40,7 @@ export function PodcastManager({
   spotifyUrl,
   youtubeApiReady,
   episodes,
+  questions,
 }: {
   channelId: string;
   spotifyUrl: string;
@@ -38,6 +48,8 @@ export function PodcastManager({
       import reads exact dates + full notes for every episode. */
   youtubeApiReady: boolean;
   episodes: AdminEpisodeRow[];
+  /** Member on-air submissions, newest first. */
+  questions: PodcastQuestion[];
 }) {
   const [channel, setChannel] = useState(channelId);
   const [spotify, setSpotify] = useState(spotifyUrl);
@@ -326,6 +338,97 @@ export function PodcastManager({
             Assign season to range
           </button>
         </div>
+      </div>
+
+      {/* On-air submissions from members */}
+      <div className="card" style={{ padding: 18 }}>
+        <h3 style={{ marginTop: 0, marginBottom: 6 }}>
+          On-air submissions ({questions.length})
+        </h3>
+        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
+          Questions, leadership challenges, and Leadership Unscripted
+          prompts members sent in from the Branching Out tab. Mark one
+          Reviewed when it&apos;s on your shortlist and Asked once it&apos;s
+          been used on the show.
+        </p>
+        {questions.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--mid-gray)", marginBottom: 0 }}>
+            Nothing yet — submissions land here as members send them in.
+          </p>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {questions.map((q) => (
+              <div
+                key={q.id}
+                style={{
+                  padding: "10px 12px",
+                  border: "1px solid var(--border)",
+                  borderRadius: 4,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    marginBottom: 4,
+                  }}
+                >
+                  <span
+                    className={`admin-status ${q.status === "new" ? "draft" : "completed"}`}
+                  >
+                    {QUESTION_KIND_LABELS[q.kind]}
+                  </span>
+                  <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                    {q.memberName || q.memberEmail || "Member"}
+                    {q.createdAt
+                      ? ` · ${new Date(q.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}`
+                      : ""}
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <select
+                    value={q.status}
+                    disabled={pending}
+                    onChange={(e) =>
+                      run(() => setPodcastQuestionStatus(q.id, e.target.value))
+                    }
+                    aria-label="Submission status"
+                    style={{
+                      padding: "4px 8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: 4,
+                      fontSize: 12,
+                      background: "var(--cream)",
+                    }}
+                  >
+                    <option value="new">New</option>
+                    <option value="reviewed">Reviewed</option>
+                    <option value="asked">Asked</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn-mini"
+                    disabled={pending}
+                    onClick={() => {
+                      if (window.confirm("Delete this submission?")) {
+                        run(() => deletePodcastQuestion(q.id));
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                  {q.body}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Episode list */}

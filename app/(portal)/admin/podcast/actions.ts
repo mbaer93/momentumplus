@@ -260,6 +260,43 @@ export async function assignSeasonRange(values: {
   };
 }
 
+/** Move an on-air submission through New → Reviewed → Asked. */
+export async function setPodcastQuestionStatus(
+  id: string,
+  status: string,
+): Promise<PodcastActionResult> {
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!isSupabaseConfigured()) return PREVIEW;
+  if (!["new", "reviewed", "asked"].includes(status)) {
+    return { ok: false, message: "Unknown status" };
+  }
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("podcast_questions")
+    .update({ status })
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/podcast");
+  return { ok: true };
+}
+
+export async function deletePodcastQuestion(
+  id: string,
+): Promise<PodcastActionResult> {
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!isSupabaseConfigured()) return PREVIEW;
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("podcast_questions")
+    .delete()
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/podcast");
+  return { ok: true };
+}
+
 export async function setEpisodeHidden(
   id: string,
   hidden: boolean,
