@@ -15,6 +15,9 @@ export interface SpeakerInput {
   industries: string;
   website: string;
   featured: boolean;
+  /** Where we reach the speaker (invites) — filled by the TSLS pull or an
+      admin; distinct from their account email until they have an account. */
+  contactEmail?: string;
   /** Momentum+ speaker-of-the-month assignment, "YYYY-MM" ("" = none). */
   speakerMonth?: string;
   /** TSLS Main Speakers are unpaid — hides the earnings line in their Studio. */
@@ -37,6 +40,7 @@ function toRow(input: SpeakerInput) {
       .map((t) => t.trim())
       .filter(Boolean),
     website: input.website.trim() || null,
+    contact_email: input.contactEmail?.trim().toLowerCase() || null,
     featured: input.featured,
     // Only a valid YYYY-MM passes; anything else clears the assignment (the
     // DB check constraint would reject it anyway).
@@ -47,11 +51,19 @@ function toRow(input: SpeakerInput) {
   };
 }
 
-/** Friendly hint when the speaker-month columns aren't deployed yet. */
+/** Friendly hint when a schema column isn't deployed yet. */
 function migrationHint(message: string): string {
+  if (/contact_email/.test(message)) {
+    return "The database doesn't have the speaker contact-email column yet — run migration 0074 first.";
+  }
   return /speaker_month|tsls_main_speaker/.test(message)
     ? "The database doesn't have the speaker-month columns yet — run migration 0053 first."
     : message;
+}
+
+/** A permissive shape check — real validation is "the invite email arrives". */
+function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 async function guard(): Promise<AdminResult | null> {
@@ -106,11 +118,32 @@ export async function pullSpeakersFromTsls(): Promise<AdminResult> {
   if (!fetched.ok) return { ok: false, message: fetched.message };
 
   const admin = createServiceClient();
-  const { data: existingRows, error } = await admin
+  // contact_email arrives with migration 0074 — degrade gracefully until run.
+  let hasContactEmail = true;
+  let res = await admin
     .from("speakers")
-    .select("id, name, profile_id, title, bio, headshot_url, website, industries, tsls_main_speaker");
-  if (error) return { ok: false, message: error.message };
-  const existing = existingRows ?? [];
+    .select(
+      "id, name, profile_id, title, bio, headshot_url, website, industries, tsls_main_speaker, contact_email",
+    );
+  if (res.error && /contact_email/.test(res.error.message)) {
+    hasContactEmail = false;
+    res = await admin
+      .from("speakers")
+      .select("id, name, profile_id, title, bio, headshot_url, website, industries, tsls_main_speaker");
+  }
+  if (res.error) return { ok: false, message: res.error.message };
+  const existing = (res.data ?? []) as Array<{
+    id: string;
+    name: string;
+    profile_id: string | null;
+    title: string | null;
+    bio: string | null;
+    headshot_url: string | null;
+    website: string | null;
+    industries: string[] | null;
+    tsls_main_speaker: boolean | null;
+    contact_email?: string | null;
+  }>;
 
   // Match by account email first, then by normalized name (credentials,
   // middle initials, and casing vary between the two apps).
@@ -127,6 +160,12 @@ export async function pullSpeakersFromTsls(): Promise<AdminResult> {
     for (const p of profs ?? []) {
       const sp = byProfile.get(p.id);
       if (sp && p.email) emailToSpeaker.set(String(p.email).toLowerCase(), sp);
+    }
+  }
+  // Contact emails from earlier pulls / admin edits match too.
+  for (const s of existing) {
+    if (s.contact_email) {
+      emailToSpeaker.set(String(s.contact_email).toLowerCase(), s);
     }
   }
   const nameToSpeaker = new Map(
@@ -163,6 +202,11 @@ export async function pullSpeakersFromTsls(): Promise<AdminResult> {
       if (ts.role === "main" && !match.tsls_main_speaker) {
         patch.tsls_main_speaker = true;
       }
+      // TSLS emails carry over so invites can go out (Matt, 2026-08-05) —
+      // fill-blank only, an admin-corrected email is never overwritten.
+      if (hasContactEmail && !match.contact_email && ts.email) {
+        patch.contact_email = ts.email;
+      }
       if (Object.keys(patch).length === 0) {
         unchanged++;
         continue;
@@ -193,6 +237,7 @@ export async function pullSpeakersFromTsls(): Promise<AdminResult> {
       links: ts.website ? { website: ts.website } : {},
       website: ts.website,
       tsls_main_speaker: ts.role === "main",
+      ...(hasContactEmail ? { contact_email: ts.email } : {}),
     });
     if (insErr) failed.push(`${ts.name} — ${migrationHint(insErr.message)}`);
     else added++;
@@ -214,6 +259,10 @@ export async function pullSpeakersFromTsls(): Promise<AdminResult> {
 export async function createSpeaker(input: SpeakerInput): Promise<AdminResult> {
   const early = await guard();
   if (early) return early;
+  const email = input.contactEmail?.trim() ?? "";
+  if (email && !looksLikeEmail(email)) {
+    return { ok: false, message: "That contact email doesn't look valid." };
+  }
   const { error } = await createServiceClient().from("speakers").insert(toRow(input));
   if (error) return { ok: false, message: migrationHint(error.message) };
   refresh();
@@ -226,6 +275,10 @@ export async function updateSpeaker(
 ): Promise<AdminResult> {
   const early = await guard();
   if (early) return early;
+  const email = input.contactEmail?.trim() ?? "";
+  if (email && !looksLikeEmail(email)) {
+    return { ok: false, message: "That contact email doesn't look valid." };
+  }
   const { error } = await createServiceClient()
     .from("speakers")
     .update(toRow(input))
@@ -448,6 +501,123 @@ export async function inviteSpeaker(
         ? `Account created but the invite email failed — copy the sign-in link below and send it to ${email} yourself.`
         : `${email} already has a Momentum+ account — they'll be routed to speaker setup next time they sign in.${existingNote}`,
   };
+}
+
+/**
+ * Send the login invite to ONE speaker listing, using its contact email
+ * (Matt, 2026-08-05: emails ride over from TSLS; login info goes out only
+ * when an admin clicks — one at a time or all at once). Reuses the full
+ * inviteSpeaker flow (account creation, branded email, speaker_invites
+ * row, /speaker-onboarding routing), then links the account back to the
+ * listing so their Studio edits land on this speaker page.
+ */
+export async function inviteSpeakerListing(
+  speakerId: string,
+): Promise<SpeakerInviteResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Invite sent (preview mode)." };
+  }
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { data: sp, error } = await admin
+    .from("speakers")
+    .select("id, name, profile_id, contact_email")
+    .eq("id", speakerId)
+    .maybeSingle();
+  if (error) return { ok: false, message: migrationHint(error.message) };
+  if (!sp) return { ok: false, message: "That speaker no longer exists." };
+  const email = (sp.contact_email as string | null)?.trim().toLowerCase();
+  if (!email) {
+    return {
+      ok: false,
+      message: "No email on this speaker — add one in the editor first.",
+    };
+  }
+
+  const result = await inviteSpeaker(email, String(sp.name));
+  if (!result.ok) return result;
+
+  // Link the (possibly just-created) account to this listing so speaker
+  // self-service edits update THIS page rather than minting a duplicate.
+  if (!sp.profile_id) {
+    const { findAuthUserIdByEmail } = await import("@/lib/onboarding");
+    const profileId = await findAuthUserIdByEmail(email);
+    if (profileId) {
+      await admin
+        .from("speakers")
+        .update({ profile_id: profileId })
+        .eq("id", speakerId)
+        .is("profile_id", null);
+    }
+  }
+  refresh();
+  return result;
+}
+
+/**
+ * Send login invites to EVERY active speaker listing that has a contact
+ * email and no linked account yet. Speakers already invited (pending
+ * speaker_invites row) or already holding an account are skipped — safe to
+ * click repeatedly, only ever emails people who still need login info.
+ */
+export async function inviteAllSpeakerListings(): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Invites sent (preview mode)." };
+  }
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { data: rows, error } = await admin
+    .from("speakers")
+    .select("id, name, profile_id, contact_email, archived_at")
+    .is("archived_at", null);
+  if (error) return { ok: false, message: migrationHint(error.message) };
+
+  const { data: pending } = await admin
+    .from("speaker_invites")
+    .select("email")
+    .is("completed_at", null);
+  const pendingEmails = new Set(
+    (pending ?? []).map((i) => String(i.email).toLowerCase()),
+  );
+
+  let sent = 0;
+  let hasAccount = 0;
+  let alreadyInvited = 0;
+  let noEmail = 0;
+  const failed: string[] = [];
+  for (const sp of rows ?? []) {
+    const email = (sp.contact_email as string | null)?.trim().toLowerCase();
+    if (sp.profile_id) {
+      hasAccount++;
+      continue;
+    }
+    if (!email) {
+      noEmail++;
+      continue;
+    }
+    if (pendingEmails.has(email)) {
+      alreadyInvited++;
+      continue;
+    }
+    const res = await inviteSpeakerListing(String(sp.id));
+    if (res.ok) sent++;
+    else failed.push(`${sp.name} — ${res.message ?? "failed"}`);
+  }
+
+  refresh();
+  const parts = [`${sent} invite${sent === 1 ? "" : "s"} sent`];
+  if (alreadyInvited) parts.push(`${alreadyInvited} already invited`);
+  if (hasAccount) parts.push(`${hasAccount} already have logins`);
+  if (noEmail) parts.push(`${noEmail} missing an email (add one in the editor)`);
+  const failNote =
+    failed.length > 0
+      ? ` Failed: ${failed.slice(0, 3).join("; ")}${failed.length > 3 ? `; +${failed.length - 3} more` : ""}.`
+      : "";
+  return { ok: failed.length === 0, message: `${parts.join(", ")}.${failNote}` };
 }
 
 /**

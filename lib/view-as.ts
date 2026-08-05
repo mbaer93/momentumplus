@@ -1,5 +1,6 @@
 /*
- * "View as" — a Super Admin browsing the portal the way a given tier sees it.
+ * "View as" — an admin browsing the portal the way a given tier sees it
+ * (any admin since 2026-08-05; the Control Center itself stays Super-only).
  *
  * WHAT THIS IS: a faithful simulation of the *product*. Navigation, padlocks,
  * page guards, upgrade prompts, the Studios and the Admin Panel all behave as

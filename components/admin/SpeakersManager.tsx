@@ -13,6 +13,7 @@ import {
 import {
   createSpeaker,
   deleteSpeaker,
+  inviteSpeakerListing,
   removeSpeakerHeadshot,
   updateSpeaker,
   uploadSpeakerHeadshot,
@@ -56,6 +57,12 @@ const FIELDS: FieldDef[] = [
     placeholder: "Leadership, Resilience, Mindset",
   },
   {
+    key: "contactEmail",
+    label: "Email (for login invites — pulled from TSLS when available)",
+    type: "text",
+    placeholder: "speaker@example.com",
+  },
+  {
     key: "website",
     label: "Website",
     type: "text",
@@ -80,6 +87,7 @@ const EMPTY: EntityValues = {
   name: "",
   title: "",
   industries: "",
+  contactEmail: "",
   website: "",
   bio: "",
   featured: false,
@@ -93,11 +101,92 @@ function toInput(v: EntityValues): SpeakerInput {
     title: String(v.title ?? ""),
     bio: String(v.bio ?? ""),
     industries: String(v.industries ?? ""),
+    contactEmail: String(v.contactEmail ?? ""),
     website: String(v.website ?? ""),
     featured: Boolean(v.featured),
     speakerMonth: String(v.speakerMonth ?? ""),
     tslsMainSpeaker: Boolean(v.tslsMainSpeaker),
   };
+}
+
+/** Login-invite controls in a speaker's edit row (Matt, 2026-08-05):
+    login info goes out only when an admin clicks — here for one speaker,
+    or the header button for everyone at once. */
+function InviteControls({ row }: { row: EntityRow }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [loginLink, setLoginLink] = useState<string | null>(null);
+
+  const email = String(row.values.contactEmail ?? "").trim();
+  const hasAccount = Boolean(row.values.hasAccount);
+  const invitePending = Boolean(row.values.invitePending);
+
+  const state = hasAccount
+    ? "Has a Momentum+ login."
+    : invitePending
+      ? "Invite pending — they haven't finished setup yet."
+      : email
+        ? "No login yet."
+        : "No login yet — add an email above (and Save) to invite them.";
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="admin-field" style={{ marginBottom: 6 }}>
+        <label style={{ fontSize: 13 }}>
+          Login invite — {state}
+        </label>
+      </div>
+      <div className="admin-form-actions" style={{ marginTop: 0, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          className="btn-mini"
+          disabled={pending || !email || hasAccount}
+          onClick={() => {
+            setMsg(null);
+            setLoginLink(null);
+            startTransition(async () => {
+              try {
+                const res = await inviteSpeakerListing(row.id);
+                setMsg(res.message ? { text: res.message, ok: res.ok } : null);
+                setLoginLink(res.loginLink ?? null);
+                if (res.ok) router.refresh();
+              } catch {
+                setMsg({
+                  text: "That didn't send — refresh this page and try again (the app may have just been updated).",
+                  ok: false,
+                });
+              }
+            });
+          }}
+        >
+          {pending
+            ? "Sending…"
+            : invitePending
+              ? "Re-send login invite"
+              : "Send login invite"}
+        </button>
+        {hasAccount && (
+          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+            Already set up — nothing to send.
+          </span>
+        )}
+      </div>
+      {msg && (
+        <div
+          className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}
+          style={{ marginTop: 6 }}
+        >
+          {msg.text}
+        </div>
+      )}
+      {loginLink && (
+        <div className="admin-form-msg ok" style={{ marginTop: 6, wordBreak: "break-all" }}>
+          Sign-in link: {loginLink}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Headshot controls in a speaker's edit row. */
@@ -204,7 +293,12 @@ export function SpeakersManager({
       emptyValues={EMPTY}
       initialEditId={initialEditId}
       createHint="Headshot upload: after adding the speaker, click Edit on their row — the upload is in the edit panel."
-      renderRowExtras={(row) => <HeadshotControls row={row} />}
+      renderRowExtras={(row) => (
+        <>
+          <HeadshotControls row={row} />
+          <InviteControls row={row} />
+        </>
+      )}
       onCreate={(v) => createSpeaker(toInput(v))}
       onUpdate={(id, v) => updateSpeaker(id, toInput(v))}
       onDelete={(id) => deleteSpeaker(id)}
