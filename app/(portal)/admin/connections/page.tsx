@@ -6,6 +6,7 @@ import {
   AnthropicWizard,
   GhlWizard,
   SmtpWizard,
+  YoutubeWizard,
   ZoomWizard,
 } from "@/components/admin/ConnectWizards";
 import { getAdminAccess } from "@/lib/auth-helpers";
@@ -19,6 +20,7 @@ import {
   isAnthropicReady,
   isGhlReady,
   isSmtpMarkedDone,
+  isYoutubeApiReady,
   isZoomReady,
   isZoomSdkReady,
 } from "@/lib/service-config";
@@ -111,6 +113,7 @@ export default async function AdminConnectionsPage() {
     anthropicOk,
     ghlOk,
     smtpDone,
+    youtubeOk,
     cronHealth,
     healthReport,
   ] = await Promise.all([
@@ -121,6 +124,7 @@ export default async function AdminConnectionsPage() {
     isAnthropicReady(),
     isGhlReady(),
     isSmtpMarkedDone(),
+    isYoutubeApiReady(),
     readCronHealth(),
     readHealthReport(),
   ]);
@@ -218,6 +222,15 @@ export default async function AdminConnectionsPage() {
             connected={smtpDone}
           >
             <SmtpWizard markedDone={smtpDone} />
+          </ConnectionCard>
+
+          <ConnectionCard
+            title="YouTube — Branching Out episode data"
+            powers="Exact publish dates and full show notes for every podcast episode the import pulls in"
+            connected={youtubeOk}
+            optional
+          >
+            <YoutubeWizard />
           </ConnectionCard>
 
           <ConnectionCard

@@ -25,6 +25,7 @@ const PREVIEW: PodcastActionResult = {
     URL containing one. */
 export async function savePodcastSettings(
   channelInput: string,
+  spotifyInput = "",
 ): Promise<PodcastActionResult> {
   const auth = await requireAdmin("content");
   if (!auth.ok) return { ok: false, message: auth.message };
@@ -39,18 +40,27 @@ export async function savePodcastSettings(
         "Enter the channel id (starts with UC…) — it's in the channel URL under youtube.com/channel/…",
     };
   }
+  const spotifyUrl = spotifyInput.trim();
+  if (spotifyUrl && !/^https:\/\/open\.spotify\.com\//.test(spotifyUrl)) {
+    return {
+      ok: false,
+      message:
+        "The Spotify link should be the show's open.spotify.com URL (copy it from Share on the show page).",
+    };
+  }
   const admin = createServiceClient();
   const { error } = await admin.from("app_settings").upsert(
     {
       key: PODCAST_SETTINGS_KEY,
-      value: { channelId },
+      value: { channelId, spotifyUrl },
       updated_at: new Date().toISOString(),
     },
     { onConflict: "key" },
   );
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin/podcast");
-  return { ok: true, message: channelId ? "Channel saved" : "Channel cleared" };
+  revalidatePath("/branching-out");
+  return { ok: true, message: "Settings saved" };
 }
 
 export async function syncPodcastNow(): Promise<PodcastActionResult> {
@@ -151,6 +161,8 @@ export async function updateEpisode(
     showNotes: string;
     /** "YYYY-MM-DD" — blank keeps the current date. */
     publishedAt: string;
+    /** Season number as typed; blank clears it. */
+    season: string;
   },
 ): Promise<PodcastActionResult> {
   const auth = await requireAdmin("content");
@@ -158,9 +170,15 @@ export async function updateEpisode(
   if (!isSupabaseConfigured()) return PREVIEW;
   const title = values.title.trim();
   if (!title) return { ok: false, message: "The title can't be empty" };
+  const seasonRaw = values.season.trim();
+  const season = seasonRaw === "" ? null : Number(seasonRaw);
+  if (season !== null && (!Number.isInteger(season) || season < 1 || season > 999)) {
+    return { ok: false, message: "Season should be a whole number (1, 2, 3…)" };
+  }
   const patch: Record<string, unknown> = {
     title,
     show_notes: values.showNotes.trim(),
+    season,
     source: "manual",
   };
   if (values.publishedAt.trim()) {
@@ -179,6 +197,51 @@ export async function updateEpisode(
   revalidatePath("/branching-out");
   revalidatePath("/admin/podcast");
   return { ok: true, message: "Episode saved — it's now marked Manual, so syncs and imports will never overwrite it." };
+}
+
+/** Assign a season to every episode published inside a date range — the
+    quick way to carve the back catalog into seasons. Applies to hidden
+    episodes too; does NOT flip episodes to manual (season is organization,
+    not content). */
+export async function assignSeasonRange(values: {
+  from: string; // "YYYY-MM-DD"
+  to: string; // "YYYY-MM-DD"
+  season: string;
+}): Promise<PodcastActionResult> {
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!isSupabaseConfigured()) return PREVIEW;
+  const season = Number(values.season.trim());
+  if (!Number.isInteger(season) || season < 1 || season > 999) {
+    return { ok: false, message: "Season should be a whole number (1, 2, 3…)" };
+  }
+  const from = new Date(`${values.from.trim()}T00:00:00Z`);
+  const to = new Date(`${values.to.trim()}T23:59:59Z`);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) {
+    return { ok: false, message: "Pick a valid from/to date range" };
+  }
+  const admin = createServiceClient();
+  const { data, error } = await admin
+    .from("podcast_episodes")
+    .update({ season })
+    .gte("published_at", from.toISOString())
+    .lte("published_at", to.toISOString())
+    .select("id");
+  if (error) {
+    return {
+      ok: false,
+      message: /season/.test(error.message)
+        ? "The database doesn't have the season column yet — run migration 0076 first."
+        : error.message,
+    };
+  }
+  const n = (data ?? []).length;
+  revalidatePath("/branching-out");
+  revalidatePath("/admin/podcast");
+  return {
+    ok: true,
+    message: `Season ${season} assigned to ${n} episode${n === 1 ? "" : "s"} in that range.`,
+  };
 }
 
 export async function setEpisodeHidden(

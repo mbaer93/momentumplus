@@ -1,5 +1,5 @@
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/make-baseline.mjs
--- Full schema baseline: every migration in order (0001_init.sql … 0075_scheduled_announcements.sql).
+-- Full schema baseline: every migration in order (0001_init.sql … 0076_podcast_seasons.sql).
 -- Run ONCE against a FRESH Supabase project to mirror production's schema.
 -- Never run this against the production database.
 
@@ -3740,3 +3740,16 @@ alter table announcements add column if not exists send_at timestamptz;
 
 create index if not exists announcements_due_idx
   on announcements (send_at) where sent_at is null;
+
+-- ============================================================
+-- 0076_podcast_seasons.sql
+-- ============================================================
+-- Podcast seasons (Matt, 2026-08-05): break Branching Out episodes into
+-- seasons so members can find them easily. Admin-assigned — per episode in
+-- the editor, or in bulk by date range. Episodes without a season appear
+-- under "Extras" on the member tab once any season exists.
+
+alter table podcast_episodes add column if not exists season int;
+
+create index if not exists podcast_episodes_season_idx
+  on podcast_episodes (season);

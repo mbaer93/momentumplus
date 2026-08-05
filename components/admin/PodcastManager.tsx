@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import {
   addEpisodeManual,
+  assignSeasonRange,
   deleteEpisode,
   importPodcastBackCatalog,
   savePodcastSettings,
@@ -19,18 +20,29 @@ export interface AdminEpisodeRow {
   publishedAt: string | null;
   source: "auto" | "manual";
   hidden: boolean;
+  season: number | null;
 }
 
 /* Admin manager for the Branching Out podcast: auto-sync channel, sync-now,
    manual add for past episodes, and hide/delete per episode. */
 export function PodcastManager({
   channelId,
+  spotifyUrl,
+  youtubeApiReady,
   episodes,
 }: {
   channelId: string;
+  spotifyUrl: string;
+  /** YouTube Data API key connected (Admin → Connections)? With it the
+      import reads exact dates + full notes for every episode. */
+  youtubeApiReady: boolean;
   episodes: AdminEpisodeRow[];
 }) {
   const [channel, setChannel] = useState(channelId);
+  const [spotify, setSpotify] = useState(spotifyUrl);
+  // Bulk season assignment (Matt, 2026-08-05: carve the back catalog into
+  // seasons by date range).
+  const [range, setRange] = useState({ from: "", to: "", season: "" });
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -43,13 +55,14 @@ export function PodcastManager({
   // place — saving marks the episode Manual so nothing auto ever
   // overwrites the correction.
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [edit, setEdit] = useState({ title: "", notes: "", date: "" });
+  const [edit, setEdit] = useState({ title: "", notes: "", date: "", season: "" });
   const startEdit = (ep: AdminEpisodeRow) => {
     setEditingId(ep.id);
     setEdit({
       title: ep.title,
       notes: ep.showNotes,
       date: ep.publishedAt ? ep.publishedAt.slice(0, 10) : "",
+      season: ep.season === null ? "" : String(ep.season),
     });
   };
 
@@ -114,18 +127,24 @@ export function PodcastManager({
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input
-            style={{ ...inputStyle, flex: "1 1 320px" }}
+            style={{ ...inputStyle, flex: "1 1 280px" }}
             placeholder="youtube.com/channel/UC… or the UC… id"
             value={channel}
             onChange={(e) => setChannel(e.target.value)}
+          />
+          <input
+            style={{ ...inputStyle, flex: "1 1 280px" }}
+            placeholder="Spotify show link (optional) — open.spotify.com/show/…"
+            value={spotify}
+            onChange={(e) => setSpotify(e.target.value)}
           />
           <button
             type="button"
             className="btn-primary"
             disabled={pending}
-            onClick={() => run(() => savePodcastSettings(channel))}
+            onClick={() => run(() => savePodcastSettings(channel, spotify))}
           >
-            Save channel
+            Save settings
           </button>
           <button
             type="button"
@@ -149,10 +168,24 @@ export function PodcastManager({
         <p style={{ fontSize: 12, color: "var(--mid-gray)", marginBottom: 0, marginTop: 8 }}>
           Sync now grabs recent uploads; <strong>Import full back catalog</strong>{" "}
           walks the channel&apos;s entire video list and pulls every past
-          episode — title, show notes, publish date, and thumbnail. Episodes
-          already in the system are never changed, so it&apos;s safe to run
-          any time. A very large catalog may need a second press to finish
-          (it tells you if so).
+          episode — title, show notes, publish date, and thumbnail.{" "}
+          {youtubeApiReady ? (
+            <>
+              The YouTube API is connected, so the import uses YouTube&apos;s
+              exact publish dates and full notes, and trues up episodes that
+              drifted — only episodes marked Manual are left alone.
+            </>
+          ) : (
+            <>
+              YouTube hides exact dates on older videos, so imported dates are
+              approximate. For exact dates and full notes on every episode,
+              connect a free YouTube API key in{" "}
+              <a href="/admin/connections" style={{ color: "var(--gold)", fontWeight: 600 }}>
+                Admin → Connections
+              </a>{" "}
+              and run the import again.
+            </>
+          )}
         </p>
       </div>
 
@@ -229,6 +262,56 @@ export function PodcastManager({
         </div>
       </div>
 
+      {/* Seasons: bulk assignment by date range */}
+      <div className="card" style={{ padding: 18 }}>
+        <h3 style={{ marginTop: 0, marginBottom: 6 }}>Seasons</h3>
+        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
+          Group episodes into seasons so members can browse them easily.
+          Assign a whole date range at once here, or set a single
+          episode&apos;s season in its Edit panel. The member tab shows
+          season tabs as soon as any episode has one.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
+          <div>
+            <label style={labelStyle}>From</label>
+            <input
+              type="date"
+              style={inputStyle}
+              value={range.from}
+              onChange={(e) => setRange((p) => ({ ...p, from: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>To</label>
+            <input
+              type="date"
+              style={inputStyle}
+              value={range.to}
+              onChange={(e) => setRange((p) => ({ ...p, to: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Season</label>
+            <input
+              type="number"
+              min={1}
+              style={{ ...inputStyle, width: 90 }}
+              placeholder="1"
+              value={range.season}
+              onChange={(e) => setRange((p) => ({ ...p, season: e.target.value }))}
+            />
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={pending || !range.from || !range.to || !range.season}
+            onClick={() => run(() => assignSeasonRange(range))}
+          >
+            Assign season to range
+          </button>
+        </div>
+      </div>
+
       {/* Episode list */}
       <div className="card" style={{ padding: 18 }}>
         <h3 style={{ marginTop: 0 }}>Episodes ({episodes.length})</h3>
@@ -272,6 +355,7 @@ export function PodcastManager({
                         })
                       : "No date"}{" "}
                     · {ep.source === "auto" ? "Auto-synced" : "Manual"}
+                    {ep.season !== null ? ` · Season ${ep.season}` : ""}
                     {ep.hidden ? " · Hidden" : ""}
                   </div>
                 </div>
@@ -333,14 +417,27 @@ export function PodcastManager({
                         onChange={(e) => setEdit((p) => ({ ...p, title: e.target.value }))}
                       />
                     </div>
-                    <div>
-                      <label style={labelStyle}>Published</label>
-                      <input
-                        type="date"
-                        style={inputStyle}
-                        value={edit.date}
-                        onChange={(e) => setEdit((p) => ({ ...p, date: e.target.value }))}
-                      />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div>
+                        <label style={labelStyle}>Published</label>
+                        <input
+                          type="date"
+                          style={inputStyle}
+                          value={edit.date}
+                          onChange={(e) => setEdit((p) => ({ ...p, date: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Season</label>
+                        <input
+                          type="number"
+                          min={1}
+                          style={inputStyle}
+                          placeholder="e.g. 2"
+                          value={edit.season}
+                          onChange={(e) => setEdit((p) => ({ ...p, season: e.target.value }))}
+                        />
+                      </div>
                     </div>
                   </div>
                   <div>
@@ -362,6 +459,7 @@ export function PodcastManager({
                             title: edit.title,
                             showNotes: edit.notes,
                             publishedAt: edit.date,
+                            season: edit.season,
                           });
                           if (res.ok) setEditingId(null);
                           return res;

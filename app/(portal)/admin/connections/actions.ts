@@ -141,6 +141,50 @@ export async function connectAnthropic(apiKey: string): Promise<ConnectResult> {
   return { ok: true, message: "Anthropic connected — AI summaries generate automatically after sessions." };
 }
 
+/** YouTube Data API: validated with a 1-unit videos.list call before
+    saving. Powers exact publish dates + full show notes for Branching
+    Out's back-catalog import. */
+export async function connectYoutube(apiKey: string): Promise<ConnectResult> {
+  const early = await guardSuper();
+  if (early) return early;
+  const key = apiKey.trim();
+  if (key.length < 20) {
+    return {
+      ok: false,
+      message:
+        "Paste the API key from Google Cloud → APIs & Services → Credentials (starts with AIza…).",
+    };
+  }
+
+  const res = await fetch(
+    `https://www.googleapis.com/youtube/v3/videos?part=id&id=jNQXAC9IVRw&key=${encodeURIComponent(key)}`,
+    { cache: "no-store" },
+  ).catch(() => null);
+  if (!res?.ok) {
+    const reason = res
+      ? await res
+          .json()
+          .then((b: { error?: { message?: string } }) => b.error?.message ?? "")
+          .catch(() => "")
+      : "";
+    return {
+      ok: false,
+      message:
+        `Google rejected that key${reason ? ` (${reason})` : ""} — make sure the ` +
+        "YouTube Data API v3 is enabled for the project and the key has no blocking restrictions.",
+    };
+  }
+
+  await saveServiceSettings("youtube", { apiKey: key });
+  refresh();
+  revalidatePath("/admin/podcast");
+  return {
+    ok: true,
+    message:
+      "YouTube connected — run Import full back catalog in Admin → Branching Out to correct every episode's date and notes.",
+  };
+}
+
 /** GHL: validated by fetching the location before saving. */
 export async function connectGhl(
   apiKey: string,

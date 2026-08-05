@@ -8,6 +8,9 @@ import {
   extractInitialData,
   extractVideoIds,
   extractYoutubeVideoId,
+  parseIsoDuration,
+  parsePlaylistItemsPage,
+  parseVideoDurationsPage,
   parseWatchPageMeta,
   parseYoutubeFeed,
 } from "../lib/podcast";
@@ -286,5 +289,84 @@ describe("enforceDescendingDates", () => {
     for (let i = 1; i < out.length; i++) {
       assert.ok(Date.parse(out[i]) < Date.parse(out[i - 1]));
     }
+  });
+});
+
+describe("parseIsoDuration", () => {
+  it("parses hour/minute/second combinations", () => {
+    assert.equal(parseIsoDuration("PT1H2M10S"), 3730);
+    assert.equal(parseIsoDuration("PT58S"), 58);
+    assert.equal(parseIsoDuration("PT45M"), 2700);
+    assert.equal(parseIsoDuration("P1DT2H"), 93_600);
+  });
+
+  it("rejects garbage", () => {
+    assert.equal(parseIsoDuration("nope"), null);
+    assert.equal(parseIsoDuration("P"), null);
+    assert.equal(parseIsoDuration(""), null);
+  });
+});
+
+describe("parsePlaylistItemsPage", () => {
+  const page = {
+    nextPageToken: "TOKEN2",
+    items: [
+      {
+        snippet: {
+          title: "Episode 40",
+          description: "Full show notes here",
+          resourceId: { videoId: "abcDEF123-_" },
+          thumbnails: { high: { url: "https://i.ytimg.com/vi/abcDEF123-_/hq.jpg" } },
+        },
+        contentDetails: { videoPublishedAt: "2025-06-01T12:00:00Z" },
+      },
+      {
+        // deleted video: no videoPublishedAt — must be skipped
+        snippet: { title: "Deleted video", resourceId: { videoId: "deadbeef000" } },
+        contentDetails: {},
+      },
+      {
+        snippet: {
+          title: "Episode 39",
+          description: "",
+          resourceId: { videoId: "zyxWVU987-_" },
+        },
+        contentDetails: { videoPublishedAt: "2025-05-01T12:00:00Z" },
+      },
+    ],
+  };
+
+  it("keeps published videos with exact dates and skips deleted/private ones", () => {
+    const { videos, nextPageToken } = parsePlaylistItemsPage(page);
+    assert.equal(nextPageToken, "TOKEN2");
+    assert.equal(videos.length, 2);
+    assert.equal(videos[0].videoId, "abcDEF123-_");
+    assert.equal(videos[0].title, "Episode 40");
+    assert.equal(videos[0].showNotes, "Full show notes here");
+    assert.equal(videos[0].publishedAt, "2025-06-01T12:00:00.000Z");
+    assert.equal(videos[0].thumbnailUrl, "https://i.ytimg.com/vi/abcDEF123-_/hq.jpg");
+    // no thumbnails in the payload → i.ytimg fallback
+    assert.equal(videos[1].thumbnailUrl, "https://i.ytimg.com/vi/zyxWVU987-_/hqdefault.jpg");
+  });
+
+  it("degrades to empty on the last page / malformed payloads", () => {
+    assert.deepEqual(parsePlaylistItemsPage({}), { videos: [], nextPageToken: null });
+    assert.deepEqual(parsePlaylistItemsPage(null), { videos: [], nextPageToken: null });
+  });
+});
+
+describe("parseVideoDurationsPage", () => {
+  it("maps ids to seconds and skips unparseable rows", () => {
+    const map = parseVideoDurationsPage({
+      items: [
+        { id: "abcDEF123-_", contentDetails: { duration: "PT1H1M" } },
+        { id: "shortvid001", contentDetails: { duration: "PT45S" } },
+        { id: "broken00000", contentDetails: { duration: "??" } },
+        { contentDetails: { duration: "PT1M" } },
+      ],
+    });
+    assert.equal(map.get("abcDEF123-_"), 3660);
+    assert.equal(map.get("shortvid001"), 45);
+    assert.equal(map.size, 2);
   });
 });
