@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getYoutubeApiKey } from "@/lib/service-config";
 
 /*
  * Branching Out — the SLC podcast (Matt, 2026-08-05).
@@ -357,6 +358,310 @@ export function parseWatchPageMeta(html: string): WatchPageMeta {
   return { title, showNotes, uploadDate };
 }
 
+/* ------------------------------------------------------------------ */
+/* YouTube Data API (Matt, 2026-08-05: "the dates on most of the       */
+/* episodes are wrong")                                                */
+/*                                                                     */
+/* Old uploads only expose "2 years ago"-style labels to scraping, so  */
+/* approximated dates drift and shuffle. With an API key (Admin →      */
+/* Connections) the import reads the channel's uploads playlist        */
+/* instead: exact publish dates, full descriptions, every episode.     */
+/* ------------------------------------------------------------------ */
+
+/** One upload as returned by the Data API. */
+export interface ApiVideo {
+  videoId: string;
+  title: string;
+  showNotes: string;
+  /** Exact ISO publish timestamp. */
+  publishedAt: string;
+  thumbnailUrl: string | null;
+}
+
+/** ISO8601 duration ("PT1H2M10S") → seconds, or null when unparseable. */
+export function parseIsoDuration(iso: string): number | null {
+  const m = iso.match(
+    /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/,
+  );
+  if (!m || (!m[1] && !m[2] && !m[3] && !m[4])) return null;
+  return (
+    Number(m[1] ?? 0) * 86_400 +
+    Number(m[2] ?? 0) * 3_600 +
+    Number(m[3] ?? 0) * 60 +
+    Number(m[4] ?? 0)
+  );
+}
+
+/** Parse one playlistItems page. Deleted/private videos (no
+    videoPublishedAt) are skipped. */
+export function parsePlaylistItemsPage(json: unknown): {
+  videos: ApiVideo[];
+  nextPageToken: string | null;
+} {
+  const root = (json ?? {}) as {
+    items?: {
+      snippet?: {
+        title?: string;
+        description?: string;
+        resourceId?: { videoId?: string };
+        thumbnails?: Record<string, { url?: string }>;
+      };
+      contentDetails?: { videoPublishedAt?: string };
+    }[];
+    nextPageToken?: string;
+  };
+  const videos: ApiVideo[] = [];
+  for (const item of root.items ?? []) {
+    const videoId = item.snippet?.resourceId?.videoId;
+    const publishedAt = item.contentDetails?.videoPublishedAt;
+    if (!videoId || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) continue;
+    if (!publishedAt || !Number.isFinite(Date.parse(publishedAt))) continue;
+    const thumbs = item.snippet?.thumbnails ?? {};
+    videos.push({
+      videoId,
+      title: (item.snippet?.title ?? "").trim(),
+      showNotes: (item.snippet?.description ?? "").trim(),
+      publishedAt: new Date(Date.parse(publishedAt)).toISOString(),
+      thumbnailUrl:
+        thumbs.high?.url ??
+        thumbs.medium?.url ??
+        thumbs.default?.url ??
+        `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    });
+  }
+  return { videos, nextPageToken: root.nextPageToken ?? null };
+}
+
+/** Parse one videos.list page into videoId → duration seconds. */
+export function parseVideoDurationsPage(json: unknown): Map<string, number> {
+  const root = (json ?? {}) as {
+    items?: { id?: string; contentDetails?: { duration?: string } }[];
+  };
+  const out = new Map<string, number>();
+  for (const item of root.items ?? []) {
+    const secs = item.contentDetails?.duration
+      ? parseIsoDuration(item.contentDetails.duration)
+      : null;
+    if (item.id && secs !== null) out.set(item.id, secs);
+  }
+  return out;
+}
+
+const YT_API = "https://www.googleapis.com/youtube/v3";
+
+/** Every upload on the channel via the Data API, newest first, Shorts
+    excluded. `complete` is true only when every page was read, so the
+    caller can safely prune rows missing from the enumeration. */
+export async function listUploadsViaApi(
+  channelId: string,
+  apiKey: string,
+): Promise<{ videos: ApiVideo[]; complete: boolean; note?: string }> {
+  // A channel's full upload list is the "UU…" twin of its "UC…" id.
+  const playlistId = `UU${channelId.slice(2)}`;
+  const collected: ApiVideo[] = [];
+  let pageToken = "";
+  let complete = false;
+  for (let page = 0; page < 40; page++) {
+    const url =
+      `${YT_API}/playlistItems?part=snippet%2CcontentDetails&maxResults=50` +
+      `&playlistId=${encodeURIComponent(playlistId)}&key=${encodeURIComponent(apiKey)}` +
+      (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+    let res: Response;
+    try {
+      res = await fetch(url, { cache: "no-store" });
+    } catch {
+      return {
+        videos: collected,
+        complete: false,
+        note: "Couldn't reach the YouTube API — try again in a minute.",
+      };
+    }
+    if (!res.ok) {
+      const reason = await res
+        .json()
+        .then((b: { error?: { message?: string } }) => b.error?.message ?? "")
+        .catch(() => "");
+      return {
+        videos: collected,
+        complete: false,
+        note: `YouTube API error ${res.status}${reason ? ` — ${reason}` : ""}`,
+      };
+    }
+    const parsed = parsePlaylistItemsPage(await res.json());
+    collected.push(...parsed.videos);
+    if (!parsed.nextPageToken) {
+      complete = true;
+      break;
+    }
+    pageToken = parsed.nextPageToken;
+  }
+
+  // Shorts filter: durations in batches of 50, then anything short enough
+  // to possibly be a Short gets the /shorts/ redirect check (fails open).
+  const durations = new Map<string, number>();
+  for (let i = 0; i < collected.length; i += 50) {
+    const ids = collected
+      .slice(i, i + 50)
+      .map((v) => v.videoId)
+      .join(",");
+    try {
+      const res = await fetch(
+        `${YT_API}/videos?part=contentDetails&id=${ids}&key=${encodeURIComponent(apiKey)}`,
+        { cache: "no-store" },
+      );
+      if (res.ok) {
+        for (const [id, secs] of parseVideoDurationsPage(await res.json())) {
+          durations.set(id, secs);
+        }
+      }
+    } catch {
+      /* missing durations just skip the Shorts pre-filter for the batch */
+    }
+  }
+  const videos: ApiVideo[] = [];
+  for (const v of collected) {
+    const secs = durations.get(v.videoId);
+    // Shorts max out at 3 minutes; small buffer for rounding.
+    if (secs !== undefined && secs <= 245 && (await isYoutubeShort(v.videoId))) {
+      continue;
+    }
+    videos.push(v);
+  }
+  return { videos, complete };
+}
+
+/** API-key import: insert missing episodes and true-up every auto row's
+    date, title, and notes against YouTube. Rows an admin edited or added
+    (source "manual") are never touched. */
+async function importViaApi(
+  channelId: string,
+  apiKey: string,
+): Promise<{
+  ok: boolean;
+  imported: number;
+  remaining: number;
+  total: number;
+  message?: string;
+}> {
+  const { videos, complete, note } = await listUploadsViaApi(channelId, apiKey);
+  if (videos.length === 0) {
+    return {
+      ok: false,
+      imported: 0,
+      remaining: 0,
+      total: 0,
+      message: note ?? "The YouTube API returned no videos — check the channel id.",
+    };
+  }
+
+  const admin = createServiceClient();
+  const { data: rows, error: readError } = await admin
+    .from("podcast_episodes")
+    .select("id, youtube_video_id, title, show_notes, published_at, source");
+  if (readError) {
+    return {
+      ok: false,
+      imported: 0,
+      remaining: 0,
+      total: videos.length,
+      message: readError.message,
+    };
+  }
+  const byVideoId = new Map(
+    ((rows ?? []) as {
+      id: string;
+      youtube_video_id: string;
+      title: string;
+      show_notes: string | null;
+      published_at: string | null;
+      source: string;
+    }[]).map((r) => [r.youtube_video_id, r]),
+  );
+
+  let imported = 0;
+  let refreshed = 0;
+  let removed = 0;
+  let lastError: string | null = null;
+  for (const v of videos) {
+    const row = byVideoId.get(v.videoId);
+    if (!row) {
+      const { error } = await admin.from("podcast_episodes").upsert(
+        {
+          youtube_video_id: v.videoId,
+          title: v.title || "Untitled episode",
+          show_notes: v.showNotes,
+          thumbnail_url: v.thumbnailUrl,
+          published_at: v.publishedAt,
+          source: "auto",
+        },
+        { onConflict: "youtube_video_id", ignoreDuplicates: true },
+      );
+      if (error) lastError = error.message;
+      else imported++;
+      continue;
+    }
+    if (row.source === "manual") continue;
+    const currentMs = row.published_at ? Date.parse(row.published_at) : NaN;
+    const dateDrifted =
+      !Number.isFinite(currentMs) ||
+      Math.abs(currentMs - Date.parse(v.publishedAt)) > 60_000;
+    const contentDrifted =
+      row.title !== (v.title || "Untitled episode") ||
+      (row.show_notes ?? "") !== v.showNotes;
+    if (!dateDrifted && !contentDrifted) continue;
+    const { error } = await admin
+      .from("podcast_episodes")
+      .update({
+        title: v.title || "Untitled episode",
+        show_notes: v.showNotes,
+        published_at: v.publishedAt,
+      })
+      .eq("id", row.id);
+    if (error) lastError = error.message;
+    else refreshed++;
+  }
+
+  // Auto rows absent from the (complete) upload list are Shorts or
+  // deleted/unlisted videos — clear them out.
+  if (complete) {
+    const inCatalog = new Set(videos.map((v) => v.videoId));
+    for (const row of byVideoId.values()) {
+      if (row.source === "manual" || inCatalog.has(row.youtube_video_id)) {
+        continue;
+      }
+      const { error } = await admin
+        .from("podcast_episodes")
+        .delete()
+        .eq("id", row.id);
+      if (error) lastError = error.message;
+      else removed++;
+    }
+  }
+
+  const parts = [
+    `${imported} episode${imported === 1 ? "" : "s"} imported (${videos.length} on the channel).`,
+  ];
+  if (refreshed > 0) {
+    parts.push(
+      `${refreshed} corrected to YouTube's exact dates, titles, and notes.`,
+    );
+  }
+  if (removed > 0) {
+    parts.push(
+      `${removed} Short${removed === 1 ? "" : "s"}/removed video${removed === 1 ? "" : "s"} cleaned out.`,
+    );
+  }
+  if (note) parts.push(note);
+  if (lastError) parts.push(`Last error: ${lastError}.`);
+  return {
+    ok: !lastError,
+    imported,
+    remaining: 0,
+    total: videos.length,
+    message: parts.join(" "),
+  };
+}
+
 const BROWSE_HEADERS = {
   "content-type": "application/json",
   // A consent cookie keeps YouTube from bouncing EU-routed requests to the
@@ -536,6 +841,10 @@ export async function importBackCatalog(): Promise<{
       message: "Save the channel first",
     };
   }
+  // With an API key (Admin → Connections) the import gets exact publish
+  // dates and full notes for every episode; scraping is the fallback.
+  const apiKey = await getYoutubeApiKey();
+  if (apiKey) return importViaApi(channelId, apiKey);
   const { videos, complete, note } = await listAllChannelVideos(channelId);
   if (videos.length === 0) {
     return {

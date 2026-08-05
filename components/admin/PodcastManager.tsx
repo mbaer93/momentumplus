@@ -28,10 +28,14 @@ export interface AdminEpisodeRow {
 export function PodcastManager({
   channelId,
   spotifyUrl,
+  youtubeApiReady,
   episodes,
 }: {
   channelId: string;
   spotifyUrl: string;
+  /** YouTube Data API key connected (Admin → Connections)? With it the
+      import reads exact dates + full notes for every episode. */
+  youtubeApiReady: boolean;
   episodes: AdminEpisodeRow[];
 }) {
   const [channel, setChannel] = useState(channelId);
@@ -164,10 +168,24 @@ export function PodcastManager({
         <p style={{ fontSize: 12, color: "var(--mid-gray)", marginBottom: 0, marginTop: 8 }}>
           Sync now grabs recent uploads; <strong>Import full back catalog</strong>{" "}
           walks the channel&apos;s entire video list and pulls every past
-          episode — title, show notes, publish date, and thumbnail. Episodes
-          already in the system are never changed, so it&apos;s safe to run
-          any time. A very large catalog may need a second press to finish
-          (it tells you if so).
+          episode — title, show notes, publish date, and thumbnail.{" "}
+          {youtubeApiReady ? (
+            <>
+              The YouTube API is connected, so the import uses YouTube&apos;s
+              exact publish dates and full notes, and trues up episodes that
+              drifted — only episodes marked Manual are left alone.
+            </>
+          ) : (
+            <>
+              YouTube hides exact dates on older videos, so imported dates are
+              approximate. For exact dates and full notes on every episode,
+              connect a free YouTube API key in{" "}
+              <a href="/admin/connections" style={{ color: "var(--gold)", fontWeight: 600 }}>
+                Admin → Connections
+              </a>{" "}
+              and run the import again.
+            </>
+          )}
         </p>
       </div>
 

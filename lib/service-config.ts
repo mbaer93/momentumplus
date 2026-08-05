@@ -10,7 +10,7 @@ import { requestCache } from "@/lib/request-cache";
  * old way.
  */
 
-export type ServiceKey = "zoom" | "anthropic" | "ghl" | "smtp";
+export type ServiceKey = "zoom" | "anthropic" | "ghl" | "smtp" | "youtube";
 
 export async function getServiceSettings<T>(key: ServiceKey): Promise<T | null> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -90,6 +90,19 @@ export async function getAnthropicApiKey(): Promise<string | null> {
 
 export async function isAnthropicReady(): Promise<boolean> {
   return Boolean(await getAnthropicApiKey());
+}
+
+// ---------------------------------------------------------------------------
+// YouTube Data API (Branching Out — exact episode dates + full show notes)
+// ---------------------------------------------------------------------------
+
+export async function getYoutubeApiKey(): Promise<string | null> {
+  const db = await getServiceSettings<{ apiKey?: string }>("youtube");
+  return db?.apiKey ?? process.env.YOUTUBE_API_KEY ?? null;
+}
+
+export async function isYoutubeApiReady(): Promise<boolean> {
+  return Boolean(await getYoutubeApiKey());
 }
 
 // ---------------------------------------------------------------------------

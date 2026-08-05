@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   connectAnthropic,
   connectGhl,
+  connectYoutube,
   connectZoomS2S,
   connectZoomSdk,
   markSmtpDone,
@@ -248,6 +249,54 @@ export function AnthropicWizard() {
           }
         >
           Connect Anthropic
+        </button>
+      </div>
+      <Msg msg={msg} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+export function YoutubeWizard() {
+  const { pending, msg, run } = useRun();
+  const [key, setKey] = useState("");
+
+  return (
+    <div>
+      <div style={stepStyle}>
+        Free — YouTube&apos;s public pages hide exact dates on older videos,
+        so this key lets the Branching Out import read them properly. &nbsp;1.
+        Go to <strong>console.cloud.google.com</strong>, sign in, and create a
+        project (any name). &nbsp;2. <strong>APIs &amp; Services → Library</strong>{" "}
+        — search &ldquo;YouTube Data API v3&rdquo; and click{" "}
+        <strong>Enable</strong>. &nbsp;3. <strong>APIs &amp; Services →
+        Credentials → Create credentials → API key</strong> — copy the key
+        (starts with <code>AIza</code>). &nbsp;4. Paste and connect, then run{" "}
+        <strong>Import full back catalog</strong> in Admin → Branching Out:
+      </div>
+      <div className="admin-form-actions" style={{ marginTop: 0 }}>
+        <input
+          type="password"
+          placeholder="AIza…"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          style={{ flex: 1, minWidth: 240 }}
+          aria-label="YouTube API key"
+        />
+        <button
+          type="button"
+          className="btn-purple"
+          disabled={pending || key.trim().length < 20}
+          onClick={() =>
+            run(async () => {
+              const res = await connectYoutube(key);
+              if (res.ok) setKey("");
+              return res;
+            })
+          }
+        >
+          Connect YouTube
         </button>
       </div>
       <Msg msg={msg} />
