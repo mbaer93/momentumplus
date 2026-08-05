@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getCurrentMember } from "@/lib/current-member";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -47,6 +48,7 @@ export async function setEpisodeCompleted(
     { onConflict: "profile_id,episode_id" },
   );
   if (error) return { ok: false, message: error.message };
+  revalidatePath("/branching-out");
   return { ok: true };
 }
 
