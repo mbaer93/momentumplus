@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/lib/sessions/queries";
+import { isDropInProgram } from "@/lib/programs";
 import { buildIcs } from "@/lib/ics";
 import { rruleFor } from "@/lib/recurrence";
 
@@ -12,9 +13,16 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     return new NextResponse("Not found", { status: 404 });
   }
 
-  // The Zoom link is for enrolled members only — everyone else gets a
-  // calendar entry pointing back at the session page.
-  const joinUrl = session.isEnrolled ? session.zoomJoinUrl : null;
+  // Only enrolled members may add a session to their calendar; drop-in
+  // programs (Rooted Focus / Aspire) need no enrollment (Matt, 2026-08-05).
+  // This also stops the Zoom link from leaking via a crafted .ics URL.
+  if (!session.isEnrolled && !isDropInProgram(session.program)) {
+    return new NextResponse("Enroll to add this session to your calendar", {
+      status: 403,
+    });
+  }
+
+  const joinUrl = session.zoomJoinUrl;
   const ics = buildIcs({
     uid: `session-${session.id}@momentumplus`,
     title: `Momentum+ · ${session.title}`,

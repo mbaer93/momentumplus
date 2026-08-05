@@ -92,6 +92,8 @@ export default async function DashboardPage() {
     durationMin: number;
     joinUrl: string | null;
     rrule: string | null;
+    /** Enrolled members (or drop-in programs) may add to calendar. */
+    allowCalendar: boolean;
   } | null = null;
   let memberSinceDays = placeholderStats.memberSinceDays;
   // Getting-started tour signals (server truth; visit-steps live client-side).
@@ -99,7 +101,7 @@ export default async function DashboardPage() {
   let prefsSaved = false;
 
   if (preview) {
-    nextUp = placeholderNextSession;
+    nextUp = { ...placeholderNextSession, allowCalendar: true };
     upcoming = placeholderUpcoming.map((s) => ({
       id: s.id,
       title: s.title,
@@ -180,6 +182,7 @@ export default async function DashboardPage() {
         rrule: next.recurrence
           ? rruleFor(next.recurrence, next.recurrenceUntil)
           : null,
+        allowCalendar: next.isEnrolled || isDropInProgram(next.program),
       };
     }
 
@@ -275,15 +278,17 @@ export default async function DashboardPage() {
             <Link href={`/sessions/${nextUp.id}`} className="btn-primary">
               View Details
             </Link>
-            <AddToCalendarButton
-              slug={nextUp.id}
-              title={nextUp.title}
-              description={nextUp.description}
-              startsAt={nextUp.startsAt}
-              durationMin={nextUp.durationMin}
-              joinUrl={nextUp.joinUrl}
-              rrule={nextUp.rrule}
-            />
+            {nextUp.allowCalendar && (
+              <AddToCalendarButton
+                slug={nextUp.id}
+                title={nextUp.title}
+                description={nextUp.description}
+                startsAt={nextUp.startsAt}
+                durationMin={nextUp.durationMin}
+                joinUrl={nextUp.joinUrl}
+                rrule={nextUp.rrule}
+              />
+            )}
           </div>
         </div>
       ) : (

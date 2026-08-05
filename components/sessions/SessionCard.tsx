@@ -116,21 +116,19 @@ export function SessionCard({
               >
                 Join Zoom
               </a>
-            ) : (
+            ) : session.isEnrolled || isDropInProgram(session.program) ? (
               /* "Add to calendar" — a distinct second action, not a second
                  button to the same detail page. Same Google/Outlook/Apple
-                 menu as the detail page. */
+                 menu as the detail page. Only enrolled members (or drop-in
+                 programs, which need no enrollment) can add to calendar —
+                 Matt, 2026-08-05. */
               <AddToCalendarButton
                 slug={session.slug}
                 title={session.title}
                 description={session.description}
                 startsAt={session.startsAt}
                 durationMin={session.durationMin}
-                joinUrl={
-                  session.isEnrolled || isDropInProgram(session.program)
-                    ? session.zoomJoinUrl
-                    : null
-                }
+                joinUrl={session.zoomJoinUrl}
                 rrule={
                   session.recurrence
                     ? rruleFor(session.recurrence, session.recurrenceUntil)
@@ -141,7 +139,7 @@ export function SessionCard({
                 withIcon={false}
                 grow
               />
-            )}
+            ) : null}
           </>
         )}
       </div>
