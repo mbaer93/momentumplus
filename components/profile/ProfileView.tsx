@@ -23,6 +23,8 @@ export interface ProfileSessionRow {
   day: string;
   timeLabel: string;
   status: import("@/lib/sessions/view").DisplayStatus;
+  /** The member's own private note for this session, if they wrote one. */
+  note?: string;
 }
 
 export interface ProfileActivityRow {
@@ -353,6 +355,26 @@ export function ProfileView({
                       <div className="upcoming-info">
                         <div className="upcoming-title">{s.title}</div>
                         <div className="upcoming-speaker">{s.speakerName}</div>
+                        {s.note && (
+                          <div
+                            title={s.note}
+                            style={{
+                              marginTop: 6,
+                              fontSize: 12.5,
+                              lineHeight: 1.5,
+                              color: "var(--mid-gray)",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <span style={{ color: "var(--gold)", fontWeight: 600 }}>
+                              Your notes:{" "}
+                            </span>
+                            {s.note}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div className="upcoming-time">{s.timeLabel}</div>
