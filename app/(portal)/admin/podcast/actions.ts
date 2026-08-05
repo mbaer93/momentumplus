@@ -139,6 +139,48 @@ export async function addEpisodeManual(values: {
   return { ok: true, message: "Episode added" };
 }
 
+/** Edit an episode in place (Matt, 2026-08-05: a YouTube-side correction
+    doesn't flow back because the import never overwrites existing rows —
+    curation is done here). Saving flips the episode to "manual", which
+    marks it curated: the import's repair pass will never re-date or
+    remove it, and the sync will never touch it. */
+export async function updateEpisode(
+  id: string,
+  values: {
+    title: string;
+    showNotes: string;
+    /** "YYYY-MM-DD" — blank keeps the current date. */
+    publishedAt: string;
+  },
+): Promise<PodcastActionResult> {
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!isSupabaseConfigured()) return PREVIEW;
+  const title = values.title.trim();
+  if (!title) return { ok: false, message: "The title can't be empty" };
+  const patch: Record<string, unknown> = {
+    title,
+    show_notes: values.showNotes.trim(),
+    source: "manual",
+  };
+  if (values.publishedAt.trim()) {
+    const parsed = new Date(`${values.publishedAt.trim()}T12:00:00Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      return { ok: false, message: "That date doesn't look valid" };
+    }
+    patch.published_at = parsed.toISOString();
+  }
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("podcast_episodes")
+    .update(patch)
+    .eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/branching-out");
+  revalidatePath("/admin/podcast");
+  return { ok: true, message: "Episode saved — it's now marked Manual, so syncs and imports will never overwrite it." };
+}
+
 export async function setEpisodeHidden(
   id: string,
   hidden: boolean,

@@ -8,12 +8,14 @@ import {
   savePodcastSettings,
   setEpisodeHidden,
   syncPodcastNow,
+  updateEpisode,
 } from "@/app/(portal)/admin/podcast/actions";
 
 export interface AdminEpisodeRow {
   id: string;
   youtubeVideoId: string;
   title: string;
+  showNotes: string;
   publishedAt: string | null;
   source: "auto" | "manual";
   hidden: boolean;
@@ -37,6 +39,19 @@ export function PodcastManager({
     null,
   );
   const [pending, startTransition] = useTransition();
+  // Inline episode editing (Matt, 2026-08-05): fix a title/notes/date in
+  // place — saving marks the episode Manual so nothing auto ever
+  // overwrites the correction.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [edit, setEdit] = useState({ title: "", notes: "", date: "" });
+  const startEdit = (ep: AdminEpisodeRow) => {
+    setEditingId(ep.id);
+    setEdit({
+      title: ep.title,
+      notes: ep.showNotes,
+      date: ep.publishedAt ? ep.publishedAt.slice(0, 10) : "",
+    });
+  };
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>) =>
     startTransition(async () => {
@@ -224,8 +239,8 @@ export function PodcastManager({
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
             {episodes.map((ep) => (
+              <div key={ep.id}>
               <div
-                key={ep.id}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -265,6 +280,16 @@ export function PodcastManager({
                   className="filter-btn"
                   disabled={pending}
                   onClick={() =>
+                    editingId === ep.id ? setEditingId(null) : startEdit(ep)
+                  }
+                >
+                  {editingId === ep.id ? "Close" : "Edit"}
+                </button>
+                <button
+                  type="button"
+                  className="filter-btn"
+                  disabled={pending}
+                  onClick={() =>
                     run(() => setEpisodeHidden(ep.id, !ep.hidden))
                   }
                 >
@@ -286,6 +311,72 @@ export function PodcastManager({
                 >
                   Delete
                 </button>
+              </div>
+              {editingId === ep.id && (
+                <div
+                  style={{
+                    border: "1px solid var(--border)",
+                    borderTop: "none",
+                    borderRadius: "0 0 4px 4px",
+                    padding: "10px 12px",
+                    display: "grid",
+                    gap: 8,
+                    background: "var(--cream)",
+                  }}
+                >
+                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+                    <div>
+                      <label style={labelStyle}>Title</label>
+                      <input
+                        style={inputStyle}
+                        value={edit.title}
+                        onChange={(e) => setEdit((p) => ({ ...p, title: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Published</label>
+                      <input
+                        type="date"
+                        style={inputStyle}
+                        value={edit.date}
+                        onChange={(e) => setEdit((p) => ({ ...p, date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Show notes</label>
+                    <textarea
+                      style={{ ...inputStyle, minHeight: 80, resize: "vertical" }}
+                      value={edit.notes}
+                      onChange={(e) => setEdit((p) => ({ ...p, notes: e.target.value }))}
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={pending || !edit.title.trim()}
+                      onClick={() =>
+                        run(async () => {
+                          const res = await updateEpisode(ep.id, {
+                            title: edit.title,
+                            showNotes: edit.notes,
+                            publishedAt: edit.date,
+                          });
+                          if (res.ok) setEditingId(null);
+                          return res;
+                        })
+                      }
+                    >
+                      {pending ? "Saving…" : "Save episode"}
+                    </button>
+                    <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                      Saving marks it Manual — future syncs and imports never
+                      overwrite it.
+                    </span>
+                  </div>
+                </div>
+              )}
               </div>
             ))}
           </div>

@@ -18,6 +18,7 @@ export default async function AdminPodcastPage() {
         id: e.id,
         youtubeVideoId: e.youtubeVideoId,
         title: e.title,
+        showNotes: e.showNotes,
         publishedAt: e.publishedAt,
         source: e.source,
         hidden: e.hidden,
