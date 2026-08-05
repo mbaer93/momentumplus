@@ -559,14 +559,57 @@ export function seasonFromText(text: string): number | null {
   return Number.isInteger(n) && n >= 1 && n <= 999 ? n : null;
 }
 
+/** Episode number from a title like "Episode 9: …", "Ep. 12 — …". */
+export function episodeNumberFromText(text: string): number | null {
+  const m = text.match(/\bep(?:isode)?\.?\s*#?\s*(\d{1,4})\b/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isInteger(n) && n >= 1 ? n : null;
+}
+
+/**
+ * Detect seasons from episode numbering restarts (verified live on the
+ * real channel, 2026-08: episodes are titled "Episode N:" and N resets
+ * to 1 at each "Season Premiere" — no season playlists, no S/E markers).
+ * Walk date-ascending; when the number drops back to the start of a
+ * count a new season begins. Videos without an "Episode N" title (clips,
+ * extras) get no season. Returns episode id → season.
+ */
+export function assignSeasonsByNumbering(
+  episodes: { id: string; title: string; publishedAt: string | null }[],
+): Map<string, number> {
+  const dated = episodes
+    .filter((e) => e.publishedAt && Number.isFinite(Date.parse(e.publishedAt)))
+    .sort(
+      (a, b) =>
+        Date.parse(a.publishedAt as string) -
+        Date.parse(b.publishedAt as string),
+    );
+  const out = new Map<string, number>();
+  let season = 1;
+  let prev: number | null = null;
+  for (const ep of dated) {
+    const num = episodeNumberFromText(ep.title);
+    if (num === null) continue;
+    // A restart, not just out-of-order publishing: back to the start of a
+    // count (1, or 2 when a premiere is missing) after a real drop.
+    if (prev !== null && num <= 2 && prev - num >= 2) season++;
+    out.set(ep.id, season);
+    prev = num;
+  }
+  return out;
+}
+
 /**
  * Pull season numbers from YouTube (Matt, 2026-08-05: "is there a way to
- * import the season number?"). Two sources, in priority order:
+ * import the season number?"). Three sources, in priority order:
  *   1. channel playlists named like "Season 2" — every video in the
  *      playlist gets that season;
- *   2. season markers in the episode's own title ("Season 2", "S2 E5").
+ *   2. season markers in the episode's own title ("Season 2", "S2 E5");
+ *   3. episode numbering restarts — "Episode N:" titles where N drops
+ *      back to 1 mark a new season (how the real channel does it).
  * Only episodes whose computed season differs are updated; episodes with
- * no marker anywhere keep their current season (so hand-set ones and the
+ * no signal anywhere keep their current season (so hand-set ones and the
  * date-range tool aren't undone).
  */
 export async function importSeasonsFromYoutube(): Promise<{
@@ -637,7 +680,7 @@ export async function importSeasonsFromYoutube(): Promise<{
   const admin = createServiceClient();
   const { data: rows, error } = await admin
     .from("podcast_episodes")
-    .select("id, youtube_video_id, title, season");
+    .select("id, youtube_video_id, title, published_at, season");
   if (error) {
     return {
       ok: false,
@@ -646,18 +689,31 @@ export async function importSeasonsFromYoutube(): Promise<{
         : error.message,
     };
   }
-
-  let fromPlaylists = 0;
-  let fromTitles = 0;
-  let unassigned = 0;
-  for (const row of (rows ?? []) as {
+  const episodes = (rows ?? []) as {
     id: string;
     youtube_video_id: string;
     title: string;
+    published_at: string | null;
     season: number | null;
-  }[]) {
+  }[];
+  const numberingSeasons = assignSeasonsByNumbering(
+    episodes.map((e) => ({
+      id: e.id,
+      title: e.title,
+      publishedAt: e.published_at,
+    })),
+  );
+  const seasonsDetected = new Set(numberingSeasons.values()).size;
+
+  let fromPlaylists = 0;
+  let fromTitles = 0;
+  let fromNumbering = 0;
+  let unassigned = 0;
+  for (const row of episodes) {
     const playlistSeason = seasonByVideo.get(row.youtube_video_id) ?? null;
-    const target = playlistSeason ?? seasonFromText(row.title);
+    const titleSeason = playlistSeason === null ? seasonFromText(row.title) : null;
+    const target =
+      playlistSeason ?? titleSeason ?? numberingSeasons.get(row.id) ?? null;
     if (target === null) {
       if (row.season === null) unassigned++;
       continue;
@@ -676,16 +732,17 @@ export async function importSeasonsFromYoutube(): Promise<{
       };
     }
     if (playlistSeason !== null) fromPlaylists++;
-    else fromTitles++;
+    else if (titleSeason !== null) fromTitles++;
+    else fromNumbering++;
   }
 
-  const assigned = fromPlaylists + fromTitles;
-  if (seasonPlaylists.length === 0 && assigned === 0) {
+  const assigned = fromPlaylists + fromTitles + fromNumbering;
+  if (seasonPlaylists.length === 0 && assigned === 0 && numberingSeasons.size === 0) {
     return {
       ok: true,
       message:
-        "No season info found on YouTube — the channel has no \"Season N\" playlists and no titles with season markers. " +
-        "Either create Season playlists on the channel and re-run this, or use the date-range tool below.",
+        "No season info found on YouTube — no \"Season N\" playlists, no season markers in titles, and no \"Episode N\" numbering to detect restarts from. " +
+        "Use the date-range tool below, or set seasons per episode in Edit.",
     };
   }
   const parts: string[] = [];
@@ -695,14 +752,20 @@ export async function importSeasonsFromYoutube(): Promise<{
         .map((p) => p.title)
         .join(", ")}).`,
     );
+  } else if (numberingSeasons.size > 0) {
+    parts.push(
+      `Detected ${seasonsDetected} season${seasonsDetected === 1 ? "" : "s"} from "Episode N" numbering restarts.`,
+    );
   }
+  const sources = [
+    fromPlaylists > 0 ? `${fromPlaylists} from playlists` : null,
+    fromTitles > 0 ? `${fromTitles} from title markers` : null,
+    fromNumbering > 0 ? `${fromNumbering} from episode numbering` : null,
+  ].filter(Boolean);
   parts.push(
     assigned === 0
       ? "Every episode already had the right season."
-      : `${assigned} episode${assigned === 1 ? "" : "s"} updated` +
-        (fromTitles > 0
-          ? ` (${fromPlaylists} from playlists, ${fromTitles} from title markers).`
-          : "."),
+      : `${assigned} episode${assigned === 1 ? "" : "s"} updated (${sources.join(", ")}).`,
   );
   if (unassigned > 0) {
     parts.push(

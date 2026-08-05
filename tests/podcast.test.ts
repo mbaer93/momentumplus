@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   approxDateFromRelative,
+  assignSeasonsByNumbering,
   enforceDescendingDates,
   collectBrowseVideos,
+  episodeNumberFromText,
   extractContinuationToken,
   extractInitialData,
   extractVideoIds,
@@ -414,5 +416,78 @@ describe("parsePlaylistsPage", () => {
   it("degrades to empty on malformed payloads", () => {
     assert.deepEqual(parsePlaylistsPage(null), { playlists: [], nextPageToken: null });
     assert.deepEqual(parsePlaylistsPage({}), { playlists: [], nextPageToken: null });
+  });
+});
+
+describe("episodeNumberFromText", () => {
+  it("reads Episode N and Ep. N titles", () => {
+    assert.equal(episodeNumberFromText('Episode 9: "Self-Care Is a Leadership Issue"'), 9);
+    assert.equal(episodeNumberFromText("Ep. 12 — Growth"), 12);
+    assert.equal(episodeNumberFromText("Episode #46: Connecting People"), 46);
+    assert.equal(episodeNumberFromText("Season Premiere! Episode 1: Branching Out Again"), 1);
+  });
+
+  it("returns null without an episode marker", () => {
+    assert.equal(episodeNumberFromText("Two Sides of the Same Coin"), null);
+    assert.equal(episodeNumberFromText("Discovering John Maxwell's Growth Laws"), null);
+  });
+});
+
+describe("assignSeasonsByNumbering", () => {
+  const ep = (id: string, title: string, iso: string) => ({
+    id,
+    title,
+    publishedAt: iso,
+  });
+
+  it("detects seasons from numbering restarts (real channel shape)", () => {
+    const map = assignSeasonsByNumbering([
+      // deliberately shuffled — the walk sorts by date
+      ep("s2e1", "Season Premiere! Episode 1: Branching Out Again", "2025-01-05T12:00:00Z"),
+      ep("s1e46", "Episode 46: Connecting People, Creating Impact", "2024-11-01T12:00:00Z"),
+      ep("s1e1", "Episode 1: The Beginning", "2023-01-01T12:00:00Z"),
+      ep("s1e47", "Episode 47: Leadership That Stands the Test of Time", "2024-11-08T12:00:00Z"),
+      ep("s2e9", "Episode 9: When Tomorrow Never Comes", "2025-03-05T12:00:00Z"),
+      ep("clip", "Two Sides of the Same Coin", "2025-02-01T12:00:00Z"),
+      ep("s3e1", "Episode 1: Season Premiere - Building a Life", "2026-06-01T12:00:00Z"),
+      ep("s3e2", "Episode 2: Dreamers That Do", "2026-06-08T12:00:00Z"),
+    ]);
+    assert.equal(map.get("s1e1"), 1);
+    assert.equal(map.get("s1e46"), 1);
+    assert.equal(map.get("s1e47"), 1);
+    assert.equal(map.get("s2e1"), 2);
+    assert.equal(map.get("s2e9"), 2);
+    assert.equal(map.get("s3e1"), 3);
+    assert.equal(map.get("s3e2"), 3);
+    assert.equal(map.has("clip"), false); // no episode number → Extras
+  });
+
+  it("tolerates a missing premiere (restart seen at Episode 2)", () => {
+    const map = assignSeasonsByNumbering([
+      ep("a", "Episode 46: Finale", "2024-11-01T12:00:00Z"),
+      ep("b", "Episode 2: Second episode of the new run", "2025-01-12T12:00:00Z"),
+    ]);
+    assert.equal(map.get("a"), 1);
+    assert.equal(map.get("b"), 2);
+  });
+
+  it("does not split on slightly out-of-order numbering", () => {
+    const map = assignSeasonsByNumbering([
+      ep("a", "Episode 1: Start", "2025-01-01T12:00:00Z"),
+      ep("b", "Episode 3: Early", "2025-01-08T12:00:00Z"),
+      ep("c", "Episode 2: Late upload", "2025-01-09T12:00:00Z"),
+      ep("d", "Episode 4: Onward", "2025-01-15T12:00:00Z"),
+    ]);
+    assert.equal(map.get("c"), 1);
+    assert.equal(map.get("d"), 1);
+  });
+
+  it("skips undated episodes without affecting the walk", () => {
+    const map = assignSeasonsByNumbering([
+      ep("a", "Episode 5: Dated", "2025-01-01T12:00:00Z"),
+      { id: "x", title: "Episode 1: No date", publishedAt: null },
+    ]);
+    assert.equal(map.get("a"), 1);
+    assert.equal(map.has("x"), false);
   });
 });
