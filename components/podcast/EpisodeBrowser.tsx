@@ -265,6 +265,19 @@ export function EpisodeBrowser({
   type Tab = "all" | number | "extras";
   const [tab, setTab] = useState<Tab>("all");
 
+  // Facade pattern: 100+ live YouTube players make the page crawl, so each
+  // card starts as a lazy thumbnail + play button and the real player is
+  // created only when clicked (autoplay picks up where the tap intended).
+  const [activatedIds, setActivatedIds] = useState<Set<string>>(new Set());
+  const activate = useCallback((episodeId: string) => {
+    setActivatedIds((prev) => {
+      if (prev.has(episodeId)) return prev;
+      const copy = new Set(prev);
+      copy.add(episodeId);
+      return copy;
+    });
+  }, []);
+
   const [completedIds, setCompletedIds] = useState<Set<string>>(
     () => new Set(progress.filter((p) => p.completed).map((p) => p.episodeId)),
   );
@@ -501,10 +514,10 @@ export function EpisodeBrowser({
                     >
                       Branching Out
                     </div>
-                  ) : (
+                  ) : activatedIds.has(ep.id) ? (
                     <iframe
                       ref={iframeRef(ep.id)}
-                      src={`https://www.youtube-nocookie.com/embed/${ep.youtubeVideoId}?enablejsapi=1`}
+                      src={`https://www.youtube-nocookie.com/embed/${ep.youtubeVideoId}?enablejsapi=1&autoplay=1`}
                       title={ep.title}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
@@ -516,6 +529,69 @@ export function EpisodeBrowser({
                         border: 0,
                       }}
                     />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => activate(ep.id)}
+                      aria-label={`Play ${ep.title}`}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        padding: 0,
+                        border: 0,
+                        cursor: "pointer",
+                        background: "var(--navy)",
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- YouTube CDN thumbnail; next/image adds nothing here */}
+                      <img
+                        src={
+                          ep.thumbnailUrl ??
+                          `https://i.ytimg.com/vi/${ep.youtubeVideoId}/hqdefault.jpg`
+                        }
+                        alt=""
+                        loading="lazy"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 54,
+                          height: 54,
+                          borderRadius: "50%",
+                          background: "rgba(11, 22, 34, 0.75)",
+                          border: "1.5px solid var(--gold)",
+                        }}
+                      >
+                        <svg
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="var(--gold)"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M8 5.5v13l11-6.5z" />
+                        </svg>
+                      </span>
+                    </button>
                   )}
                 </div>
                 <div style={{ padding: "14px 16px 16px" }}>
