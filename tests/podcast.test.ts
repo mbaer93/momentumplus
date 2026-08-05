@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   approxDateFromRelative,
+  enforceDescendingDates,
   collectBrowseVideos,
   extractContinuationToken,
   extractInitialData,
@@ -249,5 +250,41 @@ describe("extractInitialData", () => {
       extractInitialData("<script>var ytInitialData = {broken};</script>"),
       null,
     );
+  });
+});
+
+describe("enforceDescendingDates", () => {
+  const now = Date.UTC(2026, 7, 5, 12, 0, 0);
+  it("keeps exact dates that already descend", () => {
+    const out = enforceDescendingDates(
+      ["2026-08-01T00:00:00Z", "2026-07-01T00:00:00Z"],
+      now,
+    );
+    assert.equal(out[0], "2026-08-01T00:00:00.000Z");
+    assert.equal(out[1], "2026-07-01T00:00:00.000Z");
+  });
+
+  it("clamps out-of-order and duplicate dates below the newer neighbor", () => {
+    const dup = "2025-01-01T00:00:00Z";
+    const out = enforceDescendingDates([dup, dup, "2026-01-01T00:00:00Z"], now);
+    assert.ok(Date.parse(out[0]) > Date.parse(out[1]));
+    assert.ok(Date.parse(out[1]) > Date.parse(out[2]));
+  });
+
+  it("fills nulls a day below the previous episode", () => {
+    const out = enforceDescendingDates(["2026-06-01T00:00:00Z", null, null], now);
+    assert.ok(Date.parse(out[0]) > Date.parse(out[1]));
+    assert.ok(Date.parse(out[1]) > Date.parse(out[2]));
+    assert.equal(Date.parse(out[0]) - Date.parse(out[1]), 24 * 3_600_000);
+  });
+
+  it("list order always wins — output is strictly descending for any input", () => {
+    const out = enforceDescendingDates(
+      [null, "2020-01-01T00:00:00Z", "2024-06-06T00:00:00Z", null, "garbage"],
+      now,
+    );
+    for (let i = 1; i < out.length; i++) {
+      assert.ok(Date.parse(out[i]) < Date.parse(out[i - 1]));
+    }
   });
 });

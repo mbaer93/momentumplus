@@ -288,6 +288,46 @@ export function extractInitialData(html: string): unknown {
   }
 }
 
+/** Turn per-video target dates (exact where known, approximate or null
+    elsewhere) into a STRICTLY DESCENDING sequence that preserves the
+    channel-listing order (newest first). An exact date wins when it fits;
+    anything null, out of order, or colliding is clamped below its newer
+    neighbor — so the tab always lists episodes in true release order even
+    when YouTube only gave us "2 years ago". */
+export function enforceDescendingDates(
+  targets: (string | null)[],
+  nowMs: number,
+): string[] {
+  const HOUR = 3_600_000;
+  const DAY = 24 * HOUR;
+  const out: string[] = [];
+  let cursor = nowMs + DAY; // ceiling above any real date
+  for (const target of targets) {
+    const t = target ? Date.parse(target) : NaN;
+    const assigned =
+      Number.isFinite(t) && t < cursor - 1000 ? t : cursor - (Number.isFinite(t) ? HOUR : DAY);
+    out.push(new Date(assigned).toISOString());
+    cursor = assigned;
+  }
+  return out;
+}
+
+/** True when the id is a YouTube Short: /shorts/<id> serves Shorts
+    directly (200) but 303-redirects normal videos to /watch (verified
+    live). Fails open — a network error never brands a real episode a
+    Short. */
+export async function isYoutubeShort(videoId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/shorts/${encodeURIComponent(videoId)}`,
+      { cache: "no-store", redirect: "manual", headers: BROWSE_HEADERS },
+    );
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
 export interface WatchPageMeta {
   title: string;
   showNotes: string;
@@ -331,7 +371,7 @@ const VIDEOS_TAB_PARAMS = "EgZ2aWRlb3PyBgQKAjoA";
     30 pages (~900 videos). Verified live against real channels. */
 export async function listAllChannelVideos(
   channelId: string,
-): Promise<{ videos: BrowseVideo[]; note?: string }> {
+): Promise<{ videos: BrowseVideo[]; complete: boolean; note?: string }> {
   // The channel page supplies the innertube key + client version the
   // browse endpoint wants.
   const pageRes = await fetch(
@@ -339,7 +379,11 @@ export async function listAllChannelVideos(
     { cache: "no-store", headers: BROWSE_HEADERS },
   );
   if (!pageRes.ok) {
-    return { videos: [], note: `Channel page fetch failed (${pageRes.status})` };
+    return {
+      videos: [],
+      complete: false,
+      note: `Channel page fetch failed (${pageRes.status})`,
+    };
   }
   const html = await pageRes.text();
   const apiKey = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1];
@@ -402,26 +446,34 @@ export async function listAllChannelVideos(
     if (videos.length === 0) {
       return {
         videos: [],
+        complete: false,
         note: "Couldn't read the channel's video list — check the channel id",
       };
     }
   }
 
   let pages = 0;
+  let stalled = false;
   while (token && pages < 30) {
     pages++;
     const text = await browse({ continuation: token });
-    if (!text) break;
+    if (!text) {
+      stalled = true;
+      break;
+    }
     const before = videos.length;
     try {
       absorb(collectBrowseVideos(JSON.parse(text)));
     } catch {
+      stalled = true;
       break;
     }
     token = extractContinuationToken(text);
     if (videos.length === before) break; // no progress — stop rather than spin
   }
-  return { videos };
+  // complete = we walked to the end of the list, not into a cap or a
+  // failure — the repair pass only trusts a complete walk.
+  return { videos, complete: !stalled && (!token || pages < 30) && videos.length > 0 };
 }
 
 /** Fetch one video's metadata from its watch page, oEmbed as fallback. */
@@ -480,7 +532,7 @@ export async function importBackCatalog(): Promise<{
       message: "Save the channel first",
     };
   }
-  const { videos, note } = await listAllChannelVideos(channelId);
+  const { videos, complete, note } = await listAllChannelVideos(channelId);
   if (videos.length === 0) {
     return {
       ok: false,
@@ -525,6 +577,22 @@ export async function importBackCatalog(): Promise<{
   }
   const fresh = videos.filter((v) => !have.has(v.videoId));
 
+  // Release order is the channel listing itself (newest first) — enforce
+  // it onto the dates so the tab can never shuffle: exact feed dates win
+  // where they fit, everything else is clamped strictly below its newer
+  // neighbor (Matt, 2026-08-05: "get them in their proper order").
+  const orderedDates = enforceDescendingDates(
+    videos.map(
+      (v) =>
+        feedById.get(v.videoId)?.publishedAt ??
+        (v.publishedText
+          ? approxDateFromRelative(v.publishedText, Date.now())
+          : null),
+    ),
+    Date.now(),
+  );
+  const dateFor = new Map(videos.map((v, i) => [v.videoId, orderedDates[i]]));
+
   const budgetStart = Date.now();
   const BUDGET_MS = 240_000;
   let imported = 0;
@@ -538,22 +606,12 @@ export async function importBackCatalog(): Promise<{
     const feed = feedById.get(video.videoId);
     let title = feed?.title || video.title;
     let showNotes = feed?.showNotes || "";
-    let publishedAt = feed?.publishedAt ?? null;
     if (!feed) {
-      // Enrichment attempt — full notes + exact date when YouTube serves
-      // the watch page to us; harmless failure otherwise.
+      // Enrichment attempt — full notes when YouTube serves the watch
+      // page to us; harmless failure otherwise.
       const meta = await fetchVideoMeta(video.videoId);
       if (meta.title) title = meta.title;
       showNotes = meta.showNotes || video.snippet;
-      publishedAt = meta.uploadDate
-        ? new Date(
-            meta.uploadDate.includes("T")
-              ? meta.uploadDate
-              : `${meta.uploadDate}T12:00:00Z`,
-          ).toISOString()
-        : video.publishedText
-          ? approxDateFromRelative(video.publishedText, Date.now())
-          : null;
     }
     const { error } = await admin.from("podcast_episodes").upsert(
       {
@@ -561,7 +619,7 @@ export async function importBackCatalog(): Promise<{
         title: title || "Untitled episode",
         show_notes: showNotes,
         thumbnail_url: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
-        published_at: publishedAt,
+        published_at: dateFor.get(video.videoId) ?? null,
         source: "auto",
       },
       { onConflict: "youtube_video_id", ignoreDuplicates: true },
@@ -570,9 +628,57 @@ export async function importBackCatalog(): Promise<{
     else imported++;
   }
 
+  // REPAIR pass over auto-imported episodes (admin-added rows are never
+  // touched):
+  //  - re-stamp dates to the enforced release order, and
+  //  - remove episodes that are NOT on the channel's Videos tab — Shorts
+  //    (which the feed leaks into the sync) and deleted/unlisted videos.
+  //    Only when the walk covered the whole channel, so a partial read
+  //    can't delete real episodes.
+  let reordered = 0;
+  let removedShorts = 0;
+  const { data: autoRows } = await admin
+    .from("podcast_episodes")
+    .select("id, youtube_video_id, published_at")
+    .eq("source", "auto");
+  for (const row of (autoRows ?? []) as {
+    id: string;
+    youtube_video_id: string;
+    published_at: string | null;
+  }[]) {
+    const target = dateFor.get(row.youtube_video_id);
+    if (target) {
+      // Tolerate sub-minute drift; anything larger gets the ordered date.
+      const current = row.published_at ? Date.parse(row.published_at) : NaN;
+      if (!Number.isFinite(current) || Math.abs(current - Date.parse(target)) > 60_000) {
+        const { error } = await admin
+          .from("podcast_episodes")
+          .update({ published_at: target })
+          .eq("id", row.id);
+        if (error) lastError = error.message;
+        else reordered++;
+      }
+    } else if (complete) {
+      const { error } = await admin
+        .from("podcast_episodes")
+        .delete()
+        .eq("id", row.id);
+      if (error) lastError = error.message;
+      else removedShorts++;
+    }
+  }
+
   const parts = [
     `${imported} episode${imported === 1 ? "" : "s"} imported (${videos.length} on the channel, ${have.size} already in).`,
   ];
+  if (reordered > 0) {
+    parts.push(`${reordered} re-dated into release order.`);
+  }
+  if (removedShorts > 0) {
+    parts.push(
+      `${removedShorts} Short${removedShorts === 1 ? "" : "s"}/removed video${removedShorts === 1 ? "" : "s"} cleaned out.`,
+    );
+  }
   if (remaining > 0) {
     parts.push(`${remaining} still to import — press Import again to continue.`);
   }
@@ -689,7 +795,13 @@ export async function syncFromYoutube(): Promise<{
       (r) => r.youtube_video_id,
     ),
   );
-  const fresh = entries.filter((e) => !have.has(e.videoId));
+  const candidates = entries.filter((e) => !have.has(e.videoId));
+  // The feed mixes Shorts in with real uploads — keep them out of the tab
+  // (Matt, 2026-08-05). Checked only for NEW ids, a handful per run.
+  const fresh: typeof candidates = [];
+  for (const e of candidates) {
+    if (!(await isYoutubeShort(e.videoId))) fresh.push(e);
+  }
   if (fresh.length > 0) {
     const { error } = await admin.from("podcast_episodes").insert(
       fresh.map((e) => ({
