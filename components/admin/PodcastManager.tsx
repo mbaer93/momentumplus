@@ -269,8 +269,9 @@ export function PodcastManager({
         <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
           Group episodes into seasons so members can browse them easily.
           <strong> Import from YouTube</strong> reads &ldquo;Season N&rdquo;
-          playlists on the channel and season markers in titles (&ldquo;Season
-          2&rdquo;, &ldquo;S2 E5&rdquo;) and assigns everything it finds.
+          playlists, season markers in titles (&ldquo;Season 2&rdquo;,
+          &ldquo;S2 E5&rdquo;), and &ldquo;Episode N&rdquo; numbering — when
+          the episode count restarts at 1, that&apos;s a new season.
           Or assign a whole date range at once below, or set a single
           episode&apos;s season in its Edit panel. The member tab shows
           season tabs as soon as any episode has one.
