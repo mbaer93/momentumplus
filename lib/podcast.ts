@@ -1297,6 +1297,80 @@ export async function listEpisodes(
   return ((data ?? []) as EpisodeRow[]).map(toEpisode);
 }
 
+/** The signed-in member's per-episode progress: completion + private
+    notes. RLS scopes the read to their own rows. */
+export interface EpisodeProgress {
+  episodeId: string;
+  completed: boolean;
+  notes: string;
+}
+
+export async function readMyEpisodeProgress(): Promise<EpisodeProgress[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data } = await supabase
+    .from("podcast_episode_progress")
+    .select("episode_id, completed, notes")
+    .eq("profile_id", user.id);
+  return ((data ?? []) as {
+    episode_id: string;
+    completed: boolean;
+    notes: string | null;
+  }[]).map((r) => ({
+    episodeId: r.episode_id,
+    completed: Boolean(r.completed),
+    notes: r.notes ?? "",
+  }));
+}
+
+/** A member-submitted on-air question for the admin review list. */
+export interface PodcastQuestion {
+  id: string;
+  kind: "question" | "challenge" | "unscripted";
+  body: string;
+  status: "new" | "reviewed" | "asked";
+  createdAt: string;
+  memberName: string;
+  memberEmail: string;
+}
+
+/** All submissions, newest first — service-role read for the admin page
+    (member RLS is owner-only). */
+export async function listPodcastQuestions(): Promise<PodcastQuestion[]> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return [];
+  }
+  const admin = createServiceClient();
+  const { data } = await admin
+    .from("podcast_questions")
+    .select("id, kind, body, status, created_at, profiles(full_name, email)")
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as unknown as {
+    id: string;
+    kind: string;
+    body: string;
+    status: string;
+    created_at: string;
+    profiles: { full_name: string | null; email: string | null } | null;
+  }[]).map((r) => ({
+    id: r.id,
+    kind: (["question", "challenge", "unscripted"].includes(r.kind)
+      ? r.kind
+      : "question") as PodcastQuestion["kind"],
+    body: r.body,
+    status: (["new", "reviewed", "asked"].includes(r.status)
+      ? r.status
+      : "new") as PodcastQuestion["status"],
+    createdAt: r.created_at,
+    memberName: r.profiles?.full_name ?? "",
+    memberEmail: r.profiles?.email ?? "",
+  }));
+}
+
 export async function readPodcastSettings(): Promise<PodcastSettings> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { channelId: "", spotifyUrl: "" };
