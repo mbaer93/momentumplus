@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   addEpisodeManual,
   deleteEpisode,
+  importPodcastBackCatalog,
   savePodcastSettings,
   setEpisodeHidden,
   syncPodcastNow,
@@ -120,7 +121,24 @@ export function PodcastManager({
           >
             {pending ? "Working…" : "Sync now"}
           </button>
+          <button
+            type="button"
+            className="btn-gold"
+            disabled={pending || !channelId}
+            title={channelId ? "" : "Save the channel first"}
+            onClick={() => run(() => importPodcastBackCatalog())}
+          >
+            {pending ? "Working…" : "Import full back catalog"}
+          </button>
         </div>
+        <p style={{ fontSize: 12, color: "var(--mid-gray)", marginBottom: 0, marginTop: 8 }}>
+          Sync now grabs recent uploads; <strong>Import full back catalog</strong>{" "}
+          walks the channel&apos;s entire video list and pulls every past
+          episode — title, show notes, publish date, and thumbnail. Episodes
+          already in the system are never changed, so it&apos;s safe to run
+          any time. A very large catalog may need a second press to finish
+          (it tells you if so).
+        </p>
       </div>
 
       {/* Manual add — past episodes */}

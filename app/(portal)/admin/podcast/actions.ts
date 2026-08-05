@@ -6,6 +6,7 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
   extractYoutubeVideoId,
+  importBackCatalog,
   PODCAST_SETTINGS_KEY,
   syncFromYoutube,
 } from "@/lib/podcast";
@@ -64,6 +65,23 @@ export async function syncPodcastNow(): Promise<PodcastActionResult> {
     ok: true,
     message: `${result.added} new episode${result.added === 1 ? "" : "s"} (${result.seen} in feed)`,
   };
+}
+
+/**
+ * Import the ENTIRE back catalog (Matt, 2026-08-05: "pull all past
+ * episodes — videos and info"). Walks the channel's full upload list (the
+ * feed stops at ~15) and pulls each episode's title, full show notes,
+ * exact publish date, and thumbnail. Existing episodes are never touched;
+ * time-budgeted, so pressing again continues a large import.
+ */
+export async function importPodcastBackCatalog(): Promise<PodcastActionResult> {
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!isSupabaseConfigured()) return PREVIEW;
+  const result = await importBackCatalog();
+  revalidatePath("/branching-out");
+  revalidatePath("/admin/podcast");
+  return { ok: result.ok, message: result.message };
 }
 
 /** Manual route for past episodes the feed no longer exposes. Title/notes
