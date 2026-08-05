@@ -23,11 +23,11 @@
       "WebFetch(domain:*.zoom.us)",
       "WebFetch(domain:getstream.io)",
       "WebFetch(domain:*.mux.com)"
-    ],
-    "ask": [
       "Bash(git push *)",
       "Bash(rm *)",
       "Edit(/.env*)"
+    ],
+    "ask": [
     ],
     "deny": [
       "Bash(curl * | bash)",
