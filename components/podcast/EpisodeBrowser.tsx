@@ -281,39 +281,57 @@ export function EpisodeBrowser({
   const [completedIds, setCompletedIds] = useState<Set<string>>(
     () => new Set(progress.filter((p) => p.completed).map((p) => p.episodeId)),
   );
+  // Ref mirror so the callbacks read CURRENT state, never a deferred
+  // updater's side effect (React may defer updater functions, which once
+  // let the toggle save the wrong value — the check then vanished on
+  // refresh because the database row said not-completed).
+  const completedIdsRef = useRef(completedIds);
+  completedIdsRef.current = completedIds;
+  const [saveError, setSaveError] = useState<string | null>(null);
   const notesById = useMemo(() => {
     const m = new Map<string, string>();
     for (const p of progress) m.set(p.episodeId, p.notes);
     return m;
   }, [progress]);
 
-  const toggleCompleted = useCallback(async (episodeId: string) => {
-    let next = false;
-    setCompletedIds((prev) => {
-      const copy = new Set(prev);
-      if (copy.has(episodeId)) copy.delete(episodeId);
-      else {
-        copy.add(episodeId);
-        next = true;
+  const persistCompleted = useCallback(
+    async (episodeId: string, next: boolean) => {
+      setSaveError(null);
+      setCompletedIds((prev) => {
+        const copy = new Set(prev);
+        if (next) copy.add(episodeId);
+        else copy.delete(episodeId);
+        return copy;
+      });
+      const res = await setEpisodeCompleted(episodeId, next);
+      if (!res.ok) {
+        // Revert the optimistic check and say why, instead of showing a
+        // green check that a refresh would take away.
+        setCompletedIds((prev) => {
+          const copy = new Set(prev);
+          if (next) copy.delete(episodeId);
+          else copy.add(episodeId);
+          return copy;
+        });
+        setSaveError(res.message ?? "Couldn't save that — try again.");
       }
-      return copy;
-    });
-    await setEpisodeCompleted(episodeId, next);
-  }, []);
+    },
+    [],
+  );
 
-  const markEnded = useCallback(async (episodeId: string) => {
-    let already = false;
-    setCompletedIds((prev) => {
-      if (prev.has(episodeId)) {
-        already = true;
-        return prev;
-      }
-      const copy = new Set(prev);
-      copy.add(episodeId);
-      return copy;
-    });
-    if (!already) await setEpisodeCompleted(episodeId, true);
-  }, []);
+  const toggleCompleted = useCallback(
+    (episodeId: string) =>
+      persistCompleted(episodeId, !completedIdsRef.current.has(episodeId)),
+    [persistCompleted],
+  );
+
+  const markEnded = useCallback(
+    async (episodeId: string) => {
+      if (completedIdsRef.current.has(episodeId)) return;
+      await persistCompleted(episodeId, true);
+    },
+    [persistCompleted],
+  );
 
   // --- YouTube IFrame API: watch for the ended event on each embed. ---
   const [apiReady, setApiReady] = useState(false);
@@ -443,6 +461,22 @@ export function EpisodeBrowser({
       )}
 
       <AskTheShow />
+
+      {saveError && (
+        <div
+          style={{
+            padding: "10px 14px",
+            borderRadius: 4,
+            fontSize: 13,
+            border: "1px solid rgba(155,60,60,0.4)",
+            color: "#9B3C3C",
+            background: "rgba(155,60,60,0.06)",
+            marginBottom: 16,
+          }}
+        >
+          {saveError}
+        </div>
+      )}
 
       {/* Season tabs — only once seasons exist. */}
       {seasons.length > 0 && (
