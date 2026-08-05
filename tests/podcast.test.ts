@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  approxDateFromRelative,
+  collectBrowseVideos,
+  extractContinuationToken,
+  extractInitialData,
+  extractVideoIds,
   extractYoutubeVideoId,
+  parseWatchPageMeta,
   parseYoutubeFeed,
 } from "../lib/podcast";
 
@@ -88,5 +94,160 @@ Line two &amp; more.</media:description>
     assert.deepEqual(parseYoutubeFeed("<feed></feed>"), []);
     const bad = "<feed><entry><yt:videoId>too-short</yt:videoId></entry></feed>";
     assert.deepEqual(parseYoutubeFeed(bad), []);
+  });
+});
+
+describe("extractVideoIds (back-catalog import)", () => {
+  it("dedupes and preserves first-seen order", () => {
+    const chunk =
+      '{"videoId":"abcDEF123-_","x":1}{"videoId":"zyxWVU987_-"}{"videoId":"abcDEF123-_"}';
+    assert.deepEqual(extractVideoIds(chunk), ["abcDEF123-_", "zyxWVU987_-"]);
+  });
+
+  it("ignores malformed ids and empty input", () => {
+    assert.deepEqual(extractVideoIds('{"videoId":"short"}'), []);
+    assert.deepEqual(extractVideoIds(""), []);
+  });
+});
+
+describe("extractContinuationToken", () => {
+  it("finds the browse continuation token", () => {
+    const chunk =
+      '{"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"4qmFsgKq...ABC","request":"CONTINUATION_REQUEST_TYPE_BROWSE"}}}}';
+    assert.equal(extractContinuationToken(chunk), "4qmFsgKq...ABC");
+  });
+
+  it("returns null when there is no next page", () => {
+    assert.equal(extractContinuationToken('{"noMore":true}'), null);
+  });
+});
+
+describe("parseWatchPageMeta", () => {
+  const html =
+    '<html><head><meta name="title" content="Branching Out Ep. 3 &amp; Growth"></head>' +
+    '<body><script>var ytInitialPlayerResponse = {"videoDetails":{' +
+    '"shortDescription":"Line one.\\nLine two with \\"quotes\\"."},' +
+    '"microformat":{"playerMicroformatRenderer":{"uploadDate":"2025-11-12"}}};</script></body></html>';
+
+  it("pulls title, unescaped notes, and the exact upload date", () => {
+    const meta = parseWatchPageMeta(html);
+    assert.equal(meta.title, "Branching Out Ep. 3 & Growth");
+    assert.equal(meta.showNotes, 'Line one.\nLine two with "quotes".');
+    assert.equal(meta.uploadDate, "2025-11-12");
+  });
+
+  it("degrades to empty fields on unrecognized markup", () => {
+    const meta = parseWatchPageMeta("<html></html>");
+    assert.equal(meta.title, "");
+    assert.equal(meta.showNotes, "");
+    assert.equal(meta.uploadDate, null);
+  });
+});
+
+describe("collectBrowseVideos", () => {
+  it("reads the current lockupViewModel shape (verified live 2026-08)", () => {
+    const node = {
+      contents: [
+        {
+          richItemRenderer: {
+            content: {
+              lockupViewModel: {
+                contentId: "abcDEF123-_",
+                contentType: "LOCKUP_CONTENT_TYPE_VIDEO",
+                metadata: {
+                  lockupMetadataViewModel: {
+                    title: { content: "Episode 4 — Deep Roots" },
+                    metadata: {
+                      contentMetadataViewModel: {
+                        metadataRows: [
+                          {
+                            metadataParts: [
+                              { text: { content: "1.2K views" } },
+                              { text: { content: "2 years ago" } },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
+    const vids = collectBrowseVideos(node);
+    assert.equal(vids.length, 1);
+    assert.equal(vids[0].videoId, "abcDEF123-_");
+    assert.equal(vids[0].title, "Episode 4 — Deep Roots");
+    assert.equal(vids[0].publishedText, "2 years ago");
+  });
+
+  it("reads the classic videoRenderer shape and dedupes", () => {
+    const node = [
+      {
+        videoRenderer: {
+          videoId: "zyxWVU987_-",
+          title: { runs: [{ text: "Old " }, { text: "Layout" }] },
+          descriptionSnippet: { runs: [{ text: "Snippet text" }] },
+          publishedTimeText: { simpleText: "3 months ago" },
+        },
+      },
+      { videoRenderer: { videoId: "zyxWVU987_-", title: { runs: [] } } },
+    ];
+    const vids = collectBrowseVideos(node);
+    assert.equal(vids.length, 1);
+    assert.equal(vids[0].title, "Old Layout");
+    assert.equal(vids[0].snippet, "Snippet text");
+    assert.equal(vids[0].publishedText, "3 months ago");
+  });
+
+  it("returns nothing for playlists, nulls, and junk", () => {
+    assert.deepEqual(
+      collectBrowseVideos({
+        contentId: "abcDEF123-_",
+        contentType: "LOCKUP_CONTENT_TYPE_PLAYLIST",
+        metadata: {},
+      }),
+      [],
+    );
+    assert.deepEqual(collectBrowseVideos(null), []);
+  });
+});
+
+describe("approxDateFromRelative", () => {
+  const now = Date.UTC(2026, 7, 5, 12, 0, 0);
+  it("converts years/months/weeks back from now", () => {
+    assert.equal(
+      approxDateFromRelative("2 years ago", now)?.slice(0, 4),
+      "2024",
+    );
+    assert.equal(
+      approxDateFromRelative("6 months ago", now)?.slice(0, 7),
+      "2026-02",
+    );
+  });
+  it("handles Streamed prefix and rejects non-relative text", () => {
+    assert.ok(approxDateFromRelative("Streamed 3 weeks ago", now));
+    assert.equal(approxDateFromRelative("Premieres tomorrow", now), null);
+    assert.equal(approxDateFromRelative("", now), null);
+  });
+});
+
+describe("extractInitialData", () => {
+  it("parses the embedded ytInitialData object", () => {
+    const html =
+      '<script>var ytInitialData = {"a":{"videoId":"abcDEF123-_"}};</script>';
+    assert.deepEqual(extractInitialData(html), {
+      a: { videoId: "abcDEF123-_" },
+    });
+  });
+  it("returns null when absent or malformed", () => {
+    assert.equal(extractInitialData("<html></html>"), null);
+    assert.equal(
+      extractInitialData("<script>var ytInitialData = {broken};</script>"),
+      null,
+    );
   });
 });
