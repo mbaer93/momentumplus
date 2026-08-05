@@ -56,3 +56,13 @@ speaker profiles, partner resources, sponsor content, and a personal learning re
 ## When unsure
 Ask Matt rather than guessing on: pricing/tier rules, copy/wording, anything
 sponsor-facing, and anything that emails or texts real members.
+
+## Claude autonomy (Matt, 2026-08-05)
+Claude has standing authority, without asking first, to:
+- Push its work (including deploy-triggering pushes).
+- Merge its own PRs once lint, typecheck, and tests all pass and there are
+  no unresolved review comments.
+
+The "When unsure" list above still requires asking first — autonomy covers
+process (push/merge), not those judgment calls. Never merge a PR Claude
+didn't author unless Matt asks.
