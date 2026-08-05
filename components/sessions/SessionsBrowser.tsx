@@ -16,7 +16,6 @@ const CATEGORY_FILTERS = [
   "Productivity Session",
   "AI Leadership Lab",
   "Bonus Sessions",
-  "Add-on Sessions",
 ] as const;
 
 type Filter =
@@ -24,6 +23,7 @@ type Filter =
   | "upcoming"
   | "enrolled"
   | "attended"
+  | "rooted_focus"
   | (typeof CATEGORY_FILTERS)[number];
 
 // "Upcoming" is the default view and is deliberately near-term: the next
@@ -36,6 +36,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "upcoming", label: "Upcoming" },
   { key: "enrolled", label: "Enrolled" },
   { key: "attended", label: "Attended" },
+  { key: "rooted_focus", label: "Rooted Focus" },
   ...CATEGORY_FILTERS.map((c) => ({ key: c, label: c }) as const),
 ];
 
@@ -89,6 +90,8 @@ export function SessionsBrowser({
           return s.isEnrolled;
         case "attended":
           return status === "attended";
+        case "rooted_focus":
+          return s.program === "rooted_focus";
         default:
           return displayCategory(s) === filter;
       }

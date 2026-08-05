@@ -148,8 +148,9 @@ export function categoryClass(category: string): string {
     "Accountability Session": "cat-wellness",
     "Productivity Session": "cat-business",
     "AI Leadership Lab": "cat-networking",
-    "Bonus Sessions": "cat-leadership",
-    "Add-on Sessions": "cat-addon",
+    // "Bonus Sessions" is the member-facing name for the addon program;
+    // it keeps the distinct badge styling.
+    "Bonus Sessions": "cat-addon",
     // Legacy values on older rows
     Leadership: "cat-leadership",
     Wellness: "cat-wellness",
