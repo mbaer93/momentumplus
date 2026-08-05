@@ -160,26 +160,28 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
                   The live room opens here 30 minutes before start.
                 </span>
               )}
-            <AddToCalendarButton
-              slug={session.slug}
-              title={session.title}
-              description={session.description}
-              startsAt={session.startsAt}
-              durationMin={session.durationMin}
-              buttonStyle={{
-                background: "rgba(255,255,255,0.06)",
-                color: "#fff",
-                borderColor: "rgba(255,255,255,0.2)",
-              }}
-              joinUrl={
-                session.isEnrolled || dropIn ? session.zoomJoinUrl : null
-              }
-              rrule={
-                session.recurrence
-                  ? rruleFor(session.recurrence, session.recurrenceUntil)
-                  : null
-              }
-            />
+            {/* Only enrolled members (or drop-in programs, which need no
+                enrollment) can add to calendar — Matt, 2026-08-05. */}
+            {(session.isEnrolled || dropIn) && (
+              <AddToCalendarButton
+                slug={session.slug}
+                title={session.title}
+                description={session.description}
+                startsAt={session.startsAt}
+                durationMin={session.durationMin}
+                buttonStyle={{
+                  background: "rgba(255,255,255,0.06)",
+                  color: "#fff",
+                  borderColor: "rgba(255,255,255,0.2)",
+                }}
+                joinUrl={session.zoomJoinUrl}
+                rrule={
+                  session.recurrence
+                    ? rruleFor(session.recurrence, session.recurrenceUntil)
+                    : null
+                }
+              />
+            )}
           </div>
         </div>
 

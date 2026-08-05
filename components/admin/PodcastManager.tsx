@@ -1,0 +1,278 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import {
+  addEpisodeManual,
+  deleteEpisode,
+  savePodcastSettings,
+  setEpisodeHidden,
+  syncPodcastNow,
+} from "@/app/(portal)/admin/podcast/actions";
+
+export interface AdminEpisodeRow {
+  id: string;
+  youtubeVideoId: string;
+  title: string;
+  publishedAt: string | null;
+  source: "auto" | "manual";
+  hidden: boolean;
+}
+
+/* Admin manager for the Branching Out podcast: auto-sync channel, sync-now,
+   manual add for past episodes, and hide/delete per episode. */
+export function PodcastManager({
+  channelId,
+  episodes,
+}: {
+  channelId: string;
+  episodes: AdminEpisodeRow[];
+}) {
+  const [channel, setChannel] = useState(channelId);
+  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
+  const [notes, setNotes] = useState("");
+  const [date, setDate] = useState("");
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(
+    null,
+  );
+  const [pending, startTransition] = useTransition();
+
+  const run = (fn: () => Promise<{ ok: boolean; message?: string }>) =>
+    startTransition(async () => {
+      const res = await fn();
+      setStatus(
+        res.message ? { ok: res.ok, text: res.message } : res.ok ? null : {
+          ok: false,
+          text: "Something went wrong",
+        },
+      );
+    });
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "8px 10px",
+    border: "1px solid var(--border)",
+    borderRadius: 4,
+    fontSize: 13,
+    background: "var(--cream)",
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: 12,
+    fontWeight: 600,
+    display: "block",
+    marginBottom: 4,
+  };
+
+  return (
+    <div className="sessions-pad" style={{ display: "grid", gap: 20 }}>
+      <div className="section-header">
+        <div>
+          <h2>Branching Out</h2>
+          <p>Podcast episodes — auto-synced from YouTube, plus manual adds</p>
+        </div>
+      </div>
+
+      {status && (
+        <div
+          style={{
+            padding: "10px 14px",
+            borderRadius: 4,
+            fontSize: 13,
+            border: `1px solid ${status.ok ? "rgba(58,112,85,0.4)" : "rgba(155,60,60,0.4)"}`,
+            color: status.ok ? "var(--accent-green)" : "#9B3C3C",
+            background: status.ok ? "rgba(58,112,85,0.07)" : "rgba(155,60,60,0.06)",
+          }}
+        >
+          {status.text}
+        </div>
+      )}
+
+      {/* Auto-sync settings */}
+      <div className="card" style={{ padding: 18 }}>
+        <h3 style={{ marginTop: 0, marginBottom: 6 }}>Auto-sync</h3>
+        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
+          New uploads on the show&apos;s YouTube channel appear on the
+          Branching Out tab automatically (checked every 6 hours) — title,
+          show notes, and thumbnail come from YouTube, so there&apos;s nothing
+          to upload each week. Paste the channel URL or its UC… id.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input
+            style={{ ...inputStyle, flex: "1 1 320px" }}
+            placeholder="youtube.com/channel/UC… or the UC… id"
+            value={channel}
+            onChange={(e) => setChannel(e.target.value)}
+          />
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={pending}
+            onClick={() => run(() => savePodcastSettings(channel))}
+          >
+            Save channel
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={pending || !channelId}
+            title={channelId ? "" : "Save the channel first"}
+            onClick={() => run(() => syncPodcastNow())}
+          >
+            {pending ? "Working…" : "Sync now"}
+          </button>
+        </div>
+      </div>
+
+      {/* Manual add — past episodes */}
+      <div className="card" style={{ padding: 18 }}>
+        <h3 style={{ marginTop: 0, marginBottom: 6 }}>Add a past episode</h3>
+        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
+          The feed only carries recent uploads — add the back catalog here.
+          Leave the title blank to pull it from YouTube automatically.
+        </p>
+        <div style={{ display: "grid", gap: 10 }}>
+          <div>
+            <label style={labelStyle}>YouTube link *</label>
+            <input
+              style={inputStyle}
+              placeholder="https://www.youtube.com/watch?v=…"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+            <div>
+              <label style={labelStyle}>Title (optional)</label>
+              <input
+                style={inputStyle}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Published (optional)</label>
+              <input
+                type="date"
+                style={inputStyle}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Show notes (optional)</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 80, resize: "vertical" }}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+          <div>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={pending || !url.trim()}
+              onClick={() =>
+                run(async () => {
+                  const res = await addEpisodeManual({
+                    url,
+                    title,
+                    showNotes: notes,
+                    publishedAt: date,
+                  });
+                  if (res.ok) {
+                    setUrl("");
+                    setTitle("");
+                    setNotes("");
+                    setDate("");
+                  }
+                  return res;
+                })
+              }
+            >
+              Add episode
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Episode list */}
+      <div className="card" style={{ padding: 18 }}>
+        <h3 style={{ marginTop: 0 }}>Episodes ({episodes.length})</h3>
+        {episodes.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--mid-gray)" }}>
+            No episodes yet — save the channel and sync, or add one manually.
+          </p>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {episodes.map((ep) => (
+              <div
+                key={ep.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "8px 10px",
+                  border: "1px solid var(--border)",
+                  borderRadius: 4,
+                  opacity: ep.hidden ? 0.55 : 1,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {ep.title}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                    {ep.publishedAt
+                      ? new Date(ep.publishedAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "No date"}{" "}
+                    · {ep.source === "auto" ? "Auto-synced" : "Manual"}
+                    {ep.hidden ? " · Hidden" : ""}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="filter-btn"
+                  disabled={pending}
+                  onClick={() =>
+                    run(() => setEpisodeHidden(ep.id, !ep.hidden))
+                  }
+                >
+                  {ep.hidden ? "Show" : "Hide"}
+                </button>
+                <button
+                  type="button"
+                  className="filter-btn"
+                  disabled={pending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Delete "${ep.title}"? Auto-sync may re-add it if it's still in the channel feed — use Hide to keep it off the tab permanently.`,
+                      )
+                    ) {
+                      run(() => deleteEpisode(ep.id));
+                    }
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -53,7 +53,7 @@ const LEGEND: { color: EventColor; swatch: string; label: string }[] = [
   { color: "gold", swatch: "var(--gold-pale)", label: "Productivity Session" },
   { color: "purple", swatch: "rgba(92,61,122,0.14)", label: "AI Leadership Lab" },
   { color: "neutral", swatch: "rgba(11,22,34,0.08)", label: "Bonus Sessions" },
-  { color: "teal", swatch: "rgba(58,140,130,0.14)", label: "Add-on Sessions" },
+  { color: "teal", swatch: "rgba(58,140,130,0.14)", label: "Bonus Sessions" },
 ];
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

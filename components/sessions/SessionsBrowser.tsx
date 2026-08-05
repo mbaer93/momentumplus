@@ -16,7 +16,6 @@ const CATEGORY_FILTERS = [
   "Productivity Session",
   "AI Leadership Lab",
   "Bonus Sessions",
-  "Add-on Sessions",
 ] as const;
 
 type Filter =
@@ -24,13 +23,20 @@ type Filter =
   | "upcoming"
   | "enrolled"
   | "attended"
+  | "rooted_focus"
   | (typeof CATEGORY_FILTERS)[number];
+
+// "Upcoming" is the default view and is deliberately near-term: the next
+// four weeks only (Matt, 2026-08-05). Anything further out lives under
+// "All Sessions".
+const UPCOMING_WINDOW_MS = 28 * 24 * 60 * 60 * 1000;
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All Sessions" },
   { key: "upcoming", label: "Upcoming" },
   { key: "enrolled", label: "Enrolled" },
   { key: "attended", label: "Attended" },
+  { key: "rooted_focus", label: "Rooted Focus" },
   ...CATEGORY_FILTERS.map((c) => ({ key: c, label: c }) as const),
 ];
 
@@ -45,7 +51,7 @@ export function SessionsBrowser({
       members just see the schedule. */
   hideFilters?: boolean;
 }) {
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("upcoming");
   // Compute once on the client so the time-derived status is consistent.
   const now = useNowTick();
 
@@ -57,21 +63,35 @@ export function SessionsBrowser({
       // speaker's season ended) are likewise admin-only.
       if (status === "draft" && !isAdmin) return false;
       if (s.status === "archived" && !isAdmin) return false;
-      // COMPLETED sessions leave the sessions page (Matt, 2026-07-20) —
-      // their recording, notes, and AI summary live in the Library. The
-      // Attended filter stays as the member's personal history.
-      if (s.status === "completed" && !isAdmin && filter !== "attended") {
+      // COMPLETED sessions are hidden from the near-term filters (their
+      // recording, notes, and AI summary live in the Library), but they DO
+      // belong in "All Sessions" and in the member's "Attended" history
+      // (Matt, 2026-08-05 — "All Sessions" should list everything in the
+      // system).
+      if (
+        s.status === "completed" &&
+        !isAdmin &&
+        filter !== "attended" &&
+        filter !== "all"
+      ) {
         return false;
       }
       switch (filter) {
         case "all":
           return true;
-        case "upcoming":
-          return status === "live" || status === "upcoming" || status === "enrolled";
+        case "upcoming": {
+          // Live now always shows; otherwise only sessions starting within
+          // the next four weeks.
+          if (status === "live") return true;
+          if (status !== "upcoming" && status !== "enrolled") return false;
+          return new Date(s.startsAt).getTime() <= now + UPCOMING_WINDOW_MS;
+        }
         case "enrolled":
           return s.isEnrolled;
         case "attended":
           return status === "attended";
+        case "rooted_focus":
+          return s.program === "rooted_focus";
         default:
           return displayCategory(s) === filter;
       }

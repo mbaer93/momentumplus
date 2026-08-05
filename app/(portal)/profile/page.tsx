@@ -193,6 +193,32 @@ export default async function ProfilePage() {
     .filter((s) => s.isEnrolled)
     .sort((a, b) => b.startsAt.localeCompare(a.startsAt));
 
+  // Pull the member's own private notes so they surface next to each
+  // session in the learning record (Matt, 2026-08-05). Own rows only —
+  // session_notes RLS is owner-scoped, and we never want one member's
+  // notes stamped onto another's profile.
+  const notesBySession = new Map<string, string>();
+  if (isSupabaseConfigured() && mine.length > 0) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: noteRows } = await supabase
+        .from("session_notes")
+        .select("session_id, body")
+        .eq("profile_id", user.id)
+        .in(
+          "session_id",
+          mine.map((s) => s.id),
+        );
+      for (const row of noteRows ?? []) {
+        const body = (row.body ?? "").trim();
+        if (body) notesBySession.set(row.session_id, body);
+      }
+    }
+  }
+
   const sessionRows: ProfileSessionRow[] = mine.map((s) => ({
     id: s.slug,
     title: s.title,
@@ -201,6 +227,7 @@ export default async function ProfilePage() {
     day: dayOfMonth(s.startsAt),
     timeLabel: timeLabel(s.startsAt),
     status: displayStatus(s, now),
+    note: notesBySession.get(s.id),
   }));
 
   const attendedCount = mine.filter((s) => s.attended).length;

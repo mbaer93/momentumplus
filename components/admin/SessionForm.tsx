@@ -15,12 +15,14 @@ import {
 
 // Current taxonomy (Sierra, 2026-07-22). Older sessions may carry legacy
 // values (Leadership/Wellness/Business/Networking) until re-saved.
+// "Bonus Sessions" is no longer a category — Bonus is now its own program
+// (choose "Bonus Session" in the Program dropdown). Legacy Bonus-tagged
+// rows were folded into the addon program (migration 0072).
 const CATEGORIES = [
   "Monthly Educational Session",
   "Accountability Session",
   "Productivity Session",
   "AI Leadership Lab",
-  "Bonus Sessions",
 ];
 const ACCESS: { value: AccessLevel; label: string }[] = [
   { value: "all_members", label: "All members" },
@@ -170,15 +172,15 @@ export function SessionForm({
           }}
         >
           <option value="standard">Main Session (Sessions tab)</option>
-          <option value="addon">Add-on Session (Sessions tab)</option>
+          <option value="addon">Bonus Session (Sessions tab)</option>
           <option value="rooted_focus">Rooted Focus (own tab)</option>
           <option value="aspire">Aspire2Achieve Growth (own tab)</option>
         </select>
         {values.program === "addon" && (
           <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
-            Add-on Sessions are speaker-led extras (e.g. a monthly AI-in-
+            Bonus Sessions are speaker-led extras (e.g. a monthly AI-in-
             business series). They appear on the Sessions tab and calendar
-            with an Add-on badge, members enroll normally, and they can be
+            with a Bonus badge, members enroll normally, and they can be
             one-time or recurring via the Repeats field.
           </div>
         )}

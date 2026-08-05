@@ -11,10 +11,14 @@ export const dynamic = "force-dynamic";
 export default async function SessionsPage() {
   const member = await requireMember();
   await requireFeature("sessions");
-  // Rooted Focus/Aspire live on their own tabs; Main Sessions and Add-on
-  // Sessions share this one.
+  // Main, Bonus (addon), and Rooted Focus sessions all appear on this tab
+  // (Matt, 2026-08-05 — Rooted Focus also has its own dedicated tab and a
+  // "Rooted Focus" filter here). Aspire keeps its own tab only.
   const sessions = (await listSessions()).filter(
-    (s) => s.program === "standard" || s.program === "addon",
+    (s) =>
+      s.program === "standard" ||
+      s.program === "addon" ||
+      s.program === "rooted_focus",
   );
 
   return (

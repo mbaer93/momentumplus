@@ -99,6 +99,7 @@ const PREVIEW_FEATURES: FeatureDef[] = [
   ["calendar", "Calendar", "/calendar", 40, true],
   ["library", "Library", "/library", 50, true],
   ["education", "Grow on the Go", "/education", 60, true],
+  ["branching_out", "Branching Out", "/branching-out", 62, true],
   ["aspire2achieve", "Aspire2Achieve Growth", "/aspire2achieve", 70, false],
   ["community", "Community", "/community", 80, true],
   ["members", "Members", "/members", 90, true],
