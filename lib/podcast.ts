@@ -530,6 +530,188 @@ export async function listUploadsViaApi(
   return { videos, complete };
 }
 
+/** Parse one playlists.list page into {id, title} pairs. */
+export function parsePlaylistsPage(json: unknown): {
+  playlists: { id: string; title: string }[];
+  nextPageToken: string | null;
+} {
+  const root = (json ?? {}) as {
+    items?: { id?: string; snippet?: { title?: string } }[];
+    nextPageToken?: string;
+  };
+  const playlists: { id: string; title: string }[] = [];
+  for (const item of root.items ?? []) {
+    if (typeof item.id === "string" && item.id) {
+      playlists.push({ id: item.id, title: (item.snippet?.title ?? "").trim() });
+    }
+  }
+  return { playlists, nextPageToken: root.nextPageToken ?? null };
+}
+
+/** Season number from a playlist or episode title: "Season 2", "S2 E5",
+    "S02E05" → 2. Null when there's no season marker. */
+export function seasonFromText(text: string): number | null {
+  const m =
+    text.match(/\bseason\s*#?\s*(\d{1,3})\b/i) ??
+    text.match(/\bs(\d{1,3})\s*[·xX\-–—:,.]?\s*ep?\.?\s*\d/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isInteger(n) && n >= 1 && n <= 999 ? n : null;
+}
+
+/**
+ * Pull season numbers from YouTube (Matt, 2026-08-05: "is there a way to
+ * import the season number?"). Two sources, in priority order:
+ *   1. channel playlists named like "Season 2" — every video in the
+ *      playlist gets that season;
+ *   2. season markers in the episode's own title ("Season 2", "S2 E5").
+ * Only episodes whose computed season differs are updated; episodes with
+ * no marker anywhere keep their current season (so hand-set ones and the
+ * date-range tool aren't undone).
+ */
+export async function importSeasonsFromYoutube(): Promise<{
+  ok: boolean;
+  message: string;
+}> {
+  const { channelId } = await readPodcastSettings();
+  if (!channelId) return { ok: false, message: "Save the channel first" };
+  const apiKey = await getYoutubeApiKey();
+  if (!apiKey) {
+    return {
+      ok: false,
+      message:
+        "This needs the YouTube API key — connect it in Admin → Connections.",
+    };
+  }
+
+  // Season playlists on the channel.
+  const seasonPlaylists: { id: string; title: string; season: number }[] = [];
+  let pageToken = "";
+  for (let page = 0; page < 10; page++) {
+    const url =
+      `${YT_API}/playlists?part=snippet&maxResults=50` +
+      `&channelId=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}` +
+      (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+    let res: Response;
+    try {
+      res = await fetch(url, { cache: "no-store" });
+    } catch {
+      return { ok: false, message: "Couldn't reach the YouTube API — try again in a minute." };
+    }
+    if (!res.ok) {
+      return { ok: false, message: `YouTube API error ${res.status}` };
+    }
+    const parsed = parsePlaylistsPage(await res.json());
+    for (const p of parsed.playlists) {
+      const season = seasonFromText(p.title);
+      if (season !== null) seasonPlaylists.push({ ...p, season });
+    }
+    if (!parsed.nextPageToken) break;
+    pageToken = parsed.nextPageToken;
+  }
+
+  const seasonByVideo = new Map<string, number>();
+  for (const p of seasonPlaylists) {
+    let token = "";
+    for (let page = 0; page < 10; page++) {
+      const url =
+        `${YT_API}/playlistItems?part=snippet%2CcontentDetails&maxResults=50` +
+        `&playlistId=${encodeURIComponent(p.id)}&key=${encodeURIComponent(apiKey)}` +
+        (token ? `&pageToken=${encodeURIComponent(token)}` : "");
+      let res: Response;
+      try {
+        res = await fetch(url, { cache: "no-store" });
+      } catch {
+        break;
+      }
+      if (!res.ok) break;
+      const parsed = parsePlaylistItemsPage(await res.json());
+      for (const v of parsed.videos) {
+        if (!seasonByVideo.has(v.videoId)) seasonByVideo.set(v.videoId, p.season);
+      }
+      if (!parsed.nextPageToken) break;
+      token = parsed.nextPageToken;
+    }
+  }
+
+  const admin = createServiceClient();
+  const { data: rows, error } = await admin
+    .from("podcast_episodes")
+    .select("id, youtube_video_id, title, season");
+  if (error) {
+    return {
+      ok: false,
+      message: /season/.test(error.message)
+        ? "The database doesn't have the season column yet — run migration 0076 first."
+        : error.message,
+    };
+  }
+
+  let fromPlaylists = 0;
+  let fromTitles = 0;
+  let unassigned = 0;
+  for (const row of (rows ?? []) as {
+    id: string;
+    youtube_video_id: string;
+    title: string;
+    season: number | null;
+  }[]) {
+    const playlistSeason = seasonByVideo.get(row.youtube_video_id) ?? null;
+    const target = playlistSeason ?? seasonFromText(row.title);
+    if (target === null) {
+      if (row.season === null) unassigned++;
+      continue;
+    }
+    if (target === row.season) continue;
+    const { error: updateError } = await admin
+      .from("podcast_episodes")
+      .update({ season: target })
+      .eq("id", row.id);
+    if (updateError) {
+      return {
+        ok: false,
+        message: /season/.test(updateError.message)
+          ? "The database doesn't have the season column yet — run migration 0076 first."
+          : updateError.message,
+      };
+    }
+    if (playlistSeason !== null) fromPlaylists++;
+    else fromTitles++;
+  }
+
+  const assigned = fromPlaylists + fromTitles;
+  if (seasonPlaylists.length === 0 && assigned === 0) {
+    return {
+      ok: true,
+      message:
+        "No season info found on YouTube — the channel has no \"Season N\" playlists and no titles with season markers. " +
+        "Either create Season playlists on the channel and re-run this, or use the date-range tool below.",
+    };
+  }
+  const parts: string[] = [];
+  if (seasonPlaylists.length > 0) {
+    parts.push(
+      `Found ${seasonPlaylists.length} season playlist${seasonPlaylists.length === 1 ? "" : "s"} (${seasonPlaylists
+        .map((p) => p.title)
+        .join(", ")}).`,
+    );
+  }
+  parts.push(
+    assigned === 0
+      ? "Every episode already had the right season."
+      : `${assigned} episode${assigned === 1 ? "" : "s"} updated` +
+        (fromTitles > 0
+          ? ` (${fromPlaylists} from playlists, ${fromTitles} from title markers).`
+          : "."),
+  );
+  if (unassigned > 0) {
+    parts.push(
+      `${unassigned} episode${unassigned === 1 ? "" : "s"} with no season — they show under Extras.`,
+    );
+  }
+  return { ok: true, message: parts.join(" ") };
+}
+
 /** API-key import: insert missing episodes and true-up every auto row's
     date, title, and notes against YouTube. Rows an admin edited or added
     (source "manual") are never touched. */

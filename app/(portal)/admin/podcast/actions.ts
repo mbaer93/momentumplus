@@ -7,6 +7,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
   extractYoutubeVideoId,
   importBackCatalog,
+  importSeasonsFromYoutube,
   PODCAST_SETTINGS_KEY,
   syncFromYoutube,
 } from "@/lib/podcast";
@@ -197,6 +198,21 @@ export async function updateEpisode(
   revalidatePath("/branching-out");
   revalidatePath("/admin/podcast");
   return { ok: true, message: "Episode saved — it's now marked Manual, so syncs and imports will never overwrite it." };
+}
+
+/** Read season numbers from YouTube: "Season N" playlists on the channel
+    first, then season markers in episode titles ("Season 2", "S2 E5").
+    Episodes with no marker anywhere are left as they are. */
+export async function importPodcastSeasons(): Promise<PodcastActionResult> {
+  const auth = await requireAdmin("content");
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!isSupabaseConfigured()) return PREVIEW;
+  const result = await importSeasonsFromYoutube();
+  if (result.ok) {
+    revalidatePath("/branching-out");
+    revalidatePath("/admin/podcast");
+  }
+  return result;
 }
 
 /** Assign a season to every episode published inside a date range — the
