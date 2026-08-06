@@ -434,41 +434,48 @@ async function applyGiftToPayingMember(input: {
           `/subscriptions/${plan.row.stripe_subscription_id}`,
         );
         if (sub.pause_collection) {
-          return {
-            ok: true,
-            invited: false,
-            alreadyActive: true,
-            message: `${input.email}: billing is already paused — gift already applied.`,
-          };
-        }
-        /*
-         * behavior=void voids every invoice raised inside the pause window.
-         * For a monthly plan that's exactly "skip the gift months" — but a
-         * 3/6/12-month term whose renewal lands inside the window would
-         * have its WHOLE term invoice voided (12 free months for a 3-month
-         * gift). Only pause when the billing interval fits inside the gift;
-         * longer terms get the access extension below instead.
-         */
-        const recurring = sub.items?.data?.[0]?.price?.recurring;
-        const intervalMonths =
-          recurring?.interval === "year"
-            ? 12 * (recurring.interval_count ?? 1)
-            : recurring?.interval === "month"
-              ? (recurring.interval_count ?? 1)
-              : null;
-        if (intervalMonths !== null && intervalMonths <= months) {
-          await stripeRequest(
-            settings.secretKey,
-            "POST",
-            `/subscriptions/${plan.row.stripe_subscription_id}`,
-            {
-              "pause_collection[behavior]": "void",
-              "pause_collection[resumes_at]": pauseResumesAtUnix(months, anchor),
-            },
-          );
+          /*
+           * Billing already paused. A COMPLETED gift is caught by the
+           * season guard (the audit-ledger query above), so reaching here
+           * with an existing pause almost always means a prior run paused
+           * Stripe and then crashed before the ledger + expiry extension
+           * (audit P2-21: that retry used to be answered "gift already
+           * applied", leaving the member paused but never extended).
+           * Don't re-pause; DO fall through to the ledger + extension the
+           * crashed run never reached.
+           */
           paused = true;
         } else {
-          pauseNote = "";
+          /*
+           * behavior=void voids every invoice raised inside the pause
+           * window. For a monthly plan that's exactly "skip the gift
+           * months" — but a 3/6/12-month term whose renewal lands inside
+           * the window would have its WHOLE term invoice voided (12 free
+           * months for a 3-month gift). Only pause when the billing
+           * interval fits inside the gift; longer terms get the access
+           * extension below instead.
+           */
+          const recurring = sub.items?.data?.[0]?.price?.recurring;
+          const intervalMonths =
+            recurring?.interval === "year"
+              ? 12 * (recurring.interval_count ?? 1)
+              : recurring?.interval === "month"
+                ? (recurring.interval_count ?? 1)
+                : null;
+          if (intervalMonths !== null && intervalMonths <= months) {
+            await stripeRequest(
+              settings.secretKey,
+              "POST",
+              `/subscriptions/${plan.row.stripe_subscription_id}`,
+              {
+                "pause_collection[behavior]": "void",
+                "pause_collection[resumes_at]": pauseResumesAtUnix(months, anchor),
+              },
+            );
+            paused = true;
+          } else {
+            pauseNote = "";
+          }
         }
       } catch (e) {
         pauseNote = ` (Stripe pause failed: ${(e as Error).message} — pause the subscription by hand in Stripe)`;

@@ -174,6 +174,15 @@ export async function submitPodcastQuestion(
   if (!(await membershipActive())) {
     return { ok: false, message: "Your membership has lapsed." };
   }
+  // Durable cap (audit P2-21): the submissions table is otherwise an
+  // unbounded write path for any signed-in member.
+  const { allowAction } = await import("@/lib/throttle");
+  if (!(await allowAction(user.id, "podcast_question", 10, 60 * 60 * 1000))) {
+    return {
+      ok: false,
+      message: "That's a lot of questions at once — try again in an hour.",
+    };
+  }
 
   const { error } = await supabase.from("podcast_questions").insert({
     profile_id: user.id,

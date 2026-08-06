@@ -95,8 +95,12 @@ export async function requireRealAdmin(area?: AdminArea): Promise<
 export async function getAdminAccess(): Promise<AdminAccess | null> {
   // Preview-mode "everyone is super admin" is a local-dev convenience only;
   // on a deployed environment an unconfigured Supabase must not mint admin.
+  // Gate on NODE_ENV too, not just VERCEL — a self-hosted production build
+  // without the Vercel env var must fail closed the same way (audit P2-21).
   if (!isSupabaseConfigured()) {
-    return process.env.VERCEL ? null : { role: "super", perms: {} };
+    return process.env.VERCEL || process.env.NODE_ENV === "production"
+      ? null
+      : { role: "super", perms: {} };
   }
   const res = await requireAdmin();
   return res.ok ? res.access : null;

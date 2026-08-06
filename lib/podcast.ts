@@ -1283,6 +1283,12 @@ function toEpisode(row: EpisodeRow): PodcastEpisode {
 
 /** Newest first. Members never see hidden episodes; the admin page passes
     includeHidden to manage them. */
+/** Show-notes cap for the LIST payload (audit P2-16): a YouTube
+    description can run thousands of characters (link dumps, chapter
+    lists), and the browser ships every episode's notes up front. 1,500
+    chars keeps the readable part; the "Show notes" panel notes the cut. */
+const SHOW_NOTES_LIST_CAP = 1500;
+
 export async function listEpisodes(
   { includeHidden = false }: { includeHidden?: boolean } = {},
 ): Promise<PodcastEpisode[]> {
@@ -1295,7 +1301,16 @@ export async function listEpisodes(
   if (!includeHidden) q = q.eq("hidden", false);
   const { data, error } = await q;
   if (error) return [];
-  return ((data ?? []) as EpisodeRow[]).map(toEpisode);
+  const episodes = ((data ?? []) as EpisodeRow[]).map(toEpisode);
+  // includeHidden is the ADMIN path — its inline editor prefills from this
+  // payload, so truncating there would save mangled notes back. Members
+  // only read.
+  if (includeHidden) return episodes;
+  return episodes.map((ep) =>
+    ep.showNotes.length > SHOW_NOTES_LIST_CAP
+      ? { ...ep, showNotes: `${ep.showNotes.slice(0, SHOW_NOTES_LIST_CAP).trimEnd()}…` }
+      : ep,
+  );
 }
 
 /** The signed-in member's per-episode progress: completion + private

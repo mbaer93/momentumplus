@@ -302,11 +302,15 @@ export async function deliverAnnouncement(
     }
   }
 
-  // Emails: sequential (GHL API), journaled one by one so a mid-loop crash
-  // never double-sends on retry. TIME-BUDGETED for a 350-member audience:
-  // one run can't finish 350 sequential GHL calls inside the function
-  // limit, so the loop stops cleanly — the ledger makes the next run
-  // (another Send press, or the next cron tick) resume-only.
+  // Emails: bounded-concurrency waves (audit P2-18 — sequential sends
+  // capped a run at ~700-900 members; 6 in flight lifts the ceiling ~6×
+  // while staying under GHL burst limits, and retryOn429 absorbs the rest).
+  // The ledger is journaled once per WAVE instead of once per member: a
+  // mid-wave crash can re-email at most one wave on resume, which is the
+  // price of ~6× fewer ledger round-trips. TIME-BUDGETED: the loop stops
+  // cleanly at the budget — the ledger makes the next run (another Send
+  // press, or the next cron tick) resume-only.
+  const SEND_CONCURRENCY = 6;
   let emailed = 0;
   let emailFailures = 0;
   let lastEmailError: string | null = null;
@@ -316,48 +320,64 @@ export async function deliverAnnouncement(
   const emailBudgetStart = Date.now();
   const EMAIL_BUDGET_MS = 240_000;
   if (channels.includes("email")) {
-    for (const a of audience) {
-      if (delivered.get(a.profileId)?.emailed) continue;
+    const pending = audience.filter((a) => !delivered.get(a.profileId)?.emailed);
+    for (let i = 0; i < pending.length; i += SEND_CONCURRENCY) {
       if (Date.now() - emailBudgetStart > EMAIL_BUDGET_MS) {
-        remainingForBudget++;
-        continue;
+        remainingForBudget += pending.length - i;
+        break;
       }
-      const res = await sendEmailViaGhl({
-        contactId: a.contactId,
-        email: a.email,
-        subject: title,
-        html: brandedEmailHtml({
-          greetingName: a.name,
-          heading: title,
-          bodyHtml: `<p style="margin:0 0 14px;">${body.replace(/\n/g, "<br/>")}</p>`,
-          ctaLabel: "Open Momentum+",
-          ctaUrl: "/dashboard",
-          footnote:
-            "You're receiving this as a Momentum+ member of the Tri-State Leadership Summit community.",
-        }),
-      });
-      if (res.sent) {
-        emailed++;
-        if (ledgerAvailable) {
-          // On conflict only the provided columns update — notified_at stays.
-          await admin.from("announcement_deliveries").upsert(
-            {
-              announcement_id: announcementId,
-              profile_id: a.profileId,
-              emailed_at: new Date().toISOString(),
-            },
-            { onConflict: "announcement_id,profile_id" },
-          );
+      const wave = pending.slice(i, i + SEND_CONCURRENCY);
+      const results = await Promise.all(
+        wave.map((a) =>
+          sendEmailViaGhl({
+            contactId: a.contactId,
+            email: a.email,
+            subject: title,
+            html: brandedEmailHtml({
+              greetingName: a.name,
+              heading: title,
+              bodyHtml: `<p style="margin:0 0 14px;">${body.replace(/\n/g, "<br/>")}</p>`,
+              ctaLabel: "Open Momentum+",
+              ctaUrl: "/dashboard",
+              footnote:
+                "You're receiving this as a Momentum+ member of the Tri-State Leadership Summit community.",
+            }),
+          }),
+        ),
+      );
+      const sentRows: {
+        announcement_id: string;
+        profile_id: string;
+        emailed_at: string;
+      }[] = [];
+      results.forEach((res, j) => {
+        const a = wave[j];
+        if (res.sent) {
+          emailed++;
+          sentRows.push({
+            announcement_id: announcementId,
+            profile_id: a.profileId,
+            emailed_at: new Date().toISOString(),
+          });
+        } else if (
+          res.reason !== "no GHL contact id" &&
+          res.reason !== "GHL not configured"
+        ) {
+          emailFailures++;
+          lastEmailError = res.reason ?? null;
         }
-      } else if (res.reason !== "no GHL contact id" && res.reason !== "GHL not configured") {
-        emailFailures++;
-        lastEmailError = res.reason ?? null;
+      });
+      if (ledgerAvailable && sentRows.length > 0) {
+        // On conflict only the provided columns update — notified_at stays.
+        await admin
+          .from("announcement_deliveries")
+          .upsert(sentRows, { onConflict: "announcement_id,profile_id" });
       }
     }
   }
 
-  // Texts: opted-in members with a phone number only. Same sequential,
-  // journaled, budget-bounded shape as email.
+  // Texts: opted-in members with a phone number only. Same wave-concurrent,
+  // wave-journaled, budget-bounded shape as email.
   let smsSent = 0;
   let smsFailures = 0;
   let lastSmsError: string | null = null;
@@ -366,37 +386,52 @@ export async function deliverAnnouncement(
   if (channels.includes("sms")) {
     const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
     const smsMessage = `Momentum+: ${title} — read it here: ${site}/dashboard`;
-    for (const a of audience) {
-      if (!smsOptIn.has(a.profileId) || !a.phone) continue;
-      smsEligible++;
-      if (delivered.get(a.profileId)?.smsed) continue;
+    const eligible = audience.filter(
+      (a) => smsOptIn.has(a.profileId) && a.phone,
+    );
+    smsEligible = eligible.length;
+    const pending = eligible.filter((a) => !delivered.get(a.profileId)?.smsed);
+    for (let i = 0; i < pending.length; i += SEND_CONCURRENCY) {
       if (Date.now() - emailBudgetStart > EMAIL_BUDGET_MS) {
-        smsRemainingForBudget++;
-        continue;
+        smsRemainingForBudget += pending.length - i;
+        break;
       }
-      const res = await sendSmsViaGhl({
-        contactId: a.contactId,
-        email: a.email,
-        phone: a.phone,
-        message: smsMessage,
-      });
-      if (res.sent) {
-        smsSent++;
-        if (ledgerAvailable && smsLedgerAvailable) {
-          await admin.from("announcement_deliveries").upsert(
-            {
-              announcement_id: announcementId,
-              profile_id: a.profileId,
-              sms_at: new Date().toISOString(),
-            },
-            { onConflict: "announcement_id,profile_id" },
-          );
+      const wave = pending.slice(i, i + SEND_CONCURRENCY);
+      const results = await Promise.all(
+        wave.map((a) =>
+          sendSmsViaGhl({
+            contactId: a.contactId,
+            email: a.email,
+            phone: a.phone,
+            message: smsMessage,
+          }),
+        ),
+      );
+      const sentRows: {
+        announcement_id: string;
+        profile_id: string;
+        sms_at: string;
+      }[] = [];
+      results.forEach((res, j) => {
+        const a = wave[j];
+        if (res.sent) {
+          smsSent++;
+          sentRows.push({
+            announcement_id: announcementId,
+            profile_id: a.profileId,
+            sms_at: new Date().toISOString(),
+          });
+        } else if (res.reason !== "GHL not configured") {
+          // "no contact/phone" counts too — the sender upserts the GHL
+          // contact itself, so any non-send here is a real, fixable failure.
+          smsFailures++;
+          lastSmsError = res.reason ?? null;
         }
-      } else if (res.reason !== "GHL not configured") {
-        // "no contact/phone" counts too now — the sender upserts the GHL
-        // contact itself, so any non-send here is a real, fixable failure.
-        smsFailures++;
-        lastSmsError = res.reason ?? null;
+      });
+      if (ledgerAvailable && smsLedgerAvailable && sentRows.length > 0) {
+        await admin
+          .from("announcement_deliveries")
+          .upsert(sentRows, { onConflict: "announcement_id,profile_id" });
       }
     }
   }

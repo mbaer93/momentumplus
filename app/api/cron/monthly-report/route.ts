@@ -185,14 +185,19 @@ export async function GET(req: NextRequest) {
     if (res.sent) emailed++;
   }
 
-  await admin.from("app_settings").upsert(
-    {
-      key: SENT_KEY,
-      value: { month: reportKey, at: new Date().toISOString() },
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "key" },
-  );
+  // Stamp the month as sent only when at least one Super Admin actually got
+  // the report — stamping a 0-emailed run (GHL down on the 1st) used to
+  // silently skip that month forever (audit P2-21). Tomorrow's tick retries.
+  if (emailed > 0) {
+    await admin.from("app_settings").upsert(
+      {
+        key: SENT_KEY,
+        value: { month: reportKey, at: new Date().toISOString() },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "key" },
+    );
+  }
 
   await recordCronRun("monthly-report");
   return NextResponse.json({ ok: true, month: reportKey, emailed });

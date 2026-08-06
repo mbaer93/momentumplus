@@ -33,6 +33,16 @@ export async function submitTestimonial(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
 
+  // Durable cap (audit P2-21): resubmission replaces the pending row, but
+  // without a cap the write path itself is unbounded.
+  const { allowAction } = await import("@/lib/throttle");
+  if (!(await allowAction(user.id, "testimonial_submit", 5, 60 * 60 * 1000))) {
+    return {
+      ok: false,
+      message: "You've updated this a few times just now — try again in an hour.",
+    };
+  }
+
   const admin = createServiceClient();
   // One live submission per member — resubmitting replaces their pending one.
   const { data: existing, error: readError } = await admin

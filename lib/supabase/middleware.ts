@@ -76,7 +76,9 @@ export async function updateSession(request: NextRequest) {
   // Supabase env vars are a misconfiguration; failing open would serve the
   // entire members-only portal (and admin) to the public with no login.
   if (!isSupabaseConfigured()) {
-    if (process.env.VERCEL) {
+    // NODE_ENV too, not just VERCEL: a self-hosted production build must
+    // not serve the members-only portal login-free (audit P2-21).
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
       return new NextResponse(
         "Momentum+ is misconfigured: Supabase environment variables are not set for this deployment.",
         { status: 503 },
