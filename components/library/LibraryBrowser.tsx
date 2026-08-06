@@ -52,6 +52,7 @@ export function LibraryBrowser({
               key={f.slug}
               type="button"
               className={`filter-btn${filter === f.slug ? " active" : ""}`}
+              aria-pressed={filter === f.slug}
               onClick={() => setFilter(f.slug)}
             >
               {f.name}

@@ -150,7 +150,7 @@ export function SpeakerStudio({
           goes live automatically.
         </div>
       )}
-      {startError && <div className="login-error">{startError}</div>}
+      {startError && <div className="login-error" role="alert">{startError}</div>}
       {msg && (
         <div className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}>{msg.text}</div>
       )}

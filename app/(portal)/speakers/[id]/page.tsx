@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeftIcon, ExternalIcon } from "@/components/icons";
@@ -44,11 +45,14 @@ export default async function SpeakerDetailPage(
       </Link>
       <div className="spk-hero">
         {speaker.headshotUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          (<img
+          // 72px box (2x for retina) — headshots are camera uploads
+          // (audit P2-19).
+          (<Image
             className="spk-hero-av"
             src={speaker.headshotUrl}
             alt={`${speaker.name} headshot`}
+            width={144}
+            height={144}
             style={{ objectFit: "cover" }}
           />)
         ) : (

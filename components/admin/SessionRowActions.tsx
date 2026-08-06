@@ -7,6 +7,7 @@ import {
   cancelSession,
   deleteSession,
   importSessionRecording,
+  pullSessionAttendanceNow,
 } from "@/app/(portal)/admin/sessions/actions";
 
 export function SessionRowActions({
@@ -118,6 +119,27 @@ export function SessionRowActions({
           }
         >
           Get recording
+        </button>
+      )}
+      {hasMeeting && (
+        <button
+          type="button"
+          className="btn-mini"
+          disabled={pending}
+          title="Match Zoom's participant report against enrollments and mark attendance now (the cron sweeps recent sessions automatically)"
+          onClick={() =>
+            startTransition(async () => {
+              setNote(null);
+              const res = await pullSessionAttendanceNow(sessionId);
+              setNote({
+                text: res.message ?? (res.ok ? "Attendance pulled." : "Pull failed"),
+                ok: res.ok,
+              });
+              if (res.ok) router.refresh();
+            })
+          }
+        >
+          Pull attendance
         </button>
       )}
       <button

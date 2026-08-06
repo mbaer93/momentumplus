@@ -402,12 +402,13 @@ export function ProfileView({
               </div>
               <div style={{ padding: 18 }}>
                 {certificates.length === 0 ? (
+                  // No link: the Education tab is delisted from the nav for
+                  // now (Matt, 2026-08-05), and a CTA into a hidden section
+                  // is a dead end (audit P2-22).
                   <div style={{ color: "var(--ink-secondary)", fontSize: 13 }}>
-                    Complete a course in{" "}
-                    <Link href="/education" style={{ color: "var(--gold-text)" }}>
-                      Education
-                    </Link>{" "}
-                    to earn your first certificate.
+                    Certificates appear here when you complete an SLC course.
+                    Course learning is getting a refresh — watch the
+                    announcements for when it reopens.
                   </div>
                 ) : (
                   certificates.map((c) => (

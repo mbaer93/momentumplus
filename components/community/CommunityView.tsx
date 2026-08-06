@@ -607,6 +607,7 @@ export function CommunityView({
         {(preview ? directMessages : []).map((dm) => (
           <button key={dm.name} type="button" className="channel-item">
             <span
+              aria-hidden="true"
               style={{
                 width: 8,
                 height: 8,
@@ -616,6 +617,7 @@ export function CommunityView({
               }}
             />
             {dm.name}
+            <span className="sr-only">{dm.online ? " (online)" : " (offline)"}</span>
           </button>
         ))}
       </div>
@@ -854,6 +856,7 @@ export function CommunityView({
             <div className="online-member" key={m.name}>
               <div
                 className="online-dot"
+                aria-hidden="true"
                 style={m.online ? undefined : { background: "var(--mid-gray)" }}
               />
               <span
@@ -861,6 +864,7 @@ export function CommunityView({
                 style={m.online ? undefined : { color: "var(--ink-secondary)" }}
               >
                 {m.name}
+                <span className="sr-only">{m.online ? " (online)" : " (offline)"}</span>
               </span>
             </div>
           ))}

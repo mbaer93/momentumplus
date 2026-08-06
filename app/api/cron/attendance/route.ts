@@ -2,7 +2,8 @@ import { bearerAuthorized } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { recordCronRun } from "@/lib/cron-health";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { getMeetingParticipants, getMeetingRecordings } from "@/lib/zoom";
+import { pullSessionAttendance } from "@/lib/attendance";
+import { getMeetingRecordings } from "@/lib/zoom";
 import { ingestSessionRecording, type IngestSession } from "@/lib/zoom-recordings";
 import { isZoomReady } from "@/lib/service-config";
 import {
@@ -221,75 +222,13 @@ export async function GET(req: NextRequest) {
     // marking attendance on a cancelled session would be wrong data.
     if (session.status === "cancelled") continue;
 
-    let participants;
-    try {
-      participants = await getMeetingParticipants(session.zoom_meeting_id);
-    } catch {
-      continue; // report may not be ready yet; try again next run
-    }
-
-    const present = participants.filter((p) => p.duration > 0);
-    const attendedEmails = new Set(
-      present
-        // Lowercase to match the enrollment side (also lowercased below) —
-        // Zoom returns mixed-case emails and a case mismatch left real
-        // attendees marked absent.
-        .map((p) => (p.email ?? "").toLowerCase())
-        .filter(Boolean),
-    );
-    // Zoom's report often has NO email for guests — which is exactly how
-    // members join the embedded room. Fall back to the display name, which
-    // the portal sets to the member's profile name on join.
-    const attendedNames = new Set(
-      present.map((p) => (p.name ?? "").trim().toLowerCase()).filter(Boolean),
-    );
-    if (attendedEmails.size === 0 && attendedNames.size === 0) continue;
-
-    // Match participants to enrollments by email first, then by name.
-    const { data: enrollments } = await admin
-      .from("enrollments")
-      .select("id, profile_id, profiles ( email, full_name )")
-      .eq("session_id", session.id)
-      .eq("attended", false);
-
-    // Name matches are a fallback (Zoom often omits guest emails) and only
-    // count when the name is UNIQUE among this session's enrollments — with
-    // two enrolled "John Smith"s, one attending would mark both present.
-    const nameCounts = new Map<string, number>();
-    for (const e of enrollments ?? []) {
-      const n = (
-        e as unknown as { profiles: { full_name: string | null } | null }
-      ).profiles?.full_name
-        ?.trim()
-        .toLowerCase();
-      if (n) nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1);
-    }
-
-    const toMark: string[] = [];
-    for (const e of enrollments ?? []) {
-      const p = (
-        e as unknown as {
-          profiles: { email: string; full_name: string | null } | null;
-        }
-      ).profiles;
-      const email = p?.email?.toLowerCase();
-      const name = p?.full_name?.trim().toLowerCase();
-      if (
-        (email && attendedEmails.has(email)) ||
-        (name && attendedNames.has(name) && nameCounts.get(name) === 1)
-      ) {
-        toMark.push(e.id);
-      }
-    }
-
-    if (toMark.length > 0) {
-      const { error: markError } = await admin
-        .from("enrollments")
-        .update({ attended: true, attended_source: "zoom" })
-        .in("id", toMark);
-      if (!markError) updated += toMark.length;
-    }
-    results.push({ sessionId: session.id, matched: toMark.length });
+    // Shared matcher (lib/attendance.ts) — same logic drives the per-row
+    // admin "Pull attendance" action. A not-ready report comes back as
+    // ok:false; the next run retries.
+    const pull = await pullSessionAttendance(session.id, session.zoom_meeting_id);
+    if (!pull.ok) continue;
+    updated += pull.matched;
+    results.push({ sessionId: session.id, matched: pull.matched });
   }
 
   // --- 3. Recording import fallback ---

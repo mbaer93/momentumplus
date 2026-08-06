@@ -227,6 +227,51 @@ export async function updateSession(
  * finished session's recording into the Library right now instead of
  * waiting for the cron.
  */
+/** Per-row on-demand attendance pull (audit P2-22): the cron sweeps a
+    bounded recent window, so older sessions — or a report that finished
+    processing after the window closed — needed a manual path. */
+export async function pullSessionAttendanceNow(
+  id: string,
+): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Pulled (preview mode)." };
+  }
+  const auth = await requireAdmin("sessions");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { data: session } = await admin
+    .from("sessions")
+    .select("id, zoom_meeting_id, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (!session) return { ok: false, message: "Session not found." };
+  if (!session.zoom_meeting_id) {
+    return { ok: false, message: "This session has no Zoom meeting attached." };
+  }
+  if (session.status === "cancelled") {
+    return {
+      ok: false,
+      message: "This session was cancelled — attendance doesn't apply.",
+    };
+  }
+
+  const { pullSessionAttendance } = await import("@/lib/attendance");
+  const res = await pullSessionAttendance(id, session.zoom_meeting_id as string);
+  if (!res.ok) {
+    return { ok: false, message: res.message ?? "Attendance pull failed." };
+  }
+  revalidatePath("/admin/sessions");
+  return {
+    ok: true,
+    message:
+      res.matched > 0
+        ? `Marked ${res.matched} enrolled member${res.matched === 1 ? "" : "s"} attended.`
+        : (res.message ??
+          "No new matches — everyone in Zoom's report is already marked, or joined under an unrecognized name."),
+  };
+}
+
 export async function importSessionRecording(id: string): Promise<AdminResult> {
   if (!isSupabaseConfigured()) {
     return { ok: true, preview: true, message: "Imported (preview mode)." };
