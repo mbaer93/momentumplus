@@ -1,5 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { StartHubAdmin } from "@/components/start/StartHubAdmin";
+import { StoreBadges } from "@/components/start/StoreBadges";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { readStartHubSettings, tslsAppUrl } from "@/lib/start-hub";
 
@@ -14,10 +16,14 @@ export const metadata = {
 
 /*
  * The hub (Matt, 2026-08-06): a single link to send anyone. Two cards —
- * Momentum+ and the TSLS event app — each with a short description and a
- * login/open button. When the TSLS App season is closed (admin toggle on
- * this page), its card shows the closed note and a ticket-purchase button
- * for the next summit instead.
+ * Momentum+ and the TSLS event app — each with its logo, a description,
+ * and centered buttons at the bottom. Store badges render under a card
+ * once its listing link is saved in the admin box. When the TSLS App
+ * season is closed (admin toggle), its card shows the closed note and a
+ * ticket-purchase button for the next summit instead.
+ *
+ * The landing shell is dark navy, so the white cards set their own dark
+ * text colors — the land-* tokens are tuned for the dark background.
  */
 export default async function StartHubPage() {
   const [settings, access] = await Promise.all([
@@ -30,17 +36,50 @@ export default async function StartHubPage() {
     background: "#fff",
     border: "1px solid var(--warm-gray)",
     borderRadius: 4,
-    padding: "28px 26px",
+    padding: "28px 26px 24px",
     display: "flex",
     flexDirection: "column",
     gap: 12,
+    color: "#1c2733",
+  };
+  const titleStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    fontFamily: "'Playfair Display', serif",
+    fontSize: 24,
+    fontWeight: 700,
+    color: "#0b1622",
+  };
+  const logoStyle: React.CSSProperties = {
+    borderRadius: 8,
+    border: "1px solid var(--warm-gray)",
+  };
+  const descStyle: React.CSSProperties = {
+    fontSize: 13.5,
+    lineHeight: 1.65,
+    color: "#3d4653",
   };
   const listStyle: React.CSSProperties = {
     margin: 0,
     paddingLeft: 18,
     fontSize: 13.5,
     lineHeight: 1.9,
-    color: "var(--mid-gray)",
+    color: "#3d4653",
+  };
+  const actionsStyle: React.CSSProperties = {
+    marginTop: "auto",
+    paddingTop: 16,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 10,
+  };
+  const secondaryStyle: React.CSSProperties = {
+    fontSize: 13,
+    color: "#5b6673",
+    textDecoration: "underline",
+    textUnderlineOffset: 3,
   };
 
   return (
@@ -69,20 +108,24 @@ export default async function StartHubPage() {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
           gap: 22,
+          alignItems: "stretch",
         }}
       >
         {/* Momentum+ */}
         <div style={cardStyle}>
-          <div
-            style={{
-              fontFamily: "'Playfair Display', serif",
-              fontSize: 24,
-              fontWeight: 700,
-            }}
-          >
-            Momentum<span style={{ color: "var(--gold)" }}>+</span>
+          <div style={titleStyle}>
+            <Image
+              src="/icons/icon-192.png"
+              alt="Momentum+ logo"
+              width={44}
+              height={44}
+              style={logoStyle}
+            />
+            <span>
+              Momentum<span style={{ color: "var(--gold)" }}>+</span>
+            </span>
           </div>
-          <div style={{ fontSize: 13.5, lineHeight: 1.65 }}>
+          <div style={descStyle}>
             The year-round leadership community and learning platform — so
             growth doesn&apos;t stop when the summit ends.
           </div>
@@ -93,28 +136,35 @@ export default async function StartHubPage() {
             <li>Private community, member directory, and speaker Q&amp;A</li>
             <li>The Branching Out podcast, seasons and all</li>
           </ul>
-          <div style={{ marginTop: "auto", display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={actionsStyle}>
             <Link href="/login" className="btn-gold land-cta">
               Log in to Momentum+
             </Link>
-            <Link href="/" className="land-ghost-btn">
+            <Link href="/" style={secondaryStyle}>
               Learn about membership
             </Link>
+            <StoreBadges
+              appStoreUrl={settings.momentumAppStoreUrl}
+              playUrl={settings.momentumPlayUrl}
+            />
           </div>
         </div>
 
         {/* TSLS App */}
         <div style={cardStyle}>
-          <div
-            style={{
-              fontFamily: "'Playfair Display', serif",
-              fontSize: 24,
-              fontWeight: 700,
-            }}
-          >
-            The TSLS <span style={{ color: "var(--gold)" }}>App</span>
+          <div style={titleStyle}>
+            <Image
+              src="/tsls-app-icon.png"
+              alt="TSLS App logo"
+              width={44}
+              height={44}
+              style={logoStyle}
+            />
+            <span>
+              The TSLS <span style={{ color: "var(--gold)" }}>App</span>
+            </span>
           </div>
-          <div style={{ fontSize: 13.5, lineHeight: 1.65 }}>
+          <div style={descStyle}>
             Your companion for the annual Tri-State Leadership Summit — open
             in the weeks around the event.
           </div>
@@ -125,42 +175,41 @@ export default async function StartHubPage() {
             <li>The full speaker lineup</li>
             <li>Announcements and updates during the summit</li>
           </ul>
-          {settings.tslsOpen ? (
-            <div style={{ marginTop: "auto", display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={actionsStyle}>
+            {settings.tslsOpen ? (
               <a href={tslsUrl} className="btn-gold land-cta">
                 Open the TSLS App
               </a>
-            </div>
-          ) : (
-            <div style={{ marginTop: "auto" }}>
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 4,
-                  fontSize: 13,
-                  lineHeight: 1.6,
-                  border: "1px solid var(--warm-gray)",
-                  background: "var(--cream)",
-                  color: "var(--mid-gray)",
-                  marginBottom: 12,
-                }}
-              >
-                {settings.closedNote}
-              </div>
-              <Link href="/tickets" className="btn-gold land-cta">
-                Get your ticket for next year
-              </Link>
-            </div>
-          )}
+            ) : (
+              <>
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 4,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    border: "1px solid var(--warm-gray)",
+                    background: "var(--cream)",
+                    color: "#3d4653",
+                    textAlign: "center",
+                  }}
+                >
+                  {settings.closedNote}
+                </div>
+                <Link href="/tickets" className="btn-gold land-cta">
+                  Get your ticket for next year
+                </Link>
+              </>
+            )}
+            <StoreBadges
+              appStoreUrl={settings.tslsAppStoreUrl}
+              playUrl={settings.tslsPlayUrl}
+            />
+          </div>
         </div>
       </section>
 
-      {access && (
-        <StartHubAdmin
-          tslsOpen={settings.tslsOpen}
-          closedNote={settings.closedNote}
-        />
-      )}
+      {access && <StartHubAdmin settings={settings} />}
 
       <footer className="land-footer">
         <div className="land-footer-note">
