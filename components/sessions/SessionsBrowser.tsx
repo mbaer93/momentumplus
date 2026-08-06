@@ -117,6 +117,7 @@ export function SessionsBrowser({
               key={f.key}
               type="button"
               className={`filter-btn${filter === f.key ? " active" : ""}`}
+              aria-pressed={filter === f.key}
               onClick={() => setFilter(f.key)}
             >
               {f.label}

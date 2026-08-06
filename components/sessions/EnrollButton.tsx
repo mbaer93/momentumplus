@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -51,10 +52,28 @@ export function EnrollButton({
   }
 
   if (full && !enrolled) {
+    // NOT the red "cancelled" styling (audit P2-22): a full session is a
+    // popularity signal, not a failure — and members deserve a next step.
     return (
-      <span className="status-pill cancelled" style={{ padding: "8px 14px" }}>
-        Session full
-      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span
+          className="status-pill"
+          style={{
+            padding: "8px 14px",
+            background: "var(--gold-pale)",
+            color: "var(--gold-text)",
+          }}
+        >
+          Session full
+        </span>
+        <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
+          Spots reopen if someone unenrolls — check back, or browse{" "}
+          <Link href="/sessions" style={{ color: "var(--gold-text)", fontWeight: 600 }}>
+            other sessions
+          </Link>
+          .
+        </span>
+      </div>
     );
   }
 
@@ -90,6 +109,7 @@ export function EnrollButton({
       </button>
       {message && (
         <span
+          role="status"
           style={{
             fontSize: 12,
             color: isError ? "var(--accent-red-light)" : "var(--gold-light)",

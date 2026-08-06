@@ -52,8 +52,11 @@ const LEGEND: { color: EventColor; swatch: string; label: string }[] = [
   { color: "green", swatch: "rgba(58,112,85,0.12)", label: "Accountability Session" },
   { color: "gold", swatch: "var(--gold-pale)", label: "Productivity Session" },
   { color: "purple", swatch: "rgba(92,61,122,0.14)", label: "AI Leadership Lab" },
-  { color: "neutral", swatch: "rgba(11,22,34,0.08)", label: "Bonus Sessions" },
-  { color: "teal", swatch: "rgba(58,140,130,0.14)", label: "Bonus Sessions" },
+  // Labels must match colorFor above (audit P2-22): neutral covers Bonus
+  // AND Networking; teal is the add-on sessions program, which the legend
+  // used to mislabel as a second "Bonus Sessions".
+  { color: "neutral", swatch: "rgba(11,22,34,0.08)", label: "Bonus & Networking" },
+  { color: "teal", swatch: "rgba(58,140,130,0.14)", label: "Add-on Sessions" },
 ];
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

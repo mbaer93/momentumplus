@@ -144,7 +144,7 @@ function EpisodeNotes({
         }}
         onBlur={() => void save(value)}
       />
-      <div className="notes-status">{status}</div>
+      <div className="notes-status" role="status">{status}</div>
     </div>
   );
 }
@@ -504,6 +504,7 @@ export function EpisodeBrowser({
           <button
             type="button"
             className={`filter-btn${tab === "all" ? " active" : ""}`}
+            aria-pressed={tab === "all"}
             onClick={() => setTab("all")}
           >
             All Episodes
@@ -513,6 +514,7 @@ export function EpisodeBrowser({
               key={s}
               type="button"
               className={`filter-btn${tab === s ? " active" : ""}`}
+              aria-pressed={tab === s}
               onClick={() => setTab(s)}
             >
               Season {s}

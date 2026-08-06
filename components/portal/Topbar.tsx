@@ -52,8 +52,17 @@ export function Topbar({
     function onDocClick(e: MouseEvent) {
       if (!wrapRef.current?.contains(e.target as Node)) setOpenMenu(null);
     }
+    // Escape closes too (audit P2-20) — keyboard users shouldn't need a
+    // mouse click elsewhere to dismiss a menu.
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpenMenu(null);
+    }
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [openMenu]);
 
   return (

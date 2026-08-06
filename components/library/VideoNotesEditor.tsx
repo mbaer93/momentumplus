@@ -51,7 +51,7 @@ export function VideoNotesEditor({
         }}
         onBlur={() => void save(value)}
       />
-      <div className="notes-status">{status}</div>
+      <div className="notes-status" role="status">{status}</div>
     </div>
   );
 }

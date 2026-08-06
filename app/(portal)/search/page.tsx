@@ -7,8 +7,12 @@ import {
   listSponsors,
   resourceUnlocked,
 } from "@/lib/directory-queries";
+import { hasFeature } from "@/lib/entitlements";
+import { listEpisodes } from "@/lib/podcast";
 import { listServices } from "@/lib/services-queries";
 import { listSessions } from "@/lib/sessions/queries";
+import { createServiceClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { listVideos } from "@/lib/videos/queries";
 import { dateLabel } from "@/lib/sessions/view";
 
@@ -44,16 +48,60 @@ export default async function SearchPage(
   const groups: { label: string; hits: Hit[] }[] = [];
 
   if (q.length >= 2) {
-    const [sessions, videos, courses, speakers, resources, sponsors, services] =
-      await Promise.all([
-        listSessions(),
-        listVideos(member.tier),
-        listCourses(),
-        listSpeakers(),
-        listResources(member.tier),
-        listSponsors(),
-        listServices(),
-      ]);
+    // Podcast + member directory ride the same entitlement gates as their
+    // tabs (audit P2-22: both were missing from search entirely).
+    const [podcastOk, membersOk] = await Promise.all([
+      hasFeature("branching_out"),
+      hasFeature("members"),
+    ]);
+    const [
+      sessions,
+      videos,
+      courses,
+      speakers,
+      resources,
+      sponsors,
+      services,
+      episodes,
+      memberHits,
+    ] = await Promise.all([
+      listSessions(),
+      listVideos(member.tier),
+      listCourses(),
+      listSpeakers(),
+      listResources(member.tier),
+      listSponsors(),
+      listServices(),
+      podcastOk ? listEpisodes() : Promise.resolve([]),
+      membersOk &&
+      isSupabaseConfigured() &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? (async () => {
+            // Mirrors the /members directory filter exactly: active members
+            // only, admin rows out. Same fields the directory itself shows.
+            const { data } = await createServiceClient()
+              .from("profiles")
+              .select(
+                "id, full_name, title, company, industry, memberships!inner(tier, status)",
+              )
+              .in("memberships.status", ["active", "past_due"])
+              .neq("memberships.tier", "admin")
+              .not("full_name", "is", null)
+              .or(
+                `full_name.ilike.%${q}%,company.ilike.%${q}%,industry.ilike.%${q}%,title.ilike.%${q}%`,
+              )
+              .order("full_name", { ascending: true })
+              .limit(8);
+            return (data ?? []) as {
+              id: string;
+              full_name: string | null;
+              title: string | null;
+              company: string | null;
+              industry: string | null;
+            }[];
+          })()
+        : Promise.resolve([]),
+    ]);
 
     groups.push({
       label: "Sessions",
@@ -141,6 +189,27 @@ export default async function SearchPage(
           href: "/services",
         })),
     });
+    groups.push({
+      label: "Branching Out podcast",
+      hits: episodes
+        .filter((e) => matches(q, e.title, e.showNotes))
+        .map((e) => ({
+          title: e.title,
+          detail: e.season ? `Season ${e.season}` : "Episode",
+          href: "/branching-out",
+        })),
+    });
+    groups.push({
+      label: "Member directory",
+      hits: memberHits.map((m) => ({
+        title: m.full_name ?? "Member",
+        detail:
+          [m.title, m.company].filter(Boolean).join(" · ") ||
+          m.industry ||
+          "Momentum+ member",
+        href: "/members",
+      })),
+    });
   }
 
   const total = groups.reduce((n, g) => n + g.hits.length, 0);
@@ -152,7 +221,7 @@ export default async function SearchPage(
           <h2>Search</h2>
           <p>
             {q.length < 2
-              ? "Search sessions, recordings, courses, speakers, resources, and sponsors"
+              ? "Search sessions, recordings, speakers, resources, sponsors, podcast episodes, and members"
               : `${total} result${total === 1 ? "" : "s"} for “${searchParams?.q?.trim()}”`}
           </p>
         </div>

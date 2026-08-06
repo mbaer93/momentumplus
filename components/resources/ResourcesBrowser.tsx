@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { ResourceItem } from "@/lib/directory-data";
 import { recordResourceUse } from "@/app/(portal)/resources/actions";
@@ -39,6 +40,7 @@ export function ResourcesBrowser({
             key={f}
             type="button"
             className={`filter-btn${filter === f ? " active" : ""}`}
+            aria-pressed={filter === f}
             onClick={() => setFilter(f)}
           >
             {f}
@@ -66,12 +68,15 @@ export function ResourcesBrowser({
                 </span>
               )}
               {r.imageUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
+                // 84px box (2x for retina) — resource art is uploaded or
+                // auto-pulled and can be huge (audit P2-19).
+                <Image
                   className="resource-thumb"
                   src={r.imageUrl}
                   alt=""
                   aria-hidden="true"
+                  width={168}
+                  height={168}
                 />
               ) : (
                 <div className="resource-icon" style={{ background: r.iconBg }}>

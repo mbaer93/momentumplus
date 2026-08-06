@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { hydratedAdsFor } from "@/lib/ads";
 import type { AdCreative } from "@/lib/ads-shared";
@@ -35,8 +36,15 @@ export function AdItems({ ads }: { ads: AdCreative[] }) {
         const inner = (
           <>
             {ad.imageUrl && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img className="ad-slot-image" src={ad.imageUrl} alt="" />
+              // 56px box (2x for retina): a raw phone-photo upload used to
+              // ship megabytes into the rail (audit P2-19).
+              <Image
+                className="ad-slot-image"
+                src={ad.imageUrl}
+                alt=""
+                width={112}
+                height={112}
+              />
             )}
             <div className="ad-slot-copy">
               <div className="ad-slot-title">{ad.title}</div>

@@ -124,7 +124,7 @@ export function LoginForm() {
             Sign-in is temporarily unavailable — please try again shortly.
           </div>
         ))}
-      {error && <div className="login-error">{error}</div>}
+      {error && <div className="login-error" role="alert">{error}</div>}
       {notice && <div className="login-success">{notice}</div>}
 
       <form onSubmit={onSubmit}>
