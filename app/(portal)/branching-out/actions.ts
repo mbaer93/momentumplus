@@ -146,8 +146,10 @@ export async function saveEpisodeNote(
   return { ok: true };
 }
 
-export const QUESTION_KINDS = ["question", "challenge", "unscripted"] as const;
-export type QuestionKind = (typeof QUESTION_KINDS)[number];
+// NOT exported: a "use server" module may only export async functions —
+// exporting this const made the whole module fail to load at action
+// invocation time, which is why no action in this file ever ran.
+const QUESTION_KINDS = ["question", "challenge", "unscripted"] as const;
 
 /** Submit a question, challenge, or "Leadership Unscripted" prompt for the
     show to ask a guest on the air. */

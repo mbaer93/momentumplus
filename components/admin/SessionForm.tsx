@@ -155,11 +155,13 @@ export function SessionForm({
                     category: "Productivity Session",
                   }
                 : {}),
-              // Aspire2Achieve defaults: 45-minute monthly accountability.
+              // Aspire2Achieve defaults: 45-minute session on the 4th
+              // Monday of each month (Matt, 2026-08-06) — the weekday
+              // pattern comes from the start date you pick.
               ...(program === "aspire" && v.program !== "aspire"
                 ? {
                     durationMin: 45,
-                    recurrence: "monthly" as const,
+                    recurrence: "monthly_weekday" as const,
                     category: "Accountability Session",
                   }
                 : {}),
@@ -352,7 +354,10 @@ export function SessionForm({
             <option value="">One-time (no repeat)</option>
             <option value="weekly">Weekly</option>
             <option value="biweekly">Every other week</option>
-            <option value="monthly">Monthly</option>
+            <option value="monthly">Monthly (same date)</option>
+            <option value="monthly_weekday">
+              Monthly — same weekday as the start (e.g. 4th Monday)
+            </option>
           </select>
         </div>
         <div className="admin-field">

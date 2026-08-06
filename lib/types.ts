@@ -133,7 +133,7 @@ export interface SessionDetail {
       Add-on Sessions share the Sessions tab with Main Sessions. */
   program: "standard" | "rooted_focus" | "aspire" | "addon";
   /** Recurring series (Rooted Focus): cadence + optional series end. */
-  recurrence: "weekly" | "biweekly" | "monthly" | null;
+  recurrence: "weekly" | "biweekly" | "monthly" | "monthly_weekday" | null;
   recurrenceUntil: string | null;
   /** Non-speaker host (SLC team member) shown when no speaker is linked. */
   hostName: string | null;

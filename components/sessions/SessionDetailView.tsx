@@ -177,7 +177,7 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
                 joinUrl={session.zoomJoinUrl}
                 rrule={
                   session.recurrence
-                    ? rruleFor(session.recurrence, session.recurrenceUntil)
+                    ? rruleFor(session.recurrence, session.recurrenceUntil, session.startsAt)
                     : null
                 }
               />

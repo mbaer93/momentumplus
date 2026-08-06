@@ -22,7 +22,7 @@ export interface SessionFormValues {
       share the Sessions tab with Main Sessions. */
   program: "standard" | "rooted_focus" | "aspire" | "addon";
   /** Recurring series cadence ("" = one-time). */
-  recurrence: "" | "weekly" | "biweekly" | "monthly";
+  recurrence: "" | "weekly" | "biweekly" | "monthly" | "monthly_weekday";
   /** Optional series end, "YYYY-MM-DD" (ET) — blank = open-ended. */
   recurrenceUntil: string;
   /** Non-speaker host (e.g. an SLC admin) shown when no speaker is linked. */

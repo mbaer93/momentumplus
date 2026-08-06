@@ -1,6 +1,11 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { expandOccurrences, nextOccurrence, rruleFor } from "@/lib/recurrence";
+import {
+  expandOccurrences,
+  nextOccurrence,
+  nthWeekdayOf,
+  rruleFor,
+} from "@/lib/recurrence";
 
 // A Wednesday 7:00 PM ET session in late October 2026 — DST (Nov 1) sits
 // right after it, so weekly stepping must hold the ET wall time.
@@ -73,4 +78,67 @@ test("rruleFor formats frequency and UNTIL", () => {
     rruleFor("monthly", "2027-06-01T04:00:00.000Z"),
     "FREQ=MONTHLY;UNTIL=20270601T040000Z",
   );
+});
+
+test("nthWeekdayOf identifies the 4th Monday", () => {
+  // Aug 24, 2026 is the 4th Monday of August 2026.
+  assert.deepEqual(nthWeekdayOf(2026, 8, 24), { weekday: 1, nth: 4 });
+  // Sep 1, 2026 is the 1st Tuesday.
+  assert.deepEqual(nthWeekdayOf(2026, 9, 1), { weekday: 2, nth: 1 });
+});
+
+test("monthly_weekday lands on the 4th Monday of every month", () => {
+  // Series starts Mon Aug 24, 2026, 12:00 PM ET (4th Monday of August).
+  const start = "2026-08-24T16:00:00.000Z";
+  const from = new Date("2026-08-01T00:00:00Z").getTime();
+  const to = new Date("2026-12-31T00:00:00Z").getTime();
+  const dates = expandOccurrences(start, "monthly_weekday", null, from, to);
+  const days = dates.map((d) => d.slice(0, 10));
+  // 4th Mondays: Aug 24, Sep 28, Oct 26, Nov 23, Dec 28 (2026).
+  assert.deepEqual(days, [
+    "2026-08-24",
+    "2026-09-28",
+    "2026-10-26",
+    "2026-11-23",
+    "2026-12-28",
+  ]);
+  // Every occurrence stays on a Monday.
+  for (const d of dates) {
+    assert.equal(new Date(d).getUTCDay(), 1, d);
+  }
+});
+
+test("monthly_weekday keeps ET wall time across DST", () => {
+  // 12:00 PM ET is 16:00Z in EDT (Aug) but 17:00Z in EST (Dec).
+  const start = "2026-08-24T16:00:00.000Z";
+  const from = new Date("2026-12-01T00:00:00Z").getTime();
+  const to = new Date("2026-12-31T00:00:00Z").getTime();
+  const [dec] = expandOccurrences(start, "monthly_weekday", null, from, to);
+  assert.equal(dec, "2026-12-28T17:00:00.000Z");
+});
+
+test("monthly_weekday 5th-weekday start falls back to the last such weekday", () => {
+  // Mar 30, 2026 is the 5th Monday of March; April has only 4 Mondays, so
+  // the April occurrence is the LAST Monday (Apr 27).
+  const start = "2026-03-30T16:00:00.000Z";
+  const from = new Date("2026-04-01T00:00:00Z").getTime();
+  const to = new Date("2026-04-30T23:59:00Z").getTime();
+  const [apr] = expandOccurrences(start, "monthly_weekday", null, from, to);
+  assert.equal(apr.slice(0, 10), "2026-04-27");
+});
+
+test("nextOccurrence works for monthly_weekday", () => {
+  const start = "2026-08-24T16:00:00.000Z"; // 4th Monday series
+  const now = new Date("2026-10-01T00:00:00Z").getTime();
+  const next = nextOccurrence(start, 45, "monthly_weekday", null, now);
+  assert.equal(next?.slice(0, 10), "2026-10-26"); // 4th Monday of October
+});
+
+test("rruleFor emits BYDAY for monthly_weekday", () => {
+  assert.equal(
+    rruleFor("monthly_weekday", null, "2026-08-24T16:00:00.000Z"),
+    "FREQ=MONTHLY;BYDAY=4MO",
+  );
+  // Without a start it degrades to plain monthly.
+  assert.equal(rruleFor("monthly_weekday", null), "FREQ=MONTHLY");
 });

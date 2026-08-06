@@ -131,7 +131,7 @@ export function SessionCard({
                 joinUrl={session.zoomJoinUrl}
                 rrule={
                   session.recurrence
-                    ? rruleFor(session.recurrence, session.recurrenceUntil)
+                    ? rruleFor(session.recurrence, session.recurrenceUntil, session.startsAt)
                     : null
                 }
                 buttonClassName="card-btn btn-card-secondary"

@@ -107,7 +107,12 @@ function EpisodeNotes({
     async (body: string) => {
       if (body === lastSaved.current) return;
       setStatus("Saving…");
-      const res = await saveEpisodeNote(episodeId, body);
+      let res: Awaited<ReturnType<typeof saveEpisodeNote>>;
+      try {
+        res = await saveEpisodeNote(episodeId, body);
+      } catch {
+        res = { ok: false, message: "Couldn't reach the server — try again." };
+      }
       if (res.ok) {
         lastSaved.current = body;
         setStatus(res.preview ? "Saved (preview mode)" : "Saved");
@@ -213,7 +218,12 @@ function AskTheShow() {
           disabled={sending || !body.trim()}
           onClick={async () => {
             setSending(true);
-            const res = await submitPodcastQuestion(kind, body);
+            let res: Awaited<ReturnType<typeof submitPodcastQuestion>>;
+            try {
+              res = await submitPodcastQuestion(kind, body);
+            } catch {
+              res = { ok: false, message: "Couldn't reach the server — try again." };
+            }
             setSending(false);
             setStatus({
               ok: res.ok,
@@ -303,7 +313,17 @@ export function EpisodeBrowser({
         else copy.delete(episodeId);
         return copy;
       });
-      const res = await setEpisodeCompleted(episodeId, next);
+      let res: Awaited<ReturnType<typeof setEpisodeCompleted>>;
+      try {
+        res = await setEpisodeCompleted(episodeId, next);
+      } catch {
+        // The call never reached the action (deploy skew, network) — the
+        // rejection used to vanish and leave a check the database never got.
+        res = {
+          ok: false,
+          message: "Couldn't reach the server — refresh the page and try again.",
+        };
+      }
       if (!res.ok) {
         // Revert the optimistic check and say why, instead of showing a
         // green check that a refresh would take away.

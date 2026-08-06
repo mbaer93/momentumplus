@@ -180,7 +180,7 @@ export default async function DashboardPage() {
             ? next.zoomJoinUrl
             : null,
         rrule: next.recurrence
-          ? rruleFor(next.recurrence, next.recurrenceUntil)
+          ? rruleFor(next.recurrence, next.recurrenceUntil, next.startsAt)
           : null,
         allowCalendar: next.isEnrolled || isDropInProgram(next.program),
       };
