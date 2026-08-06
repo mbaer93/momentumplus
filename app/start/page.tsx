@@ -263,9 +263,14 @@ export default async function StartHubPage() {
           </ul>
           <div style={actionsStyle}>
             {settings.tslsOpen ? (
-              <a href={tslsUrl} style={greenBtnStyle}>
-                Open the TSLS App
-              </a>
+              <>
+                <a href={tslsUrl} style={greenBtnStyle}>
+                  Open the TSLS App
+                </a>
+                <Link href="/tickets" style={secondaryStyle}>
+                  Purchase tickets to the summit
+                </Link>
+              </>
             ) : (
               <>
                 <div
