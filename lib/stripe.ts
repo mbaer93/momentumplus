@@ -114,6 +114,7 @@ export async function stripeRequest<T = Record<string, unknown>>(
     },
     body,
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   const json = (await res.json()) as T & {
     error?: { message?: string; type?: string };

@@ -111,6 +111,10 @@ export interface GhlEvent {
   productId?: string;
   /** Explicit tier override (useful for test events / manual workflows). */
   tier?: Tier;
+  /** Unique delivery id (invoice/transaction/event id) when the workflow
+      includes one — used to dedupe webhook redeliveries permanently.
+      Without it the route falls back to a time-windowed body hash. */
+  eventId?: string;
 }
 
 const KIND_ALIASES: Record<string, GhlEventKind> = {
@@ -144,10 +148,28 @@ export function normalizeGhlEvent(payload: unknown): GhlEvent | null {
   if (!kind || !email) return null;
 
   const tierRaw = typeof p.tier === "string" ? (p.tier as Tier) : undefined;
+  // Any unique per-delivery id the workflow can attach. Deliberately NOT
+  // bare `id` — in GHL workflow payloads that's usually the contact id,
+  // which would wrongly collapse a member's every payment into one event.
+  const eventIdRaw = [
+    p.eventId,
+    p.event_id,
+    p.invoiceId,
+    p.invoice_id,
+    p.transactionId,
+    p.transaction_id,
+    p.paymentId,
+    p.payment_id,
+    p.chargeId,
+    p.charge_id,
+    p.idempotencyKey,
+    p.idempotency_key,
+  ].find((v) => typeof v === "string" && v.trim() !== "");
   return {
     kind,
     contactId,
     email,
+    eventId: typeof eventIdRaw === "string" ? eventIdRaw.trim() : undefined,
     fullName:
       typeof p.fullName === "string"
         ? p.fullName

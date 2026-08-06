@@ -117,11 +117,17 @@ export async function POST(req: NextRequest) {
             .trim()
             .toLowerCase();
           if (!email) break;
-          const { data: profile } = await admin
+          // supabase-js reports failures via { error } instead of throwing,
+          // so every DB step in this webhook throws explicitly — the outer
+          // catch turns that into the 500 that makes Stripe retry.
+          const { data: profile, error: profileLookupError } = await admin
             .from("profiles")
             .select("id")
             .ilike("email", emailPattern(email))
             .maybeSingle();
+          if (profileLookupError) {
+            throw new Error(`profile lookup failed: ${profileLookupError.message}`);
+          }
           if (profile) {
             profileId = profile.id;
           } else {
@@ -181,18 +187,24 @@ export async function POST(req: NextRequest) {
         }
 
         // Idempotency: Stripe retries deliveries.
-        const { data: existing } = await admin
+        const { data: existing, error: existingError } = await admin
           .from("memberships")
           .select("id")
           .eq("stripe_subscription_id", subId)
           .maybeSingle();
+        if (existingError) {
+          throw new Error(`idempotency check failed: ${existingError.message}`);
+        }
         if (existing) break;
 
         if (s.customer) {
-          await admin
+          const { error: customerError } = await admin
             .from("profiles")
             .update({ stripe_customer_id: s.customer })
             .eq("id", profileId);
+          if (customerError) {
+            throw new Error(`customer id save failed: ${customerError.message}`);
+          }
         }
 
         const sub = await stripeRequest<StripeSubscription>(
@@ -200,7 +212,7 @@ export async function POST(req: NextRequest) {
           "GET",
           `/subscriptions/${subId}`,
         );
-        await admin.from("memberships").insert({
+        const { error: insertError } = await admin.from("memberships").insert({
           profile_id: profileId,
           tier: plan,
           status: "active",
@@ -209,6 +221,11 @@ export async function POST(req: NextRequest) {
           source: "stripe",
           stripe_subscription_id: subId,
         });
+        if (insertError) {
+          // The write that turns a payment into access — a paid checkout
+          // must never be acknowledged with this row missing.
+          throw new Error(`membership insert failed: ${insertError.message}`);
+        }
 
         // Referral attribution: the /join?ref= code rode along in checkout
         // metadata. Rewards the referrer; never blocks provisioning.
@@ -240,20 +257,28 @@ export async function POST(req: NextRequest) {
         // the current paid period; the first invoice after the pause must not
         // pull it back.
         if (end) {
-          const { data: row } = await admin
+          const { data: row, error: readError } = await admin
             .from("memberships")
             .select("access_expires_at")
             .eq("stripe_subscription_id", subId)
             .maybeSingle();
+          // A failed read must not be treated as "no expiry" — that would
+          // pull a gifted expiry back to the paid period.
+          if (readError) {
+            throw new Error(`expiry read failed: ${readError.message}`);
+          }
           const current = row?.access_expires_at
             ? new Date(row.access_expires_at as string).getTime()
             : 0;
           if (new Date(end).getTime() > current) patch.access_expires_at = end;
         }
-        await admin
+        const { error: paidError } = await admin
           .from("memberships")
           .update(patch)
           .eq("stripe_subscription_id", subId);
+        if (paidError) {
+          throw new Error(`invoice.paid update failed: ${paidError.message}`);
+        }
         break;
       }
 
@@ -274,18 +299,21 @@ export async function POST(req: NextRequest) {
           if (plan) patch.tier = plan;
         }
 
-        const { data: row } = await admin
+        const { data: row, error: updateError } = await admin
           .from("memberships")
           .update(patch)
           .eq("stripe_subscription_id", sub.id)
           .select("id")
           .maybeSingle();
+        if (updateError) {
+          throw new Error(`subscription.updated failed: ${updateError.message}`);
+        }
 
         // Missed checkout event (e.g. webhook added later): create from
         // subscription metadata when we can. Never insert a row with open
         // -ended access — a null expiry reads as indefinite downstream.
         if (!row && sub.metadata?.profile_id) {
-          await admin.from("memberships").insert({
+          const { error: healError } = await admin.from("memberships").insert({
             profile_id: sub.metadata.profile_id,
             tier: sub.metadata.plan === "pro" ? "pro" : "basic",
             status: mapStatus(sub.status),
@@ -294,6 +322,9 @@ export async function POST(req: NextRequest) {
             source: "stripe",
             stripe_subscription_id: sub.id,
           });
+          if (healError) {
+            throw new Error(`missed-checkout heal failed: ${healError.message}`);
+          }
         }
         break;
       }
@@ -302,10 +333,13 @@ export async function POST(req: NextRequest) {
         const sub = event.data.object as unknown as StripeSubscription;
         // Canceled keeps access until the already-paid period end (grace
         // semantics in membership_grants_access).
-        await admin
+        const { error: cancelError } = await admin
           .from("memberships")
           .update({ status: "canceled" })
           .eq("stripe_subscription_id", sub.id);
+        if (cancelError) {
+          throw new Error(`cancel update failed: ${cancelError.message}`);
+        }
         break;
       }
 
@@ -320,23 +354,29 @@ export async function POST(req: NextRequest) {
         // A renewal failure (paid period ≈ now) therefore still gets the
         // full 7 days instead of near-zero; an off-cycle failure keeps the
         // paid time they've already got.
-        const { data: row } = await admin
+        const { data: row, error: failReadError } = await admin
           .from("memberships")
           .select("id, access_expires_at")
           .eq("stripe_subscription_id", subId)
           .maybeSingle();
+        if (failReadError) {
+          throw new Error(`payment_failed read failed: ${failReadError.message}`);
+        }
         if (row) {
           const grace = new Date(
             Date.now() + GRACE_DAYS * 24 * 60 * 60 * 1000,
           ).toISOString();
           const current = row.access_expires_at as string | null;
-          await admin
+          const { error: pastDueError } = await admin
             .from("memberships")
             .update({
               status: "past_due",
               access_expires_at: current && current > grace ? current : grace,
             })
             .eq("id", row.id);
+          if (pastDueError) {
+            throw new Error(`past_due update failed: ${pastDueError.message}`);
+          }
         }
         break;
       }

@@ -106,6 +106,7 @@ async function muxRequest<T>(
     },
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   const json = (await res.json()) as { data?: T; error?: { messages?: string[] } };
   if (!res.ok) {
@@ -198,7 +199,7 @@ export async function fetchMuxTranscript(
   const url = `https://stream.mux.com/${playbackId}/text/${trackId}.txt${
     token ? `?token=${token}` : ""
   }`;
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
   if (!res.ok) return null;
   const text = await res.text();
   return text.trim().length > 0 ? text : null;

@@ -75,6 +75,7 @@ export async function generateSummary(
       ],
     }),
     cache: "no-store",
+    signal: AbortSignal.timeout(60_000),
   });
 
   if (!res.ok) {

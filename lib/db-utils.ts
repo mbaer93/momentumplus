@@ -50,6 +50,28 @@ export async function allRows<T>(
 }
 
 /**
+ * Run an `.in(column, ids)` query in chunks. A single .in() with a large id
+ * list blows past PostgREST's URL limits and silently fails at scale (audit
+ * 2026-08-06 P0-3: a 500+ roster reminder run); this keeps each call
+ * bounded and surfaces the first error instead of returning a partial set.
+ */
+export async function inChunks<T>(
+  ids: string[],
+  fetchChunk: (
+    chunk: string[],
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  chunkSize = 500,
+): Promise<{ rows: T[]; error: string | null }> {
+  const rows: T[] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const { data, error } = await fetchChunk(ids.slice(i, i + chunkSize));
+    if (error) return { rows, error: error.message };
+    rows.push(...(data ?? []));
+  }
+  return { rows, error: null };
+}
+
+/**
  * Constant-time check of an `Authorization: Bearer <secret>` header. Hashing
  * first keeps the compare length-independent. Fails closed when the secret
  * is unset. Use for CRON_SECRET-protected routes.

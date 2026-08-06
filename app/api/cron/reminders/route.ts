@@ -1,4 +1,4 @@
-import { bearerAuthorized } from "@/lib/db-utils";
+import { allRows, bearerAuthorized, inChunks } from "@/lib/db-utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { recordCronRun } from "@/lib/cron-health";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -52,49 +52,87 @@ export async function GET(req: NextRequest) {
   let budgetExhausted = false;
 
   outer: for (const session of sessions ?? []) {
-    const { data: enrollments } = await admin
-      .from("enrollments")
-      .select("profile_id, profiles ( email, full_name, phone )")
-      .eq("session_id", session.id);
-    const members = (enrollments ?? []) as unknown as {
+    // Paged, not a bare select — the default 1000-row cap would silently
+    // drop the tail of a big roster.
+    const { rows: enrollments, error: enrollError } = await allRows<{
       profile_id: string;
       profiles: { email: string; full_name: string; phone: string | null } | null;
-    }[];
+    }>((from, to) =>
+      admin
+        .from("enrollments")
+        .select("profile_id, profiles ( email, full_name, phone )")
+        .eq("session_id", session.id)
+        .order("profile_id")
+        .range(from, to) as unknown as PromiseLike<{
+        data:
+          | {
+              profile_id: string;
+              profiles: {
+                email: string;
+                full_name: string;
+                phone: string | null;
+              } | null;
+            }[]
+          | null;
+        error: { message: string } | null;
+      }>,
+    );
+    if (enrollError) {
+      console.error(
+        `[reminders] enrollments lookup failed for session ${session.id}: ${enrollError}`,
+      );
+      continue;
+    }
+    const members = enrollments;
     if (members.length === 0) continue;
 
     const link = `/sessions/${session.id}`;
     const ids = members.map((m) => m.profile_id);
 
     // Set-based lookups: dedupe markers, prefs, and GHL contact ids for the
-    // whole roster at once.
-    const [{ data: already }, { data: prefRows }, { data: contactRows }] =
-      await Promise.all([
+    // whole roster at once — chunked so a big roster can't overflow the
+    // request, with errors checked: a failed DEDUPE read especially must
+    // abort the session's sends (an empty marker set re-sends everyone).
+    const [alreadyRes, prefsRes, contactsRes] = await Promise.all([
+      inChunks<{ profile_id: string }>(ids, (chunk) =>
         admin
           .from("notifications")
           .select("profile_id")
           .eq("kind", "session_reminder")
           .eq("link", link)
-          .in("profile_id", ids),
+          .in("profile_id", chunk),
+      ),
+      inChunks<{
+        profile_id: string;
+        email: boolean | null;
+        sms: boolean | null;
+        in_app: boolean | null;
+      }>(ids, (chunk) =>
         admin
           .from("notification_prefs")
           .select("profile_id, email, sms, in_app")
           .eq("key", "session_reminder")
-          .in("profile_id", ids),
+          .in("profile_id", chunk),
+      ),
+      inChunks<{ profile_id: string; ghl_contact_id: string }>(ids, (chunk) =>
         admin
           .from("memberships")
           .select("profile_id, ghl_contact_id")
-          .in("profile_id", ids)
+          .in("profile_id", chunk)
           .not("ghl_contact_id", "is", null),
-      ]);
-    const done = new Set((already ?? []).map((r) => r.profile_id as string));
-    const prefBy = new Map(
-      (prefRows ?? []).map((p) => [p.profile_id as string, p]),
-    );
+      ),
+    ]);
+    const lookupError = alreadyRes.error ?? prefsRes.error ?? contactsRes.error;
+    if (lookupError) {
+      console.error(
+        `[reminders] roster lookup failed for session ${session.id}: ${lookupError}`,
+      );
+      continue; // next tick retries this session inside the 30-min window
+    }
+    const done = new Set(alreadyRes.rows.map((r) => r.profile_id));
+    const prefBy = new Map(prefsRes.rows.map((p) => [p.profile_id, p]));
     const contactBy = new Map(
-      (contactRows ?? []).map((c) => [
-        c.profile_id as string,
-        c.ghl_contact_id as string,
-      ]),
+      contactsRes.rows.map((c) => [c.profile_id, c.ghl_contact_id]),
     );
 
     const startLabel = session.starts_at
@@ -164,14 +202,25 @@ export async function GET(req: NextRequest) {
       // The notifications row doubles as the idempotency marker — ALWAYS
       // inserted (a member with in-app off but email on would otherwise be
       // re-sent every run). With in-app off it's born already-read.
-      await admin.from("notifications").insert({
-        profile_id: member.profile_id,
-        kind: "session_reminder",
-        title: `Starting soon: ${session.title}`,
-        body: `Your session begins at ${startLabel}. The live room is open now.`,
-        link,
-        read_at: wants.in_app ? null : new Date().toISOString(),
-      });
+      const { error: markerError } = await admin
+        .from("notifications")
+        .insert({
+          profile_id: member.profile_id,
+          kind: "session_reminder",
+          title: `Starting soon: ${session.title}`,
+          body: `Your session begins at ${startLabel}. The live room is open now.`,
+          link,
+          read_at: wants.in_app ? null : new Date().toISOString(),
+        });
+      if (markerError) {
+        // Without the marker this member re-sends every tick for 30
+        // minutes. Stop the whole session now; if the DB is having a
+        // moment the next tick starts clean.
+        console.error(
+          `[reminders] marker insert failed for ${member.profile_id}: ${markerError.message}`,
+        );
+        continue outer;
+      }
       notified++;
     }
   }
@@ -217,7 +266,7 @@ export async function GET(req: NextRequest) {
         ? nextOccurrence(
             s.starts_at as string,
             (s.duration_min as number) ?? 60,
-            s.recurrence as "weekly" | "biweekly" | "monthly",
+            s.recurrence as "weekly" | "biweekly" | "monthly" | "monthly_weekday",
             (s.recurrence_until as string) ?? null,
             runStart,
           )
@@ -239,7 +288,6 @@ export async function GET(req: NextRequest) {
     if (due.length > 0) {
       // Opted-in members (any channel on) — one paged query serves all due
       // sessions this tick.
-      const { allRows } = await import("@/lib/db-utils");
       const { rows: optIns } = await allRows<{
         profile_id: string;
         email: boolean | null;
@@ -283,33 +331,52 @@ export async function GET(req: NextRequest) {
         if (audience.length === 0) continue;
         const link = `/sessions/${session.id}?occ=${session.occIso.slice(0, 10)}`;
         const ids = audience.map((o) => o.profile_id);
-        const [{ data: already }, { data: profileRows }, { data: contactRows }] =
-          await Promise.all([
+        // Chunked (was truncated at 500): every opted-in member past the
+        // first 500 used to be invisible here — no profile row meant no
+        // send, and no dedupe row meant the first 500 kept working, so the
+        // truncation never surfaced.
+        const [alreadyRes, profilesRes, contactsRes] = await Promise.all([
+          inChunks<{ profile_id: string }>(ids, (chunk) =>
             admin
               .from("notifications")
               .select("profile_id")
               .eq("kind", "dropin_reminder")
               .eq("link", link)
-              .in("profile_id", ids.slice(0, 500)),
+              .in("profile_id", chunk),
+          ),
+          inChunks<{
+            id: string;
+            email: string;
+            full_name: string | null;
+            phone: string | null;
+          }>(ids, (chunk) =>
             admin
               .from("profiles")
               .select("id, email, full_name, phone")
-              .in("id", ids.slice(0, 500)),
-            admin
-              .from("memberships")
-              .select("profile_id, ghl_contact_id")
-              .in("profile_id", ids.slice(0, 500))
-              .not("ghl_contact_id", "is", null),
-          ]);
-        const done = new Set((already ?? []).map((r) => r.profile_id as string));
-        const profileBy = new Map(
-          (profileRows ?? []).map((p) => [p.id as string, p]),
-        );
+              .in("id", chunk),
+          ),
+          inChunks<{ profile_id: string; ghl_contact_id: string }>(
+            ids,
+            (chunk) =>
+              admin
+                .from("memberships")
+                .select("profile_id, ghl_contact_id")
+                .in("profile_id", chunk)
+                .not("ghl_contact_id", "is", null),
+          ),
+        ]);
+        const dropinLookupError =
+          alreadyRes.error ?? profilesRes.error ?? contactsRes.error;
+        if (dropinLookupError) {
+          console.error(
+            `[reminders] drop-in lookup failed for session ${session.id}: ${dropinLookupError}`,
+          );
+          continue; // dedupe unknown → do not send; next tick retries
+        }
+        const done = new Set(alreadyRes.rows.map((r) => r.profile_id));
+        const profileBy = new Map(profilesRes.rows.map((p) => [p.id, p]));
         const contactBy = new Map(
-          (contactRows ?? []).map((c) => [
-            c.profile_id as string,
-            c.ghl_contact_id as string,
-          ]),
+          contactsRes.rows.map((c) => [c.profile_id, c.ghl_contact_id]),
         );
         const startLabel =
           new Date(session.occIso).toLocaleTimeString("en-US", {
@@ -363,14 +430,22 @@ export async function GET(req: NextRequest) {
           }
           // Marker after the attempt — same idempotency shape as enrolled
           // reminders above.
-          await admin.from("notifications").insert({
-            profile_id: opt.profile_id,
-            kind: "dropin_reminder",
-            title: `Starting soon: ${session.title}`,
-            body: `Begins at ${startLabel}. The live room is open now — drop in.`,
-            link,
-            read_at: opt.in_app ? null : new Date().toISOString(),
-          });
+          const { error: markerError } = await admin
+            .from("notifications")
+            .insert({
+              profile_id: opt.profile_id,
+              kind: "dropin_reminder",
+              title: `Starting soon: ${session.title}`,
+              body: `Begins at ${startLabel}. The live room is open now — drop in.`,
+              link,
+              read_at: opt.in_app ? null : new Date().toISOString(),
+            });
+          if (markerError) {
+            console.error(
+              `[reminders] drop-in marker insert failed for ${opt.profile_id}: ${markerError.message}`,
+            );
+            break outer2; // same rule as enrolled: no marker → stop the run
+          }
           dropinNotified++;
         }
       }

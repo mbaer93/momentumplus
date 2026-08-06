@@ -61,6 +61,7 @@ export async function getGhlContact(
       Version: "2021-07-28",
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) return null;
 
