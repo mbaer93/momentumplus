@@ -561,7 +561,7 @@ export function EpisodeBrowser({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "var(--gold)",
+                        color: "var(--gold-text)",
                         fontFamily: "'Playfair Display', serif",
                         fontSize: 22,
                       }}
@@ -707,7 +707,7 @@ export function EpisodeBrowser({
                           cursor: "pointer",
                           fontSize: 12.5,
                           fontWeight: 600,
-                          color: "var(--gold)",
+                          color: "var(--gold-text)",
                           listStyle: "none",
                         }}
                       >
@@ -733,7 +733,7 @@ export function EpisodeBrowser({
                           cursor: "pointer",
                           fontSize: 12.5,
                           fontWeight: 600,
-                          color: "var(--gold)",
+                          color: "var(--gold-text)",
                           listStyle: "none",
                         }}
                       >

@@ -469,7 +469,7 @@ export default async function DashboardPage() {
               ))
             ) : (
               <div style={{ padding: 16, fontSize: 13, color: "var(--ink-secondary)" }}>
-                <Link href="/community" style={{ color: "var(--gold)" }}>
+                <Link href="/community" style={{ color: "var(--gold-text)" }}>
                   Open the community
                 </Link>{" "}
                 to see what members are discussing.

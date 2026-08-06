@@ -186,7 +186,7 @@ export function JoinForm({
         <div className="admin-form-msg err" style={{ marginTop: 10 }}>
           {msg}{" "}
           {existing && (
-            <Link href="/login" style={{ color: "var(--gold)", fontWeight: 600 }}>
+            <Link href="/login" style={{ color: "var(--gold-text)", fontWeight: 600 }}>
               Log in
             </Link>
           )}

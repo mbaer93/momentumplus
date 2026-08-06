@@ -147,7 +147,7 @@ export function LibraryBrowser({
                 <div className="recording-meta">
                   <span className="recording-speaker">{v.speakerName}</span>
                   {v.locked ? (
-                    <span className="recording-date" style={{ color: "var(--gold)" }}>
+                    <span className="recording-date" style={{ color: "var(--gold-text)" }}>
                       {v.lockReason === "season"
                         ? "Past season — upgrade to watch"
                         : "Upgrade to watch"}

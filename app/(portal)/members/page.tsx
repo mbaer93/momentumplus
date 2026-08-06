@@ -221,7 +221,7 @@ export default async function MembersPage(
         }}
       >
         Want members to be able to reach you directly? Turn on{" "}
-        <Link href="/profile" style={{ color: "var(--gold)" }}>
+        <Link href="/profile" style={{ color: "var(--gold-text)" }}>
           &ldquo;Share my contact info&rdquo; in your profile
         </Link>
         . Until then, only your name, title, and company are shown.
@@ -234,7 +234,7 @@ export default async function MembersPage(
           {q ? (
             <>
               No members match &ldquo;{q}&rdquo;.{" "}
-              <Link href="/members" style={{ color: "var(--gold)" }}>
+              <Link href="/members" style={{ color: "var(--gold-text)" }}>
                 Show all members
               </Link>
             </>
@@ -261,7 +261,7 @@ export default async function MembersPage(
                 {initialsOf(m.name)}
               </div>
               <div className="resource-body">
-                <div className="resource-type" style={{ color: "var(--gold)" }}>
+                <div className="resource-type" style={{ color: "var(--gold-text)" }}>
                   {m.tier}
                 </div>
                 <div className="resource-title">{m.name}</div>

@@ -162,7 +162,7 @@ export function Topbar({
                 </Link>
               ))
             )}
-            <Link href="/calendar" className="topbar-menu-item" style={{ color: "var(--gold)" }}>
+            <Link href="/calendar" className="topbar-menu-item" style={{ color: "var(--gold-text)" }}>
               Open calendar
             </Link>
           </div>
@@ -176,7 +176,7 @@ export function Topbar({
             <Link
               href="/upgrade"
               className="topbar-menu-item"
-              style={showUpgrade ? { color: "var(--gold)", fontWeight: 600 } : undefined}
+              style={showUpgrade ? { color: "var(--gold-text)", fontWeight: 600 } : undefined}
             >
               {showUpgrade ? "Upgrade membership" : "Plans & upgrades"}
             </Link>

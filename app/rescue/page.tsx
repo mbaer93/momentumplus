@@ -49,7 +49,7 @@ export default async function RescuePage() {
             The break-glass view of Platform Errors — this page works even
             when the member portal (and the normal admin panel) is down.
             Notify affected members from here, then head to{" "}
-            <a href="/admin/errors" style={{ color: "var(--gold)" }}>
+            <a href="/admin/errors" style={{ color: "var(--gold-text)" }}>
               the full admin panel
             </a>{" "}
             once things recover.

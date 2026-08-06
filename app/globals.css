@@ -698,7 +698,7 @@
 }
 .stat-icon.gold {
   background: var(--gold-pale);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 .stat-icon.blue {
   background: rgba(58, 107, 150, 0.1);
@@ -759,7 +759,7 @@
 }
 .card-link {
   font-size: 12px;
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -800,7 +800,7 @@
 .date-box-month {
   font-size: 9px;
   font-weight: 600;
-  color: var(--gold);
+  color: var(--gold-text);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   background: var(--gold-pale);
@@ -1038,7 +1038,7 @@
   height: 56px;
   border-radius: 12px;
   background: var(--gold-pale);
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1063,7 +1063,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--gold);
+  color: var(--gold-text);
   background: var(--gold-pale);
   border-radius: 20px;
   padding: 4px 12px;
@@ -1104,7 +1104,7 @@
 }
 .filter-btn:hover {
   border-color: var(--gold);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 .filter-btn.active {
   background: var(--navy);
@@ -1238,7 +1238,7 @@
   color: var(--ink-secondary);
   margin-bottom: 16px;
 }
-.sess-back:hover { color: var(--gold); }
+.sess-back:hover { color: var(--gold-text); }
 .sess-detail-card {
   background: var(--white);
   border: 1px solid var(--warm-gray);
@@ -1366,13 +1366,13 @@
   justify-content: center;
   flex-shrink: 0;
   background: var(--gold-pale);
-  color: var(--gold);
+  color: var(--gold-text);
 }
 .sess-resource-name { font-size: 13.5px; font-weight: 500; color: var(--text); }
 .sess-resource-type { font-size: 11px; color: var(--ink-secondary); margin-top: 2px; }
 .sess-resource-link {
   margin-left: auto;
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1412,7 +1412,7 @@
   border-bottom: 1px solid var(--warm-gray);
 }
 .ai-takeaway:last-child { border-bottom: none; }
-.ai-takeaway::before { content: "▸"; color: var(--gold); flex-shrink: 0; }
+.ai-takeaway::before { content: "▸"; color: var(--gold-text); flex-shrink: 0; }
 .ai-quote {
   background: var(--gold-pale);
   border-left: 3px solid var(--gold);
@@ -2059,7 +2059,7 @@
 .msg-you-tag {
   font-size: 11px;
   background: var(--gold-pale);
-  color: var(--gold);
+  color: var(--gold-text);
   padding: 1px 6px;
   border-radius: 8px;
   font-weight: 500;
@@ -2144,7 +2144,7 @@
   background: none;
   cursor: pointer;
 }
-.chat-icon-btn:hover { color: var(--gold); }
+.chat-icon-btn:hover { color: var(--gold-text); }
 .chat-preview-note {
   margin: 0 20px 10px;
   font-size: 11.5px;
@@ -2186,7 +2186,7 @@
   color: var(--text);
   line-height: 1.4;
 }
-.pinned-msg strong { color: var(--gold); }
+.pinned-msg strong { color: var(--gold-text); }
 .upcoming-mini {
   font-size: 12px;
   color: var(--text);
@@ -2195,7 +2195,7 @@
   border-radius: 8px;
   padding: 10px 12px;
 }
-.upcoming-mini .um-date { color: var(--gold); font-weight: 600; font-size: 11px; margin-bottom: 4px; }
+.upcoming-mini .um-date { color: var(--gold-text); font-weight: 600; font-size: 11px; margin-bottom: 4px; }
 .upcoming-mini .um-title { font-weight: 600; }
 .upcoming-mini .um-meta { color: var(--ink-secondary); margin-top: 2px; }
 @media (max-width: 1080px) {
@@ -2233,7 +2233,7 @@
 .profile-name { font-size: 17px; font-weight: 700; color: var(--text); padding: 0 20px; }
 .profile-tier {
   font-size: 11px;
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -2297,7 +2297,7 @@
   transition: all 0.15s;
 }
 .profile-tab:hover { color: var(--text); }
-.profile-tab.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 600; }
+.profile-tab.active { color: var(--gold-text); border-bottom-color: var(--gold-text); font-weight: 600; }
 
 /* Notification prefs grid */
 .prefs-table { width: 100%; border-collapse: collapse; }
@@ -2444,7 +2444,7 @@
 .recording-body { padding: 14px 16px; }
 .recording-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 .recording-meta { display: flex; gap: 10px; align-items: center; }
-.recording-speaker { font-size: 12px; color: var(--gold); }
+.recording-speaker { font-size: 12px; color: var(--gold-text); }
 .recording-date { font-size: 11px; color: var(--ink-secondary); margin-left: auto; }
 
 /* Video detail */
@@ -2466,7 +2466,7 @@
 .video-stage-placeholder p { font-size: 13px; line-height: 1.6; }
 .video-detail-title { font-family: var(--font-serif); font-size: 24px; color: var(--text); margin-bottom: 6px; }
 .video-detail-meta { font-size: 13px; color: var(--ink-secondary); margin-bottom: 20px; }
-.video-detail-meta strong { color: var(--gold); font-weight: 600; }
+.video-detail-meta strong { color: var(--gold-text); font-weight: 600; }
 
 /* ===== SPEAKERS (Phase 6) ===== */
 .speakers-pad { padding: 28px; }
@@ -2625,7 +2625,7 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 500;
   background: none;
   border: none;
@@ -2701,7 +2701,7 @@
   padding-top: 12px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--gold);
+  color: var(--gold-text);
   letter-spacing: 0.03em;
   transition: color 0.15s;
 }
@@ -2764,7 +2764,7 @@
 }
 .rail-become-title { font-family: var(--font-serif); font-size: 14px; font-weight: 700; color: var(--text); }
 .rail-become-sub { font-size: 11px; color: var(--ink-secondary); margin-top: 4px; line-height: 1.45; }
-.rail-become-link { display: inline-block; font-size: 11px; font-weight: 600; color: var(--gold); margin-top: 10px; }
+.rail-become-link { display: inline-block; font-size: 11px; font-weight: 600; color: var(--gold-text); margin-top: 10px; }
 
 /* ===== PLANS & UPGRADES (/upgrade) ===== */
 .plans-grid {
@@ -2784,7 +2784,7 @@
   font-weight: 700;
   color: var(--navy);
 }
-.plan-card-price { font-size: 13.5px; font-weight: 700; color: var(--gold); margin-top: 4px; }
+.plan-card-price { font-size: 13.5px; font-weight: 700; color: var(--gold-text); margin-top: 4px; }
 .plan-card-list { list-style: none; margin: 14px 0; padding: 0; }
 .plan-card-list li {
   font-size: 12.5px;
@@ -2829,7 +2829,7 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-text);
   margin: 30px 0 14px;
   display: flex;
   align-items: center;
@@ -2926,7 +2926,7 @@
   margin-top: 12px;
 }
 .sp-offer-box strong {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 9.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2943,7 +2943,7 @@
 .sp-link {
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--gold);
+  color: var(--gold-text);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -3058,7 +3058,7 @@ a.course-card:hover {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-text);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3209,7 +3209,7 @@ a.course-card:hover {
   cursor: pointer;
 }
 .cal-event.blue { background: rgba(58,107,150,0.15); color: var(--accent-blue); }
-.cal-event.gold { background: var(--gold-pale); color: var(--gold); }
+.cal-event.gold { background: var(--gold-pale); color: var(--gold-text); }
 .cal-event.green { background: rgba(58,112,85,0.12); color: var(--accent-green); }
 .cal-event.purple { background: rgba(92,61,122,0.14); color: var(--purple); }
 .cal-event.neutral { background: rgba(11,22,34,0.08); color: var(--ink-secondary); }
@@ -3226,7 +3226,7 @@ a.course-card:hover {
   transition: border-color 0.15s;
 }
 .cal-event-item:hover { border-color: var(--gold); }
-.cal-event-date { font-size: 11px; color: var(--gold); font-weight: 600; margin-bottom: 5px; }
+.cal-event-date { font-size: 11px; color: var(--gold-text); font-weight: 600; margin-bottom: 5px; }
 .cal-event-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
 .cal-event-speaker { font-size: 12px; color: var(--ink-secondary); margin-top: 4px; }
 .cal-event-type {
@@ -3272,7 +3272,7 @@ a.course-card:hover {
   font-weight: 600;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-text);
 }
 .certificate-name {
   font-family: var(--font-serif, Georgia, serif);
@@ -3385,7 +3385,7 @@ a.course-card:hover {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--gold);
+  color: var(--gold-text);
   margin-top: 1px;
 }
 .help-close {
@@ -3478,7 +3478,7 @@ a.course-card:hover {
 .an-session-summary::-webkit-details-marker { display: none; }
 .an-session-summary::before {
   content: "▸";
-  color: var(--gold);
+  color: var(--gold-text);
   margin-right: 8px;
   font-size: 11px;
 }
@@ -4565,7 +4565,7 @@ a.course-card:hover {
   flex: 0 0 auto;
   font-size: 12px;
   font-weight: 600;
-  color: var(--gold);
+  color: var(--gold-text);
   white-space: nowrap;
 }
 .body-ad-tile {
@@ -4634,7 +4634,7 @@ a.course-card:hover {
 .cc-inline-lock {
   display: inline-flex;
   vertical-align: -1px;
-  color: var(--gold);
+  color: var(--gold-text);
 }
 .cc-grid th.cc-tier-head {
   font-size: 11px;
@@ -4914,7 +4914,7 @@ a.ad-slot-item:hover {
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
-  color: var(--gold);
+  color: var(--gold-text);
   white-space: nowrap;
 }
 @media (max-width: 640px) {
