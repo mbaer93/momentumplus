@@ -7,13 +7,38 @@ import { easternInputToIso, isoToEasternInput } from "@/lib/eastern-time";
  * Pure given explicit `now` values; unit-tested in tests/recurrence.test.ts.
  */
 
-export type Recurrence = "weekly" | "biweekly" | "monthly";
+export type Recurrence = "weekly" | "biweekly" | "monthly" | "monthly_weekday";
 
 export const RECURRENCE_LABEL: Record<Recurrence, string> = {
   weekly: "Repeats weekly",
   biweekly: "Repeats every other week",
   monthly: "Repeats monthly",
+  monthly_weekday: "Repeats monthly (same weekday)",
 };
+
+/** Which weekday-of-the-month pattern a date is: e.g. the 4th Monday →
+    { weekday: 1, nth: 4 }. Derived from a series START so a
+    monthly_weekday series knows what to repeat (Matt, 2026-08-06:
+    "A2A recurring on the 4th Monday of every month"). */
+export function nthWeekdayOf(y: number, m1: number, d: number): {
+  weekday: number;
+  nth: number;
+} {
+  return {
+    weekday: new Date(Date.UTC(y, m1 - 1, d)).getUTCDay(),
+    nth: Math.ceil(d / 7),
+  };
+}
+
+/** Day-of-month of the nth <weekday> in a month; a missing 5th occurrence
+    falls back to the last such weekday of the month. */
+function nthWeekdayDay(y: number, m0: number, weekday: number, nth: number): number {
+  const firstWeekday = new Date(Date.UTC(y, m0, 1)).getUTCDay();
+  let day = 1 + ((weekday - firstWeekday + 7) % 7) + 7 * (nth - 1);
+  const daysInMonth = new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
+  while (day > daysInMonth) day -= 7;
+  return day;
+}
 
 /**
  * The k-th occurrence of a series (k=0 is the start), keeping the ET wall
@@ -29,7 +54,16 @@ function occurrenceAt(startIso: string, recurrence: Recurrence, k: number): stri
   const dt = new Date(Date.UTC(y, m - 1, d));
   if (recurrence === "weekly") dt.setUTCDate(dt.getUTCDate() + 7 * k);
   else if (recurrence === "biweekly") dt.setUTCDate(dt.getUTCDate() + 14 * k);
-  else {
+  else if (recurrence === "monthly_weekday") {
+    // Anchor on the start's weekday pattern (e.g. 4th Monday), computed
+    // fresh for each target month.
+    const { weekday, nth } = nthWeekdayOf(y, m, d);
+    dt.setUTCDate(1);
+    dt.setUTCMonth(dt.getUTCMonth() + k);
+    dt.setUTCDate(
+      nthWeekdayDay(dt.getUTCFullYear(), dt.getUTCMonth(), weekday, nth),
+    );
+  } else {
     // Monthly: anchor on the series start's day-of-month, clamped to the
     // target month's length.
     dt.setUTCDate(1);
@@ -137,17 +171,31 @@ export function expandOccurrences(
   return out;
 }
 
-/** RFC 5545 RRULE for the series (used in .ics and the Google Calendar URL). */
+const BYDAY_CODE = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+/** RFC 5545 RRULE for the series (used in .ics and the Google Calendar
+    URL). monthly_weekday needs the series start to know its weekday
+    pattern (e.g. BYDAY=4MO); without it the rule degrades to plain
+    monthly. */
 export function rruleFor(
   recurrence: Recurrence,
   untilIso: string | null,
+  startIso?: string | null,
 ): string {
-  const freq =
+  let freq =
     recurrence === "monthly"
       ? "FREQ=MONTHLY"
       : recurrence === "biweekly"
         ? "FREQ=WEEKLY;INTERVAL=2"
-        : "FREQ=WEEKLY";
+        : recurrence === "monthly_weekday"
+          ? "FREQ=MONTHLY"
+          : "FREQ=WEEKLY";
+  if (recurrence === "monthly_weekday" && startIso) {
+    const [date] = isoToEasternInput(startIso).split("T");
+    const [y, m, d] = date.split("-").map(Number);
+    const { weekday, nth } = nthWeekdayOf(y, m, d);
+    freq = `FREQ=MONTHLY;BYDAY=${nth >= 5 ? -1 : nth}${BYDAY_CODE[weekday]}`;
+  }
   if (!untilIso) return freq;
   const until = new Date(untilIso)
     .toISOString()

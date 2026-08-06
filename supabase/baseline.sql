@@ -1,5 +1,5 @@
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/make-baseline.mjs
--- Full schema baseline: every migration in order (0001_init.sql … 0077_podcast_engagement.sql).
+-- Full schema baseline: every migration in order (0001_init.sql … 0078_monthly_weekday_recurrence.sql).
 -- Run ONCE against a FRESH Supabase project to mirror production's schema.
 -- Never run this against the production database.
 
@@ -3805,3 +3805,18 @@ create policy "podcast_questions: owner insert"
 create policy "podcast_questions: owner read"
   on podcast_questions for select
   using (profile_id = auth.uid());
+
+-- ============================================================
+-- 0078_monthly_weekday_recurrence.sql
+-- ============================================================
+-- Monthly-by-weekday recurrence (Matt, 2026-08-06): A2A Growth repeats on
+-- the 4th Monday of every month. The pattern (which weekday, which week)
+-- comes from the series start date; 'monthly' stays the same-date rule.
+
+alter table sessions drop constraint if exists sessions_recurrence_check;
+alter table sessions
+  add constraint sessions_recurrence_check
+  check (
+    recurrence is null
+    or recurrence in ('weekly', 'biweekly', 'monthly', 'monthly_weekday')
+  );

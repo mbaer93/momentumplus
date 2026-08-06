@@ -1,7 +1,9 @@
 import { listSessions } from "@/lib/sessions/queries";
+import { AspireCopy } from "@/components/sessions/AspireCopy";
 import { SessionsBrowser } from "@/components/sessions/SessionsBrowser";
 import { AdminAddChip } from "@/components/admin/AdminChips";
 import { BodyAd } from "@/components/sponsors/BodyAd";
+import { readAspireCopy } from "@/lib/aspire-copy";
 import { requireMember } from "@/lib/current-member";
 import { requireFeature } from "@/lib/entitlements";
 
@@ -18,7 +20,11 @@ export const metadata = { title: "Aspire2Achieve Growth | Momentum+" };
 export default async function Aspire2AchievePage() {
   const member = await requireMember();
   await requireFeature("aspire2achieve");
-  const sessions = (await listSessions()).filter((s) => s.program === "aspire");
+  const [allSessions, copy] = await Promise.all([
+    listSessions(),
+    readAspireCopy(),
+  ]);
+  const sessions = allSessions.filter((s) => s.program === "aspire");
 
   return (
     <div className="sessions-pad">
@@ -34,40 +40,7 @@ export default async function Aspire2AchievePage() {
 
       <BodyAd variant="banner" />
 
-      <div
-        className="admin-form"
-        style={{ maxWidth: "none", marginBottom: 18, padding: "16px 18px" }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            letterSpacing: 1,
-            textTransform: "uppercase",
-            color: "var(--gold)",
-            fontWeight: 600,
-            marginBottom: 10,
-          }}
-        >
-          About the program
-        </div>
-        <p style={{ fontSize: 13.5, lineHeight: 1.65, margin: 0 }}>
-          Through the Aspire2Achieve Growth Program, we offer a holistic
-          approach to personal and professional growth, led by a Full Focus
-          Certified Pro specializing in SMARTER goal-setting and intentional
-          growth. Whether you&apos;re seeking personalized guidance, group
-          accountability, or the convenience of our on-the-go membership
-          platform packed with resources, it&apos;s time to break free from
-          the cycle of unmet goals and set out on a journey to unlock your
-          full potential, realizing the success you&apos;ve long been
-          pursuing.
-        </p>
-        <p style={{ fontSize: 13.5, lineHeight: 1.65, margin: "10px 0 0" }}>
-          Each month, join a <strong>45-minute group accountability
-          session</strong> — commit to your ongoing personal and professional
-          growth journey and celebrate your progress within a supportive
-          community. Drop in — no signup needed.
-        </p>
-      </div>
+      <AspireCopy text={copy} isAdmin={member.isAdmin} />
 
       {sessions.length === 0 ? (
         <div className="sessions-empty" style={{ marginTop: 8 }}>

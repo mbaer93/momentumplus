@@ -34,7 +34,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     organizerName: "Momentum+",
     // Recurring series (Rooted Focus): one import adds every occurrence.
     rrule: session.recurrence
-      ? rruleFor(session.recurrence, session.recurrenceUntil)
+      ? rruleFor(session.recurrence, session.recurrenceUntil, session.startsAt)
       : undefined,
     // Pin to Eastern wall time so a 7 PM ET series stays 7 PM ET across
     // DST changes (sessions are an ET program).
