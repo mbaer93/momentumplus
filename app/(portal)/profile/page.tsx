@@ -17,193 +17,200 @@ import {
 import { isPro } from "@/lib/access";
 import { listCourses, effectiveCeHours } from "@/lib/education";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProfilePage() {
-  const member = await requireMember();
+/* Account details block: profile row + prefs + membership status + referral.
+   One parallel batch (audit P2-15: this page was 12-15 sequential
+   round-trips; it's now three parallel phases). */
+async function loadAccount() {
+  const out = {
+    profileRow: null as null | {
+      phone: string;
+      company: string;
+      title: string;
+      industry: string;
+      bio: string;
+      share_contact: boolean;
+      admin_title: string;
+      created_at: string;
+    },
+    savedPrefs: [] as Partial<PrefRow>[],
+    referral: null as { link: string; count: number } | null,
+    hasStripeCustomer: false,
+    membershipStatusLabel: "● Active",
+  };
+  const user = await getAuthUser();
+  if (!user) return out;
+  const supabase = await createClient();
 
-  // Profile details + saved prefs. The illustrative defaults are for
-  // preview mode only — configured mode always reads the real row.
-  const preview = !isSupabaseConfigured();
-  let profileRow = preview
-    ? {
-        phone: "",
-        company: "Momentum Advisory",
-        title: "Executive Coach",
-        industry: "Leadership Development",
-        bio: "",
-        share_contact: false,
-        admin_title: "",
-        created_at: "2024-11-12T00:00:00.000Z",
-      }
-    : {
-        phone: "",
-        company: "",
-        title: "",
-        industry: "",
-        bio: "",
-        share_contact: false,
-        admin_title: "",
-        created_at: new Date().toISOString(),
-      };
-  let savedPrefs: Partial<PrefRow>[] = [];
-  let referral: { link: string; count: number } | null = null;
-  let hasStripeCustomer = false;
-  // Honest status: past_due and canceled members are still in the portal
-  // (grace semantics) — "Active" must not paper over that.
-  let membershipStatusLabel = "● Active";
-
-  if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      let [{ data: p }, prefsRes] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
-            "phone, company, title, industry, bio, share_contact, admin_title, stripe_customer_id, created_at",
-          )
-          .eq("id", user.id)
-          .maybeSingle(),
-        supabase
-          .from("notification_prefs")
-          .select("key, email, sms, in_app")
-          .eq("profile_id", user.id),
-      ]);
-      if (!p) {
-        // Pre-migration fallback: share_contact arrives with 0034.
-        ({ data: p } = (await supabase
-          .from("profiles")
-          .select(
-            "phone, company, title, industry, bio, admin_title, stripe_customer_id, created_at",
-          )
-          .eq("id", user.id)
-          .maybeSingle()) as { data: typeof p });
-      }
-      const { data: prefRows } = prefsRes;
-      if (p) {
-        profileRow = {
-          phone: p.phone ?? "",
-          company: p.company ?? "",
-          title: p.title ?? "",
-          industry: p.industry ?? "",
-          bio: p.bio ?? "",
-          share_contact: Boolean(
-            (p as { share_contact?: boolean }).share_contact,
-          ),
-          admin_title: p.admin_title ?? "",
-          created_at: p.created_at,
-        };
-        hasStripeCustomer = Boolean(p.stripe_customer_id);
-      }
-      savedPrefs = (prefRows ?? []) as Partial<PrefRow>[];
-
-      const { data: membershipRows } = await supabase
-        .from("memberships")
-        .select("tier, status, access_expires_at")
-        .eq("profile_id", user.id);
-      const { effectiveMembership } = await import("@/lib/membership");
-      const eff = effectiveMembership(
-        (membershipRows ?? []) as {
-          tier: import("@/lib/types").Tier;
-          status: import("@/lib/types").MembershipStatus;
-          access_expires_at: string | null;
-        }[],
-      );
-      if (eff?.status === "past_due") {
-        membershipStatusLabel = "● Past due — payment needed";
-      } else if (eff?.status === "canceled") {
-        membershipStatusLabel = "● Canceled — access until period end";
-      }
-
-      // Referral program: mint the code on first visit; count conversions.
-      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const referralPromise = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? (async () => {
+        // Referral program: mint the code on first visit; count conversions.
         const { ensureReferralCode, getReferralCount } = await import(
           "@/lib/referrals"
         );
         const code = await ensureReferralCode(user.id);
-        if (code) {
-          const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
-          referral = {
-            link: `${site}/join?ref=${code}`,
-            count: await getReferralCount(user.id),
-          };
-        }
-      }
-    }
+        if (!code) return null;
+        const site =
+          process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
+        return { link: `${site}/join?ref=${code}`, count: await getReferralCount(user.id) };
+      })()
+    : Promise.resolve(null);
+
+  const [profileRes, prefsRes, membershipsRes, referral] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "phone, company, title, industry, bio, share_contact, admin_title, stripe_customer_id, created_at",
+      )
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("notification_prefs")
+      .select("key, email, sms, in_app")
+      .eq("profile_id", user.id),
+    supabase
+      .from("memberships")
+      .select("tier, status, access_expires_at")
+      .eq("profile_id", user.id),
+    referralPromise,
+  ]);
+  let p = profileRes.data;
+  if (!p) {
+    // Pre-migration fallback: share_contact arrives with 0034.
+    ({ data: p } = (await supabase
+      .from("profiles")
+      .select(
+        "phone, company, title, industry, bio, admin_title, stripe_customer_id, created_at",
+      )
+      .eq("id", user.id)
+      .maybeSingle()) as { data: typeof p });
   }
+  if (p) {
+    out.profileRow = {
+      phone: p.phone ?? "",
+      company: p.company ?? "",
+      title: p.title ?? "",
+      industry: p.industry ?? "",
+      bio: p.bio ?? "",
+      share_contact: Boolean((p as { share_contact?: boolean }).share_contact),
+      admin_title: p.admin_title ?? "",
+      created_at: p.created_at,
+    };
+    out.hasStripeCustomer = Boolean(p.stripe_customer_id);
+  }
+  out.savedPrefs = (prefsRes.data ?? []) as Partial<PrefRow>[];
+  out.referral = referral;
+
+  // Honest status: past_due and canceled members are still in the portal
+  // (grace semantics) — "Active" must not paper over that.
+  const { effectiveMembership } = await import("@/lib/membership");
+  const eff = effectiveMembership(
+    (membershipsRes.data ?? []) as {
+      tier: import("@/lib/types").Tier;
+      status: import("@/lib/types").MembershipStatus;
+      access_expires_at: string | null;
+    }[],
+  );
+  if (eff?.status === "past_due") {
+    out.membershipStatusLabel = "● Past due — payment needed";
+  } else if (eff?.status === "canceled") {
+    out.membershipStatusLabel = "● Canceled — access until period end";
+  }
+  return out;
+}
+
+export default async function ProfilePage() {
+  const member = await requireMember();
+  const preview = !isSupabaseConfigured();
+
+  // Phase 1 — everything that doesn't depend on another load.
+  const [account, courses, stripeSettings, all] = await Promise.all([
+    loadAccount(),
+    listCourses(),
+    getStripeSettings(),
+    listSessions(),
+  ]);
+
+  // Profile details + saved prefs. The illustrative defaults are for
+  // preview mode only — configured mode always reads the real row.
+  const profileRow =
+    account.profileRow ??
+    (preview
+      ? {
+          phone: "",
+          company: "Momentum Advisory",
+          title: "Executive Coach",
+          industry: "Leadership Development",
+          bio: "",
+          share_contact: false,
+          admin_title: "",
+          created_at: "2024-11-12T00:00:00.000Z",
+        }
+      : {
+          phone: "",
+          company: "",
+          title: "",
+          industry: "",
+          bio: "",
+          share_contact: false,
+          admin_title: "",
+          created_at: new Date().toISOString(),
+        });
+  const { savedPrefs, referral, hasStripeCustomer, membershipStatusLabel } =
+    account;
 
   // Earned certificates: courses with every lesson complete (viewer-scoped
   // via RLS); completion date = the last lesson's completed_at.
-  const courses = await listCourses();
   const earnedCourses = courses.filter(
     (c) => c.published && c.lessons.length > 0 && c.lessons.every((l) => l.completed),
   );
-  const completionDates = new Map<string, string>();
-  if (isSupabaseConfigured() && earnedCourses.length > 0) {
-    const supabase = await createClient();
-    const lessonToCourse = new Map<string, string>();
-    for (const c of earnedCourses) {
-      for (const l of c.lessons) lessonToCourse.set(l.id, c.id);
-    }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    // Own rows only — admins can read everyone's progress via RLS, and
-    // another member's dates must not stamp this member's certificates.
-    const { data: progress } = user
-      ? await supabase
-          .from("lesson_progress")
-          .select("lesson_id, completed_at")
-          .eq("profile_id", user.id)
-          .in("lesson_id", [...lessonToCourse.keys()])
-      : { data: [] };
-    for (const row of progress ?? []) {
-      const courseId = lessonToCourse.get(row.lesson_id);
-      if (!courseId || !row.completed_at) continue;
-      const prev = completionDates.get(courseId);
-      if (!prev || row.completed_at > prev) {
-        completionDates.set(courseId, row.completed_at);
-      }
-    }
-  }
-  const certificates = earnedCourses.map((c) => ({
-    courseId: c.id,
-    title: c.title,
-    ceHours: effectiveCeHours(c),
-    dateLabel: new Date(
-      completionDates.get(c.id) ?? Date.now(),
-    ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-  }));
-
-  // Self-serve billing appears once the Super Admin's Stripe wizard is done.
-  const stripeSettings = await getStripeSettings();
-  const billingEnabled = stripeReady(stripeSettings);
 
   // Learning record: the member's enrolled sessions (CLAUDE.md rule #4 —
   // enrollments, attendance, and notes feed the member profile stats).
-  const all = await listSessions();
   const now = Date.now();
   const mine = all
     .filter((s) => s.isEnrolled)
     .sort((a, b) => b.startsAt.localeCompare(a.startsAt));
 
-  // Pull the member's own private notes so they surface next to each
-  // session in the learning record (Matt, 2026-08-05). Own rows only —
-  // session_notes RLS is owner-scoped, and we never want one member's
-  // notes stamped onto another's profile.
-  const notesBySession = new Map<string, string>();
-  if (isSupabaseConfigured() && mine.length > 0) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
+  // Phase 2 — loads that need Phase 1's lists. Own rows only in both:
+  // admins can read everyone's progress via RLS, and another member's
+  // rows must never stamp this member's profile.
+  const [completionDates, notesBySession] = await Promise.all([
+    (async () => {
+      const dates = new Map<string, string>();
+      if (!isSupabaseConfigured() || earnedCourses.length === 0) return dates;
+      const user = await getAuthUser();
+      if (!user) return dates;
+      const lessonToCourse = new Map<string, string>();
+      for (const c of earnedCourses) {
+        for (const l of c.lessons) lessonToCourse.set(l.id, c.id);
+      }
+      const supabase = await createClient();
+      const { data: progress } = await supabase
+        .from("lesson_progress")
+        .select("lesson_id, completed_at")
+        .eq("profile_id", user.id)
+        .in("lesson_id", [...lessonToCourse.keys()]);
+      for (const row of progress ?? []) {
+        const courseId = lessonToCourse.get(row.lesson_id);
+        if (!courseId || !row.completed_at) continue;
+        const prev = dates.get(courseId);
+        if (!prev || row.completed_at > prev) dates.set(courseId, row.completed_at);
+      }
+      return dates;
+    })(),
+    (async () => {
+      // The member's own private notes, surfaced next to each session in
+      // the learning record (Matt, 2026-08-05).
+      const notes = new Map<string, string>();
+      if (!isSupabaseConfigured() || mine.length === 0) return notes;
+      const user = await getAuthUser();
+      if (!user) return notes;
+      const supabase = await createClient();
       const { data: noteRows } = await supabase
         .from("session_notes")
         .select("session_id, body")
@@ -214,10 +221,23 @@ export default async function ProfilePage() {
         );
       for (const row of noteRows ?? []) {
         const body = (row.body ?? "").trim();
-        if (body) notesBySession.set(row.session_id, body);
+        if (body) notes.set(row.session_id, body);
       }
-    }
-  }
+      return notes;
+    })(),
+  ]);
+
+  const certificates = earnedCourses.map((c) => ({
+    courseId: c.id,
+    title: c.title,
+    ceHours: effectiveCeHours(c),
+    dateLabel: new Date(
+      completionDates.get(c.id) ?? Date.now(),
+    ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+  }));
+
+  // Self-serve billing appears once the Super Admin's Stripe wizard is done.
+  const billingEnabled = stripeReady(stripeSettings);
 
   const sessionRows: ProfileSessionRow[] = mine.map((s) => ({
     id: s.slug,

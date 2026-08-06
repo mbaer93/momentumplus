@@ -65,7 +65,8 @@ function mapRow(row: SessionRow): SessionDetail {
   const recurrence =
     row.recurrence === "weekly" ||
     row.recurrence === "biweekly" ||
-    row.recurrence === "monthly"
+    row.recurrence === "monthly" ||
+    row.recurrence === "monthly_weekday"
       ? row.recurrence
       : null;
   const session: SessionDetail = {
@@ -143,14 +144,24 @@ export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
   if (!isSupabaseConfigured()) return getPlaceholderSessions();
 
   const supabase = await createClient();
+  // Rolling window (audit P2-16): this shared catalog feeds every page in
+  // the render, and it used to fetch every season ever. 24 months back
+  // covers the current + previous season everywhere it's consumed —
+  // including the profile learning record, which shows the last two
+  // seasons (a dedicated history query should come before that matters).
+  const windowStart = new Date(
+    Date.now() - 730 * 24 * 60 * 60 * 1000,
+  ).toISOString();
   let res = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
+    .gte("starts_at", windowStart)
     .order("starts_at", { ascending: true });
   if (res.error && restrictedUnreadable(res.error.message)) {
     res = (await supabase
       .from("sessions")
       .select(SESSION_SELECT_NO_RESTRICTED)
+      .gte("starts_at", windowStart)
       .order("starts_at", { ascending: true })) as typeof res;
   }
   if (res.error && /program|recurrence|host_name/.test(res.error.message)) {
@@ -158,6 +169,7 @@ export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
     res = (await supabase
       .from("sessions")
       .select(SESSION_SELECT_LEGACY)
+      .gte("starts_at", windowStart)
       .order("starts_at", { ascending: true })) as typeof res;
   }
   const { data, error } = res;

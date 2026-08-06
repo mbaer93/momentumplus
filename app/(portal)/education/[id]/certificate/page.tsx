@@ -20,6 +20,9 @@ export default async function CertificatePage(
 ) {
   const params = await props.params;
   const member = await requireMember();
+  // CE certificates are a live-membership benefit (audit P2-21) — a lapsed
+  // account keeps its progress but renews to print.
+  if (!member.membershipActive) redirect("/expired");
   const course = await getCourse(params.id);
   if (!course || (!course.published && !member.isAdmin)) notFound();
   if (!courseUnlocked(course, member.tier)) notFound();

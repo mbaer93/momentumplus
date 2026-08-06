@@ -128,12 +128,17 @@ export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
   const supabase = await createClient();
   // Archived items (speaker archived with their season) stay out of the
   // library without being deleted.
+  // Newest 200 (audit P2-16): years of headroom at the current publish
+  // rate, and it bounds BOTH library scans — this one and the teaser scan
+  // below — instead of a double full-table read on every visit.
+  const LIBRARY_LIMIT = 200;
   const res = await supabase
     .from("videos")
     .select(VIDEO_LIST_SELECT)
     .is("archived_at", null)
     .not("published_at", "is", null)
-    .order("published_at", { ascending: false });
+    .order("published_at", { ascending: false })
+    .limit(LIBRARY_LIMIT);
   let { data, error } = res;
   if (error && /season|video_topics|content_topics/.test(error.message)) {
     // Pre-migration fallback: topics and season arrive with 0055.
@@ -142,7 +147,8 @@ export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
       .select(VIDEO_LIST_SELECT_LEGACY)
       .is("archived_at", null)
       .not("published_at", "is", null)
-      .order("published_at", { ascending: false })) as unknown as typeof res);
+      .order("published_at", { ascending: false })
+      .limit(LIBRARY_LIMIT)) as unknown as typeof res);
   }
   if (error && error.message.includes("archived_at")) {
     // Pre-migration fallback: the column arrives with migration 0028.
@@ -150,7 +156,8 @@ export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
       .from("videos")
       .select(VIDEO_LIST_SELECT_LEGACY)
       .not("published_at", "is", null)
-      .order("published_at", { ascending: false })) as unknown as typeof res);
+      .order("published_at", { ascending: false })
+      .limit(LIBRARY_LIMIT)) as unknown as typeof res);
   }
   // An outage is not an empty library — surface it to the error boundary.
   if (error) throw new Error(`Couldn't load the library: ${error.message}`);
@@ -183,7 +190,8 @@ async function lockedVideoTeasers(
       )
       .is("archived_at", null)
       .not("published_at", "is", null)
-      .order("published_at", { ascending: false });
+      .order("published_at", { ascending: false })
+      .limit(200);
     if (res.error) {
       // Pre-0055: no season, no topics. Teasers still work without them.
       res = (await createServiceClient()
@@ -193,7 +201,8 @@ async function lockedVideoTeasers(
         )
         .is("archived_at", null)
         .not("published_at", "is", null)
-        .order("published_at", { ascending: false })) as typeof res;
+        .order("published_at", { ascending: false })
+        .limit(200)) as typeof res;
     }
     return ((res.data as unknown as VideoRow[] | null) ?? [])
       .filter((row) => !visibleIds.has(row.id))

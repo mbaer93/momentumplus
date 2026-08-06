@@ -65,9 +65,50 @@ export async function POST(req: NextRequest) {
   }
 
   if (!authenticated) {
-    // Anonymous reports are acknowledged but recorded NOWHERE — even a
-    // count bump on a known error lets bots inflate "Occurrences" until
-    // the admin page tells a false story about impact.
+    /*
+     * Anonymous reports used to be recorded NOWHERE (bots could otherwise
+     * inflate "Occurrences" or spam rows). But /join and /tickets crash
+     * for VISITORS — signed-out people trying to PAY — and losing those
+     * reports left revenue-path breakage invisible (audit P2-21).
+     * Abuse-bounded compromise: anonymous reports on those two paths land
+     * in ONE fixed row per path (hash derived from the path alone, not
+     * attacker-controlled text), never email, never ring the bell. A bot
+     * can only ever bump two counters.
+     */
+    const publicPath = ["/join", "/tickets"].find(
+      (p) => path === p || path.startsWith(`${p}?`) || path.startsWith(`${p}/`),
+    );
+    if (publicPath) {
+      const anonHash = createHash("sha256")
+        .update(`anon|${publicPath}`)
+        .digest("hex")
+        .slice(0, 32);
+      const anonMessage = `Anonymous visitor crash on ${publicPath}: ${message}`.slice(0, 500);
+      const { data: anonRow } = await admin
+        .from("error_reports")
+        .select("hash, count")
+        .eq("hash", anonHash)
+        .maybeSingle();
+      if (anonRow) {
+        await admin
+          .from("error_reports")
+          .update({
+            count: Number(anonRow.count ?? 0) + 1,
+            last_seen: nowIso,
+            message: anonMessage,
+          })
+          .eq("hash", anonHash);
+      } else {
+        await admin.from("error_reports").insert({
+          hash: anonHash,
+          message: anonMessage,
+          path: publicPath,
+          count: 1,
+          first_seen: nowIso,
+          last_seen: nowIso,
+        });
+      }
+    }
     return NextResponse.json({ ok: true, anonymous: true });
   }
 
