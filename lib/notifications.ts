@@ -168,6 +168,7 @@ async function upsertGhlContact(
       // so an SMS to a phoneless contact goes nowhere.
       body: JSON.stringify({ locationId, email, ...(phone ? { phone } : {}) }),
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return null;
     const json = (await res.json()) as { contact?: { id?: string } };
@@ -233,18 +234,29 @@ export async function sendEmailViaGhl(input: {
         emailFrom,
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     });
   // From line per Sierra: her monitored address (aligned with the
   // location's Mailgun sending domain), Momentum+ as the display name.
   // Overridable via env.
   const fromFull =
     process.env.GHL_EMAIL_FROM || "Momentum+ Team <grow@sierralearnership.com>";
-  let res = await retryOn429(() => send(fromFull));
-  if (!res.ok && (res.status === 400 || res.status === 422)) {
-    // Some GHL validators reject the `Name <address>` form — retry with
-    // just the bare address before giving up.
-    const bare = /<([^>]+)>/.exec(fromFull)?.[1];
-    if (bare) res = await retryOn429(() => send(bare));
+  let res: Response;
+  try {
+    res = await retryOn429(() => send(fromFull));
+    if (!res.ok && (res.status === 400 || res.status === 422)) {
+      // Some GHL validators reject the `Name <address>` form — retry with
+      // just the bare address before giving up.
+      const bare = /<([^>]+)>/.exec(fromFull)?.[1];
+      if (bare) res = await retryOn429(() => send(bare));
+    }
+  } catch (e) {
+    // A network failure or timeout must report, not throw — one dead member
+    // send would otherwise abort an entire reminders/announcement run.
+    return {
+      sent: false,
+      reason: `network: ${e instanceof Error ? e.message : String(e)}`,
+    };
   }
   if (!res.ok) {
     // Surface WHY — "1 email failed" with no reason is undebuggable from
@@ -299,22 +311,32 @@ export async function sendSmsViaGhl(input: {
   if (!contactId) {
     return { sent: false, reason: "no contact/phone" };
   }
-  const res = await retryOn429(() =>
-    fetch(`${GHL_API_BASE}/conversations/messages`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${creds.apiKey}`,
-        Version: "2021-04-15",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        type: "SMS",
-        contactId,
-        message: input.message,
+  let res: Response;
+  try {
+    res = await retryOn429(() =>
+      fetch(`${GHL_API_BASE}/conversations/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${creds.apiKey}`,
+          Version: "2021-04-15",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "SMS",
+          contactId,
+          message: input.message,
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
       }),
-      cache: "no-store",
-    }),
-  );
+    );
+  } catch (e) {
+    // Same rule as email: never throw past this boundary.
+    return {
+      sent: false,
+      reason: `network: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
   if (!res.ok) {
     // Surface WHY (GHL's error text, no member PII) — silent SMS failures
     // burned a test run already.

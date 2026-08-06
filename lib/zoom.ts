@@ -57,6 +57,7 @@ export async function getZoomAccessToken(
         "Content-Type": "application/x-www-form-urlencoded",
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     },
   );
 
@@ -118,6 +119,7 @@ export async function createZoomMeeting(
       },
     }),
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!res.ok) {
@@ -179,6 +181,7 @@ export async function updateZoomMeeting(
       },
     }),
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   // Zoom returns 204 on success.
   if (!res.ok && res.status !== 204) {
@@ -197,6 +200,7 @@ export async function deleteZoomMeeting(meetingId: string): Promise<void> {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     },
   );
   if (!res.ok && res.status !== 204 && res.status !== 404) {
@@ -216,6 +220,7 @@ export async function getHostZak(): Promise<string | null> {
     const res = await fetch(`${ZOOM_API_BASE}/users/me/zak`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return null;
     const json = (await res.json()) as { token?: string };
@@ -340,6 +345,7 @@ export async function getMeetingParticipants(
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       throw new Error(

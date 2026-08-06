@@ -96,6 +96,44 @@ test("normalizeGhlEvent accepts our contract and GHL-style aliases", () => {
   assert.equal(normalizeGhlEvent({ type: "payment_success" }), null); // no email
 });
 
+test("normalizeGhlEvent picks up a unique delivery id for webhook dedupe", () => {
+  // Any of the common id fields works.
+  const a = normalizeGhlEvent({
+    type: "payment_success",
+    contactId: "c1",
+    email: "x@y.com",
+    invoiceId: "inv_123",
+  });
+  assert.equal(a?.eventId, "inv_123");
+
+  const b = normalizeGhlEvent({
+    type: "payment_success",
+    contactId: "c1",
+    email: "x@y.com",
+    transaction_id: " txn_9 ",
+  });
+  assert.equal(b?.eventId, "txn_9"); // trimmed
+
+  // Bare `id` is the CONTACT id in GHL payloads — it must NOT become the
+  // event id, or every payment for that member deduplicates into one.
+  const c = normalizeGhlEvent({
+    type: "payment_success",
+    id: "contact_1",
+    contactId: "c1",
+    email: "x@y.com",
+  });
+  assert.equal(c?.eventId, undefined);
+
+  // Empty/whitespace ids are ignored.
+  const d = normalizeGhlEvent({
+    type: "payment_success",
+    contactId: "c1",
+    email: "x@y.com",
+    invoiceId: "  ",
+  });
+  assert.equal(d?.eventId, undefined);
+});
+
 test("resolveTier maps product ids via the env JSON map", () => {
   const map = JSON.stringify({ prod_m: "sub_monthly", prod_a: "sub_annual" });
   assert.equal(resolveTier({ productId: "prod_a" }, map), "sub_annual");

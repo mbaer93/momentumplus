@@ -468,7 +468,7 @@ export async function listUploadsViaApi(
       (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
     let res: Response;
     try {
-      res = await fetch(url, { cache: "no-store" });
+      res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
     } catch {
       return {
         videos: collected,
@@ -507,7 +507,7 @@ export async function listUploadsViaApi(
     try {
       const res = await fetch(
         `${YT_API}/videos?part=contentDetails&id=${ids}&key=${encodeURIComponent(apiKey)}`,
-        { cache: "no-store" },
+        { cache: "no-store", signal: AbortSignal.timeout(10_000) },
       );
       if (res.ok) {
         for (const [id, secs] of parseVideoDurationsPage(await res.json())) {
@@ -637,7 +637,7 @@ export async function importSeasonsFromYoutube(): Promise<{
       (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
     let res: Response;
     try {
-      res = await fetch(url, { cache: "no-store" });
+      res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
     } catch {
       return { ok: false, message: "Couldn't reach the YouTube API — try again in a minute." };
     }
@@ -663,7 +663,7 @@ export async function importSeasonsFromYoutube(): Promise<{
         (token ? `&pageToken=${encodeURIComponent(token)}` : "");
       let res: Response;
       try {
-        res = await fetch(url, { cache: "no-store" });
+        res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
       } catch {
         break;
       }
@@ -964,6 +964,7 @@ export async function listAllChannelVideos(
         {
           method: "POST",
           cache: "no-store",
+          signal: AbortSignal.timeout(10_000),
           headers: BROWSE_HEADERS,
           body: JSON.stringify({
             context: { client: { clientName: "WEB", clientVersion, hl: "en" } },
@@ -1049,7 +1050,7 @@ export async function fetchVideoMeta(videoId: string): Promise<WatchPageMeta> {
       `https://www.youtube.com/oembed?url=${encodeURIComponent(
         `https://www.youtube.com/watch?v=${videoId}`,
       )}&format=json`,
-      { cache: "no-store" },
+      { cache: "no-store", signal: AbortSignal.timeout(10_000) },
     );
     if (res.ok) {
       const title = ((await res.json()) as { title?: string }).title ?? "";
@@ -1107,7 +1108,7 @@ export async function importBackCatalog(): Promise<{
   try {
     const res = await fetch(
       `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`,
-      { cache: "no-store" },
+      { cache: "no-store", signal: AbortSignal.timeout(10_000) },
     );
     if (res.ok) {
       for (const e of parseYoutubeFeed(await res.text())) {
@@ -1405,7 +1406,7 @@ export async function syncFromYoutube(): Promise<{
   }
   const res = await fetch(
     `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`,
-    { cache: "no-store" },
+    { cache: "no-store", signal: AbortSignal.timeout(10_000) },
   );
   if (!res.ok) {
     return {
