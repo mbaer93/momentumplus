@@ -48,7 +48,7 @@ export default function PrivacyPage() {
               fontSize: 10,
               letterSpacing: 3,
               textTransform: "uppercase",
-              color: "var(--gold)",
+              color: "var(--gold-text)",
               marginTop: 4,
             }}
           >

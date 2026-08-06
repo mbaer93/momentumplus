@@ -252,7 +252,7 @@ export function ProfileView({
                   fontSize: 11,
                   letterSpacing: 1,
                   textTransform: "uppercase",
-                  color: "var(--gold)",
+                  color: "var(--gold-text)",
                   fontWeight: 600,
                   marginBottom: 4,
                 }}
@@ -337,7 +337,7 @@ export function ProfileView({
                 {sessions.length === 0 ? (
                   <div style={{ padding: 16, color: "var(--ink-secondary)", fontSize: 13 }}>
                     You haven&apos;t enrolled in any sessions yet.{" "}
-                    <Link href="/sessions" style={{ color: "var(--gold)" }}>
+                    <Link href="/sessions" style={{ color: "var(--gold-text)" }}>
                       Browse sessions
                     </Link>
                   </div>
@@ -369,7 +369,7 @@ export function ProfileView({
                               overflow: "hidden",
                             }}
                           >
-                            <span style={{ color: "var(--gold)", fontWeight: 600 }}>
+                            <span style={{ color: "var(--gold-text)", fontWeight: 600 }}>
                               Your notes:{" "}
                             </span>
                             {s.note}
@@ -404,7 +404,7 @@ export function ProfileView({
                 {certificates.length === 0 ? (
                   <div style={{ color: "var(--ink-secondary)", fontSize: 13 }}>
                     Complete a course in{" "}
-                    <Link href="/education" style={{ color: "var(--gold)" }}>
+                    <Link href="/education" style={{ color: "var(--gold-text)" }}>
                       Education
                     </Link>{" "}
                     to earn your first certificate.

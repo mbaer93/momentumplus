@@ -573,7 +573,7 @@ export function CommunityView({
           <button
             type="button"
             className="channel-item"
-            style={{ color: "var(--gold)" }}
+            style={{ color: "var(--gold-text)" }}
             onClick={() => void openDmPicker()}
           >
             + New message
@@ -815,7 +815,7 @@ export function CommunityView({
             />
             <button
               className="chat-icon-btn"
-              style={{ color: "var(--gold)" }}
+              style={{ color: "var(--gold-text)" }}
               type="button"
               onClick={() => void send()}
               disabled={!canPost}

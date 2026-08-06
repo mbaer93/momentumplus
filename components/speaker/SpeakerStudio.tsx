@@ -176,7 +176,7 @@ export function SpeakerStudio({
             </div>
             {monthCard.earningsLabel && (
               <div>
-                <div style={{ fontSize: 26, fontWeight: 600, color: "var(--gold)" }}>
+                <div style={{ fontSize: 26, fontWeight: 600, color: "var(--gold-text)" }}>
                   {monthCard.earningsLabel}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>

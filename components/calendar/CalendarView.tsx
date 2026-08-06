@@ -243,7 +243,7 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
                 style={
                   e.isEnrolled
                     ? { background: "rgba(58,107,150,0.12)", color: "var(--accent-blue)" }
-                    : { background: "var(--gold-pale)", color: "var(--gold)" }
+                    : { background: "var(--gold-pale)", color: "var(--gold-text)" }
                 }
               >
                 {e.isEnrolled ? "Enrolled" : "Upcoming"}

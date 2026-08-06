@@ -36,7 +36,7 @@ export default async function NetworkingPage() {
           padding: "48px 24px",
         }}
       >
-        <span style={{ color: "var(--gold)" }}>
+        <span style={{ color: "var(--gold-text)" }}>
           <UsersIcon size={28} />
         </span>
         <div style={{ fontSize: 15, fontWeight: 600 }}>

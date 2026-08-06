@@ -48,12 +48,12 @@ export default async function ServicesPage() {
               className="resource-icon"
               style={{ background: "var(--gold-pale)" }}
             >
-              <span style={{ color: "var(--gold)" }}>
+              <span style={{ color: "var(--gold-text)" }}>
                 <BriefcaseIcon size={20} />
               </span>
             </div>
             <div className="resource-body">
-              <div className="resource-type" style={{ color: "var(--gold)" }}>
+              <div className="resource-type" style={{ color: "var(--gold-text)" }}>
                 {s.tagline || "SLC Service"}
               </div>
               <div className="resource-title">{s.name}</div>

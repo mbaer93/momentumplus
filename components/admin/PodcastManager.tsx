@@ -193,7 +193,7 @@ export function PodcastManager({
               YouTube hides exact dates on older videos, so imported dates are
               approximate. For exact dates and full notes on every episode,
               connect a free YouTube API key in{" "}
-              <a href="/admin/connections" style={{ color: "var(--gold)", fontWeight: 600 }}>
+              <a href="/admin/connections" style={{ color: "var(--gold-text)", fontWeight: 600 }}>
                 Admin → Connections
               </a>{" "}
               and run the import again.

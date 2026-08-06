@@ -82,7 +82,7 @@ export default async function RootedFocusPage() {
             fontSize: 11,
             letterSpacing: 1,
             textTransform: "uppercase",
-            color: "var(--gold)",
+            color: "var(--gold-text)",
             fontWeight: 600,
             marginBottom: 10,
           }}
