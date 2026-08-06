@@ -1,9 +1,47 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getCurrentMember } from "@/lib/current-member";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+
+/** Journal completion-save failures into the Platform Errors console
+    (Matt, 2026-08-05: the green check wasn't persisting and every failure
+    was invisible — this makes the real reason show up in Admin → Errors).
+    Never throws; diagnostics must not break the action. */
+async function logProgressIssue(step: string, detail: string): Promise<void> {
+  try {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+    const admin = createServiceClient();
+    const message = `podcast-progress ${step}: ${detail}`.slice(0, 500);
+    const hash = createHash("sha256").update(message).digest("hex").slice(0, 32);
+    const nowIso = new Date().toISOString();
+    const { data: existing } = await admin
+      .from("error_reports")
+      .select("hash, count")
+      .eq("hash", hash)
+      .maybeSingle();
+    if (existing) {
+      await admin
+        .from("error_reports")
+        .update({ count: Number(existing.count ?? 0) + 1, last_seen: nowIso })
+        .eq("hash", hash);
+    } else {
+      await admin.from("error_reports").insert({
+        hash,
+        message,
+        path: "/branching-out",
+        count: 1,
+        first_seen: nowIso,
+        last_seen: nowIso,
+      });
+    }
+  } catch {
+    /* swallow — see docstring */
+  }
+}
 
 export interface EpisodeActionResult {
   ok: boolean;
@@ -27,29 +65,44 @@ export async function setEpisodeCompleted(
   episodeId: string,
   completed: boolean,
 ): Promise<EpisodeActionResult> {
-  if (!isSupabaseConfigured()) return { ok: true, preview: true };
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Not signed in." };
-  if (!(await membershipActive())) {
-    return { ok: false, message: "Your membership has lapsed." };
-  }
+  try {
+    if (!isSupabaseConfigured()) {
+      await logProgressIssue("preview-exit", "isSupabaseConfigured() false in production");
+      return { ok: true, preview: true };
+    }
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      await logProgressIssue("no-user", "auth.getUser() returned null");
+      return { ok: false, message: "Not signed in." };
+    }
+    if (!(await membershipActive())) {
+      await logProgressIssue("membership", `no active membership for ${user.id}`);
+      return { ok: false, message: "Your membership has lapsed." };
+    }
 
-  const { error } = await supabase.from("podcast_episode_progress").upsert(
-    {
-      profile_id: user.id,
-      episode_id: episodeId,
-      completed,
-      completed_at: completed ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "profile_id,episode_id" },
-  );
-  if (error) return { ok: false, message: error.message };
-  revalidatePath("/branching-out");
-  return { ok: true };
+    const { error } = await supabase.from("podcast_episode_progress").upsert(
+      {
+        profile_id: user.id,
+        episode_id: episodeId,
+        completed,
+        completed_at: completed ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "profile_id,episode_id" },
+    );
+    if (error) {
+      await logProgressIssue("upsert", `${error.code ?? ""} ${error.message}`);
+      return { ok: false, message: error.message };
+    }
+    revalidatePath("/branching-out");
+    return { ok: true };
+  } catch (e) {
+    await logProgressIssue("thrown", e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+    return { ok: false, message: "Couldn't save — the team has been notified." };
+  }
 }
 
 /** Save the member's private note on an episode. RLS is owner-only —
