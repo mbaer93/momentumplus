@@ -209,7 +209,7 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
       <div>
         <div className="cal-upcoming-title">Upcoming Events</div>
         {upcoming.length === 0 && (
-          <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+          <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
             No upcoming sessions scheduled yet.
           </div>
         )}

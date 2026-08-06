@@ -143,7 +143,7 @@ export function PlansView({
     return (
       <div className="card" style={{ padding: 24, maxWidth: 560 }}>
         <h3 style={{ fontSize: 15, marginBottom: 8 }}>Plans &amp; upgrades</h3>
-        <p style={{ fontSize: 13, color: "var(--mid-gray)", marginBottom: 12 }}>
+        <p style={{ fontSize: 13, color: "var(--ink-secondary)", marginBottom: 12 }}>
           Online billing isn&apos;t switched on yet — reach out and we&apos;ll
           take care of your plan personally.
         </p>
@@ -253,7 +253,7 @@ export function PlansView({
               {pending && !p.cta.disabled ? "Opening secure checkout…" : p.cta.label}
             </button>
             {!p.cta.disabled && stripePlan && (
-              <p style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 8 }}>
+              <p style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 8 }}>
                 You have an active subscription, so this opens your secure
                 billing portal — the switch prorates automatically.
               </p>
@@ -267,7 +267,7 @@ export function PlansView({
         <h3 style={{ fontSize: 15, marginBottom: 6 }}>Billing &amp; cancellation</h3>
         {hasCustomer ? (
           <>
-            <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 12 }}>
+            <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 12 }}>
               Update your card, download invoices, change your plan, or cancel
               your subscription — everything happens in your secure Stripe
               billing portal. If you cancel, you keep access through the end
@@ -293,7 +293,7 @@ export function PlansView({
             </div>
           </>
         ) : (
-          <p style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+          <p style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
             {isPro
               ? `Your ${tierLabel} access is provided for you, so there's nothing to bill — no card on file, nothing to cancel.`
               : "No billing profile yet — choose a plan above and your billing portal opens up after your first payment."}

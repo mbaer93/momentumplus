@@ -84,7 +84,7 @@ export function TestimonialAsk({
           >
             How&apos;s Momentum+ working for you?
           </div>
-          <div style={{ fontSize: 13, color: "var(--mid-gray)" }}>
+          <div style={{ fontSize: 13, color: "var(--ink-secondary)" }}>
             {done
               ? (msg?.text ?? "Thank you!")
               : "We'd love to hear it — and with your OK, share it with leaders deciding whether to join."}
@@ -154,7 +154,7 @@ export function TestimonialAsk({
             >
               {pending ? "Sending…" : "Submit"}
             </button>
-            <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+            <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
               The team reviews everything before it appears publicly.
             </span>
             {msg && !msg.ok && (

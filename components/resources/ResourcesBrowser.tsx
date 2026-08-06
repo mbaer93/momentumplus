@@ -103,7 +103,7 @@ export function ResourcesBrowser({
                   ) : (
                     <span
                       className="resource-link"
-                      style={{ color: "var(--mid-gray)", cursor: "default" }}
+                      style={{ color: "var(--ink-secondary)", cursor: "default" }}
                       title="Available to VIP and annual members"
                     >
                       Exclusive

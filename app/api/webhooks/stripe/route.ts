@@ -312,18 +312,39 @@ export async function POST(req: NextRequest) {
         // Missed checkout event (e.g. webhook added later): create from
         // subscription metadata when we can. Never insert a row with open
         // -ended access — a null expiry reads as indefinite downstream.
-        if (!row && sub.metadata?.profile_id) {
-          const { error: healError } = await admin.from("memberships").insert({
-            profile_id: sub.metadata.profile_id,
-            tier: sub.metadata.plan === "pro" ? "pro" : "basic",
-            status: mapStatus(sub.status),
-            access_starts_at: new Date().toISOString(),
-            access_expires_at: periodEndIso(sub) ?? new Date().toISOString(),
-            source: "stripe",
-            stripe_subscription_id: sub.id,
-          });
-          if (healError) {
-            throw new Error(`missed-checkout heal failed: ${healError.message}`);
+        // Public /join signups carry signup_email instead of profile_id —
+        // resolve it to the profile the (possibly also-missed) checkout
+        // handler or an admin created since.
+        if (!row) {
+          let healProfileId = sub.metadata?.profile_id ?? null;
+          const signupEmail = sub.metadata?.signup_email?.trim().toLowerCase();
+          if (!healProfileId && signupEmail) {
+            const { emailPattern } = await import("@/lib/db-utils");
+            const { data: byEmail, error: emailLookupError } = await admin
+              .from("profiles")
+              .select("id")
+              .ilike("email", emailPattern(signupEmail))
+              .maybeSingle();
+            if (emailLookupError) {
+              throw new Error(
+                `heal profile lookup failed: ${emailLookupError.message}`,
+              );
+            }
+            healProfileId = byEmail?.id ?? null;
+          }
+          if (healProfileId) {
+            const { error: healError } = await admin.from("memberships").insert({
+              profile_id: healProfileId,
+              tier: sub.metadata?.plan === "pro" ? "pro" : "basic",
+              status: mapStatus(sub.status),
+              access_starts_at: new Date().toISOString(),
+              access_expires_at: periodEndIso(sub) ?? new Date().toISOString(),
+              source: "stripe",
+              stripe_subscription_id: sub.id,
+            });
+            if (healError) {
+              throw new Error(`missed-checkout heal failed: ${healError.message}`);
+            }
           }
         }
         break;

@@ -61,7 +61,7 @@ export function Wordmark({
       return (
         <div className="wm">
           <div className="wm-main">Demple</div>
-          <div className="wm-sub" style={{ color: "var(--mid-gray)" }}>
+          <div className="wm-sub" style={{ color: "var(--ink-secondary)" }}>
             Photography
           </div>
         </div>

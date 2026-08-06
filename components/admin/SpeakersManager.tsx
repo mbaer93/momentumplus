@@ -167,7 +167,7 @@ function InviteControls({ row }: { row: EntityRow }) {
               : "Send login invite"}
         </button>
         {hasAccount && (
-          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
             Already set up — nothing to send.
           </span>
         )}

@@ -65,7 +65,7 @@ export function TestimonialsManager({ rows }: { rows: AdminTestimonialRow[] }) {
           <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 8 }}>
             &ldquo;{t.quote}&rdquo;
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+          <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
             — <strong>{t.name}</strong>
             {t.roleCompany ? `, ${t.roleCompany}` : ""} · submitted {t.dateLabel} ·{" "}
             {label[t.status]}

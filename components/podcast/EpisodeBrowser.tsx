@@ -171,7 +171,7 @@ function AskTheShow() {
         Ask it on the air
       </div>
       <div
-        style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}
+        style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}
       >
         Send a question for a guest, a leadership challenge you&apos;re
         facing, or a Leadership Unscripted question — we may bring it up on
@@ -450,7 +450,7 @@ export function EpisodeBrowser({
             >
               Enjoying Branching Out?
             </div>
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
               Liking, following, and sharing episodes is the biggest way to
               help the show grow.
             </div>
@@ -664,7 +664,7 @@ export function EpisodeBrowser({
                         alignItems: "center",
                         gap: 6,
                         fontSize: 11.5,
-                        color: "var(--mid-gray)",
+                        color: "var(--ink-secondary)",
                       }}
                     >
                       {completed && <CompletedCheck />}
@@ -718,7 +718,7 @@ export function EpisodeBrowser({
                           marginTop: 6,
                           fontSize: 13,
                           lineHeight: 1.6,
-                          color: "var(--mid-gray)",
+                          color: "var(--ink-secondary)",
                           whiteSpace: "pre-wrap",
                         }}
                       >

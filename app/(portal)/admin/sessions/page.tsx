@@ -67,7 +67,7 @@ export default async function AdminSessionsPage() {
                   <div className="admin-row-title">
                     <Link href={`/sessions/${s.slug}`}>{s.title}</Link>
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                     {s.speaker.name} · {s.category}
                   </div>
                 </td>
@@ -75,12 +75,12 @@ export default async function AdminSessionsPage() {
                   {s.startsAt ? (
                     <>
                       {dateLabel(s.startsAt)}
-                      <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                      <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                         {timeLabel(s.startsAt)}
                       </div>
                     </>
                   ) : (
-                    <span style={{ color: "var(--mid-gray)" }}>—</span>
+                    <span style={{ color: "var(--ink-secondary)" }}>—</span>
                   )}
                 </td>
                 <td>
@@ -93,7 +93,7 @@ export default async function AdminSessionsPage() {
                       Created
                     </span>
                   ) : (
-                    <span style={{ color: "var(--mid-gray)", fontSize: 12 }}>
+                    <span style={{ color: "var(--ink-secondary)", fontSize: 12 }}>
                       Not yet
                     </span>
                   )}

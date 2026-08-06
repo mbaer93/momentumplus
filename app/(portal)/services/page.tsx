@@ -74,7 +74,7 @@ export default async function ServicesPage() {
                 ) : (
                   <span
                     className="resource-link"
-                    style={{ color: "var(--mid-gray)", cursor: "default" }}
+                    style={{ color: "var(--ink-secondary)", cursor: "default" }}
                   >
                     Details coming soon
                   </span>

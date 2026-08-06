@@ -271,7 +271,7 @@ export function MembersManager({
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                     <BreakableEmail email={m.email} />
                   </div>
                 </td>
@@ -284,7 +284,7 @@ export function MembersManager({
                           key={o.membershipId}
                           style={{
                             fontSize: 11.5,
-                            color: "var(--mid-gray)",
+                            color: "var(--ink-secondary)",
                             display: "flex",
                             gap: 6,
                             alignItems: "center",
@@ -315,7 +315,7 @@ export function MembersManager({
                           </button>
                         </div>
                       ))}
-                      <div style={{ fontSize: 10.5, color: "var(--mid-gray)" }}>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-secondary)" }}>
                         Multiple grants — they get the highest active one.
                       </div>
                     </div>
@@ -341,7 +341,7 @@ export function MembersManager({
                   </span>
                 </td>
                 <td>{m.expiresLabel}</td>
-                <td style={{ color: "var(--mid-gray)", fontSize: 12 }}>
+                <td style={{ color: "var(--ink-secondary)", fontSize: 12 }}>
                   {m.invitedLabel && <div>{m.invitedLabel}</div>}
                   {m.neverLoggedIn ? (
                     <div style={{ color: "var(--gold, #B8965A)", fontWeight: 600 }}>
@@ -355,7 +355,7 @@ export function MembersManager({
                     </div>
                   )}
                 </td>
-                <td style={{ color: "var(--mid-gray)", fontSize: 12 }}>{m.source}</td>
+                <td style={{ color: "var(--ink-secondary)", fontSize: 12 }}>{m.source}</td>
                 <td>
                   <div className="admin-actions-cell" style={{ justifyContent: "flex-end" }}>
                     <button

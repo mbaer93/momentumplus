@@ -340,7 +340,7 @@ export default async function AdminPage() {
             >
               {g.heading}
             </div>
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>{g.sub}</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>{g.sub}</div>
           </div>
           <div className="admin-nav-cards">
             {g.cards.map((s) => {
@@ -353,7 +353,7 @@ export default async function AdminPage() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{s.title}</div>
-                      <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                      <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                         {s.desc}
                       </div>
                     </div>

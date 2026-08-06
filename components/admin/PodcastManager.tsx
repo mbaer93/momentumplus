@@ -132,7 +132,7 @@ export function PodcastManager({
       {/* Auto-sync settings */}
       <div className="card" style={{ padding: 18 }}>
         <h3 style={{ marginTop: 0, marginBottom: 6 }}>Auto-sync</h3>
-        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
+        <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginTop: 0 }}>
           New uploads on the show&apos;s YouTube channel appear on the
           Branching Out tab automatically (checked every 6 hours) — title,
           show notes, and thumbnail come from YouTube, so there&apos;s nothing
@@ -178,7 +178,7 @@ export function PodcastManager({
             {pending ? "Working…" : "Import full back catalog"}
           </button>
         </div>
-        <p style={{ fontSize: 12, color: "var(--mid-gray)", marginBottom: 0, marginTop: 8 }}>
+        <p style={{ fontSize: 12, color: "var(--ink-secondary)", marginBottom: 0, marginTop: 8 }}>
           Sync now grabs recent uploads; <strong>Import full back catalog</strong>{" "}
           walks the channel&apos;s entire video list and pulls every past
           episode — title, show notes, publish date, and thumbnail.{" "}
@@ -205,7 +205,7 @@ export function PodcastManager({
       {/* Manual add — past episodes */}
       <div className="card" style={{ padding: 18 }}>
         <h3 style={{ marginTop: 0, marginBottom: 6 }}>Add a past episode</h3>
-        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
+        <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginTop: 0 }}>
           The feed only carries recent uploads — add the back catalog here.
           Leave the title blank to pull it from YouTube automatically.
         </p>
@@ -278,7 +278,7 @@ export function PodcastManager({
       {/* Seasons: bulk assignment by date range */}
       <div className="card" style={{ padding: 18 }}>
         <h3 style={{ marginTop: 0, marginBottom: 6 }}>Seasons</h3>
-        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
+        <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginTop: 0 }}>
           Group episodes into seasons so members can browse them easily.
           <strong> Import from YouTube</strong> reads &ldquo;Season N&rdquo;
           playlists, season markers in titles (&ldquo;Season 2&rdquo;,
@@ -345,14 +345,14 @@ export function PodcastManager({
         <h3 style={{ marginTop: 0, marginBottom: 6 }}>
           On-air submissions ({questions.length})
         </h3>
-        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 0 }}>
+        <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginTop: 0 }}>
           Questions, leadership challenges, and Leadership Unscripted
           prompts members sent in from the Branching Out tab. Mark one
           Reviewed when it&apos;s on your shortlist and Asked once it&apos;s
           been used on the show.
         </p>
         {questions.length === 0 ? (
-          <p style={{ fontSize: 13, color: "var(--mid-gray)", marginBottom: 0 }}>
+          <p style={{ fontSize: 13, color: "var(--ink-secondary)", marginBottom: 0 }}>
             Nothing yet — submissions land here as members send them in.
           </p>
         ) : (
@@ -380,7 +380,7 @@ export function PodcastManager({
                   >
                     {QUESTION_KIND_LABELS[q.kind]}
                   </span>
-                  <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                  <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                     {q.memberName || q.memberEmail || "Member"}
                     {q.createdAt
                       ? ` · ${new Date(q.createdAt).toLocaleDateString("en-US", {
@@ -435,7 +435,7 @@ export function PodcastManager({
       <div className="card" style={{ padding: 18 }}>
         <h3 style={{ marginTop: 0 }}>Episodes ({episodes.length})</h3>
         {episodes.length === 0 ? (
-          <p style={{ fontSize: 13, color: "var(--mid-gray)" }}>
+          <p style={{ fontSize: 13, color: "var(--ink-secondary)" }}>
             No episodes yet — save the channel and sync, or add one manually.
           </p>
         ) : (
@@ -465,7 +465,7 @@ export function PodcastManager({
                   >
                     {ep.title}
                   </div>
-                  <div style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
                     {ep.publishedAt
                       ? new Date(ep.publishedAt).toLocaleDateString("en-US", {
                           month: "short",
@@ -587,7 +587,7 @@ export function PodcastManager({
                     >
                       {pending ? "Saving…" : "Save episode"}
                     </button>
-                    <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                    <span style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
                       Saving marks it Manual — future syncs and imports never
                       overwrite it.
                     </span>

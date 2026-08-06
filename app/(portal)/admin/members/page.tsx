@@ -403,7 +403,7 @@ export default async function AdminMembersPage(
               Clear
             </Link>
           )}
-          <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
             {totalCount === 0
               ? q
                 ? "No members match that search."
@@ -434,7 +434,7 @@ export default async function AdminMembersPage(
               ← Previous
             </Link>
           )}
-          <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
             Page {page} of {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
           </span>
           {page * PAGE_SIZE < totalCount && (

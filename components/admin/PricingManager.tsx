@@ -101,12 +101,12 @@ export function PricingManager({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
         <h3 style={{ fontSize: 15 }}>Pricing</h3>
         {connected && (
-          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
             {livemode ? "Live Stripe account" : "Stripe test mode"}
           </span>
         )}
       </div>
-      <p style={{ fontSize: 12.5, color: "var(--mid-gray)", margin: "4px 0 14px" }}>
+      <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", margin: "4px 0 14px" }}>
         Set every plan and term here, then save once. Monthly is the price per
         month; term boxes are the <strong>total</strong> charged for that term
         (leave a term blank to not offer it). Changing a price creates a fresh
@@ -163,7 +163,7 @@ export function PricingManager({
                       placeholder="leave blank to skip"
                     />
                     {total > 0 && (
-                      <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 3 }}>
+                      <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 3 }}>
                         = {money(Math.round(perMonth))}/mo
                         {savings > 0 ? ` · saves ${money(savings)} vs monthly` : ""}
                       </div>
@@ -186,7 +186,7 @@ export function PricingManager({
           {pending ? "Saving to Stripe…" : "Save all pricing"}
         </button>
         {!monthlyValid && connected && (
-          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
             Both plans need a monthly price.
           </span>
         )}

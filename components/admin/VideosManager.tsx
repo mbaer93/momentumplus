@@ -117,7 +117,7 @@ function ThumbnailControls({ row }: { row: EntityRow }) {
             }}
           />
         )}
-        <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+        <span style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
           {customUrl
             ? "Using uploaded thumbnail"
             : previewUrl

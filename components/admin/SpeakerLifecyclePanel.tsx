@@ -77,7 +77,7 @@ export function SpeakerLifecyclePanel({
         <div className="admin-field" style={{ marginBottom: 4 }}>
           <label style={{ fontSize: 13 }}>Invite a speaker</label>
         </div>
-        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
           Enter the speaker&apos;s email. They get an email that walks them
           through building their speaker page, personal profile, and a business
           resource page — no data entry on your side. Speakers get Pro-level
@@ -152,7 +152,7 @@ export function SpeakerLifecyclePanel({
           </div>
         )}
         {pendingInvites.length > 0 && (
-          <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--mid-gray)" }}>
+          <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--ink-secondary)" }}>
             <div style={{ marginBottom: 4 }}>Waiting on:</div>
             {pendingInvites.map((i) => (
               <div
@@ -199,7 +199,7 @@ export function SpeakerLifecyclePanel({
           <div className="admin-field" style={{ marginBottom: 4 }}>
             <label style={{ fontSize: 13 }}>Current season</label>
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 8 }}>
+          <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 8 }}>
             Speakers come down automatically at their season end. Archiving
             early hides the speaker <em>and</em> their sessions and library
             items from members — nothing is deleted, and you can reinstate
@@ -219,7 +219,7 @@ export function SpeakerLifecyclePanel({
               <div style={{ flex: 1, fontSize: 13 }}>
                 <strong>{s.name}</strong>
                 <span
-                  style={{ color: "var(--mid-gray)", marginLeft: 8, fontSize: 12 }}
+                  style={{ color: "var(--ink-secondary)", marginLeft: 8, fontSize: 12 }}
                 >
                   {/* Pre-season truth: "active" here used to look identical
                       to live-to-members, leaving "why is this speaker
@@ -311,12 +311,12 @@ export function SpeakerLifecyclePanel({
                     <td>
                       <div className="admin-row-title">{s.name}</div>
                       {s.title && (
-                        <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                        <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                           {s.title}
                         </div>
                       )}
                     </td>
-                    <td style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                    <td style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                       {s.archivedAt
                         ? `Archived ${dateLabel(s.archivedAt)}`
                         : s.expiresAt

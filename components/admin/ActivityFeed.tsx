@@ -142,7 +142,7 @@ export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
         className="admin-form-actions"
         style={{ marginTop: 0, marginBottom: 12, flexWrap: "wrap", gap: 12 }}
       >
-        <label style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+        <label style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
           Member:{" "}
           <select
             value={member}
@@ -157,7 +157,7 @@ export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
             ))}
           </select>
         </label>
-        <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+        <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
           {category.desc}
         </span>
         <input
@@ -191,7 +191,7 @@ export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
                     {e.memberName || "Momentum+ Team"}
                   </div>
                   {e.memberEmail && (
-                    <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                       {e.memberEmail}
                     </div>
                   )}
@@ -201,14 +201,14 @@ export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
                     {e.kindLabel}
                   </span>
                 </td>
-                <td style={{ fontSize: 13, color: "var(--mid-gray)" }}>
+                <td style={{ fontSize: 13, color: "var(--ink-secondary)" }}>
                   {e.detail || "—"}
                 </td>
               </tr>
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ color: "var(--mid-gray)", fontSize: 13 }}>
+                <td colSpan={4} style={{ color: "var(--ink-secondary)", fontSize: 13 }}>
                   No {category.label.toLowerCase()} activity
                   {query ? " matches that filter" : " recorded"} yet.
                 </td>
@@ -217,7 +217,7 @@ export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
           </tbody>
         </table>
       </div>
-      <p style={{ marginTop: 10, fontSize: 12, color: "var(--mid-gray)" }}>
+      <p style={{ marginTop: 10, fontSize: 12, color: "var(--ink-secondary)" }}>
         Each tab shows the most recent events for that category. Sign-in
         entries reflect each member&apos;s most recent visit.
       </p>

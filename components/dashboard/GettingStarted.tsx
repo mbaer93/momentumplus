@@ -160,7 +160,7 @@ export function GettingStarted({
         <h3 style={{ fontSize: 15 }}>
           Getting started{" "}
           <span
-            style={{ fontSize: 12, color: "var(--mid-gray)", fontWeight: 400 }}
+            style={{ fontSize: 12, color: "var(--ink-secondary)", fontWeight: 400 }}
           >
             {doneCount} of {STEPS.length} done
           </span>
@@ -176,7 +176,7 @@ export function GettingStarted({
             border: "none",
             cursor: "pointer",
             fontSize: 12,
-            color: "var(--mid-gray)",
+            color: "var(--ink-secondary)",
             textDecoration: "underline",
             padding: 0,
           }}
@@ -206,7 +206,7 @@ export function GettingStarted({
                   fontSize: 13.5,
                   fontWeight: active ? 600 : 500,
                   textDecoration: done ? "line-through" : "none",
-                  color: done ? "var(--mid-gray)" : "inherit",
+                  color: done ? "var(--ink-secondary)" : "inherit",
                 }}
               >
                 {step.title}
@@ -216,7 +216,7 @@ export function GettingStarted({
                   <p
                     style={{
                       fontSize: 12.5,
-                      color: "var(--mid-gray)",
+                      color: "var(--ink-secondary)",
                       margin: "4px 0 10px",
                       lineHeight: 1.55,
                       maxWidth: 560,

@@ -169,7 +169,7 @@ export function SpeakerStudio({
               <div style={{ fontSize: 26, fontWeight: 600, color: "var(--navy)" }}>
                 {monthCard.memberCount.toLocaleString("en-US")}
               </div>
-              <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+              <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                 Members on the platform
                 {monthCard.inProgress ? " so far this month" : " in your month"}
               </div>
@@ -179,14 +179,14 @@ export function SpeakerStudio({
                 <div style={{ fontSize: 26, fontWeight: 600, color: "var(--gold)" }}>
                   {monthCard.earningsLabel}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                   Your earnings — 15% of this month&apos;s membership revenue
                   {monthCard.inProgress ? " (still updating)" : ""}
                 </div>
               </div>
             )}
           </div>
-          <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 10 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 10 }}>
             {monthCard.note}
           </div>
         </div>
@@ -198,7 +198,7 @@ export function SpeakerStudio({
           <label style={{ fontSize: 13 }}>Your sessions</label>
         </div>
         {sessions.length === 0 && (
-          <div style={{ fontSize: 13, color: "var(--mid-gray)" }}>
+          <div style={{ fontSize: 13, color: "var(--ink-secondary)" }}>
             No sessions assigned yet — the Momentum+ team schedules these with
             you.
           </div>
@@ -214,7 +214,7 @@ export function SpeakerStudio({
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <div style={{ flex: 1, minWidth: 220 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{s.title}</div>
-                <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                   {whenLabel(s.startsAt)} ET · {s.enrolled} enrolled ·{" "}
                   <span style={{ textTransform: "capitalize" }}>{s.status}</span>
                 </div>
@@ -250,7 +250,7 @@ export function SpeakerStudio({
 
             {resourcesFor === s.id && (
               <div style={{ marginTop: 12, background: "var(--row-alt)", borderRadius: 8, padding: 14 }}>
-                <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+                <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
                   Materials members see on the session page and inside the
                   live room (Resources tab) — a workbook, slides, or a link.
                 </div>
@@ -261,7 +261,7 @@ export function SpeakerStudio({
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{r.name}</div>
-                      <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>{r.type}</div>
+                      <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>{r.type}</div>
                     </div>
                     <button
                       type="button"
@@ -341,7 +341,7 @@ export function SpeakerStudio({
 
             {noticeFor === s.id && (
               <div style={{ marginTop: 12, background: "var(--row-alt)", borderRadius: 8, padding: 14 }}>
-                <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+                <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
                   Goes by email to all {s.enrolled} enrolled member
                   {s.enrolled === 1 ? "" : "s"}. You won&apos;t see their
                   addresses — Momentum+ delivers it for you. Attach a document
@@ -599,7 +599,7 @@ export function SpeakerStudio({
             </button>
           </div>
           {!resource.title && (
-            <p style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: "var(--ink-secondary)", marginTop: 4 }}>
               Save your resource page first — the logo attaches to it.
             </p>
           )}
@@ -622,7 +622,7 @@ export function SpeakerStudio({
           <label style={{ fontSize: 13 }}>Your library items</label>
         </div>
         {videos.length === 0 && (
-          <div style={{ fontSize: 13, color: "var(--mid-gray)" }}>
+          <div style={{ fontSize: 13, color: "var(--ink-secondary)" }}>
             Recordings of your sessions appear here once the team publishes
             them.
           </div>

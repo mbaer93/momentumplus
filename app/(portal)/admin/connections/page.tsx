@@ -84,13 +84,13 @@ function ConnectionCard({
         >
           <div>
             <span style={{ fontWeight: 600, fontSize: 14 }}>{title}</span>
-            <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: "var(--ink-secondary)", marginTop: 2 }}>
               {powers}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <StatusChip connected={connected} optional={optional} />
-            <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+            <span style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
               Click to {connected ? "review" : "set up"}
             </span>
           </div>
@@ -241,7 +241,7 @@ export default async function AdminConnectionsPage() {
             )}
             optional
           >
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)", lineHeight: 1.7 }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", lineHeight: 1.7 }}>
               1. In Vercel add <code>MOMENTUM_BRIDGE_KEY</code> (any long
               random string; the older <code>ZAPIER_WEBHOOK_SECRET</code> also
               still works) and Redeploy — the TSLS app uses the same value as
@@ -260,7 +260,7 @@ export default async function AdminConnectionsPage() {
             connected={isSheetsConfigured()}
             optional
           >
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)", lineHeight: 1.7 }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", lineHeight: 1.7 }}>
               Google Cloud service account with Sheets read access; share the
               registration sheet with its email. In Vercel add{" "}
               <code>GOOGLE_SERVICE_ACCOUNT_EMAIL</code>,{" "}
@@ -346,7 +346,7 @@ export default async function AdminConnectionsPage() {
                 <div>
                   <strong style={{ fontSize: 13.5 }}>{r.name}</strong>
                   <div style={{ fontSize: 13 }}>{r.what}</div>
-                  <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>{r.note}</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>{r.note}</div>
                 </div>
               </div>
             ))}
@@ -369,7 +369,7 @@ export default async function AdminConnectionsPage() {
           </div>
           <div className="card" style={{ padding: 0, maxWidth: 860 }}>
             {!healthReport ? (
-              <div style={{ fontSize: 13, color: "var(--mid-gray)", padding: "12px 18px" }}>
+              <div style={{ fontSize: 13, color: "var(--ink-secondary)", padding: "12px 18px" }}>
                 No report yet — run the checks now, or wait for the first
                 6-hour cycle after this deploy.
               </div>
@@ -390,7 +390,7 @@ export default async function AdminConnectionsPage() {
                       style={{
                         minWidth: 96,
                         color: c.skipped
-                          ? "var(--mid-gray)"
+                          ? "var(--ink-secondary)"
                           : c.ok
                             ? "var(--accent-green)"
                             : "#c0392b",
@@ -401,7 +401,7 @@ export default async function AdminConnectionsPage() {
                     </strong>
                     <div>
                       <strong style={{ fontSize: 13.5 }}>{c.name}</strong>
-                      <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                      <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                         {c.note}
                       </div>
                     </div>
@@ -410,7 +410,7 @@ export default async function AdminConnectionsPage() {
                 <div
                   style={{
                     fontSize: 12,
-                    color: "var(--mid-gray)",
+                    color: "var(--ink-secondary)",
                     padding: "10px 18px",
                     borderTop: "1px solid var(--warm-gray)",
                   }}
@@ -435,7 +435,7 @@ export default async function AdminConnectionsPage() {
           </div>
           <div className="card" style={{ padding: "12px 18px", maxWidth: 860 }}>
             {Object.keys(cronHealth).length === 0 ? (
-              <div style={{ fontSize: 13, color: "var(--mid-gray)" }}>
+              <div style={{ fontSize: 13, color: "var(--ink-secondary)" }}>
                 No runs recorded yet — each cron appears here after its first
                 successful run. If this stays empty for a day, check that{" "}
                 <code>CRON_SECRET</code> is set and the Vercel cron schedule is
@@ -457,7 +457,7 @@ export default async function AdminConnectionsPage() {
                     }}
                   >
                     <span style={{ fontWeight: 600 }}>{name}</span>
-                    <span style={{ color: "var(--mid-gray)" }}>
+                    <span style={{ color: "var(--ink-secondary)" }}>
                       {new Date(run.at).toLocaleString("en-US", {
                         month: "short",
                         day: "numeric",

@@ -580,7 +580,7 @@ export function CommunityView({
           </button>
         )}
         {!preview && !live && (
-          <div style={{ padding: "4px 16px", fontSize: 12, color: "var(--mid-gray)" }}>
+          <div style={{ padding: "4px 16px", fontSize: 12, color: "var(--ink-secondary)" }}>
             Available when chat goes live
           </div>
         )}
@@ -655,7 +655,7 @@ export function CommunityView({
               <div style={{ fontSize: 15, fontWeight: 600 }}>
                 #{active.name} is for {active.lockLabel ?? "upgraded"} members
               </div>
-              <div style={{ fontSize: 13, color: "var(--mid-gray)", maxWidth: 380 }}>
+              <div style={{ fontSize: 13, color: "var(--ink-secondary)", maxWidth: 380 }}>
                 {active.description}
               </div>
               <Link
@@ -667,7 +667,7 @@ export function CommunityView({
               </Link>
             </div>
           ) : messages.length === 0 ? (
-            <div style={{ color: "var(--mid-gray)", fontSize: 13 }}>
+            <div style={{ color: "var(--ink-secondary)", fontSize: 13 }}>
               {activeDm
                 ? `This is the very start of your conversation with ${activeDm.otherName}.`
                 : "No messages here yet — start the conversation."}
@@ -773,7 +773,7 @@ export function CommunityView({
                 </option>
               ))}
             </select>
-            <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+            <span style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
               They&apos;ll get a notification and an email that you asked.
             </span>
           </div>
@@ -846,7 +846,7 @@ export function CommunityView({
             Online Now{preview ? ` (${onlineMembers.filter((m) => m.online).length})` : ""}
           </div>
           {!preview && (
-            <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+            <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
               Presence appears when chat goes live.
             </div>
           )}
@@ -858,7 +858,7 @@ export function CommunityView({
               />
               <span
                 className="online-name"
-                style={m.online ? undefined : { color: "var(--mid-gray)" }}
+                style={m.online ? undefined : { color: "var(--ink-secondary)" }}
               >
                 {m.name}
               </span>

@@ -51,6 +51,7 @@ const CRON_EXPECTATIONS: CronExpectations = {
   "monthly-report": 44640,
   "gift-activate": 1440,
   health: 360,
+  podcast: 360,
 };
 
 function dbReady(): boolean {

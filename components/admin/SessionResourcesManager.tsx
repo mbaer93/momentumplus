@@ -45,7 +45,7 @@ export function SessionResourcesManager({
     <div className="admin-card" style={{ marginTop: 24 }}>
       <div className="admin-field" style={{ marginBottom: 6 }}>
         <label style={{ fontSize: 13 }}>Session resources</label>
-        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", margin: "4px 0 0" }}>
+        <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", margin: "4px 0 0" }}>
           Shown to members on the session page and inside the live room
           (Resources tab). Add a link, or upload a PDF, document, slides,
           image, or MP4.
@@ -53,7 +53,7 @@ export function SessionResourcesManager({
       </div>
 
       {initial.length === 0 && (
-        <div style={{ fontSize: 13, color: "var(--mid-gray)", padding: "8px 0" }}>
+        <div style={{ fontSize: 13, color: "var(--ink-secondary)", padding: "8px 0" }}>
           No resources yet.
         </div>
       )}
@@ -70,7 +70,7 @@ export function SessionResourcesManager({
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13.5, fontWeight: 600 }}>{r.name}</div>
-            <div style={{ fontSize: 12, color: "var(--mid-gray)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 12, color: "var(--ink-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {r.type} · {r.url}
             </div>
           </div>

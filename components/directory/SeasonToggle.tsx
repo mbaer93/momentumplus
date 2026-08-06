@@ -27,7 +27,7 @@ export function SeasonToggle({
     borderRadius: 4,
     textDecoration: "none",
     border: `1px solid ${active ? "var(--gold)" : "var(--border)"}`,
-    color: active ? "var(--gold)" : "var(--mid-gray)",
+    color: active ? "var(--gold)" : "var(--ink-secondary)",
     background: active ? "rgba(184, 150, 90, 0.08)" : "transparent",
   });
   return (
@@ -47,7 +47,7 @@ export function SeasonToggle({
         Next season
       </Link>
       {next && (
-        <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+        <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
           Previewing {nextLabel} — members see this lineup when the new season opens.
         </span>
       )}

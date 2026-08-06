@@ -18,7 +18,9 @@ export interface JoinResult {
   ok: boolean;
   url?: string;
   message?: string;
-  existingAccount?: boolean;
+  /** Show a "Log in" link with the message. Deliberately NOT named or
+      worded as "account exists" — see the enumeration note below. */
+  tryLogin?: boolean;
 }
 
 export async function startPublicCheckout(input: {
@@ -66,11 +68,16 @@ export async function startPublicCheckout(input: {
     .ilike("email", emailPattern(email))
     .maybeSingle();
   if (existing) {
+    // Neutral copy (audit P1-12): the old "You already have an account"
+    // reply was a yes/no oracle for whether any email is registered here.
+    // One account per email still blocks the checkout, but the response no
+    // longer CONFIRMS the account exists — it reads the same as any
+    // can't-proceed state and offers login as one path forward.
     return {
       ok: false,
-      existingAccount: true,
+      tryLogin: true,
       message:
-        "You already have a Momentum+ account. Log in and manage your plan from your Profile.",
+        "We couldn't start checkout with that email. If you already have a Momentum+ account, log in and manage your plan from your Profile; otherwise contact the TSLS team and we'll get you set up.",
     };
   }
 
@@ -101,6 +108,11 @@ export async function startPublicCheckout(input: {
         "metadata[plan]": plan,
         ...(ref ? { "metadata[referral_code]": ref } : {}),
         "subscription_data[metadata][plan]": plan,
+        // Session metadata dies with the checkout session; the SUBSCRIPTION
+        // carries this email for the life of the plan so the webhook's
+        // missed-checkout heal can find the member even when the
+        // checkout.session.completed event itself was lost (audit P1-8).
+        "subscription_data[metadata][signup_email]": email,
         allow_promotion_codes: true,
       },
     );

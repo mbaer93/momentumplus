@@ -114,7 +114,7 @@ export function VideoUploader({ muxConnected }: { muxConnected: boolean }) {
         <label style={{ fontSize: 13 }}>Upload a video</label>
       </div>
       {!muxConnected && (
-        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 8 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 8 }}>
           Connect Mux first (Admin → Connections) — then videos upload right
           here, no Mux dashboard needed.
         </div>
