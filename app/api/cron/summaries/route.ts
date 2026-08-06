@@ -274,6 +274,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Heartbeat for Admin → Connections. Only the POST (admin regenerate)
+  // recorded one before, so the hourly cron could die invisibly (audit
+  // P1-11).
+  await recordCronRun("summaries");
   return NextResponse.json({
     ok: true,
     anthropicConfigured: anthropicReady,

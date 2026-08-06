@@ -211,7 +211,7 @@ export function SponsorStudioView({
                     style={{ maxHeight: 40, maxWidth: 140, objectFit: "contain" }}
                   />
                 ) : (
-                  <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                  <span style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
                     No logo yet — your page shows a text placeholder until you
                     add one.
                   </span>
@@ -254,7 +254,7 @@ export function SponsorStudioView({
                     style={{ maxHeight: 60, maxWidth: 140, objectFit: "contain" }}
                   />
                 ) : (
-                  <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                  <span style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
                     No ad artwork yet — your tier includes member-page ad
                     placements, activated by the Momentum+ team once artwork
                     is up.
@@ -299,7 +299,7 @@ export function SponsorStudioView({
       {/* ---- Team ---- */}
       <div className="card" style={{ padding: 20, marginBottom: 16 }}>
         <h3 style={{ fontSize: 15, marginBottom: 4 }}>Your team</h3>
-        <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 12 }}>
+        <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 12 }}>
           Managers can edit this page. Team members are tied to your
           sponsorship but can&apos;t make changes.
         </p>
@@ -320,7 +320,7 @@ export function SponsorStudioView({
                 {s.name || s.email}
                 {s.profileId === viewerProfileId ? " (you)" : ""}
               </div>
-              <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+              <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                 {s.email}
               </div>
             </div>
@@ -351,7 +351,7 @@ export function SponsorStudioView({
               </button>
             )}
             {isOwner && s.role === "member" && !s.regularMember && (
-              <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+              <span style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
                 Needs a regular membership to co-manage
               </span>
             )}
@@ -378,7 +378,7 @@ export function SponsorStudioView({
                     </option>
                   ))}
               </select>
-              <span style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+              <span style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
                 Ownership can only pass to a current manager — promote your
                 successor first.
               </span>
@@ -409,7 +409,7 @@ export function SponsorStudioView({
       {isOwner && proTicketAllotment > 0 && (
         <div className="card" style={{ padding: 20, marginBottom: 16 }}>
           <h3 style={{ fontSize: 15, marginBottom: 4 }}>Momentum+ Pro tickets</h3>
-          <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 12 }}>
+          <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 12 }}>
             The Momentum+ team has granted your sponsorship {proTicketAllotment}{" "}
             full Momentum+ Pro membership{proTicketAllotment === 1 ? "" : "s"} —
             one year of everything Pro includes, free, for people you choose.{" "}
@@ -448,7 +448,7 @@ export function SponsorStudioView({
               </div>
             </form>
           ) : (
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
               All Pro tickets are in use.
             </div>
           )}
@@ -459,7 +459,7 @@ export function SponsorStudioView({
       {isOwner && (
         <div className="card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 4 }}>VIP access tickets</h3>
-          <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 12 }}>
+          <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 12 }}>
             Your {sponsor.tierLabel} package includes {ticketAllotment} VIP
             access ticket{ticketAllotment === 1 ? "" : "s"} — free 3-month VIP
             access for people you choose. {remaining} remaining. Each person
@@ -497,7 +497,7 @@ export function SponsorStudioView({
               </div>
             </form>
           ) : (
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
               {ticketAllotment === 0
                 ? "Your package doesn't include VIP tickets — talk to the Momentum+ team about upgrading."
                 : "All tickets are in use."}

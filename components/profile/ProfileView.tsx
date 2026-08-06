@@ -181,7 +181,7 @@ export function ProfileView({
             {form.phone && <div className="profile-info-item">{form.phone}</div>}
             <div
               className="profile-info-item"
-              style={{ color: "var(--mid-gray)", fontSize: 12 }}
+              style={{ color: "var(--ink-secondary)", fontSize: 12 }}
             >
               Member since {profile.memberSince}
             </div>
@@ -224,7 +224,7 @@ export function ProfileView({
                 isn't live, still show how to move up a plan. */}
             {!billing.enabled && !billing.isPro && (
               <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 8 }}>
+                <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 8 }}>
                   Momentum+ Pro unlocks Pro-only sessions, recordings, and
                   premium resources.
                 </div>
@@ -259,7 +259,7 @@ export function ProfileView({
               >
                 Refer a leader — earn a free month
               </div>
-              <div style={{ fontSize: 13, color: "var(--mid-gray)", marginBottom: 10 }}>
+              <div style={{ fontSize: 13, color: "var(--ink-secondary)", marginBottom: 10 }}>
                 Share your link. When someone joins with it, you get a month
                 free — every time.
                 {referral.count > 0 &&
@@ -335,7 +335,7 @@ export function ProfileView({
               </div>
               <div className="upcoming-list">
                 {sessions.length === 0 ? (
-                  <div style={{ padding: 16, color: "var(--mid-gray)", fontSize: 13 }}>
+                  <div style={{ padding: 16, color: "var(--ink-secondary)", fontSize: 13 }}>
                     You haven&apos;t enrolled in any sessions yet.{" "}
                     <Link href="/sessions" style={{ color: "var(--gold)" }}>
                       Browse sessions
@@ -362,7 +362,7 @@ export function ProfileView({
                               marginTop: 6,
                               fontSize: 12.5,
                               lineHeight: 1.5,
-                              color: "var(--mid-gray)",
+                              color: "var(--ink-secondary)",
                               display: "-webkit-box",
                               WebkitLineClamp: 2,
                               WebkitBoxOrient: "vertical",
@@ -402,7 +402,7 @@ export function ProfileView({
               </div>
               <div style={{ padding: 18 }}>
                 {certificates.length === 0 ? (
-                  <div style={{ color: "var(--mid-gray)", fontSize: 13 }}>
+                  <div style={{ color: "var(--ink-secondary)", fontSize: 13 }}>
                     Complete a course in{" "}
                     <Link href="/education" style={{ color: "var(--gold)" }}>
                       Education
@@ -425,7 +425,7 @@ export function ProfileView({
                     >
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>{c.title}</div>
-                        <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                        <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                           Completed {c.dateLabel}
                           {c.ceHours
                             ? ` · ${c.ceHours} CE hour${c.ceHours === 1 ? "" : "s"}`
@@ -612,7 +612,7 @@ export function ProfileView({
                       />
                     </div>
                   </div>
-                  <p style={{ fontSize: 12, color: "var(--mid-gray)", margin: "2px 0 10px" }}>
+                  <p style={{ fontSize: 12, color: "var(--ink-secondary)", margin: "2px 0 10px" }}>
                     {PASSWORD_HINT}
                   </p>
                   <button
@@ -663,7 +663,7 @@ export function ProfileView({
                               <td className="center">
                                 {def.inAppOnly || def.smsOnly ? (
                                   <span
-                                    style={{ color: "var(--mid-gray)", fontSize: 12 }}
+                                    style={{ color: "var(--ink-secondary)", fontSize: 12 }}
                                     title={
                                       def.smsOnly
                                         ? "Text message only"
@@ -691,7 +691,7 @@ export function ProfileView({
                               <td className="center">
                                 {def.inAppOnly ? (
                                   <span
-                                    style={{ color: "var(--mid-gray)", fontSize: 12 }}
+                                    style={{ color: "var(--ink-secondary)", fontSize: 12 }}
                                     title="Delivered in-app only"
                                   >
                                     —
@@ -709,7 +709,7 @@ export function ProfileView({
                               <td className="center">
                                 {def.smsOnly ? (
                                   <span
-                                    style={{ color: "var(--mid-gray)", fontSize: 12 }}
+                                    style={{ color: "var(--ink-secondary)", fontSize: 12 }}
                                     title="Text message only"
                                   >
                                     —
@@ -740,7 +740,7 @@ export function ProfileView({
                   >
                     {pending ? "Saving…" : "Save preferences"}
                   </button>
-                  <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                  <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                     SMS is strictly opt-in and requires a phone number.
                   </span>
                   {msg && (

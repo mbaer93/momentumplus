@@ -30,7 +30,7 @@ export function OrphanAccounts({ orphans }: { orphans: OrphanAccount[] }) {
       <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
         Accounts without a membership
       </div>
-      <p style={{ fontSize: 12.5, color: "var(--mid-gray)", margin: "0 0 10px" }}>
+      <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", margin: "0 0 10px" }}>
         These logins have no membership (interrupted signup or a deleted
         member re-created by a payment retry). They still reserve their email
         — new signups with it are told an account exists. Grant them a
@@ -56,7 +56,7 @@ export function OrphanAccounts({ orphans }: { orphans: OrphanAccount[] }) {
         >
           <div style={{ fontSize: 13 }}>
             <strong>{o.name || "—"}</strong>{" "}
-            <span style={{ color: "var(--mid-gray)" }}>
+            <span style={{ color: "var(--ink-secondary)" }}>
               <BreakableEmail email={o.email} />
             </span>
           </div>

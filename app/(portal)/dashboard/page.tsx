@@ -294,7 +294,7 @@ export default async function DashboardPage() {
       ) : (
         <div className="next-up-banner">
           <div>
-            <div className="next-up-label" style={{ color: "var(--mid-gray)" }}>
+            <div className="next-up-label" style={{ color: "var(--ink-secondary)" }}>
               Next Session
             </div>
             <div className="next-up-title">Nothing scheduled yet</div>
@@ -406,7 +406,7 @@ export default async function DashboardPage() {
           </div>
           <div className="upcoming-list">
             {upcoming.length === 0 ? (
-              <div style={{ padding: 16, fontSize: 13, color: "var(--mid-gray)" }}>
+              <div style={{ padding: 16, fontSize: 13, color: "var(--ink-secondary)" }}>
                 No sessions on the calendar yet.
               </div>
             ) : (
@@ -468,7 +468,7 @@ export default async function DashboardPage() {
                 </div>
               ))
             ) : (
-              <div style={{ padding: 16, fontSize: 13, color: "var(--mid-gray)" }}>
+              <div style={{ padding: 16, fontSize: 13, color: "var(--ink-secondary)" }}>
                 <Link href="/community" style={{ color: "var(--gold)" }}>
                   Open the community
                 </Link>{" "}

@@ -65,13 +65,31 @@ export async function POST(req: NextRequest) {
   const admin = createServiceClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("id")
+    .select("id, admin_role, memberships ( tier, status )")
     .ilike("email", emailPattern(email))
     .maybeSingle();
   if (!profile) {
     return NextResponse.json(
       { ok: false, error: "No Momentum+ account for that email." },
       { status: 404 },
+    );
+  }
+
+  // Never mint a login link for an admin account (mirrors getLoginLink):
+  // a compromised TSLS deployment or leaked handoff secret must not be
+  // able to escalate into a Momentum+ admin session. Admins cross over by
+  // signing in normally.
+  const targetIsAdmin =
+    profile.admin_role != null ||
+    (
+      profile as unknown as {
+        memberships?: { tier: string; status: string }[];
+      }
+    ).memberships?.some((m) => m.tier === "admin" && m.status === "active");
+  if (targetIsAdmin) {
+    return NextResponse.json(
+      { ok: false, error: "SSO handoff is not available for admin accounts." },
+      { status: 403 },
     );
   }
 

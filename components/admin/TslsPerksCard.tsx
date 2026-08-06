@@ -35,7 +35,7 @@ export function TslsPerksCard({ initial }: { initial: TslsPerks }) {
   return (
     <div className="card" style={{ padding: 20, marginBottom: 18 }}>
       <h3 style={{ marginTop: 0 }}>TSLS ticket perk</h3>
-      <p style={{ fontSize: 13, color: "var(--mid-gray)", marginTop: 4 }}>
+      <p style={{ fontSize: 13, color: "var(--ink-secondary)", marginTop: 4 }}>
         A dashboard card offering members a discount on next year&apos;s
         Tri-State Leadership Summit tickets. Members see it only while
         it&apos;s turned on.

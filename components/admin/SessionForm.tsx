@@ -179,7 +179,7 @@ export function SessionForm({
           <option value="aspire">Aspire2Achieve Growth (own tab)</option>
         </select>
         {values.program === "addon" && (
-          <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 4 }}>
             Bonus Sessions are speaker-led extras (e.g. a monthly AI-in-
             business series). They appear on the Sessions tab and calendar
             with a Bonus badge, members enroll normally, and they can be
@@ -187,7 +187,7 @@ export function SessionForm({
           </div>
         )}
         {values.program === "rooted_focus" && (
-          <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 4 }}>
             Rooted Focus sessions show on the Rooted Focus tab and the
             calendar — never in the library, and no resources or AI summary.
             Enrolling adds the whole recurring series to a member&apos;s
@@ -214,7 +214,7 @@ export function SessionForm({
           {values.restricted && (
             <>
               <div
-                style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}
+                style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 4 }}
               >
                 Only the members picked here can see this session exists —
                 the A2A tab, calendar, and reminders all stay silent for
@@ -292,7 +292,7 @@ export function SessionForm({
               </option>
             ))}
           </select>
-          <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 4 }}>
             Drop-in sessions are hosted by the SLC team. Any admin can start
             the Zoom meeting as host from the session page.
           </div>
@@ -313,7 +313,7 @@ export function SessionForm({
                 </option>
               ))}
             </select>
-            <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+            <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 4 }}>
               Speakers are managed in Admin → Speakers; linking one shows the
               session on their profile.
             </div>
@@ -330,7 +330,7 @@ export function SessionForm({
               onChange={(e) => set("hostName", e.target.value)}
               placeholder="e.g. Sierra Collins"
             />
-            <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+            <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 4 }}>
               Shown as the session leader when no speaker is linked. Admins can
               always start the Zoom meeting as host from the session page.
             </div>

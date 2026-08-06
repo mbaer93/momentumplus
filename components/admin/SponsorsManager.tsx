@@ -223,7 +223,7 @@ function SponsorFields({
           Show in the sponsor side panel
         </label>
       ) : (
-        <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+        <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
           Side-panel ads are reserved for Momentum+ Sponsor, Title, and
           Platinum tiers — this sponsor appears on the Sponsors tab.
         </div>
@@ -400,7 +400,7 @@ export function SponsorsManager({
         {/* Two graphics: logo (profile + cards) and the
             left-panel sidebar ad creative. */}
         <div className="admin-form-actions" style={{ marginTop: 10 }}>
-          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
             Logo — sponsor profile and cards; also the
             left-panel fallback when no dedicated presented-by
             logo is uploaded (PNG/JPG/SVG/WebP, &lt;2 MB):
@@ -423,7 +423,7 @@ export function SponsorsManager({
           </button>
         </div>
         <div className="admin-form-actions" style={{ marginTop: 6 }}>
-          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
             Ad graphic — shown on the sponsor&rsquo;s card in
             the right-hand rail (roughly 400×300, &lt;2 MB):
           </span>
@@ -478,7 +478,7 @@ export function SponsorsManager({
             </label>
           </div>
           {editSeed.seats.length === 0 && (
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
               No members linked yet.
             </div>
           )}
@@ -498,7 +498,7 @@ export function SponsorsManager({
                 {seat.name && (
                   <span
                     style={{
-                      color: "var(--mid-gray)",
+                      color: "var(--ink-secondary)",
                       marginLeft: 8,
                       fontSize: 12,
                     }}
@@ -632,7 +632,7 @@ export function SponsorsManager({
         <div className="admin-field" style={{ marginBottom: 4 }}>
           <label style={{ fontSize: 13 }}>Invite a sponsor</label>
         </div>
-        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
           Enter the sponsor representative&apos;s email and pick their tier.
           They get an email that walks them through adding the business and
           their own details — no data entry on your side. The rep receives
@@ -726,7 +726,7 @@ export function SponsorsManager({
           </div>
         )}
         {pendingInvites.length > 0 && (
-          <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--mid-gray)" }}>
+          <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--ink-secondary)" }}>
             <div style={{ marginBottom: 4 }}>Waiting on:</div>
             {pendingInvites.map((i) => (
               <div
@@ -774,7 +774,7 @@ export function SponsorsManager({
             &ldquo;Presented by&rdquo; logo — left panel
           </label>
         </div>
-        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
           A separate logo sized for the slot under &ldquo;Presented by&rdquo; in
           the left navigation. It belongs to the current Momentum+ Sponsor (one
           at a time) and replaces whatever is there. It displays{" "}
@@ -837,7 +837,7 @@ export function SponsorsManager({
         <div className="admin-field" style={{ marginBottom: 4 }}>
           <label style={{ fontSize: 13 }}>Logo cleanup</label>
         </div>
-        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
           Logos with empty margins baked into the file render small. Trim
           crops a <strong>copy</strong> of each logo tight to the artwork —
           the uploaded original is never modified, every trimmed copy is
@@ -925,7 +925,7 @@ export function SponsorsManager({
               {prospects.length === 1 ? "" : "s"}
             </label>
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+          <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
             From the TSLS sponsor interest form. Hidden from members and never
             emailed. <strong>Confirm</strong> makes one a real sponsor on the
             season clock (confirmed April–September: live to members right
@@ -950,7 +950,7 @@ export function SponsorsManager({
             >
               {pending ? "Working…" : "Pull logos & websites from the form"}
             </button>
-            <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+            <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
               Uses the files they uploaded with their submission. PDF/EPS
               uploads can&apos;t become logos automatically — those get
               listed so you can convert them.
@@ -982,7 +982,7 @@ export function SponsorsManager({
                     <td>
                       <div className="admin-row-title">{p.name}</div>
                       {p.website && (
-                        <div style={{ fontSize: 11.5, color: "var(--mid-gray)" }}>
+                        <div style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
                           {p.website.replace(/^https?:\/\//i, "")}
                         </div>
                       )}
@@ -991,12 +991,12 @@ export function SponsorsManager({
                     <td style={{ fontSize: 12.5 }}>
                       <div>{p.contactName}</div>
                       {p.contactEmail && (
-                        <div style={{ color: "var(--mid-gray)" }}>
+                        <div style={{ color: "var(--ink-secondary)" }}>
                           {p.contactEmail}
                         </div>
                       )}
                       {p.contactPhone && (
-                        <div style={{ color: "var(--mid-gray)" }}>
+                        <div style={{ color: "var(--ink-secondary)" }}>
                           {p.contactPhone}
                         </div>
                       )}
@@ -1004,7 +1004,7 @@ export function SponsorsManager({
                     <td
                       style={{
                         fontSize: 12,
-                        color: "var(--mid-gray)",
+                        color: "var(--ink-secondary)",
                         maxWidth: 340,
                         whiteSpace: "pre-line",
                       }}
@@ -1083,7 +1083,7 @@ export function SponsorsManager({
         <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
           2026 packages — pricing &amp; availability
         </summary>
-        <div style={{ fontSize: 12.5, color: "var(--mid-gray)", margin: "8px 0 10px" }}>
+        <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", margin: "8px 0 10px" }}>
           From the 2026 sponsorship + media partnership sheets. “Sold” counts
           confirmed sponsors on the roster; “interest” counts prospects above.
           Media partnerships are in-kind (promotion in lieu of payment).
@@ -1151,7 +1151,7 @@ export function SponsorsManager({
                       {interest > 0 ? ` / ${interest} interested` : ""}
                     </td>
                     <td>{p.vipTickets}</td>
-                    <td style={{ fontSize: 12, color: "var(--mid-gray)", maxWidth: 320 }}>
+                    <td style={{ fontSize: 12, color: "var(--ink-secondary)", maxWidth: 320 }}>
                       {p.highlights.join(" · ")}
                     </td>
                   </tr>
@@ -1160,7 +1160,7 @@ export function SponsorsManager({
             </tbody>
           </table>
         </div>
-        <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 8 }}>
+        <div style={{ fontSize: 12, color: "var(--ink-secondary)", marginTop: 8 }}>
           Dining Partner tiers (free listing / Featured $250 / Official
           Post-Summit Gathering $500) live on the TSLS app under Lunch
           Downtown — those businesses are restaurants, not sponsors.
@@ -1221,7 +1221,7 @@ export function SponsorsManager({
                 <tr>
                   <td>
                     <div className="admin-row-title">{s.name}</div>
-                    <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                       {s.tagline}
                     </div>
                   </td>
@@ -1233,12 +1233,12 @@ export function SponsorsManager({
                         style={{ maxHeight: 32, maxWidth: 90, objectFit: "contain" }}
                       />
                     ) : (
-                      <span style={{ fontSize: 11, color: "var(--mid-gray)" }}>
+                      <span style={{ fontSize: 11, color: "var(--ink-secondary)" }}>
                         None
                       </span>
                     )}
                     {s.sidebarAdUrl && (
-                      <div style={{ fontSize: 10, color: "var(--mid-gray)" }}>
+                      <div style={{ fontSize: 10, color: "var(--ink-secondary)" }}>
                         + ad graphic
                       </div>
                     )}
@@ -1268,7 +1268,7 @@ export function SponsorsManager({
                       />
                     ) : (
                       <span
-                        style={{ fontSize: 11, color: "var(--mid-gray)" }}
+                        style={{ fontSize: 11, color: "var(--ink-secondary)" }}
                         title="Rail ads are reserved for Momentum+ Sponsor, Title, and Platinum tiers."
                       >
                         —
@@ -1382,7 +1382,7 @@ export function SponsorsManager({
                   <tr key={s.id}>
                     <td className="admin-row-title">{s.name}</td>
                     <td>{sponsorTierLabel(s.tier)}</td>
-                    <td style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                    <td style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                       {s.archivedAt
                         ? `Archived ${new Date(s.archivedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
                         : s.expiresAt

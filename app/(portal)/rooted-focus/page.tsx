@@ -101,7 +101,7 @@ export default async function RootedFocusPage() {
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>
                 {i + 1}. {r.step}
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--mid-gray)", lineHeight: 1.5 }}>
+              <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", lineHeight: 1.5 }}>
                 {r.detail}
               </div>
             </div>

@@ -88,7 +88,7 @@ export default async function SponsorDetailPage(
               </p>
             ))
         ) : (
-          <p className="spk-bio" style={{ color: "var(--mid-gray)" }}>
+          <p className="spk-bio" style={{ color: "var(--ink-secondary)" }}>
             {sponsor.tagline ||
               `${sponsor.name} is a proud ${sponsorTierLabel(sponsor.tier)} of Momentum+.`}
           </p>

@@ -58,7 +58,7 @@ export function JoinForm({
           return;
         }
         setMsg(res.message ?? "Something went wrong — try again.");
-        setExisting(Boolean(res.existingAccount));
+        setExisting(Boolean(res.tryLogin));
       } catch {
         setMsg("Something went wrong — try again.");
       }

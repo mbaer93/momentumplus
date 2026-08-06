@@ -137,9 +137,19 @@ export async function GET(req: NextRequest) {
       html,
     });
 
-    // Journal even when GHL couldn't deliver (no contact id) — the in-app
-    // notice below still lands, and re-sending the same step daily would
-    // spam members the moment GHL connects.
+    // Advance the step only when the email was DELIVERED or the failure is
+    // permanent (no GHL contact / not configured / hard 4xx — retrying
+    // daily would spam the moment GHL connects, and the in-app notice
+    // below still lands). A transient failure (network, 429, 5xx) must NOT
+    // burn a warning: a week of GHL outages used to consume all three
+    // steps undelivered and then cut access unwarned (audit P1-7). Skip
+    // this member entirely — tomorrow's run retries the same step.
+    const transient =
+      !res.sent &&
+      (res.reason?.startsWith("network:") ||
+        /^GHL (429|5\d\d)/.test(res.reason ?? ""));
+    if (transient) continue;
+
     await admin.from("dunning_notices").upsert(
       { membership_id: m.id, step: nextStep },
       { onConflict: "membership_id,step" },

@@ -64,7 +64,7 @@ export function LessonList({
             justifyContent: "space-between",
             alignItems: "center",
             fontSize: 12,
-            color: "var(--mid-gray)",
+            color: "var(--ink-secondary)",
             marginBottom: 6,
             gap: 10,
             flexWrap: "wrap",
@@ -151,7 +151,7 @@ export function LessonList({
         );
       })}
       {lessons.length === 0 && (
-        <div style={{ padding: "14px 0 20px", color: "var(--mid-gray)", fontSize: 13 }}>
+        <div style={{ padding: "14px 0 20px", color: "var(--ink-secondary)", fontSize: 13 }}>
           Lessons are being added to this course.
         </div>
       )}

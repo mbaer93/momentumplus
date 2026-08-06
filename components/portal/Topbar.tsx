@@ -71,6 +71,16 @@ export function Topbar({
         />
       </form>
       <div ref={wrapRef} style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
+        {/* ≤640px the search box is dropped for space — this icon keeps
+            /search reachable on phones (audit P1-13). Hidden on desktop. */}
+        <Link
+          href="/search"
+          className="topbar-icon-btn topbar-search-link"
+          aria-label="Search Momentum+"
+          title="Search"
+        >
+          <SearchIcon size={16} />
+        </Link>
         <button
           className="topbar-icon-btn"
           aria-label="Notifications and upcoming sessions"

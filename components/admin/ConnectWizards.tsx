@@ -53,7 +53,7 @@ function Msg({ msg }: { msg: { text: string; ok: boolean } | null }) {
 
 const stepStyle: React.CSSProperties = {
   fontSize: 12.5,
-  color: "var(--mid-gray)",
+  color: "var(--ink-secondary)",
   margin: "6px 0 10px",
   lineHeight: 1.7,
 };

@@ -15,6 +15,13 @@
   --cream: #f8f6f1;
   --warm-gray: #ede9e3;
   --mid-gray: #b0a99e;
+  /* Contrast (audit P1-9): --mid-gray reads ~2.2:1 as text on white/cream —
+     fine as a border or on navy, failing WCAG AA as body text on light
+     surfaces. --ink-secondary is the same warm-gray ROLE at AA strength for
+     light backgrounds; --gold-text is gold dark enough for small text on
+     light surfaces (gold on navy and gold headings keep --gold). */
+  --ink-secondary: #6b6558;
+  --gold-text: #8a6f3d;
   --text: #1a2332;
   /* Dark body-text color used on light cards inside dark screens (landing
      pricing cards, join card, menus). Was referenced but never defined —
@@ -429,8 +436,11 @@
   color: var(--text);
   width: 100%;
 }
+/* Desktop has the full search box; the icon link only appears ≤640px. */
+.topbar-search-link { display: none; }
+
 .topbar-search input::placeholder {
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .topbar-icon-btn {
   width: 36px;
@@ -439,7 +449,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   background: none;
   border: none;
   cursor: pointer;
@@ -615,7 +625,7 @@
 }
 .next-up-meta {
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-top: 3px;
 }
 .next-up-meta span {
@@ -651,13 +661,13 @@
   border: 1px solid var(--warm-gray);
   font-size: 12px;
   font-weight: 500;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   background: var(--white);
   cursor: pointer;
   transition: all 0.15s;
 }
 .cal-btn:hover {
-  border-color: var(--mid-gray);
+  border-color: var(--ink-secondary);
   color: var(--text);
 }
 
@@ -710,7 +720,7 @@
 }
 .stat-lbl {
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-top: 3px;
 }
 .stat-sub {
@@ -819,12 +829,12 @@
 }
 .upcoming-speaker {
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-top: 2px;
 }
 .upcoming-time {
   font-size: 11px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   flex-shrink: 0;
 }
 .status-pill {
@@ -910,7 +920,7 @@
 }
 .activity-time {
   font-size: 11px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-top: 3px;
 }
 .activity-tag {
@@ -954,7 +964,7 @@
 }
 .admin-banner p {
   font-size: 12.5px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .admin-banner-actions {
   margin-left: auto;
@@ -1009,7 +1019,7 @@
 }
 .section-header p {
   font-size: 13px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-top: 6px;
 }
 
@@ -1020,7 +1030,7 @@
   background: var(--white);
   padding: 48px 32px;
   text-align: center;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   max-width: 640px;
 }
 .placeholder-icon {
@@ -1086,7 +1096,7 @@
   border-radius: 20px;
   border: 1px solid var(--warm-gray);
   font-size: 12.5px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   font-weight: 500;
   background: var(--white);
   cursor: pointer;
@@ -1113,7 +1123,7 @@
   background: var(--white);
   padding: 40px;
   text-align: center;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   font-size: 13.5px;
 }
 .session-card {
@@ -1185,7 +1195,7 @@
   align-items: center;
   gap: 5px;
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .session-meta-item strong { color: var(--text); font-weight: 500; }
 .session-card-footer {
@@ -1225,7 +1235,7 @@
   align-items: center;
   gap: 6px;
   font-size: 12.5px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-bottom: 16px;
 }
 .sess-back:hover { color: var(--gold); }
@@ -1284,7 +1294,7 @@
   padding: 9px 16px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   border: none;
   background: none;
   cursor: pointer;
@@ -1305,7 +1315,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-bottom: 8px;
 }
 .sess-objective {
@@ -1338,7 +1348,7 @@
   flex-shrink: 0;
 }
 .sess-speaker-mini-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
-.sess-speaker-mini-title { font-size: 12px; color: var(--mid-gray); margin-top: 2px; }
+.sess-speaker-mini-title { font-size: 12px; color: var(--ink-secondary); margin-top: 2px; }
 .sess-resource-item {
   display: flex;
   align-items: center;
@@ -1359,7 +1369,7 @@
   color: var(--gold);
 }
 .sess-resource-name { font-size: 13.5px; font-weight: 500; color: var(--text); }
-.sess-resource-type { font-size: 11px; color: var(--mid-gray); margin-top: 2px; }
+.sess-resource-type { font-size: 11px; color: var(--ink-secondary); margin-top: 2px; }
 .sess-resource-link {
   margin-left: auto;
   color: var(--gold);
@@ -1369,7 +1379,7 @@
   font-size: 12px;
   font-weight: 500;
 }
-.sess-empty-note { font-size: 13px; color: var(--mid-gray); padding: 8px 0; }
+.sess-empty-note { font-size: 13px; color: var(--ink-secondary); padding: 8px 0; }
 
 /* AI pane */
 .ai-header {
@@ -1389,7 +1399,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-bottom: 8px;
 }
 .ai-takeaway {
@@ -1458,7 +1468,7 @@
 .notes-status {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   min-height: 16px;
 }
 
@@ -1593,7 +1603,7 @@
   padding: 12px 8px;
   font-size: 12.5px;
   font-weight: 500;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   background: none;
   border: none;
   cursor: pointer;
@@ -1604,7 +1614,7 @@
 .live-pane { flex: 1; overflow-y: auto; padding: 16px; }
 .live-community-msg {
   font-size: 13px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   line-height: 1.6;
 }
 /* The Zoom web client must paint ABOVE all portal chrome (sidebar, topbar,
@@ -1630,7 +1640,9 @@
 .live-drawer-btn {
   position: fixed;
   top: 10px;
-  left: calc(50% - 240px);
+  /* max() keeps the button ON-SCREEN on phones: 50% - 240px goes negative
+     under ~480px wide, which used to push it out of reach entirely. */
+  left: max(10px, calc(50% - 240px));
   z-index: 2147483000;
   background: var(--gold);
   color: var(--navy);
@@ -1693,7 +1705,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   font-weight: 600;
   padding: 12px 16px;
   border-bottom: 1px solid var(--warm-gray);
@@ -1739,7 +1751,7 @@
   padding: 3px 8px;
   border-radius: 10px;
   background: var(--warm-gray);
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   /* A badge is one unbreakable unit — "INVITE / D" and "SUPER / ADMIN"
      stacking in tight table cells read as broken UI. */
   display: inline-block;
@@ -1770,7 +1782,7 @@
   color: var(--text);
   cursor: pointer;
 }
-.btn-mini:hover { border-color: var(--mid-gray); }
+.btn-mini:hover { border-color: var(--ink-secondary); }
 .btn-mini.danger { color: var(--accent-red); border-color: rgba(160, 64, 64, 0.3); }
 .btn-mini.danger:hover { background: rgba(160, 64, 64, 0.06); }
 
@@ -1854,7 +1866,7 @@
 }
 .renew-tagline {
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 28px;
@@ -1867,7 +1879,7 @@
 }
 .renew-sub {
   font-size: 14px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   max-width: 520px;
   margin: 0 auto 36px;
   line-height: 1.6;
@@ -1910,7 +1922,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-bottom: 10px;
 }
 .pricing-price {
@@ -1932,7 +1944,7 @@
 }
 .pricing-blurb {
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   line-height: 1.5;
   margin-top: 12px;
   flex: 1;
@@ -1943,7 +1955,7 @@
   justify-content: center;
   flex-wrap: wrap;
 }
-.renew-note { margin-top: 22px; font-size: 12px; color: var(--mid-gray); }
+.renew-note { margin-top: 22px; font-size: 12px; color: var(--ink-secondary); }
 .renew-note a { color: var(--gold-light); }
 
 /* ===== COMMUNITY / CHAT (Phase 4) ===== */
@@ -1967,7 +1979,7 @@
   padding: 16px 16px 10px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
@@ -2025,7 +2037,7 @@
   flex-shrink: 0;
 }
 .chat-topbar-name { font-size: 15px; font-weight: 600; color: var(--text); }
-.chat-topbar-desc { font-size: 12px; color: var(--mid-gray); }
+.chat-topbar-desc { font-size: 12px; color: var(--ink-secondary); }
 .chat-messages { flex: 1; overflow-y: auto; padding: 20px; }
 .msg-group { display: flex; gap: 12px; margin-bottom: 20px; }
 .msg-av {
@@ -2043,7 +2055,7 @@
 .msg-content { flex: 1; min-width: 0; }
 .msg-meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .msg-name { font-size: 14px; font-weight: 600; color: var(--text); }
-.msg-time { font-size: 11px; color: var(--mid-gray); }
+.msg-time { font-size: 11px; color: var(--ink-secondary); }
 .msg-you-tag {
   font-size: 11px;
   background: var(--gold-pale);
@@ -2064,7 +2076,7 @@
 .msg-delete-btn {
   border: none;
   background: none;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   font-size: 11px;
   cursor: pointer;
   padding: 0 4px;
@@ -2098,7 +2110,7 @@
   border: none;
 }
 .msg-reaction:hover { background: var(--gold-pale); }
-.msg-reaction span { font-size: 11px; color: var(--mid-gray); }
+.msg-reaction span { font-size: 11px; color: var(--ink-secondary); }
 .reaction-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .chat-input-area {
   padding: 12px 20px;
@@ -2121,9 +2133,9 @@
   font-size: 14px;
   color: var(--text);
 }
-.chat-input-box input::placeholder { color: var(--mid-gray); }
+.chat-input-box input::placeholder { color: var(--ink-secondary); }
 .chat-icon-btn {
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   transition: color 0.12s;
   display: flex;
   align-items: center;
@@ -2136,7 +2148,7 @@
 .chat-preview-note {
   margin: 0 20px 10px;
   font-size: 11.5px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   text-align: center;
 }
 .chat-sidebar-right {
@@ -2151,7 +2163,7 @@
 .chat-sidebar-title {
   font-size: 11px;
   font-weight: 600;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   margin-bottom: 10px;
@@ -2185,7 +2197,7 @@
 }
 .upcoming-mini .um-date { color: var(--gold); font-weight: 600; font-size: 11px; margin-bottom: 4px; }
 .upcoming-mini .um-title { font-weight: 600; }
-.upcoming-mini .um-meta { color: var(--mid-gray); margin-top: 2px; }
+.upcoming-mini .um-meta { color: var(--ink-secondary); margin-top: 2px; }
 @media (max-width: 1080px) {
   .chat-sidebar-right { display: none; }
 }
@@ -2237,7 +2249,7 @@
 .profile-stat { padding: 14px 20px; text-align: center; border-right: 1px solid var(--warm-gray); }
 .profile-stat:last-child { border-right: none; }
 .profile-stat-val { font-size: 20px; font-weight: 700; color: var(--text); }
-.profile-stat-lbl { font-size: 11px; color: var(--mid-gray); margin-top: 2px; }
+.profile-stat-lbl { font-size: 11px; color: var(--ink-secondary); margin-top: 2px; }
 .profile-info-card {
   background: var(--white);
   border: 1px solid var(--warm-gray);
@@ -2248,7 +2260,7 @@
 .profile-info-title {
   font-size: 12px;
   font-weight: 600;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 12px;
@@ -2261,10 +2273,10 @@
   color: var(--text);
   padding: 6px 0;
 }
-.profile-info-item svg { color: var(--mid-gray); flex-shrink: 0; }
+.profile-info-item svg { color: var(--ink-secondary); flex-shrink: 0; }
 .profile-kv { font-size: 13px; color: var(--text); padding: 6px 0; border-bottom: 1px solid var(--warm-gray); }
 .profile-kv:last-child { border-bottom: none; }
-.profile-kv .k { color: var(--mid-gray); font-size: 11px; margin-bottom: 2px; }
+.profile-kv .k { color: var(--ink-secondary); font-size: 11px; margin-bottom: 2px; }
 .profile-tabs {
   display: flex;
   gap: 4px;
@@ -2276,7 +2288,7 @@
   padding: 10px 18px;
   font-size: 13.5px;
   font-weight: 500;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   border: none;
   background: none;
   cursor: pointer;
@@ -2294,7 +2306,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   font-weight: 600;
   padding: 10px 14px;
   border-bottom: 1px solid var(--warm-gray);
@@ -2303,7 +2315,7 @@
 .prefs-table td { padding: 12px 14px; border-bottom: 1px solid var(--warm-gray); font-size: 13px; }
 .prefs-table tr:last-child td { border-bottom: none; }
 .pref-name { font-weight: 600; color: var(--text); }
-.pref-desc { font-size: 11.5px; color: var(--mid-gray); margin-top: 2px; }
+.pref-desc { font-size: 11.5px; color: var(--ink-secondary); margin-top: 2px; }
 .pref-toggle {
   appearance: none;
   width: 34px;
@@ -2331,7 +2343,7 @@
 .pref-toggle:checked { background: var(--gold); }
 .pref-toggle:checked::after { left: 16px; }
 .pref-toggle:disabled { opacity: 0.55; cursor: not-allowed; }
-.pref-locked-note { font-size: 10.5px; color: var(--mid-gray); }
+.pref-locked-note { font-size: 10.5px; color: var(--ink-secondary); }
 .prefs-save-row { display: flex; align-items: center; gap: 12px; padding: 14px; }
 
 /* ===== LIBRARY (Phase 5) ===== */
@@ -2433,7 +2445,7 @@
 .recording-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 .recording-meta { display: flex; gap: 10px; align-items: center; }
 .recording-speaker { font-size: 12px; color: var(--gold); }
-.recording-date { font-size: 11px; color: var(--mid-gray); margin-left: auto; }
+.recording-date { font-size: 11px; color: var(--ink-secondary); margin-left: auto; }
 
 /* Video detail */
 .video-detail-wrap { padding: 28px; max-width: 1080px; }
@@ -2449,11 +2461,11 @@
   margin-bottom: 20px;
 }
 .video-stage mux-player { width: 100%; height: 100%; }
-.video-stage-placeholder { text-align: center; color: var(--mid-gray); padding: 32px; max-width: 460px; }
+.video-stage-placeholder { text-align: center; color: var(--ink-secondary); padding: 32px; max-width: 460px; }
 .video-stage-placeholder h3 { font-family: var(--font-serif); color: var(--white); font-size: 20px; margin-bottom: 10px; }
 .video-stage-placeholder p { font-size: 13px; line-height: 1.6; }
 .video-detail-title { font-family: var(--font-serif); font-size: 24px; color: var(--text); margin-bottom: 6px; }
-.video-detail-meta { font-size: 13px; color: var(--mid-gray); margin-bottom: 20px; }
+.video-detail-meta { font-size: 13px; color: var(--ink-secondary); margin-bottom: 20px; }
 .video-detail-meta strong { color: var(--gold); font-weight: 600; }
 
 /* ===== SPEAKERS (Phase 6) ===== */
@@ -2491,14 +2503,14 @@
 }
 .speaker-card-body { padding: 32px 20px 18px; }
 .speaker-card-name { font-size: 15px; font-weight: 700; color: var(--text); }
-.speaker-card-title { font-size: 12px; color: var(--mid-gray); margin-top: 4px; line-height: 1.4; }
+.speaker-card-title { font-size: 12px; color: var(--ink-secondary); margin-top: 4px; line-height: 1.4; }
 .speaker-card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
 .tag-pill {
   font-size: 10.5px;
   padding: 3px 8px;
   border-radius: 10px;
   background: var(--warm-gray);
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   font-weight: 500;
 }
 .speaker-card-footer {
@@ -2508,7 +2520,7 @@
   align-items: center;
   justify-content: space-between;
 }
-.speaker-stat { font-size: 11px; color: var(--mid-gray); }
+.speaker-stat { font-size: 11px; color: var(--ink-secondary); }
 .speaker-stat strong { color: var(--text); font-weight: 600; }
 
 /* Speaker full profile */
@@ -2549,7 +2561,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-bottom: 10px;
 }
 
@@ -2598,14 +2610,14 @@
   margin-bottom: 5px;
 }
 .resource-title { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.35; }
-.resource-desc { font-size: 12px; color: var(--mid-gray); margin-top: 5px; line-height: 1.4; }
+.resource-desc { font-size: 12px; color: var(--ink-secondary); margin-top: 5px; line-height: 1.4; }
 .resource-meta { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .resource-tag {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 10px;
   background: var(--warm-gray);
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .resource-link {
   margin-left: auto;
@@ -2637,7 +2649,7 @@
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   padding-bottom: 8px;
   margin-bottom: 14px;
   border-bottom: 1px solid var(--gold);
@@ -2667,7 +2679,7 @@
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .sponsor-ad-logo {
   height: 64px;
@@ -2682,7 +2694,7 @@
 }
 .sponsor-ad-body { padding: 12px 14px 14px; flex: 1; display: flex; flex-direction: column; }
 .sponsor-ad-name { font-size: 12.5px; font-weight: 700; color: var(--text); line-height: 1.3; }
-.sponsor-ad-tagline { font-size: 11px; color: var(--mid-gray); margin-top: 3px; line-height: 1.4; }
+.sponsor-ad-tagline { font-size: 11px; color: var(--ink-secondary); margin-top: 3px; line-height: 1.4; }
 .sponsor-ad-offer { font-size: 11.5px; color: var(--text); line-height: 1.45; margin-top: 9px; }
 .sponsor-ad-link {
   margin-top: auto;
@@ -2751,7 +2763,7 @@
   width: 200px;
 }
 .rail-become-title { font-family: var(--font-serif); font-size: 14px; font-weight: 700; color: var(--text); }
-.rail-become-sub { font-size: 11px; color: var(--mid-gray); margin-top: 4px; line-height: 1.45; }
+.rail-become-sub { font-size: 11px; color: var(--ink-secondary); margin-top: 4px; line-height: 1.45; }
 .rail-become-link { display: inline-block; font-size: 11px; font-weight: 600; color: var(--gold); margin-top: 10px; }
 
 /* ===== PLANS & UPGRADES (/upgrade) ===== */
@@ -2902,7 +2914,7 @@
 }
 .sp-card-body { padding: 16px 18px 18px; flex: 1; display: flex; flex-direction: column; }
 .sp-card-name { font-size: 15px; font-weight: 700; color: var(--text); }
-.sp-card-desc { font-size: 12.5px; color: var(--mid-gray); line-height: 1.55; margin-top: 6px; }
+.sp-card-desc { font-size: 12.5px; color: var(--ink-secondary); line-height: 1.55; margin-top: 6px; }
 .sp-offer-box {
   background: var(--gold-pale);
   border: 1px solid rgba(184, 150, 90, 0.3);
@@ -2958,7 +2970,7 @@
   padding: 18px 20px;
 }
 .admin-stat-val { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
-.admin-stat-lbl { font-size: 12px; color: var(--mid-gray); margin-top: 5px; }
+.admin-stat-lbl { font-size: 12px; color: var(--ink-secondary); margin-top: 5px; }
 .admin-stat-sub { font-size: 11px; color: var(--purple); font-weight: 500; margin-top: 4px; }
 .admin-nav-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .admin-check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 0; }
@@ -2972,7 +2984,7 @@
   padding: 5px 12px;
   cursor: pointer;
   background: var(--white);
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   transition: all 0.12s;
 }
 .tier-chip.selected { border-color: var(--purple); color: var(--purple); background: rgba(92, 61, 122, 0.06); }
@@ -3059,13 +3071,13 @@ a.course-card:hover {
 }
 .course-desc {
   font-size: 13px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   line-height: 1.55;
   flex: 1;
 }
 .course-meta {
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .progress-track {
   height: 6px;
@@ -3096,7 +3108,7 @@ a.course-card:hover {
   justify-content: center;
   font-size: 12px;
   font-weight: 600;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -3106,7 +3118,7 @@ a.course-card:hover {
   color: var(--navy);
 }
 .lesson-title { font-size: 14.5px; font-weight: 600; }
-.lesson-summary { font-size: 12.5px; color: var(--mid-gray); margin-top: 2px; }
+.lesson-summary { font-size: 12.5px; color: var(--ink-secondary); margin-top: 2px; }
 .lesson-actions {
   display: flex;
   gap: 10px;
@@ -3152,7 +3164,7 @@ a.course-card:hover {
   width: 32px; height: 32px; border-radius: 8px;
   border: 1px solid var(--warm-gray);
   display: flex; align-items: center; justify-content: center;
-  color: var(--mid-gray); background: var(--white);
+  color: var(--ink-secondary); background: var(--white);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -3162,7 +3174,7 @@ a.course-card:hover {
   text-align: center; margin-bottom: 8px;
 }
 .cal-day-name {
-  font-size: 11px; font-weight: 600; color: var(--mid-gray);
+  font-size: 11px; font-weight: 600; color: var(--ink-secondary);
   text-transform: uppercase; letter-spacing: 0.05em;
   padding: 6px 0;
 }
@@ -3188,7 +3200,7 @@ a.course-card:hover {
   border-radius: 50%;
 }
 .cal-cell.today .cal-date { background: var(--gold); color: white; }
-.cal-cell.other-month .cal-date { color: var(--mid-gray); opacity: 0.5; }
+.cal-cell.other-month .cal-date { color: var(--ink-secondary); opacity: 0.5; }
 .cal-event {
   display: block; width: 100%; text-align: left;
   font-size: 10px; font-weight: 500; padding: 2px 5px;
@@ -3200,7 +3212,7 @@ a.course-card:hover {
 .cal-event.gold { background: var(--gold-pale); color: var(--gold); }
 .cal-event.green { background: rgba(58,112,85,0.12); color: var(--accent-green); }
 .cal-event.purple { background: rgba(92,61,122,0.14); color: var(--purple); }
-.cal-event.neutral { background: rgba(11,22,34,0.08); color: var(--mid-gray); }
+.cal-event.neutral { background: rgba(11,22,34,0.08); color: var(--ink-secondary); }
 .cal-event.cancelled { text-decoration: line-through; opacity: 0.55; }
 .cal-upcoming-title {
   font-size: 13px; font-weight: 600; color: var(--text);
@@ -3216,7 +3228,7 @@ a.course-card:hover {
 .cal-event-item:hover { border-color: var(--gold); }
 .cal-event-date { font-size: 11px; color: var(--gold); font-weight: 600; margin-bottom: 5px; }
 .cal-event-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
-.cal-event-speaker { font-size: 12px; color: var(--mid-gray); margin-top: 4px; }
+.cal-event-speaker { font-size: 12px; color: var(--ink-secondary); margin-top: 4px; }
 .cal-event-type {
   display: inline-block; font-size: 10px; font-weight: 600;
   padding: 2px 7px; border-radius: 8px; margin-top: 8px;
@@ -3251,7 +3263,7 @@ a.course-card:hover {
   font-size: 10.5px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-top: 6px;
 }
 .certificate-label {
@@ -3414,7 +3426,7 @@ a.course-card:hover {
   color: var(--cream);
   align-self: flex-end;
 }
-.help-typing { color: var(--mid-gray); font-style: italic; }
+.help-typing { color: var(--ink-secondary); font-style: italic; }
 .help-input-row {
   display: flex;
   gap: 8px;
@@ -3472,8 +3484,8 @@ a.course-card:hover {
 }
 .an-session[open] .an-session-summary::before { content: "▾"; }
 .an-session-title { font-weight: 600; font-size: 13.5px; flex: 1; }
-.an-session-meta { font-size: 12px; color: var(--mid-gray); white-space: nowrap; }
-.an-empty { padding: 6px 20px 10px; font-size: 12.5px; color: var(--mid-gray); }
+.an-session-meta { font-size: 12px; color: var(--ink-secondary); white-space: nowrap; }
+.an-empty { padding: 6px 20px 10px; font-size: 12.5px; color: var(--ink-secondary); }
 .an-table {
   width: 100%;
   border-collapse: collapse;
@@ -3485,7 +3497,7 @@ a.course-card:hover {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   font-weight: 600;
   padding: 6px 10px;
   border-bottom: 1px solid var(--warm-gray);
@@ -3495,7 +3507,7 @@ a.course-card:hover {
   border-bottom: 1px solid var(--cream);
 }
 .an-yes { color: var(--accent-green); font-weight: 600; }
-.an-no { color: var(--mid-gray); }
+.an-no { color: var(--ink-secondary); }
 
 /* ---- Add to Calendar dropdown ---- */
 .cal-add-wrap { position: relative; display: inline-block; }
@@ -3768,7 +3780,7 @@ a.course-card:hover {
   color: var(--navy);
   margin: 0 0 10px;
 }
-.join-sub { font-size: 13.5px; line-height: 1.6; color: var(--mid-gray); margin: 0 0 20px; }
+.join-sub { font-size: 13.5px; line-height: 1.6; color: var(--ink-secondary); margin: 0 0 20px; }
 .join-form { display: flex; flex-direction: column; gap: 14px; }
 .join-plan-row { display: flex; gap: 10px; }
 .join-plan {
@@ -3779,7 +3791,7 @@ a.course-card:hover {
   background: #fff;
   font-size: 14px;
   font-weight: 600;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   cursor: pointer;
 }
 .join-plan.active {
@@ -3787,7 +3799,7 @@ a.course-card:hover {
   color: var(--navy);
   background: var(--gold-pale);
 }
-.join-fine { font-size: 11.5px; color: var(--mid-gray); margin: 4px 0 0; }
+.join-fine { font-size: 11.5px; color: var(--ink-secondary); margin: 4px 0 0; }
 
 /* ---- Topbar menus (bell + account) ---- */
 .topbar-dot {
@@ -3821,7 +3833,7 @@ a.course-card:hover {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .topbar-menu-item {
   display: flex;
@@ -3836,7 +3848,7 @@ a.course-card:hover {
 }
 .topbar-menu-item:hover { background: var(--cream); color: var(--navy); }
 .topbar-menu-item-title { font-weight: 600; font-size: 12.5px; }
-.topbar-menu-item-sub { font-size: 11px; color: var(--mid-gray); }
+.topbar-menu-item-sub { font-size: 11px; color: var(--ink-secondary); }
 .topbar-menu-btn {
   width: 100%;
   background: none;
@@ -3917,8 +3929,8 @@ a.course-card:hover {
 }
 .dm-picker-item:hover { background: var(--cream); }
 .dm-picker-name { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); }
-.dm-picker-detail { display: block; font-size: 11.5px; color: var(--mid-gray); }
-.dm-picker-empty { padding: 14px; font-size: 13px; color: var(--mid-gray); }
+.dm-picker-detail { display: block; font-size: 11.5px; color: var(--ink-secondary); }
+.dm-picker-empty { padding: 14px; font-size: 13px; color: var(--ink-secondary); }
 
 /* ---- Certificate: signature, seal, and full-page print ---- */
 .certificate-signature {
@@ -4055,7 +4067,7 @@ a.course-card:hover {
     margin-left: -8px;
     border: none;
     background: none;
-    color: var(--mid-gray);
+    color: var(--ink-secondary);
     border-radius: 8px;
     cursor: pointer;
     flex-shrink: 0;
@@ -4081,8 +4093,11 @@ a.course-card:hover {
   .section-header { flex-wrap: wrap; gap: 10px; }
   .welcome-banner { padding: 20px; border-radius: 12px; }
 
-  /* --- Topbar: drop the search, keep title + actions --- */
+  /* --- Topbar: drop the search box, keep title + actions. The
+     .topbar-search-link icon (hidden on desktop) takes over so search
+     stays reachable on phones. --- */
   .topbar-search { display: none; }
+  .topbar-search-link { display: inline-flex; }
   .topbar-title {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4364,12 +4379,12 @@ a.course-card:hover {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .join-term.active .join-term-name { color: var(--navy); }
 .join-term-per {
   font-size: 13px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   line-height: 1.1;
 }
 .join-term-per strong {
@@ -4378,7 +4393,7 @@ a.course-card:hover {
   font-weight: 600;
   color: var(--navy);
 }
-.join-term-total { font-size: 11px; color: var(--mid-gray); }
+.join-term-total { font-size: 11px; color: var(--ink-secondary); }
 .join-term-save {
   margin-top: 4px;
   min-height: 17px;
@@ -4419,12 +4434,12 @@ a.course-card:hover {
   line-height: 1;
   color: var(--navy);
 }
-.join-price-unit { font-size: 15px; color: var(--mid-gray); }
+.join-price-unit { font-size: 15px; color: var(--ink-secondary); }
 .join-price-summary {
   margin: 0;
   font-size: 12.5px;
   line-height: 1.55;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   text-align: center;
 }
 .join-price-summary strong { color: var(--navy); }
@@ -4543,7 +4558,7 @@ a.course-card:hover {
 }
 .body-ad-tagline {
   font-size: 12.5px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-top: 2px;
 }
 .body-ad-cta {
@@ -4608,13 +4623,13 @@ a.course-card:hover {
 /* ===== CONTROL CENTER ===== */
 .cc-sub {
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-top: 2px;
 }
 .cc-note {
   padding: 0 18px 16px;
   font-size: 12px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .cc-inline-lock {
   display: inline-flex;
@@ -4690,7 +4705,7 @@ a.course-card:hover {
   padding: 2px 6px;
   border-radius: 3px;
   border: 1px solid var(--line);
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .recording-topic.primary {
   border-color: rgba(184, 150, 90, 0.45);
@@ -4705,7 +4720,7 @@ a.course-card:hover {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 .topic-checks {
   display: grid;
@@ -4755,7 +4770,7 @@ a.course-card:hover {
   padding: 3px 8px;
   border-radius: 4px;
   border: 1px solid var(--line);
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   white-space: nowrap;
 }
 .topic-chip.primary {
@@ -4775,7 +4790,7 @@ a.course-card:hover {
 .admin-table td.topic-empty {
   padding: 30px 16px;
   text-align: center;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
 }
 /* Invite-only session roster picker (SessionForm, A2A). */
 .invitee-list {
@@ -4793,7 +4808,7 @@ a.course-card:hover {
 /* Ad Manager: each placement gets a plain heading above its table. */
 .ads-slot-head { margin: 26px 0 10px; }
 .ads-slot-head h3 { font-size: 15px; font-weight: 600; color: var(--text); }
-.ads-slot-head p { font-size: 12.5px; color: var(--mid-gray); margin-top: 2px; }
+.ads-slot-head p { font-size: 12.5px; color: var(--ink-secondary); margin-top: 2px; }
 /* Ad Manager: live preview inside the edit form. The dashed frame marks it
    as staging; the cream backdrop matches the member pages the slot sits on. */
 .ad-preview {
@@ -4892,7 +4907,7 @@ a.ad-slot-item:hover {
 }
 .ad-slot-body {
   font-size: 13px;
-  color: var(--mid-gray);
+  color: var(--ink-secondary);
   margin-top: 2px;
 }
 .ad-slot-cta {

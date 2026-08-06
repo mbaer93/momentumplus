@@ -30,6 +30,36 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Baseline security headers (audit 2026-08-06 P1-10: external probe
+        // confirmed none of these were sent). Safe everywhere.
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+      {
+        // Clickjacking protection for the whole app EXCEPT /start, which is
+        // designed to be embedded on sierralearnership.com (both are SLC).
+        source: "/((?!start$).*)",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+        ],
+      },
+      {
+        // /start may be framed by the SLC site only (no X-Frame-Options —
+        // it can't express an allow-list; CSP frame-ancestors does).
+        source: "/start",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value:
+              "frame-ancestors 'self' https://sierralearnership.com https://*.sierralearnership.com",
+          },
+        ],
+      },
+      {
         // Cross-origin isolation on the live room ONLY: it unlocks
         // SharedArrayBuffer, which the Zoom Web SDK uses for its fast video
         // pipeline — without it decoding falls back to a much slower path

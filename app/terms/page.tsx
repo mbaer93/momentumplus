@@ -56,7 +56,7 @@ export default function TermsPage() {
         <div
           style={{
             fontSize: 12.5,
-            color: "var(--mid-gray)",
+            color: "var(--ink-secondary)",
             margin: "12px 0 20px",
             textAlign: "center",
           }}

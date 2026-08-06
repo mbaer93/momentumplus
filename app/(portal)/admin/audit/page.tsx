@@ -58,14 +58,14 @@ export default async function AdminAuditPage() {
                   <span className="admin-status draft">{r.actionLabel}</span>
                 </td>
                 <td style={{ fontSize: 13 }}>{r.targetEmail}</td>
-                <td style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                <td style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                   {r.detail || "—"}
                 </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ color: "var(--mid-gray)", fontSize: 13 }}>
+                <td colSpan={5} style={{ color: "var(--ink-secondary)", fontSize: 13 }}>
                   No admin actions recorded yet.
                 </td>
               </tr>

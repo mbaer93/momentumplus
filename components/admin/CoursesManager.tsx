@@ -158,7 +158,7 @@ function CourseFields({
           }
           placeholder="e.g. 2 or 1.5"
         />
-        <div style={{ fontSize: 11.5, color: "var(--mid-gray)", marginTop: 4 }}>
+        <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 4 }}>
           Certificates cap at 0.5 CE hours unless at least one lesson has a
           test (members must pass at 75%).
         </div>
@@ -269,7 +269,7 @@ function LessonEditor({ lesson }: { lesson: AdminLessonRow }) {
 
       {/* Image */}
       <div className="admin-form-actions" style={{ marginTop: 12, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+        <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
           Lesson image (PNG/JPG/WebP/GIF, &lt;4 MB):
         </span>
         {lesson.imageUrl && (
@@ -311,7 +311,7 @@ function LessonEditor({ lesson }: { lesson: AdminLessonRow }) {
 
       {/* Documents */}
       <div style={{ marginTop: 12 }}>
-        <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+        <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
           Documents &amp; resources (PDFs, worksheets — &lt;20 MB each):
         </span>
         {lesson.documents.map((d) => (
@@ -363,7 +363,7 @@ function LessonEditor({ lesson }: { lesson: AdminLessonRow }) {
 
       {/* Test */}
       <div style={{ marginTop: 14 }}>
-        <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+        <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
           Optional test — with questions saved, members must pass (75%) to
           complete this lesson. With no test, opening the lesson completes it
           automatically, and a course with no tests awards at most 0.5 CE
@@ -626,7 +626,7 @@ export function CoursesManager({
           >
             Add a lesson
           </button>
-          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
             After creating, open Edit on the course to add each lesson&apos;s
             reading content, documents, and test (typed in or AI-drafted).
           </span>
@@ -689,7 +689,7 @@ export function CoursesManager({
           <tbody>
             {courses.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ color: "var(--mid-gray)" }}>
+                <td colSpan={4} style={{ color: "var(--ink-secondary)" }}>
                   No courses yet — add the first one above, then attach lessons.
                 </td>
               </tr>
@@ -699,7 +699,7 @@ export function CoursesManager({
                 <tr>
                   <td>
                     <div className="admin-row-title">{c.title}</div>
-                    <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                       {c.category}
                       {c.minAccess === "vip_plus" ? " · Exclusive" : ""}
                       {c.minAccess === "pro_only" ? " · Pro only" : ""}
@@ -770,7 +770,7 @@ export function CoursesManager({
                           </label>
                         </div>
                         {c.lessons.length === 0 && (
-                          <div style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                          <div style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                             No lessons yet — add one below from the library.
                           </div>
                         )}
@@ -788,7 +788,7 @@ export function CoursesManager({
                             <span
                               style={{
                                 fontSize: 12,
-                                color: "var(--mid-gray)",
+                                color: "var(--ink-secondary)",
                                 width: 18,
                               }}
                             >
@@ -800,7 +800,7 @@ export function CoursesManager({
                               </div>
                               {l.summary && (
                                 <div
-                                  style={{ fontSize: 12, color: "var(--mid-gray)" }}
+                                  style={{ fontSize: 12, color: "var(--ink-secondary)" }}
                                 >
                                   {l.summary}
                                 </div>

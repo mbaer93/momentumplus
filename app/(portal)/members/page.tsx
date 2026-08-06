@@ -207,7 +207,7 @@ export default async function MembersPage(
         <button type="submit" className="btn-mini">
           Search
         </button>
-        <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+        <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
           {total} member{total === 1 ? "" : "s"}
           {totalPages > 1 ? ` — page ${page} of ${totalPages}` : ""}
         </span>
@@ -216,7 +216,7 @@ export default async function MembersPage(
       <div
         style={{
           fontSize: 12.5,
-          color: "var(--mid-gray)",
+          color: "var(--ink-secondary)",
           marginBottom: 14,
         }}
       >

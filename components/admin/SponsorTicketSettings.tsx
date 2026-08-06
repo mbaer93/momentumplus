@@ -97,7 +97,7 @@ export function SponsorTicketSettings({
   return (
     <div className="card" style={{ padding: 20, marginTop: 18 }}>
       <h3 style={{ fontSize: 15, marginBottom: 4 }}>VIP access tickets</h3>
-      <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 12 }}>
+      <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 12 }}>
         Free 3-month VIP access each sponsor tier may hand out (0 = none).
         Page owners send the invites from their Sponsor Studio or during
         onboarding.
@@ -146,7 +146,7 @@ export function SponsorTicketSettings({
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>
             Per-sponsor override
           </div>
-          <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+          <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
             Give one sponsor a custom ticket count regardless of their tier.
             Clear it to fall back to the tier default.
           </p>
@@ -211,7 +211,7 @@ export function SponsorTicketSettings({
             </button>
           </div>
           {overrideSponsor && (
-            <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 6 }}>
+            <div style={{ fontSize: 12, color: "var(--ink-secondary)", marginTop: 6 }}>
               {overrideSponsor.name} · {sponsorTierLabel(overrideSponsor.tier)} ·
               tier default {counts[overrideSponsor.tier] ?? 0} ticket
               {(counts[overrideSponsor.tier] ?? 0) === 1 ? "" : "s"}
@@ -228,7 +228,7 @@ export function SponsorTicketSettings({
           <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>
             Momentum+ Pro tickets
           </div>
-          <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+          <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
             Give a business a number of FULL Momentum+ Pro memberships — one
             year each — that they hand out from their Sponsor Studio. Separate
             from VIP tickets; 0 = none.
@@ -276,7 +276,7 @@ export function SponsorTicketSettings({
             </button>
           </div>
           {proSponsor && (
-            <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 6 }}>
+            <div style={{ fontSize: 12, color: "var(--ink-secondary)", marginTop: 6 }}>
               {proSponsor.name} · {proSponsor.proTickets} granted ·{" "}
               {proSponsor.proTicketsUsed} used ·{" "}
               {Math.max(0, proSponsor.proTickets - proSponsor.proTicketsUsed)}{" "}

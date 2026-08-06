@@ -149,7 +149,7 @@ export default async function EmailActivityPage(
                   >
                     {EVENT_LABEL[r.event] ?? r.event}
                   </td>
-                  <td style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+                  <td style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                     {r.reason ?? ""}
                   </td>
                 </tr>
@@ -158,7 +158,7 @@ export default async function EmailActivityPage(
           </table>
         </div>
       )}
-      <p style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 12 }}>
+      <p style={{ fontSize: 12, color: "var(--ink-secondary)", marginTop: 12 }}>
         Kept for 90 days. &ldquo;Opened&rdquo; is approximate — some mail apps
         (notably Apple Mail) preload or hide opens. Announcements and
         reminders travel via GHL instead; their history lives on the

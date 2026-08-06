@@ -315,7 +315,7 @@ export default async function AdminAnalyticsPage() {
         </div>
         <div style={{ padding: "6px 18px 14px" }}>
           {sessions.length === 0 ? (
-            <div style={{ padding: 12, color: "var(--mid-gray)", fontSize: 13 }}>
+            <div style={{ padding: 12, color: "var(--ink-secondary)", fontSize: 13 }}>
               No sessions yet.
             </div>
           ) : (
@@ -369,13 +369,13 @@ export default async function AdminAnalyticsPage() {
       <div className="card" style={{ marginBottom: 18 }}>
         <div className="card-header">
           <h3>Sponsor Performance</h3>
-          <span style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
             Ad views and clicks — share these with sponsors
           </span>
         </div>
         <div style={{ padding: "6px 18px 14px", overflowX: "auto" }}>
           {sponsors.length === 0 ? (
-            <div style={{ padding: 12, color: "var(--mid-gray)", fontSize: 13 }}>
+            <div style={{ padding: 12, color: "var(--ink-secondary)", fontSize: 13 }}>
               No sponsors yet.
             </div>
           ) : (
@@ -415,7 +415,7 @@ export default async function AdminAnalyticsPage() {
           </div>
           <div style={{ padding: "6px 18px 14px" }}>
             {resources.length === 0 ? (
-              <div style={{ padding: 12, color: "var(--mid-gray)", fontSize: 13 }}>
+              <div style={{ padding: 12, color: "var(--ink-secondary)", fontSize: 13 }}>
                 No resource opens recorded yet.
               </div>
             ) : (
@@ -448,7 +448,7 @@ export default async function AdminAnalyticsPage() {
           </div>
           <div style={{ padding: "6px 18px 14px" }}>
             {videos.length === 0 ? (
-              <div style={{ padding: 12, color: "var(--mid-gray)", fontSize: 13 }}>
+              <div style={{ padding: 12, color: "var(--ink-secondary)", fontSize: 13 }}>
                 No video views recorded yet.
               </div>
             ) : (

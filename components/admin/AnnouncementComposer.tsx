@@ -183,7 +183,7 @@ export function AnnouncementComposer() {
             Text (SMS, opted-in only)
           </button>
         </div>
-        <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 8 }}>
+        <div style={{ fontSize: 12, color: "var(--ink-secondary)", marginTop: 8 }}>
           Community posts land in the #announcements channel (visible to all
           members regardless of tier). Texts go ONLY to members who turned on
           &ldquo;Announcement texts&rdquo; in their notification preferences
@@ -230,7 +230,7 @@ export function AnnouncementComposer() {
           )}
         </div>
         {timing === "schedule" && (
-          <div style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 6 }}>
+          <div style={{ fontSize: 12, color: "var(--ink-secondary)", marginTop: 6 }}>
             Sends automatically within a few minutes of the chosen time,
             through the same channels selected above. Scheduled announcements
             appear below and can be cancelled until they go out.
@@ -279,7 +279,7 @@ export function AnnouncementComposer() {
           </button>
         )}
         {confirmCount !== null && !pending && !msg && (
-          <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+          <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
             This reaches {confirmCount} member{confirmCount === 1 ? "" : "s"} via{" "}
             {channels
               .map((c) =>

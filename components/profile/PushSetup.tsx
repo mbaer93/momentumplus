@@ -131,11 +131,11 @@ export function PushSetup() {
         </div>
       </div>
       {state === "unsupported" ? (
-        <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+        <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
           Not available in this browser.
         </span>
       ) : state === "denied" ? (
-        <span style={{ fontSize: 12.5, color: "var(--mid-gray)" }}>
+        <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
           Notifications are blocked in your browser settings for this site.
         </span>
       ) : (
@@ -153,7 +153,7 @@ export function PushSetup() {
         </button>
       )}
       {note && (
-        <span style={{ fontSize: 12.5, color: "var(--mid-gray)", flexBasis: "100%" }}>
+        <span style={{ fontSize: 12.5, color: "var(--ink-secondary)", flexBasis: "100%" }}>
           {note}
         </span>
       )}

@@ -46,7 +46,7 @@ export function BulkAddMembers() {
       <div className="admin-field" style={{ marginBottom: 4 }}>
         <label style={{ fontSize: 13 }}>Bulk add members</label>
       </div>
-      <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 8 }}>
+      <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 8 }}>
         Paste one member per line: <strong>email, Full Name, plan</strong>.
         Plans: <strong>basic</strong> (Momentum+ Member), <strong>pro</strong>{" "}
         (Momentum+ Pro User), <strong>gift</strong> (Gift User, 1 month),{" "}
@@ -87,7 +87,7 @@ export function BulkAddMembers() {
           style={{
             marginTop: 10,
             fontSize: 12.5,
-            color: "var(--mid-gray)",
+            color: "var(--ink-secondary)",
             lineHeight: 1.7,
             paddingLeft: 18,
           }}

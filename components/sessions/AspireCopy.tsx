@@ -79,7 +79,7 @@ export function AspireCopy({
             }}
             aria-label="A2A page description"
           />
-          <div style={{ fontSize: 11.5, color: "var(--mid-gray)", margin: "6px 0 10px" }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", margin: "6px 0 10px" }}>
             A blank line starts a new paragraph. Members see this exactly as
             written.
           </div>

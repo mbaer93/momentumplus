@@ -219,7 +219,7 @@ export function EntityManager({
           </div>
           {createHint && (
             <div
-              style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 8 }}
+              style={{ fontSize: 12, color: "var(--ink-secondary)", marginTop: 8 }}
             >
               {createHint}
             </div>
@@ -247,7 +247,7 @@ export function EntityManager({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={3} style={{ color: "var(--mid-gray)" }}>
+                <td colSpan={3} style={{ color: "var(--ink-secondary)" }}>
                   Nothing here yet — add the first {entityLabel} above.
                 </td>
               </tr>
@@ -257,7 +257,7 @@ export function EntityManager({
                 <tr>
                   <td>
                     <div className="admin-row-title">{r.title}</div>
-                    <div style={{ fontSize: 12, color: "var(--mid-gray)" }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                       {r.subtitle}
                     </div>
                   </td>
@@ -265,7 +265,7 @@ export function EntityManager({
                     {r.badge ? (
                       <span className="admin-status draft">{r.badge}</span>
                     ) : (
-                      <span style={{ color: "var(--mid-gray)", fontSize: 12 }}>—</span>
+                      <span style={{ color: "var(--ink-secondary)", fontSize: 12 }}>—</span>
                     )}
                   </td>
                   <td>

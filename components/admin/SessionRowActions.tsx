@@ -142,7 +142,7 @@ export function SessionRowActions({
           style={{
             fontSize: 11,
             fontWeight: note.ok ? 400 : 600,
-            color: note.ok ? "var(--mid-gray)" : "#b3261e",
+            color: note.ok ? "var(--ink-secondary)" : "#b3261e",
           }}
         >
           {note.text}

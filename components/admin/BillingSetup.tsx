@@ -97,7 +97,7 @@ export function BillingSetup({ status }: { status: BillingStatus }) {
                 {status.livemode ? "(live)" : "(test mode)"}
               </div>
             ) : null}
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)", margin: "6px 0 10px" }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", margin: "6px 0 10px" }}>
               1. Log in at <strong>dashboard.stripe.com</strong> &nbsp;·&nbsp; 2.
               Click <strong>Developers → API keys</strong> &nbsp;·&nbsp; 3. Under
               &ldquo;Secret key&rdquo; click <strong>Reveal</strong> and copy it
@@ -143,7 +143,7 @@ export function BillingSetup({ status }: { status: BillingStatus }) {
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
               Turn on automatic membership updates
             </div>
-            <div style={{ fontSize: 12.5, color: "var(--mid-gray)", margin: "6px 0 10px" }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", margin: "6px 0 10px" }}>
               This registers a secure webhook in your Stripe account so payments,
               renewals, and cancellations update member access here instantly —
               one click, nothing to copy.
@@ -166,7 +166,7 @@ export function BillingSetup({ status }: { status: BillingStatus }) {
               </button>
             </div>
             {showManual && (
-              <div style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: 10 }}>
+              <div style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginTop: 10 }}>
                 In Stripe: <strong>Developers → Webhooks → Add endpoint</strong>.
                 Endpoint URL: <code>{status.webhookUrl}</code>. Select events:{" "}
                 <code>checkout.session.completed</code>,{" "}

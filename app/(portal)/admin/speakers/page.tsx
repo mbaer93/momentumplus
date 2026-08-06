@@ -219,7 +219,7 @@ export default async function AdminSpeakersPage(
           <h3 style={{ fontSize: 15, marginBottom: 4 }}>
             Speaker of the Month — members &amp; earnings
           </h3>
-          <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginBottom: 10 }}>
+          <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 10 }}>
             The same numbers each speaker sees in their Studio: members on
             the platform in their month (excluding admins, speakers, and
             sponsors) and 15% of that month&apos;s monthly-equivalent
