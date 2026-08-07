@@ -22,6 +22,10 @@
      light surfaces (gold on navy and gold headings keep --gold). */
   --ink-secondary: #6b6558;
   --gold-text: #8a6f3d;
+  /* Hover partner for --gold-text. On navy, hover brightens to --gold-light;
+     doing that on a LIGHT surface inverts the fix (2.1:1), so gold links on
+     white/cream darken instead. Both tokens are light-surface only. */
+  --gold-text-hover: #7d642f;
   --text: #1a2332;
   /* Dark body-text color used on light cards inside dark screens (landing
      pricing cards, join card, menus). Was referenced but never defined —
@@ -769,7 +773,7 @@
   cursor: pointer;
 }
 .card-link:hover {
-  color: var(--gold-light);
+  color: var(--gold-text-hover);
 }
 
 /* Upcoming sessions list */
@@ -1864,9 +1868,10 @@
   color: var(--gold-light);
   margin-bottom: 6px;
 }
+/* .renew-screen is navy — dark-surface token (see .renew-note). */
 .renew-tagline {
   font-size: 12px;
-  color: var(--ink-secondary);
+  color: var(--mid-gray);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 28px;
@@ -1879,7 +1884,7 @@
 }
 .renew-sub {
   font-size: 14px;
-  color: var(--ink-secondary);
+  color: var(--mid-gray);
   max-width: 520px;
   margin: 0 auto 36px;
   line-height: 1.6;
@@ -1955,7 +1960,9 @@
   justify-content: center;
   flex-wrap: wrap;
 }
-.renew-note { margin-top: 22px; font-size: 12px; color: var(--ink-secondary); }
+/* --mid-gray, not --ink-secondary: .renew-screen is navy, where the
+   light-surface token drops to 3.2:1 (mid-gray is 7.8:1 here). */
+.renew-note { margin-top: 22px; font-size: 12px; color: var(--mid-gray); }
 .renew-note a { color: var(--gold-light); }
 
 /* ===== COMMUNITY / CHAT (Phase 4) ===== */
@@ -2461,7 +2468,9 @@
   margin-bottom: 20px;
 }
 .video-stage mux-player { width: 100%; height: 100%; }
-.video-stage-placeholder { text-align: center; color: var(--ink-secondary); padding: 32px; max-width: 460px; }
+/* --mid-gray, not --ink-secondary: the empty stage is navy (see .video-stage),
+   where the light-surface token drops to 3.2:1. */
+.video-stage-placeholder { text-align: center; color: var(--mid-gray); padding: 32px; max-width: 460px; }
 .video-stage-placeholder h3 { font-family: var(--font-serif); color: var(--white); font-size: 20px; margin-bottom: 10px; }
 .video-stage-placeholder p { font-size: 13px; line-height: 1.6; }
 .video-detail-title { font-family: var(--font-serif); font-size: 24px; color: var(--text); margin-bottom: 6px; }
@@ -2705,7 +2714,7 @@
   letter-spacing: 0.03em;
   transition: color 0.15s;
 }
-.sponsor-ad-card:hover .sponsor-ad-link { color: var(--gold-light); }
+.sponsor-ad-card:hover .sponsor-ad-link { color: var(--gold-text-hover); }
 /* Upgrade card — leads the rail for members below Pro; links to the plan
    controls on /profile. */
 .rail-upgrade-card {
@@ -2951,7 +2960,7 @@
   background: none;
   border: none;
 }
-.sp-link:hover { color: var(--gold-light); }
+.sp-link:hover { color: var(--gold-text-hover); }
 
 /* ===== ADMIN PORTAL (Phase 7) ===== */
 .admin-stats-grid {
@@ -3259,11 +3268,13 @@ a.course-card:hover {
   font-size: 30px;
   letter-spacing: 0.5px;
 }
+/* The certificate prints on navy — these two keep the DARK-surface colors.
+   --ink-secondary / --gold-text here would read 3.2:1 and 3.8:1. */
 .certificate-sub {
   font-size: 10.5px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--ink-secondary);
+  color: var(--mid-gray);
   margin-top: 6px;
 }
 .certificate-label {
@@ -3272,7 +3283,7 @@ a.course-card:hover {
   font-weight: 600;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--gold-text);
+  color: var(--gold);
 }
 .certificate-name {
   font-family: var(--font-serif, Georgia, serif);
@@ -3740,7 +3751,7 @@ a.course-card:hover {
 }
 .land-price-list li::before {
   content: "—";
-  color: var(--gold);
+  color: var(--gold-text);
   margin-right: 8px;
 }
 .land-price-note {

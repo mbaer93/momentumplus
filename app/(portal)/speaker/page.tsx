@@ -13,7 +13,7 @@ import { formatCents, speakerMonthStats } from "@/lib/revenue";
 import { getSpeakerById, getSpeakerForUser } from "@/lib/speaker-tools";
 import { speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -52,9 +52,7 @@ export default async function SpeakerStudioPage(
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getAuthUser();
     if (!user) redirect("/login");
 
     /*

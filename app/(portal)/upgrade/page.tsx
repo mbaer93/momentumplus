@@ -3,7 +3,7 @@ import { isPro } from "@/lib/access";
 import { requireMember } from "@/lib/current-member";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { getAccessMatrix, upgradeTierFor } from "@/lib/tiers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -49,9 +49,7 @@ export default async function UpgradePage(
   let hasCustomer = false;
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getAuthUser();
     if (user) {
       const [{ data: profile }, { data: sub }] = await Promise.all([
         supabase

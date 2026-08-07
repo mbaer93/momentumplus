@@ -6,7 +6,7 @@ import { endMs, isJoinWindowOpen } from "@/lib/sessions/view";
 import { dateLabel, timeLabel } from "@/lib/sessions/view";
 import { LiveRoom } from "@/components/sessions/LiveRoom";
 import { speakerOwnsSession } from "@/lib/speaker-tools";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -98,9 +98,7 @@ export default async function LiveSessionPage(
   // a warning before starting (taking host can wrestle it from the speaker).
   let viewerIsSpeaker = false;
   if (member.isSpeaker && isSupabaseConfigured()) {
-    const {
-      data: { user },
-    } = await (await createClient()).auth.getUser();
+    const user = await getAuthUser();
     if (user) {
       viewerIsSpeaker = (await speakerOwnsSession(user.id, session.id)).ok;
     }

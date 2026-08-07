@@ -4,7 +4,7 @@ import { PrintButton } from "@/components/education/PrintButton";
 import { ArrowLeftIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
 import { courseUnlocked, effectiveCeHours, getCourse } from "@/lib/education";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -35,9 +35,7 @@ export default async function CertificatePage(
   let completedOn = new Date();
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getAuthUser();
     // Own rows only — the read policy also shows admins OTHER members'
     // progress, which must never set this member's completion date.
     const { data } = user

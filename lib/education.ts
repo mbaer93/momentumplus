@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canAccess } from "@/lib/access";
 import type { Tier } from "@/lib/types";
@@ -258,9 +258,7 @@ export async function listCourses(): Promise<CourseItem[]> {
   // (teasers for RLS-hidden gated courses are appended at the end)
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   // The quiz column is not member-selectable (migration 0020 hides the
   // answers at the DB boundary), and progress is filtered to the viewer —
   // the read-own-or-admin policy would otherwise count OTHER members'

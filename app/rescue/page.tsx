@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { ErrorsManager } from "@/components/admin/ErrorsManager";
 import { loadErrorReports } from "@/lib/error-reports";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -27,9 +27,7 @@ export const metadata = { title: "Rescue Console | Momentum+" };
 export default async function RescuePage() {
   if (!isSupabaseConfigured()) notFound();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
   const { data: profile } = await createServiceClient()
     .from("profiles")

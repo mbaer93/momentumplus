@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { AccessLevel, SessionCategory, SessionDetail } from "@/lib/types";
 import { getPlaceholderSession, getPlaceholderSessions } from "./data";
@@ -182,9 +182,7 @@ export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
   }
   if (!data) return [];
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   const sessions = (data as unknown as SessionRow[]).map(mapRow);
 
@@ -270,9 +268,7 @@ export const getSession = requestCache(async (id: string): Promise<SessionDetail
 
   const session = mapRow(data as unknown as SessionRow);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY
     ? (await import("@/lib/supabase/admin")).createServiceClient()
