@@ -9,7 +9,7 @@ import {
   SessionsIcon,
 } from "@/components/icons";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getAccessMatrix, publicTiers } from "@/lib/tiers";
@@ -155,10 +155,7 @@ async function upcomingPublicSessions(): Promise<
 export default async function HomePage() {
   // Signed-in members skip the marketing page.
   if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getAuthUser();
     if (user) redirect("/dashboard");
   }
 

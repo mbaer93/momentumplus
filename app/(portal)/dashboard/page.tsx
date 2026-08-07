@@ -33,7 +33,7 @@ import {
   monthShort,
   timeLabel,
 } from "@/lib/sessions/view";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getTslsPerks } from "@/lib/tsls-perks";
 import { unstable_cache } from "next/cache";
@@ -124,9 +124,7 @@ export default async function DashboardPage() {
     const attended = sessions.filter((s) => s.attended).length;
 
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getAuthUser();
     let newMessages = 0;
     if (user) {
       const [{ data: p }, unread, { count: prefsCount }] = await Promise.all([

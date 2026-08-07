@@ -1,5 +1,5 @@
 import { canAccessArea, type AdminAccess, type AdminArea } from "@/lib/admin-perms";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { readViewAsCookie } from "@/lib/view-as";
 
@@ -46,9 +46,7 @@ export async function requireRealAdmin(area?: AdminArea): Promise<
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { ok: false, status: 401, message: "Not signed in." };
 
   const [{ data: membership, error }, { data: profile }] = await Promise.all([

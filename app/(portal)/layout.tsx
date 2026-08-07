@@ -19,7 +19,7 @@ import { getPresentedByLogoUrl } from "@/lib/presented-by";
 import { listSessions } from "@/lib/sessions/queries";
 import { RAIL_TIERS } from "@/lib/sponsor-tiers";
 import { getAccessMatrix, tierHasFeature } from "@/lib/tiers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /*
@@ -55,9 +55,7 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return [];
   type EnrolledSession = {
     id: string;
@@ -131,9 +129,7 @@ async function upcomingEnrolled(): Promise<TopbarUpcoming[]> {
 async function recentNotifications(): Promise<TopbarNotification[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return [];
   // Unread first so nothing unread hides behind read rows, then newest.
   const { data } = await supabase

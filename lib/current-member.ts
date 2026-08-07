@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { tierLabel } from "./access";
 import { effectiveMembership } from "./membership";
 import { initials, placeholderProfile } from "./placeholder-data";
-import { createClient } from "./supabase/server";
+import { createClient, getAuthUser } from "./supabase/server";
 import { isSupabaseConfigured } from "./supabase/config";
 import type { Membership, Tier } from "./types";
 import { requestCache } from "@/lib/request-cache";
@@ -87,9 +87,7 @@ export const getCurrentMember = requestCache(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return null;
 
   const [

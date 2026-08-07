@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getYoutubeApiKey } from "@/lib/service-config";
@@ -1324,9 +1324,7 @@ export interface EpisodeProgress {
 export async function readMyEpisodeProgress(): Promise<EpisodeProgress[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return [];
   const { data } = await supabase
     .from("podcast_episode_progress")

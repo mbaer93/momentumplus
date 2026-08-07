@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { RenewButtons } from "@/components/billing/RenewButtons";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { getAccessMatrix, publicTiers } from "@/lib/tiers";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -28,9 +28,7 @@ export default async function ExpiredPage() {
   // land on the generic welcome flow when the email template drops the
   // per-invite redirect.)
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const {
-      data: { user },
-    } = await (await createClient()).auth.getUser();
+    const user = await getAuthUser();
     if (user) {
       // Same profile-id-OR-email rule as the onboarding pages themselves —
       // diverging keys once trapped people in a redirect loop.
