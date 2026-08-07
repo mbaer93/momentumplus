@@ -78,7 +78,17 @@ export async function updateSession(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     // NODE_ENV too, not just VERCEL: a self-hosted production build must
     // not serve the members-only portal login-free (audit P2-21).
-    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+    //
+    // ALLOW_UNCONFIGURED_PREVIEW is the one deliberate exception. `next start`
+    // ALWAYS sets NODE_ENV=production, including for the credential-free
+    // preview build the e2e suite serves — so without an explicit opt-in this
+    // check 503s the whole suite (and any intentional preview deploy). The
+    // opt-in has to be set on purpose; a real deployment that simply forgot
+    // its Supabase env still fails closed.
+    if (
+      (process.env.VERCEL || process.env.NODE_ENV === "production") &&
+      !process.env.ALLOW_UNCONFIGURED_PREVIEW
+    ) {
       return new NextResponse(
         "Momentum+ is misconfigured: Supabase environment variables are not set for this deployment.",
         { status: 503 },

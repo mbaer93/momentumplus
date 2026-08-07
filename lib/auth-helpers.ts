@@ -97,8 +97,13 @@ export async function getAdminAccess(): Promise<AdminAccess | null> {
   // on a deployed environment an unconfigured Supabase must not mint admin.
   // Gate on NODE_ENV too, not just VERCEL — a self-hosted production build
   // without the Vercel env var must fail closed the same way (audit P2-21).
+  // ALLOW_UNCONFIGURED_PREVIEW opts a deliberate credential-free preview
+  // build back in (`next start` always sets NODE_ENV=production, so the e2e
+  // suite's preview build would otherwise lose admin entirely). A deployment
+  // that merely forgot its Supabase env still fails closed.
   if (!isSupabaseConfigured()) {
-    return process.env.VERCEL || process.env.NODE_ENV === "production"
+    return (process.env.VERCEL || process.env.NODE_ENV === "production") &&
+      !process.env.ALLOW_UNCONFIGURED_PREVIEW
       ? null
       : { role: "super", perms: {} };
   }
