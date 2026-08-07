@@ -39,8 +39,21 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # The suite builds and serves the app itself, in preview mode.
+      # Build as its own step, in the same preview env the suite serves under,
+      # so a slow cold build can't burn the webServer readiness timeout (that
+      # deadline shrank as the app grew and started failing CI mid-compile).
+      # PLAYWRIGHT_SKIP_BUILD then has the suite only start the server.
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ""
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ""
+          SUPABASE_SERVICE_ROLE_KEY: ""
+          NEXT_PUBLIC_STREAM_API_KEY: ""
+          STREAM_API_SECRET: ""
+          ALLOW_UNCONFIGURED_PREVIEW: "1"
       - run: npm run test:e2e
+        env:
+          PLAYWRIGHT_SKIP_BUILD: "1"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

@@ -15,6 +15,11 @@ const previewEnv = {
   SUPABASE_SERVICE_ROLE_KEY: "",
   NEXT_PUBLIC_STREAM_API_KEY: "",
   STREAM_API_SECRET: "",
+  // `next start` always sets NODE_ENV=production, and the deployed-and-
+  // unconfigured guard (middleware + getAdminAccess) 503s on that combination
+  // by design. This says "the missing credentials are deliberate" so the
+  // preview build the suite tests actually serves pages.
+  ALLOW_UNCONFIGURED_PREVIEW: "1",
 };
 
 export default defineConfig({
@@ -33,10 +38,22 @@ export default defineConfig({
   webServer: {
     // Build + serve in preview env. Process env beats .env.local in Next, so
     // the empty strings above pin preview mode for both build and runtime.
-    command: "npm run build && npm run start",
+    //
+    // PLAYWRIGHT_SKIP_BUILD lets CI run `npm run build` as its OWN step and
+    // start only the server here. That matters because this timeout is a
+    // SERVER-READINESS deadline, and folding a full production build into it
+    // means the deadline shrinks every time the app grows — which is exactly
+    // how CI started failing with "Timed out waiting from config.webServer"
+    // while the build was still healthy and mid-compile. Locally the default
+    // still builds, so `npx playwright test` works from a clean checkout.
+    command: process.env.PLAYWRIGHT_SKIP_BUILD
+      ? "npm run start"
+      : "npm run build && npm run start",
     url: "http://localhost:3000/login",
     reuseExistingServer: false,
-    timeout: 240_000,
+    // Generous either way: Playwright proceeds the moment the URL answers, so
+    // headroom costs nothing on a fast run and only moves the failure line.
+    timeout: process.env.PLAYWRIGHT_SKIP_BUILD ? 120_000 : 600_000,
     env: previewEnv,
   },
 });
