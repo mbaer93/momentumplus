@@ -27,7 +27,9 @@ export function SeasonToggle({
     borderRadius: 4,
     textDecoration: "none",
     border: `1px solid ${active ? "var(--gold)" : "var(--border)"}`,
-    color: active ? "var(--gold)" : "var(--ink-secondary)",
+    // --gold on a light pill measured 2.41:1; --gold-text is the
+    // light-surface gold.
+    color: active ? "var(--gold-text)" : "var(--ink-secondary)",
     background: active ? "rgba(184, 150, 90, 0.08)" : "transparent",
   });
   return (

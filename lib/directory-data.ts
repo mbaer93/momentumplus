@@ -122,7 +122,7 @@ export const resources: ResourceItem[] = [
   {
     id: "north-star-workbook",
     type: "PDF Worksheet",
-    typeColor: "var(--gold)",
+    typeColor: "var(--gold-text)",
     iconBg: "var(--gold-pale)",
     title: "Leadership North Star Workbook",
     description:
@@ -192,7 +192,7 @@ export const resources: ResourceItem[] = [
   {
     id: "ritual-planner",
     type: "PDF Planner",
-    typeColor: "var(--gold)",
+    typeColor: "var(--gold-text)",
     iconBg: "rgba(184,150,90,0.1)",
     title: "Resilience Ritual Planner",
     description:
