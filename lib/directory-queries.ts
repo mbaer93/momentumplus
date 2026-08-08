@@ -231,7 +231,7 @@ export async function listResources(viewerTier: Tier): Promise<ResourceItem[]> {
   return data.map((row) => ({
     id: row.id,
     type: row.category ?? "Resource",
-    typeColor: "var(--gold)",
+    typeColor: "var(--gold-text)",
     iconBg: "var(--gold-pale)",
     title: row.title,
     description: row.description ?? "",

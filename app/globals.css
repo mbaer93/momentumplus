@@ -21,11 +21,11 @@
      light backgrounds; --gold-text is gold dark enough for small text on
      light surfaces (gold on navy and gold headings keep --gold). */
   --ink-secondary: #6b6558;
-  --gold-text: #8a6f3d;
+  --gold-text: #7d642f;
   /* Hover partner for --gold-text. On navy, hover brightens to --gold-light;
      doing that on a LIGHT surface inverts the fix (2.1:1), so gold links on
      white/cream darken instead. Both tokens are light-surface only. */
-  --gold-text-hover: #7d642f;
+  --gold-text-hover: #6b5530;
   --text: #1a2332;
   /* Dark body-text color used on light cards inside dark screens (landing
      pricing cards, join card, menus). Was referenced but never defined —
@@ -317,7 +317,7 @@
 }
 .nav-section-label {
   font-size: 10px;
-  color: rgba(176, 169, 158, 0.6);
+  color: rgba(176, 169, 158, 0.85);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   padding: 10px 20px 4px;
@@ -379,12 +379,13 @@
   background: var(--accent-blue);
   color: white;
 }
-/* A tab outside the member's plan: still listed, visibly not theirs yet. */
-.nav-item.locked {
-  opacity: 0.55;
-}
+/* A tab outside the member's plan: still listed, visibly not theirs yet —
+   said with the padlock (.nav-lock), not by dimming. .nav-item is already
+   rgba(255,255,255,.55) (5.3:1 on navy), so stacking opacity: .55 on top
+   measured 2.71:1. No opacity value fixes that: the base colour is itself
+   an alpha, so anything that reads as "dimmer" also reads as unreadable. */
 .nav-item.locked:hover {
-  opacity: 0.8;
+  color: var(--white);
 }
 .nav-lock {
   margin-left: auto;
@@ -880,8 +881,11 @@
   100% {
     opacity: 1;
   }
+  /* Was 0.7, which held "Live Now" at 3.97:1 for half of every cycle —
+     a label that spends half its life under AA is still under AA. 0.88
+     keeps the pulse legible throughout. */
   50% {
-    opacity: 0.7;
+    opacity: 0.88;
   }
 }
 
@@ -1927,7 +1931,8 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--ink-secondary);
+  /* .pricing-card is navy-2 — dark-surface token (see .renew-note). */
+  color: var(--mid-gray);
   margin-bottom: 10px;
 }
 .pricing-price {
@@ -1949,7 +1954,8 @@
 }
 .pricing-blurb {
   font-size: 12px;
-  color: var(--ink-secondary);
+  /* navy-2 card — dark-surface token (see .renew-note). */
+  color: var(--mid-gray);
   line-height: 1.5;
   margin-top: 12px;
   flex: 1;
@@ -1986,7 +1992,8 @@
   padding: 16px 16px 10px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--ink-secondary);
+  /* navy panel — dark-surface token (see .renew-note). */
+  color: var(--mid-gray);
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
@@ -2006,7 +2013,8 @@
 }
 .channel-item:hover { color: white; background: rgba(255, 255, 255, 0.05); }
 .channel-item.active { color: white; background: rgba(255, 255, 255, 0.1); }
-.channel-item.locked { opacity: 0.55; }
+/* Same as .nav-item.locked — the .channel-lock badge is the signal. */
+.channel-item.locked { }
 .channel-unread {
   margin-left: auto;
   background: var(--gold);
@@ -3209,7 +3217,9 @@ a.course-card:hover {
   border-radius: 50%;
 }
 .cal-cell.today .cal-date { background: var(--gold); color: white; }
-.cal-cell.other-month .cal-date { color: var(--ink-secondary); opacity: 0.5; }
+/* Adjacent-month dates: dimmer than --text, but no opacity — 0.5 put
+   these at 2.06:1, the worst reading in the app. */
+.cal-cell.other-month .cal-date { color: var(--ink-secondary); }
 .cal-event {
   display: block; width: 100%; text-align: left;
   font-size: 10px; font-weight: 500; padding: 2px 5px;
@@ -3217,12 +3227,14 @@ a.course-card:hover {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   cursor: pointer;
 }
-.cal-event.blue { background: rgba(58,107,150,0.15); color: var(--accent-blue); }
+/* --accent-blue clears AA on white but not on its own 15% tint (3.99:1). */
+.cal-event.blue { background: rgba(58,107,150,0.15); color: #2f5578; }
 .cal-event.gold { background: var(--gold-pale); color: var(--gold-text); }
 .cal-event.green { background: rgba(58,112,85,0.12); color: var(--accent-green); }
 .cal-event.purple { background: rgba(92,61,122,0.14); color: var(--purple); }
 .cal-event.neutral { background: rgba(11,22,34,0.08); color: var(--ink-secondary); }
-.cal-event.cancelled { text-decoration: line-through; opacity: 0.55; }
+/* The strike-through already says cancelled; the dim only hurt reading. */
+.cal-event.cancelled { text-decoration: line-through; }
 .cal-upcoming-title {
   font-size: 13px; font-weight: 600; color: var(--text);
   margin-bottom: 12px;

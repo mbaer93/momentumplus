@@ -196,7 +196,9 @@ export function GettingStarted({
               alignItems: "flex-start",
               padding: "8px 0",
               borderTop: "1px solid var(--warm-gray, #E8E4DC)",
-              opacity: done || active ? 1 : 0.55,
+              // 0.55 put the step label at 3.66:1; 0.75 keeps the "later" look
+              // while clearing AA.
+              opacity: done || active ? 1 : 0.75,
             }}
           >
             <CheckMark done={done} />
