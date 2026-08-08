@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { imageSrcOk } from "@/lib/image-src";
 
 export interface AdResult {
   ok: boolean;
@@ -58,7 +59,9 @@ function toRow(input: AdInput) {
     body: input.body.trim(),
     cta_label: input.ctaLabel.trim() || null,
     url: input.url.trim() || null,
-    image_url: input.imageUrl.trim() || null,
+    // A pasted URL on a host next/image can't load throws at render and
+    // 500s every page carrying the ad, so it's rejected rather than stored.
+    image_url: imageSrcOk(input.imageUrl) ? input.imageUrl.trim() : null,
     // A house notice has no advertiser; only a real uuid is stored.
     sponsor_id: input.sponsorId.trim() || null,
     active: input.active,

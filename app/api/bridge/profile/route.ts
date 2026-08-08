@@ -31,6 +31,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  */
 
 import { bridgeAuthorized as authorized } from "@/lib/bridge-auth";
+import { imageSrcOk } from "@/lib/image-src";
 
 function cleanStr(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -131,7 +132,10 @@ export async function POST(req: NextRequest) {
   if (name) patch.name = name;
   if (title) patch.title = title;
   if (bio) patch.bio = bio;
-  if (headshotUrl) patch.headshot_url = headshotUrl;
+  // A headshot on a host next/image can't load doesn't render badly — it
+  // THROWS and 500s the whole Speakers grid. TSLS is a trusted caller but not
+  // a validating one, so the URL is checked here rather than assumed.
+  if (headshotUrl && imageSrcOk(headshotUrl)) patch.headshot_url = headshotUrl;
   if (tags.length > 0) patch.industries = tags;
   if (website) {
     const links =
@@ -163,7 +167,7 @@ export async function POST(req: NextRequest) {
     name: name || email.split("@")[0],
     title: title || null,
     bio: bio || null,
-    headshot_url: headshotUrl || null,
+    headshot_url: imageSrcOk(headshotUrl) ? headshotUrl : null,
     industries: tags,
     links: website ? { website } : {},
   });
