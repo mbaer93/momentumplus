@@ -11,6 +11,7 @@ import {
   speakerLive,
 } from "@/lib/sponsor-lifecycle";
 import type { Tier } from "@/lib/types";
+import { safeImageSrc } from "@/lib/image-src";
 import {
   resources as placeholderResources,
   speakers as placeholderSpeakers,
@@ -159,7 +160,9 @@ function mapSpeakerRow(row: SpeakerRow): SpeakerProfile {
     }),
     sessionCount: 0,
     sessionSlugs: [],
-    headshotUrl: row.headshot_url ?? null,
+    // null (-> initials placeholder) for anything next/image would throw on,
+    // so a row stored before the bridge check can't blank the directory.
+    headshotUrl: safeImageSrc(row.headshot_url),
     website: row.website ?? null,
   } satisfies SpeakerProfile;
 }
@@ -379,8 +382,8 @@ function mapSponsorRow(row: SponsorRow): SponsorItem {
     // Real sponsors never get mockup wordmark stand-ins; without a logo the
     // mark renders as the sponsor's name.
     wordmark: null,
-    logoUrl: row.logo_url ?? null,
-    sidebarAdUrl: row.sidebar_ad_url ?? null,
+    logoUrl: row.logo_url ?? null, // plain <img> (SponsorMark) — safe as-is
+    sidebarAdUrl: safeImageSrc(row.sidebar_ad_url),
     railActive: Boolean(row.rail_active),
   };
 }

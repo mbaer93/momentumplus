@@ -16,6 +16,7 @@ import { getCurrentMember } from "./current-member";
 import { listSponsors } from "./directory-queries";
 import type { SponsorItem } from "./directory-data";
 import { requestCache } from "./request-cache";
+import { safeImageSrc } from "@/lib/image-src";
 import {
   FALLBACK_PLACEMENTS,
   type AdCreative,
@@ -38,7 +39,7 @@ function mapAd(r: Record<string, unknown>): AdCreative {
     body: String(r.body ?? ""),
     ctaLabel: String(r.cta_label ?? ""),
     url: String(r.url ?? ""),
-    imageUrl: (r.image_url as string | null) ?? null,
+    imageUrl: safeImageSrc(r.image_url as string | null),
     sponsorId: (r.sponsor_id as string | null) ?? null,
     sort: Number(r.sort ?? 100),
     active: r.active !== false,
