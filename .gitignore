@@ -36,3 +36,6 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+
+# contrast audit output (scripts/contrast-audit.mjs)
+/contrast-report.json

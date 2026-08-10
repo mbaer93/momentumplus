@@ -60,3 +60,51 @@ jobs:
           name: playwright-results
           path: test-results/
           retention-days: 7
+
+  contrast:
+    name: Contrast (WCAG AA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Same credential-free preview build the e2e suite uses: the audit only
+      # needs rendered markup, and preview mode reaches every route without
+      # a database.
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ""
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ""
+          SUPABASE_SERVICE_ROLE_KEY: ""
+          NEXT_PUBLIC_STREAM_API_KEY: ""
+          STREAM_API_SECRET: ""
+          ALLOW_UNCONFIGURED_PREVIEW: "1"
+      # Contrast has regressed twice now in ways a stylesheet review missed
+      # (a hover state that undid its own fix, a token applied to the wrong
+      # surface). This measures what the browser actually paints and fails
+      # the build above the allowed count.
+      - name: Contrast audit
+        run: |
+          npm run start &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3000/ && break
+            sleep 2
+          done
+          npm run contrast
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ""
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ""
+          SUPABASE_SERVICE_ROLE_KEY: ""
+          NEXT_PUBLIC_STREAM_API_KEY: ""
+          STREAM_API_SECRET: ""
+          ALLOW_UNCONFIGURED_PREVIEW: "1"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: contrast-report
+          path: contrast-report.json
+          retention-days: 7
