@@ -3216,7 +3216,9 @@ a.course-card:hover {
   width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
 }
-.cal-cell.today .cal-date { background: var(--gold); color: white; }
+/* Navy on gold, not white on gold — white read 2.78:1 on this chip. Matches
+   .nav-badge, which already pairs navy with a gold fill. */
+.cal-cell.today .cal-date { background: var(--gold); color: var(--navy); }
 /* Adjacent-month dates: dimmer than --text, but no opacity — 0.5 put
    these at 2.06:1, the worst reading in the app. */
 .cal-cell.other-month .cal-date { color: var(--ink-secondary); }
