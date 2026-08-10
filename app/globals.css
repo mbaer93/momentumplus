@@ -5043,3 +5043,41 @@ html, body { overflow-x: clip; }
    with the wrap scrolling. Two-line headers keep 11 tier columns inside
    ordinary widths; the wrap still scrolls on phones. */
 .cc-grid th.cc-tier-head { white-space: normal; min-width: 76px; }
+
+/* Admin toggles: make on/off readable at a glance (Matt, 2026-08-10 — "the
+   toggles are hard to see if they are on or off").
+
+   Measured against the white admin card the pill actually sits on, every
+   part of this control failed WCAG 1.4.11's 3:1 for UI components:
+
+     off pill (--warm-gray) vs card ....... 1.21:1
+     white knob vs off pill ............... 1.21:1
+     on (--gold) vs off (--warm-gray) ..... 2.30:1
+     on pill vs card ...................... 2.78:1
+
+   The knob's POSITION is the real on/off cue and it was always there — but
+   an invisible track gives the eye nothing to judge that position against,
+   so the control read as a pale circle in both states.
+
+   Fixed by making the control visible rather than by recolouring the brand:
+   --ink-secondary gives the pill an edge against the card (5.79:1) and rings
+   the knob, so left-vs-right is unambiguous whatever the fill is doing. That
+   keeps --gold as the on colour — it is the brand, and ~200 selectors
+   consume it, so this is deliberately not a token change.
+
+   box-sizing matters here: the pill is a fixed 34x20 and ::after is placed
+   against the padding box, so without border-box the 1px border would push
+   the knob's travel out of alignment with the track. */
+.pref-toggle {
+  box-sizing: border-box;
+  border: 1px solid var(--ink-secondary);
+}
+.pref-toggle::after {
+  box-sizing: border-box;
+  border: 1px solid var(--ink-secondary);
+}
+/* Keyboard users could not see which toggle they were on either. */
+.pref-toggle:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
