@@ -1,5 +1,5 @@
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/make-baseline.mjs
--- Full schema baseline: every migration in order (0001_init.sql … 0082_speaker_payment_access.sql).
+-- Full schema baseline: every migration in order (0001_init.sql … 0085_tsls_speaker_intake.sql).
 -- Run ONCE against a FRESH Supabase project to mirror production's schema.
 -- Never run this against the production database.
 
@@ -4360,3 +4360,573 @@ alter table speakers
 
 comment on column speakers.payment_access is
   'Admin-only switch: false hides every earnings/revenue-share surface for this speaker (Studio card, admin month table, monthly report) and stops the server computing their share. Default true. Distinct from tsls_main_speaker, which marks TSLS mainstage speakers as unpaid.';
+
+-- ============================================================
+-- 0083_advisor_agreement.sql
+-- ============================================================
+-- ============================================================================
+-- Momentum+ migration 0083 — Leadership Advisor Agreement gate
+-- (Sierra's draft dated 2026-08-10; built 2026-08-11)
+--
+-- The "Momentum+ Leadership Advisor Agreement" is signed in-app before an
+-- Advisor can use Speaker Studio. Two pieces:
+--
+--   1. speakers gains the living fields the agreement collects that the rest
+--      of the platform actually uses: organization (§9 lists Organization
+--      among the profile fields shown in the community) and the anticipated
+--      featured session date/time (§2). Featured Month already exists as
+--      speakers.speaker_month (0053) and is assigned by an admin, not by the
+--      Advisor — the signing form shows it read-only.
+--
+--   2. advisor_agreements is an APPEND-ONLY signature ledger: one row per
+--      signature event. §32 lets the agreement be amended, so one Advisor can
+--      hold rows for more than one version, and each row snapshots the blanks
+--      as they stood at signing. The live speakers columns drift afterwards
+--      (§2 lets SLC move the month, §17 lets the session move with it); the
+--      snapshot is what the person actually agreed to.
+--
+-- WHY PHONE IS NOT ON speakers: the "speakers: read for members" policy
+-- (0001, rewritten 0002) lets every active member select whole speaker rows.
+-- Organization is meant to be visible (§9 lists it); a phone number is a
+-- contact detail collected for SLC and is NOT in §9's list. It lives only on
+-- advisor_agreements, which is readable by admins and the signer alone.
+--
+-- WHY THE HASH: agreement_sha256 is the SHA-256 of the exact agreement body
+-- rendered on screen at signing (lib/advisor-agreement.ts, canonical form).
+-- A version string can be reused by mistake; the hash cannot. If the wording
+-- is ever edited, already-signed rows keep the hash of the text their signer
+-- actually read, so "which words did this person agree to" stays answerable.
+--
+-- Re-running this file is a no-op.
+-- ============================================================================
+
+
+-- ---------------------------------------------------------------------------
+-- 1. speakers — the agreement's living fields
+-- ---------------------------------------------------------------------------
+alter table speakers
+  add column if not exists organization text,
+  add column if not exists featured_session_date date,
+  add column if not exists featured_session_time text,
+  add column if not exists advisor_agreement_waived boolean not null default false;
+
+comment on column speakers.organization is
+  'Advisor''s organization, collected on the Leadership Advisor Agreement. Member-visible: §9 lists Organization among the community profile fields.';
+comment on column speakers.featured_session_date is
+  'Anticipated Featured Session Date from §2 of the Leadership Advisor Agreement. An intention, not a booking — the real event is a row in sessions.';
+comment on column speakers.featured_session_time is
+  'Anticipated Featured Session Time from §2, free text (e.g. "12:00 PM ET"). Text, not time: an anticipated slot is often written loosely and carries no date to anchor a zone to.';
+comment on column speakers.advisor_agreement_waived is
+  'Admin-only escape hatch: true lets this speaker into Speaker Studio without an in-app signature (signed on paper, or not an Advisor). Default false. TSLS Main Speakers are already exempt without it — §1 makes the Advisor role explicitly distinct from a mainstage speaker role.';
+
+
+-- ---------------------------------------------------------------------------
+-- 2. advisor_agreements — the signature ledger
+-- ---------------------------------------------------------------------------
+create table if not exists advisor_agreements (
+  id uuid primary key default gen_random_uuid(),
+  speaker_id uuid not null references speakers (id) on delete cascade,
+  -- Who actually clicked sign. Kept separate from speaker_id because a
+  -- speaker row can be re-pointed at a different account later; the person
+  -- who signed does not change retroactively.
+  profile_id uuid references profiles (id) on delete set null,
+
+  agreement_version text not null,
+  agreement_sha256 text not null,
+
+  -- The typed signature and when it was made.
+  signed_name text not null,
+  signed_at timestamptz not null default now(),
+
+  -- Snapshot of the agreement's own blanks, as filled at signing.
+  advisor_name text not null,
+  organization text,
+  email text,
+  phone text,
+  effective_date date,
+  featured_month text
+    check (featured_month is null or featured_month ~ '^\d{4}-(0[1-9]|1[0-2])$'),
+  featured_session_date date,
+  featured_session_time text,
+
+  -- Evidentiary context for the signature event.
+  signed_ip text,
+  signed_user_agent text
+);
+
+comment on table advisor_agreements is
+  'Append-only signature ledger for the Momentum+ Leadership Advisor Agreement. One row per signature event; rows are never edited (see the immutability trigger below). A new agreement version means a new row, not an update.';
+
+create index if not exists advisor_agreements_speaker_idx
+  on advisor_agreements (speaker_id, signed_at desc);
+create index if not exists advisor_agreements_profile_idx
+  on advisor_agreements (profile_id);
+
+
+-- ---------------------------------------------------------------------------
+-- 3. Immutability — a signature record's contents must never change
+--
+-- RLS (below) already keeps every browser-side client out of writes, but the
+-- server signs through the service role, which bypasses RLS. Triggers do not
+-- bypass, so this is what actually makes the ledger append-only.
+--
+-- UPDATE is blocked; DELETE deliberately is not. A wrong row is removed and
+-- re-signed, which leaves no half-edited record behind — and an admin has to
+-- be able to clear a test signature made while setting the program up.
+-- ---------------------------------------------------------------------------
+create or replace function advisor_agreements_immutable()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  raise exception
+    'advisor_agreements rows are immutable — a signature record cannot be edited. Delete the row and sign again.';
+end;
+$$;
+
+drop trigger if exists advisor_agreements_no_update on advisor_agreements;
+create trigger advisor_agreements_no_update
+  before update on advisor_agreements
+  for each row execute function advisor_agreements_immutable();
+
+
+-- ---------------------------------------------------------------------------
+-- 4. RLS — admins and the signer can read; nobody writes but the server
+--
+-- Deliberately NO insert/update/delete policy. Signing runs in a server
+-- action through the service role, so the only write path is code that has
+-- already checked who the caller is. Adding an insert policy here would let a
+-- member POST a signature row straight at PostgREST with any name on it.
+-- ---------------------------------------------------------------------------
+alter table advisor_agreements enable row level security;
+
+drop policy if exists "advisor_agreements: read own or admin" on advisor_agreements;
+create policy "advisor_agreements: read own or admin"
+  on advisor_agreements for select
+  using (
+    is_admin()
+    or exists (
+      select 1 from speakers s
+      where s.id = advisor_agreements.speaker_id
+        and s.profile_id = (select auth.uid())
+    )
+  );
+
+
+-- ---------------------------------------------------------------------------
+-- 5. Verification — fail rather than half-apply
+-- ---------------------------------------------------------------------------
+do $mig$
+declare
+  agreement_id uuid;
+  speaker_id_for_test uuid;
+begin
+  -- (a) the columns landed
+  if (select count(*) from information_schema.columns
+      where table_schema = 'public' and table_name = 'speakers'
+        and column_name in ('organization', 'featured_session_date',
+                            'featured_session_time', 'advisor_agreement_waived')) <> 4
+  then
+    raise exception '0083: speakers is missing one of the advisor-agreement columns';
+  end if;
+
+  -- (b) RLS is on and read-only (no write policy of any kind)
+  if not (select relrowsecurity from pg_class where oid = 'public.advisor_agreements'::regclass) then
+    raise exception '0083: RLS is not enabled on advisor_agreements';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'advisor_agreements'
+      and cmd <> 'SELECT'
+  ) then
+    raise exception '0083: advisor_agreements has a write policy — signing must stay server-side only';
+  end if;
+
+  -- (c) the immutability trigger actually fires. Uses a real speaker row so
+  --     the FK holds, and rolls the whole probe back via a savepoint.
+  select id into speaker_id_for_test from speakers limit 1;
+  if speaker_id_for_test is not null then
+    begin
+      insert into advisor_agreements
+        (speaker_id, agreement_version, agreement_sha256, signed_name, advisor_name)
+      values
+        (speaker_id_for_test, '__probe__', '__probe__', '__probe__', '__probe__')
+      returning id into agreement_id;
+
+      begin
+        update advisor_agreements set signed_name = 'tampered' where id = agreement_id;
+        raise exception '0083: the immutability trigger did not block an UPDATE';
+      exception
+        when sqlstate 'P0001' then
+          -- Expected: either our own guard above or the trigger. Only the
+          -- trigger's message means the trigger fired.
+          if sqlerrm not like '%immutable%' then
+            raise;
+          end if;
+      end;
+
+      delete from advisor_agreements where id = agreement_id;
+    end;
+  end if;
+
+  raise notice '0083 verification passed.';
+end $mig$;
+
+-- ============================================================
+-- 0084_advisor_intake.sql
+-- ============================================================
+-- ============================================================================
+-- Momentum+ migration 0084 — Leadership Advisor session intake (Matt, 2026-08-11)
+--
+-- The companion to the agreement gate (0083). Once an Advisor has signed,
+-- this is what SLC still needs from them to actually run their featured
+-- month: the session itself, the materials, the tech, the promo assets.
+--
+-- SCOPE, deliberately: this is NOT the TSLS "Speaker Tech Questionnaire"
+-- (the Jotform covering the mainstage — dressing rooms, lapel mics, stage
+-- props, the Maryland Theatre). That form stays where it is and keeps its
+-- own submissions. This covers the VIRTUAL featured session an Advisor
+-- leads under §6, and every question traces to a clause:
+--
+--   §2   featured month, anticipated session date/time
+--   §3   the moderated Advisor panel at the Summit
+--   §4   the complimentary VIP Leadership Experience ticket
+--   §6   what the session may include (the eight-item list, verbatim)
+--   §12  Branching Out with Sierra
+--   §21  promotional rights — the assets SLC may use
+--   §22  Advisor Materials — the list SLC may request
+--   §23  Technology and Session Preparation
+--
+-- UNLIKE advisor_agreements, this is MUTABLE and one row per Advisor. A
+-- signature is a moment; an intake is a working document — §2 lets the month
+-- and session date move, and answers should move with them. There is no
+-- ledger here and no hash: nothing in this table is a term anyone is bound
+-- to.
+--
+-- Re-running this file is a no-op.
+-- ============================================================================
+
+
+create table if not exists advisor_intake (
+  id uuid primary key default gen_random_uuid(),
+  -- One row per Advisor. Upserted on save, never duplicated.
+  speaker_id uuid not null unique references speakers (id) on delete cascade,
+  profile_id uuid references profiles (id) on delete set null,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  -- Set when the Advisor presses Submit with the required answers filled.
+  -- Stays set while they keep editing — this records "they handed it in",
+  -- not "it is frozen".
+  submitted_at timestamptz,
+
+  -- Contact (§22 "Contact information"). Phone lives here rather than on
+  -- speakers for the same reason as in 0083: members can select whole
+  -- speaker rows, and a phone number is not in §9's community-visible list.
+  phone text,
+  website text,
+
+  -- The featured session (§2, §6, §22)
+  session_title text,
+  session_description text,
+  session_takeaways text,
+  preferred_session_date date,
+  preferred_session_time text,
+  -- Subset of §6's eight-item list, stored as given.
+  session_includes text[] not null default '{}',
+
+  -- Technology and preparation (§23)
+  uses_slides boolean,
+  slides_format text,
+  needs_av boolean,
+  can_join_early boolean,
+  tech_notes text,
+
+  -- Materials (§22)
+  materials_notes text,
+
+  -- Promotion (§10, §21). A map of platform -> handle: the platform list
+  -- moves with marketing, and seven nullable columns would need a migration
+  -- every time Sierra adds one.
+  social_handles jsonb not null default '{}'::jsonb,
+  promo_notes text,
+
+  -- Summit participation (§3, §4)
+  attending_summit boolean,
+  panel_available boolean,
+  panel_conflict_notes text,
+
+  -- Podcast (§12)
+  podcast_interest boolean,
+
+  additional_notes text
+);
+
+comment on table advisor_intake is
+  'Leadership Advisor session intake — what SLC needs to run an Advisor''s featured virtual session (§§2, 3, 4, 6, 12, 21, 22, 23). One mutable row per Advisor. Distinct from the TSLS Speaker Tech Questionnaire, which covers the mainstage event and lives in Jotform.';
+comment on column advisor_intake.submitted_at is
+  'When the Advisor first handed the intake in with the required answers filled. Editing afterwards does not clear it.';
+comment on column advisor_intake.session_includes is
+  'Subset of the eight-item list in §6 of the Leadership Advisor Agreement, stored verbatim as selected.';
+comment on column advisor_intake.social_handles is
+  'Platform -> handle map (§21 "Social media handles"). Every entry is optional — Sierra''s note on the TSLS form was that speakers often have nothing to put for some platforms.';
+
+create index if not exists advisor_intake_profile_idx on advisor_intake (profile_id);
+create index if not exists advisor_intake_submitted_idx on advisor_intake (submitted_at);
+
+
+-- ---------------------------------------------------------------------------
+-- updated_at maintenance — a working document should say when it last moved
+-- ---------------------------------------------------------------------------
+create or replace function advisor_intake_touch()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists advisor_intake_set_updated_at on advisor_intake;
+create trigger advisor_intake_set_updated_at
+  before update on advisor_intake
+  for each row execute function advisor_intake_touch();
+
+
+-- ---------------------------------------------------------------------------
+-- RLS — the Advisor and admins can read; only the server writes
+--
+-- Same shape as advisor_agreements (0083) and for the same reason: saving
+-- runs through a server action that resolves WHOSE intake this is from the
+-- session, never from the submitted form. With no insert/update policy, a
+-- member cannot PATCH another Advisor's answers straight at PostgREST.
+-- ---------------------------------------------------------------------------
+alter table advisor_intake enable row level security;
+
+drop policy if exists "advisor_intake: read own or admin" on advisor_intake;
+create policy "advisor_intake: read own or admin"
+  on advisor_intake for select
+  using (
+    is_admin()
+    or exists (
+      select 1 from speakers s
+      where s.id = advisor_intake.speaker_id
+        and s.profile_id = (select auth.uid())
+    )
+  );
+
+
+-- ---------------------------------------------------------------------------
+-- Verification — fail rather than half-apply
+-- ---------------------------------------------------------------------------
+do $mig$
+declare
+  probe_speaker uuid;
+  probe_intake uuid;
+  first_touch timestamptz;
+begin
+  if not (select relrowsecurity from pg_class where oid = 'public.advisor_intake'::regclass) then
+    raise exception '0084: RLS is not enabled on advisor_intake';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'advisor_intake' and cmd <> 'SELECT'
+  ) then
+    raise exception '0084: advisor_intake has a write policy — saving must stay server-side only';
+  end if;
+
+  -- One row per Advisor is load-bearing (the save path upserts on it).
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.advisor_intake'::regclass
+      and contype = 'u'
+      and conkey = array[
+        (select attnum from pg_attribute
+          where attrelid = 'public.advisor_intake'::regclass and attname = 'speaker_id')
+      ]::smallint[]
+  ) then
+    raise exception '0084: advisor_intake.speaker_id is not unique — upsert-on-save would duplicate rows';
+  end if;
+
+  -- The updated_at trigger actually fires. Probe against a real speaker so
+  -- the FK holds, then clean up.
+  select id into probe_speaker from speakers limit 1;
+  if probe_speaker is not null then
+    insert into advisor_intake (speaker_id, session_title)
+    values (probe_speaker, '__probe__')
+    returning id, updated_at into probe_intake, first_touch;
+
+    update advisor_intake set session_title = '__probe2__' where id = probe_intake;
+    if (select updated_at from advisor_intake where id = probe_intake) <= first_touch then
+      raise exception '0084: the updated_at trigger did not fire on UPDATE';
+    end if;
+
+    delete from advisor_intake where id = probe_intake;
+  end if;
+
+  raise notice '0084 verification passed.';
+end $mig$;
+
+-- ============================================================
+-- 0085_tsls_speaker_intake.sql
+-- ============================================================
+-- ============================================================================
+-- Momentum+ migration 0085 — TSLS Speaker Tech Questionnaire (Matt, 2026-08-11)
+--
+-- The mainstage counterpart to advisor_intake (0084). Mirrors Sierra's live
+-- Jotform (form 250896885391071) into Momentum+ so a TSLS Main Speaker
+-- answers it where they already log in, and the answers sit on the speaker
+-- record rather than in an inbox.
+--
+-- The two intakes never overlap:
+--   tsls_speaker_intake   TSLS Main Speakers — stage, mics, dressing rooms,
+--                         call times at The Maryland Theatre.
+--   advisor_intake (0084) Leadership Advisors — the virtual featured session
+--                         under §6 of the Advisor Agreement.
+--
+-- WHY answers IS JSONB AND NOT ~50 COLUMNS: the question set is Sierra's,
+-- she edits it herself (the Jotform changed twice in July alone), and the
+-- authoritative copy lives in lib/tsls-intake.ts. Typed columns would mean a
+-- migration every time she adds a checkbox, and a schema that silently drifts
+-- from the form it claims to mirror. form_version records which question set
+-- produced a given answer map, so an old submission stays readable after the
+-- questions move.
+--
+-- The Jotform keeps its own submissions. Nothing here reads or writes it, and
+-- the five responses already collected there are not migrated — see the PR.
+--
+-- Re-running this file is a no-op.
+-- ============================================================================
+
+
+create table if not exists tsls_speaker_intake (
+  id uuid primary key default gen_random_uuid(),
+  speaker_id uuid not null unique references speakers (id) on delete cascade,
+  profile_id uuid references profiles (id) on delete set null,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  submitted_at timestamptz,
+
+  -- Which question set produced this answer map (lib/tsls-intake.ts).
+  form_version text not null,
+  -- question key -> answer. A checkbox question stores a JSON array.
+  answers jsonb not null default '{}'::jsonb,
+
+  -- The form's own signature block, kept out of `answers` because it is the
+  -- speaker attesting rather than an answer to a logistics question.
+  signed_name text,
+  signed_date date
+);
+
+comment on table tsls_speaker_intake is
+  'TSLS Speaker Tech Questionnaire responses for mainstage Summit speakers, mirroring Sierra''s Jotform (250896885391071). One mutable row per speaker. Distinct from advisor_intake, which covers the virtual Leadership Advisor session.';
+comment on column tsls_speaker_intake.answers is
+  'question key -> answer, keyed to lib/tsls-intake.ts. Checkbox questions store a JSON array. Answers to questions the speaker was not asked (hidden conditionals) are pruned before saving.';
+comment on column tsls_speaker_intake.form_version is
+  'TSLS_INTAKE_VERSION at the time of saving — which set of questions this answer map belongs to.';
+
+create index if not exists tsls_speaker_intake_profile_idx
+  on tsls_speaker_intake (profile_id);
+create index if not exists tsls_speaker_intake_submitted_idx
+  on tsls_speaker_intake (submitted_at);
+
+
+-- ---------------------------------------------------------------------------
+-- updated_at maintenance
+-- ---------------------------------------------------------------------------
+create or replace function tsls_speaker_intake_touch()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists tsls_speaker_intake_set_updated_at on tsls_speaker_intake;
+create trigger tsls_speaker_intake_set_updated_at
+  before update on tsls_speaker_intake
+  for each row execute function tsls_speaker_intake_touch();
+
+
+-- ---------------------------------------------------------------------------
+-- RLS — the speaker and admins can read; only the server writes
+--
+-- Same posture as 0083 and 0084: no insert/update policy at all, so the
+-- server action is the only way in and whose intake it is comes from the
+-- session rather than the form body. This one carries emergency contacts and
+-- health information, so a stray write policy would be worse here than
+-- anywhere else in the schema.
+-- ---------------------------------------------------------------------------
+alter table tsls_speaker_intake enable row level security;
+
+drop policy if exists "tsls_speaker_intake: read own or admin" on tsls_speaker_intake;
+create policy "tsls_speaker_intake: read own or admin"
+  on tsls_speaker_intake for select
+  using (
+    is_admin()
+    or exists (
+      select 1 from speakers s
+      where s.id = tsls_speaker_intake.speaker_id
+        and s.profile_id = (select auth.uid())
+    )
+  );
+
+
+-- ---------------------------------------------------------------------------
+-- Verification
+-- ---------------------------------------------------------------------------
+do $mig$
+declare
+  probe_speaker uuid;
+  probe_row uuid;
+  first_touch timestamptz;
+begin
+  if not (select relrowsecurity from pg_class where oid = 'public.tsls_speaker_intake'::regclass) then
+    raise exception '0085: RLS is not enabled on tsls_speaker_intake';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'tsls_speaker_intake' and cmd <> 'SELECT'
+  ) then
+    raise exception '0085: tsls_speaker_intake has a write policy — saving must stay server-side only';
+  end if;
+
+  -- One row per speaker is load-bearing: the save path upserts on it.
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.tsls_speaker_intake'::regclass
+      and contype = 'u'
+      and conkey = array[
+        (select attnum from pg_attribute
+          where attrelid = 'public.tsls_speaker_intake'::regclass and attname = 'speaker_id')
+      ]::smallint[]
+  ) then
+    raise exception '0085: tsls_speaker_intake.speaker_id is not unique — upsert-on-save would duplicate rows';
+  end if;
+
+  select id into probe_speaker from speakers limit 1;
+  if probe_speaker is not null then
+    insert into tsls_speaker_intake (speaker_id, form_version, answers)
+    values (probe_speaker, '__probe__', '{"name":"__probe__"}'::jsonb)
+    returning id, updated_at into probe_row, first_touch;
+
+    update tsls_speaker_intake
+      set answers = '{"name":"__probe2__"}'::jsonb
+      where id = probe_row;
+    if (select updated_at from tsls_speaker_intake where id = probe_row) <= first_touch then
+      raise exception '0085: the updated_at trigger did not fire on UPDATE';
+    end if;
+
+    delete from tsls_speaker_intake where id = probe_row;
+  end if;
+
+  raise notice '0085 verification passed.';
+end $mig$;

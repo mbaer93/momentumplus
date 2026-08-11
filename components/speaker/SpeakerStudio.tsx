@@ -66,6 +66,9 @@ export function SpeakerStudio({
   startError,
   monthCard = null,
   previewAs = null,
+  agreementSignedLabel = null,
+  intake = null,
+  intakeHref = "/speaker/intake",
 }: {
   speaker: {
     name: string;
@@ -93,6 +96,17 @@ export function SpeakerStudio({
       Every server action re-checks ownership anyway, so this is honest UI
       (buttons that would fail are disabled), not the security boundary. */
   previewAs?: string | null;
+  /** Set for an Advisor who has signed the Leadership Advisor Agreement —
+      a way back to the wording they agreed to. Null for TSLS Main Speakers
+      and anyone an admin has waived, who have no agreement here. */
+  agreementSignedLabel?: string | null;
+  /** Session-intake state for an Advisor: what the button should say, and
+      whether it needs chasing. Null for TSLS Main Speakers, whose intake is
+      the TSLS Speaker Tech Questionnaire, not this. */
+  intake?: { label: string; outstanding: boolean } | null;
+  /** Where that button goes — the Advisor session intake, or the TSLS
+      Speaker Tech Questionnaire for a mainstage speaker. */
+  intakeHref?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -140,6 +154,22 @@ export function SpeakerStudio({
               : ""}
           </p>
         </div>
+        {intake && (
+          <a
+            className={`btn-mini${intake.outstanding ? " intake-cta" : ""}`}
+            href={intakeHref}
+          >
+            {intake.label}
+          </a>
+        )}
+        {agreementSignedLabel && (
+          /* Outside the disabled fieldset would be tidier, but a link is not
+             a form control — `disabled` doesn't reach it, so it stays
+             clickable here. */
+          <a className="btn-mini" href="/speaker/agreement">
+            Advisor Agreement — signed {agreementSignedLabel}
+          </a>
+        )}
       </div>
 
       {speaker.goLiveLabel && (

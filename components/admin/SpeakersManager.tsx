@@ -91,6 +91,15 @@ const FIELDS: FieldDef[] = [
     type: "checkbox",
     hint: "On: this speaker sees their earnings in Speaker Studio and appears with their 15% share in the month table. Off: every payment figure is hidden from them and no share is calculated — they keep their speaker page, sessions, and member count. Only an admin can change this; speakers can't set it themselves.",
   },
+  /* The escape hatch for the agreement gate. TSLS Main Speakers are already
+     exempt without it — this is for an Advisor who signed on paper, or
+     someone who isn't an Advisor at all. */
+  {
+    key: "advisorAgreementWaived",
+    label: "Waive the Leadership Advisor Agreement",
+    type: "checkbox",
+    hint: "Off (normal): this Advisor must sign the Momentum+ Leadership Advisor Agreement in the app before Speaker Studio opens to them. On: they skip the signature — use this only when the agreement is already signed elsewhere, or the person isn't a Leadership Advisor. TSLS Main Speakers never see the agreement and don't need this.",
+  },
 ];
 
 const EMPTY: EntityValues = {
@@ -105,6 +114,8 @@ const EMPTY: EntityValues = {
   tslsMainSpeaker: false,
   // New speakers get payment access; it is switched off case by case.
   paymentAccess: true,
+  // Nobody is waived until an admin says so.
+  advisorAgreementWaived: false,
 };
 
 function toInput(v: EntityValues): SpeakerInput {
@@ -121,6 +132,9 @@ function toInput(v: EntityValues): SpeakerInput {
     // Defensive: an absent value means the switch was never rendered (or the
     // row predates the field), which is "has access", not "take it away".
     paymentAccess: v.paymentAccess !== false,
+    // The mirror image: an absent value is "not waived", so a missing switch
+    // can never quietly drop the signature requirement.
+    advisorAgreementWaived: v.advisorAgreementWaived === true,
   };
 }
 
@@ -136,6 +150,13 @@ function InviteControls({ row }: { row: EntityRow }) {
   const email = String(row.values.contactEmail ?? "").trim();
   const hasAccount = Boolean(row.values.hasAccount);
   const invitePending = Boolean(row.values.invitePending);
+  // Empty in preview mode (placeholder speakers carry no agreement state).
+  const agreementStatus = String(row.values.agreementStatus ?? "").trim();
+  const intakeStatus = String(row.values.intakeStatus ?? "").trim();
+  // Which intake this speaker answers — the Advisor session intake, or the
+  // TSLS Speaker Tech Questionnaire for the mainstage. Never both.
+  const intakeLabel = String(row.values.intakeLabel ?? "Session intake");
+  const intakeHref = String(row.values.intakeHref ?? "");
 
   const state = hasAccount
     ? "Has a Momentum+ login."
@@ -187,6 +208,32 @@ function InviteControls({ row }: { row: EntityRow }) {
           </span>
         )}
       </div>
+      {agreementStatus && (
+        <div style={{ marginTop: 14 }}>
+          <div className="admin-field" style={{ marginBottom: 6 }}>
+            <label style={{ fontSize: 13 }}>
+              Leadership Advisor Agreement — {agreementStatus}
+            </label>
+          </div>
+          <a className="btn-mini" href={`/speaker/agreement?as=${row.id}`}>
+            Open their agreement
+          </a>
+        </div>
+      )}
+      {intakeStatus && (
+        <div style={{ marginTop: 14 }}>
+          <div className="admin-field" style={{ marginBottom: 6 }}>
+            <label style={{ fontSize: 13 }}>
+              {intakeLabel} — {intakeStatus}
+            </label>
+          </div>
+          {intakeHref && (
+            <a className="btn-mini" href={intakeHref}>
+              Open their {intakeLabel.toLowerCase()}
+            </a>
+          )}
+        </div>
+      )}
       {msg && (
         <div
           className={`admin-form-msg ${msg.ok ? "ok" : "err"}`}

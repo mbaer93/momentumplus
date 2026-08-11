@@ -26,6 +26,11 @@ export interface SpeakerInput {
       on" — only an explicit false takes a speaker off the payment feature,
       so a caller that predates this field can't strip access by omission. */
   paymentAccess?: boolean;
+  /** Admin-only waiver of the Leadership Advisor Agreement (migration 0083).
+      Undefined means "not waived" — the mirror image of paymentAccess above,
+      so an older caller can never drop the signature requirement by
+      omission. */
+  advisorAgreementWaived?: boolean;
 }
 
 export interface AdminResult {
@@ -55,6 +60,9 @@ function toRow(input: SpeakerInput) {
     // Admin-only, and the ONLY writer of this column: the TSLS pull and
     // Speaker Studio both write explicit field lists that omit it.
     payment_access: input.paymentAccess !== false,
+    // Same rule, opposite default: only an admin can waive the agreement,
+    // and only by explicitly ticking the box.
+    advisor_agreement_waived: input.advisorAgreementWaived === true,
   };
 }
 
@@ -65,6 +73,9 @@ function migrationHint(message: string): string {
   }
   if (/payment_access/.test(message)) {
     return "The database doesn't have the speaker payment-access column yet — run migration 0082 first.";
+  }
+  if (/advisor_agreement_waived|advisor_agreements/.test(message)) {
+    return "The database doesn't have the Leadership Advisor Agreement tables yet — run migration 0083 first.";
   }
   return /speaker_month|tsls_main_speaker/.test(message)
     ? "The database doesn't have the speaker-month columns yet — run migration 0053 first."

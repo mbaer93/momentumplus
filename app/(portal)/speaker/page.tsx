@@ -10,7 +10,20 @@ import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
 import { formatCents, speakerIsPaid, speakerMonthStats } from "@/lib/revenue";
-import { getSpeakerById, getSpeakerForUser } from "@/lib/speaker-tools";
+import {
+  getSpeakerById,
+  getSpeakerForUser,
+  latestAdvisorAgreement,
+} from "@/lib/speaker-tools";
+import {
+  agreementIsCurrent,
+  agreementRequired,
+  mustSignBeforeStudio,
+} from "@/lib/advisor-agreement";
+import { intakeRequired } from "@/lib/advisor-intake";
+import { getAdvisorIntake } from "@/lib/advisor-intake-db";
+import { tslsIntakeRequired } from "@/lib/tsls-intake";
+import { getTslsIntake } from "@/lib/tsls-intake-db";
 import { speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -49,6 +62,12 @@ export default async function SpeakerStudioPage(
 
   // Set when an admin is looking at a specific speaker's Studio.
   let previewAs: string | null = null;
+  // Set for an Advisor whose signature is on file — a link back to it.
+  let agreementSignedLabel: string | null = null;
+  // Intake state — the Advisor session intake, or the TSLS Speaker Tech
+  // Questionnaire for a mainstage speaker. Never both.
+  let intakeState: { label: string; outstanding: boolean } | null = null;
+  let intakeHref = "/speaker/intake";
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -136,6 +155,68 @@ export default async function SpeakerStudioPage(
         );
       }
       redirect("/dashboard");
+    }
+
+    /*
+     * The Leadership Advisor Agreement gate. An Advisor who hasn't signed the
+     * current wording gets the agreement instead of the Studio — the contract
+     * is what makes them an Advisor, so nothing in here is theirs until it's
+     * signed. TSLS Main Speakers and admin-waived speakers pass straight
+     * through (§1: the Advisor role is explicitly not a mainstage role).
+     *
+     * An admin inspecting someone via ?as= is NOT redirected: they're looking
+     * at a speaker, not being asked to sign for them. Their view of the
+     * agreement is /speaker/agreement?as=<id>, read-only.
+     */
+    const signedAgreement = await latestAdvisorAgreement(speaker.id);
+    if (!previewAs && mustSignBeforeStudio(speaker, signedAgreement)) {
+      redirect("/speaker/agreement");
+    }
+    if (
+      signedAgreement &&
+      agreementRequired(speaker) &&
+      agreementIsCurrent(signedAgreement)
+    ) {
+      agreementSignedLabel = new Date(
+        signedAgreement.signedAt,
+      ).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "America/New_York",
+      });
+    }
+
+    /*
+     * Session intake (§§2, 3, 4, 6, 12, 21, 22, 23). Unlike the agreement it
+     * gates nothing — an Advisor can work in the Studio while it's still
+     * half-filled — but an unstarted intake is worth a nudge, because SLC
+     * can't schedule or promote a session it has no title for.
+     */
+    if (intakeRequired(speaker)) {
+      const stored = await getAdvisorIntake(speaker.id);
+      intakeState = stored.submittedAt
+        ? { label: "Session intake — submitted", outstanding: false }
+        : stored.exists
+          ? { label: "Finish your session intake", outstanding: true }
+          : { label: "Start your session intake", outstanding: true };
+    }
+
+    /*
+     * A TSLS Main Speaker gets the Speaker Tech Questionnaire instead — the
+     * mainstage form (stage, mics, dressing rooms, call times), mirrored
+     * from Sierra's Jotform. The two are mutually exclusive by construction:
+     * intakeRequired is !tslsMainSpeaker, tslsIntakeRequired is
+     * tslsMainSpeaker, so exactly one link ever shows.
+     */
+    if (tslsIntakeRequired(speaker)) {
+      const stored = await getTslsIntake(speaker.id);
+      intakeState = stored.submittedAt
+        ? { label: "Speaker Tech Questionnaire — submitted", outstanding: false }
+        : stored.exists
+          ? { label: "Finish your Speaker Tech Questionnaire", outstanding: true }
+          : { label: "Start your Speaker Tech Questionnaire", outstanding: true };
+      intakeHref = "/speaker/tsls-intake";
     }
 
     const admin = createServiceClient();
@@ -297,6 +378,9 @@ export default async function SpeakerStudioPage(
       startError={searchParams?.error ?? null}
       monthCard={monthCard}
       previewAs={previewAs}
+      agreementSignedLabel={agreementSignedLabel}
+      intake={intakeState}
+      intakeHref={intakeHref}
     />
   );
 }

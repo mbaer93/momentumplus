@@ -5150,3 +5150,245 @@ input[type="checkbox"].pref-toggle::after {
   margin: 2px 0 4px;
   max-width: 46em;
 }
+
+/* ---------------------------------------------------------------------------
+   Leadership Advisor Agreement (/speaker/agreement)
+
+   A contract, so it reads like one: a single measured column, generous
+   leading, numbered headings in the display serif. The body deliberately
+   caps at ~34em — long legal prose at full container width is where people
+   stop reading, and this is a document someone is being asked to be bound by.
+   --------------------------------------------------------------------------- */
+.advisor-agreement { max-width: 820px; }
+
+.advisor-agreement-h {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  color: var(--navy);
+  margin: 22px 0 10px;
+}
+.advisor-agreement section:first-of-type .advisor-agreement-h { margin-top: 0; }
+
+.advisor-agreement-sub {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold-text);
+  letter-spacing: 0.02em;
+  margin: 16px 0 6px;
+}
+
+.advisor-agreement-p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink);
+  margin: 0 0 12px;
+  max-width: 34em;
+}
+.advisor-agreement-p.strong { font-weight: 600; }
+
+.advisor-agreement-ul {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  max-width: 34em;
+}
+.advisor-agreement-ul li {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+/* A blank the Advisor doesn't fill: SLC assigns it, or the server does.
+   Styled as a filled value rather than a disabled input so it doesn't read
+   as something broken. */
+.advisor-agreement-readonly {
+  font-size: 14px;
+  color: var(--ink-secondary);
+  padding: 9px 0;
+  border-bottom: 1px solid var(--warm-gray);
+  max-width: 34em;
+}
+
+/* The typed signature. Serif and larger than a normal input — signing your
+   name should not feel like filling in a form field. */
+.advisor-agreement-signature {
+  font-family: var(--font-serif) !important;
+  font-size: 19px !important;
+}
+
+.advisor-agreement-countersign {
+  margin: 22px 0 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--warm-gray);
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+  line-height: 1.6;
+}
+.advisor-agreement-countersign-name {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--navy);
+}
+
+/* ---------------------------------------------------------------------------
+   Advisor session intake (/speaker/intake)
+
+   Narrower than a contract and chattier: this is a form someone fills in
+   over several sittings, so sections carry a line of context and the
+   options sit in readable columns rather than one long ladder.
+   --------------------------------------------------------------------------- */
+.advisor-intake { max-width: 820px; }
+
+.intake-h {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  color: var(--navy);
+  margin: 0 0 4px;
+}
+.intake-intro {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-secondary);
+  margin: 0 0 18px;
+  max-width: 44em;
+}
+.intake-help {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-secondary);
+  margin-top: 5px;
+  max-width: 44em;
+}
+
+.intake-yesno { display: flex; gap: 22px; padding: 4px 0; }
+
+.intake-radio {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--ink);
+  cursor: pointer;
+  /* .admin-field label is uppercase + letter-spaced; an answer is prose. */
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  margin: 0;
+}
+.intake-radio input { width: auto; margin: 0; }
+
+.intake-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px 20px;
+  padding: 4px 0;
+}
+
+.intake-social { display: grid; gap: 8px; max-width: 30em; }
+.intake-social-row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.intake-social-label {
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+}
+
+/* The Studio's nudge while an intake is unstarted or half-finished. */
+.btn-mini.intake-cta {
+  border-color: var(--gold);
+  color: var(--gold-text);
+  font-weight: 600;
+}
+.btn-mini.intake-cta:hover { border-color: var(--gold-text); }
+
+/* ---------------------------------------------------------------------------
+   TSLS Speaker Tech Questionnaire (/speaker/tsls-intake)
+
+   Sierra's mainstage form, mirrored. It is long by design (her own intro
+   apologises for it), so the priorities are scannability and never losing
+   your place: sections are clearly cut, event copy reads as guidance rather
+   than as a question, and required markers are visible without shouting.
+   --------------------------------------------------------------------------- */
+.tsls-intake { max-width: 820px; }
+
+.tsls-h {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  color: var(--navy);
+  margin: 0 0 12px;
+}
+
+/* Sierra's event copy between questions — guidance, not a prompt. */
+.tsls-notice {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-secondary);
+  background: var(--row-alt);
+  border-left: 2px solid var(--gold);
+  border-radius: 0 4px 4px 0;
+  padding: 12px 14px;
+  margin: 0 0 18px;
+  max-width: 46em;
+}
+
+/* A question label that isn't a <label> (radio groups own their inputs). */
+.tsls-question {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+  margin-bottom: 8px;
+  line-height: 1.55;
+  max-width: 46em;
+}
+
+.tsls-required { color: var(--accent-red); }
+
+.tsls-options { display: flex; gap: 22px; flex-wrap: wrap; padding: 2px 0; }
+
+.tsls-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 20px;
+  padding: 2px 0;
+}
+
+/* A single-option acknowledgement reads as a statement you tick, not a
+   one-item multiple choice. */
+.tsls-ack { padding: 2px 0; }
+
+.tsls-choice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--ink);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  margin: 0;
+}
+.tsls-choice input { width: auto; margin: 0; }
+
+.tsls-signature {
+  font-family: var(--font-serif) !important;
+  font-size: 19px !important;
+}
+
+.tsls-missing {
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+  margin-bottom: 8px;
+}
+.tsls-missing-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
