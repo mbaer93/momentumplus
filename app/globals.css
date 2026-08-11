@@ -5103,21 +5103,73 @@ html, body { overflow-x: clip; }
    added: at 18.23:1 and 5.62:1 against the two tracks it no longer needs a
    ring to be found, and the ring was invisible against --gold-text anyway.
    Do not "simplify" these selectors back to `.pref-toggle` — the resets
-   above will silently eat them again. */
+   above will silently eat them again.
+
+   ---------------------------------------------------------------------
+   Admin toggles, pass THREE (Matt, 2026-08-11, after pass two shipped:
+   "the toggle switches are hard to see if they are on or off and need to
+   have a background behind them that assists to see what position the
+   switches are in.")
+
+   WHY PASS TWO DIDN'T LAND. It rendered this time — the pixels were there
+   — but it painted BOTH states dark: OFF --navy, ON --gold-text. Every
+   switch on the web reads a pale track as off and a filled track as on, so
+   a solid dark pill reads as ON no matter which colour it is. Pass two made
+   the OFF state the most visually prominent of the two, then asked the
+   viewer to tell navy from dark gold at 20px and 3.24:1. Chasing contrast
+   ratios inverted the one convention that carries the meaning.
+
+   THE FIX is a real track: a pale well with a dark rim, so the pill always
+   looks like a channel with something sitting at one end, and the knob
+   inverts polarity with the state. Three independent cues now move
+   together — fill (pale -> gold), knob (dark -> white, left -> right), and
+   the word (components/ToggleState.tsx, on all 10 switches).
+
+     track rim (--navy) vs card ........... 18.67:1 white / 17.90:1 #fbfaf8
+     ON fill (--gold-text) vs card ........ 5.62:1  / 5.39:1
+     ON fill vs OFF fill .................. 4.65:1  (was 3.24:1)
+     OFF knob (--navy) vs OFF fill ........ 15.44:1
+     ON  knob (--white) vs ON fill ........ 5.62:1
+
+   The pale OFF fill is 1.21:1 against a white card on its own — which is
+   exactly why the rim exists and is not optional. The rim, not the fill, is
+   what satisfies 1.4.11 for the component boundary, and it is what Matt
+   means by a background: it draws the extent of travel, so the knob's
+   position inside it is readable rather than inferred. --gold-text stays
+   the ON colour for the reason pass two gives above (pure --gold cannot
+   clear 3:1 on white). The inset shadow makes the OFF state read as an
+   empty well rather than a flat pale pill. */
 .admin-field input[type="checkbox"].pref-toggle,
 input[type="checkbox"].pref-toggle {
   box-sizing: border-box;
-  border: none;
-  background: var(--navy);
+  border: 2px solid var(--navy);
+  background: var(--warm-gray);
+  box-shadow: inset 0 1px 2px rgba(11, 22, 34, 0.18);
 }
 .admin-field input[type="checkbox"].pref-toggle:checked,
 input[type="checkbox"].pref-toggle:checked {
   background: var(--gold-text);
+  box-shadow: none;
 }
+/* 12px knob inside the 30x16 padding box the 2px rim leaves, so 2px of
+   track shows on every side in both positions — the gap is what makes the
+   knob read as sitting at one END of something. The checked offset
+   (30 - 12 - 2 = 16px) is the value the base rule already uses. */
 input[type="checkbox"].pref-toggle::after {
   box-sizing: border-box;
-  background: var(--white);
+  width: 12px;
+  height: 12px;
+  top: 2px;
+  left: 2px;
+  background: var(--navy);
   border: none;
+  transition: left 0.15s, background 0.15s;
+}
+/* (0,3,1) — it has to outrank the ::after rule directly above, which would
+   otherwise pin every knob to the left. */
+input[type="checkbox"].pref-toggle:checked::after {
+  left: 16px;
+  background: var(--white);
 }
 /* Keyboard users could not see which toggle they were on either. */
 .pref-toggle:focus-visible {
