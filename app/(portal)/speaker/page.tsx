@@ -317,7 +317,12 @@ export default async function SpeakerStudioPage(
               "Member count excludes admins, speakers, and sponsors."
             : stats.revenueCents === null
               ? "Member count excludes admins, speakers, and sponsors. Earnings appear once billing is connected."
-              : "Member count excludes admins, speakers, and sponsors. Earnings are 15% of membership revenue attributed to your month (longer plans are spread evenly across the months they cover); the figure settles when the month closes.",
+              : stats.payableSpeakers > 1
+                ? // A shared month splits ONE 15% share (§14). Say so, with
+                  // the number: a speaker who expected the full figure needs
+                  // to read why it halved, not guess the card is broken.
+                  `Member count excludes admins, speakers, and sponsors. Earnings are 15% of membership revenue attributed to your month (longer plans are spread evenly across the months they cover), split evenly between the ${stats.payableSpeakers} speakers sharing this month; the figure settles when the month closes.`
+                : "Member count excludes admins, speakers, and sponsors. Earnings are 15% of membership revenue attributed to your month (longer plans are spread evenly across the months they cover); the figure settles when the month closes.",
         inProgress: stats.inProgress,
       };
     }

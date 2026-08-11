@@ -1,6 +1,7 @@
 import { getStripeSettings, stripeRequest } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { allRows } from "@/lib/db-utils";
+import { sponsorActive } from "@/lib/sponsor-lifecycle";
 
 /*
  * Speaker-of-the-month math (Matt, 2026-07-24).
@@ -379,6 +380,73 @@ export function speakerIsPaid(flags: SpeakerPayFlags): boolean {
   return flags.paymentAccess && !flags.tslsMainSpeaker;
 }
 
+/*
+ * §14 of the Leadership Advisor Agreement gives a featured month a single
+ * 15% share. When two Advisors share a month they split that one share —
+ * they do not each earn 15%, which is what this used to compute.
+ *
+ * ONLY PAYABLE SPEAKERS DIVIDE IT. A TSLS Main Speaker's Momentum+ month is
+ * part of their Summit engagement and carries no Momentum+ payment (Matt,
+ * 2026-08-11), and a speaker whose payment access an admin switched off
+ * (migration 0082) is likewise not owed anything. Neither takes a slice, so
+ * neither may dilute one: an Advisor sharing a month with two Main Speakers
+ * still earns the whole 15%.
+ *
+ * Rounding is per speaker rather than distributing a pooled remainder. With
+ * an odd pool the halves can sum to one cent over it — immaterial against a
+ * monthly-equivalent figure that itself moves until the month closes, and
+ * the alternative needs a stable payout order this data has no basis for.
+ */
+export function speakerShareCents(
+  revenueCents: number,
+  payableSpeakers: number,
+): number {
+  // max(1): a paid speaker is always one of the sharers, so 0 only shows up
+  // if the count query came back empty — never inflate the share on that.
+  return Math.round(
+    (revenueCents * SPEAKER_REVENUE_SHARE) / Math.max(1, payableSpeakers),
+  );
+}
+
+/**
+ * How many speakers holding `monthKey` are actually owed money. Archived and
+ * expired speaker records are excluded on the same terms the Studio uses to
+ * resolve a speaker at all — a lapsed record is not a claim on the month.
+ */
+export async function payableSpeakerCountForMonth(
+  monthKey: string,
+): Promise<number> {
+  const admin = createServiceClient();
+  let rows = (
+    await admin
+      .from("speakers")
+      .select("id, tsls_main_speaker, payment_access, archived_at, expires_at")
+      .eq("speaker_month", monthKey)
+  ).data as Record<string, unknown>[] | null;
+  if (!rows) {
+    // Pre-0082 (no payment_access): everyone still has it by default.
+    rows = (
+      await admin
+        .from("speakers")
+        .select("id, tsls_main_speaker, archived_at, expires_at")
+        .eq("speaker_month", monthKey)
+    ).data as Record<string, unknown>[] | null;
+  }
+  if (!rows) return 0;
+  return rows.filter(
+    (r) =>
+      sponsorActive({
+        archivedAt: (r.archived_at as string | null) ?? null,
+        expiresAt: (r.expires_at as string | null) ?? null,
+      }) &&
+      speakerIsPaid({
+        tslsMainSpeaker: r.tsls_main_speaker === true,
+        // Absent/null means "has access" — only an explicit false removes it.
+        paymentAccess: r.payment_access !== false,
+      }),
+  ).length;
+}
+
 export interface SpeakerMonthStats {
   monthKey: string;
   monthLabel: string;
@@ -387,8 +455,14 @@ export interface SpeakerMonthStats {
       connected (the card says so instead of showing $0). */
   revenueCents: number | null;
   /** 15% share — null when the speaker isn't paid (TSLS Main Speaker, or
-      payment access switched off) or revenue is unknown. */
+      payment access switched off) or revenue is unknown. Already divided by
+      `payableSpeakers` when a month is shared (§14). */
   earningsCents: number | null;
+  /** How many speakers are splitting this month's single 15% share. 1 in the
+      ordinary case; 0 only when nobody holding the month is payable. Surfaced
+      so a shared month can say WHY the figure is a half rather than leaving a
+      speaker to think the number is wrong. */
+  payableSpeakers: number;
   /** True while the month hasn't ended (numbers still moving). */
   inProgress: boolean;
 }
@@ -397,9 +471,13 @@ export async function speakerMonthStats(
   speakerMonth: string,
   opts: { paid: boolean },
 ): Promise<SpeakerMonthStats> {
-  const [memberCount, revenueCents] = await Promise.all([
+  // The split is applied HERE rather than at the three call sites (the
+  // Studio card, the admin table, the monthly report cron) so none of them
+  // can compute an undivided 15% by forgetting to ask.
+  const [memberCount, revenueCents, payableSpeakers] = await Promise.all([
     eligibleMemberCount(speakerMonth),
     monthlyEquivalentRevenueCents(speakerMonth),
+    payableSpeakerCountForMonth(speakerMonth),
   ]);
   return {
     monthKey: speakerMonth,
@@ -408,8 +486,9 @@ export async function speakerMonthStats(
     revenueCents,
     earningsCents:
       opts.paid && revenueCents !== null
-        ? Math.round(revenueCents * SPEAKER_REVENUE_SHARE)
+        ? speakerShareCents(revenueCents, payableSpeakers)
         : null,
+    payableSpeakers,
     inProgress: monthWindow(speakerMonth).end.getTime() > Date.now(),
   };
 }

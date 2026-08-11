@@ -4,7 +4,7 @@ import { bearerAuthorized } from "@/lib/db-utils";
 import { brandedEmailHtml } from "@/lib/email-template";
 import { sendEmailViaGhl } from "@/lib/notifications";
 import {
-  SPEAKER_REVENUE_SHARE,
+  speakerShareCents,
   eligibleMemberCount,
   formatCents,
   monthKeyOf,
@@ -145,6 +145,24 @@ export async function GET(req: NextRequest) {
           })
           .join("");
 
+  /*
+   * §14 gives the month ONE 15% share, so two Advisors on the same month
+   * split it. This report computes its own figure rather than going through
+   * speakerMonthStats, so the split has to be applied here too — and this is
+   * the copy that states a dollar amount in an email somebody reads.
+   *
+   * Counted from the list this email already enumerates: payable speakers
+   * only, so a TSLS Main Speaker (unpaid — their month is part of the Summit
+   * engagement) or a speaker with payment access off never dilutes a share
+   * they are not owed.
+   */
+  const payableSpeakers = monthSpeakers.filter((s) =>
+    speakerIsPaid({
+      tslsMainSpeaker: Boolean(s.tsls_main_speaker),
+      paymentAccess: s.payment_access !== false,
+    }),
+  ).length;
+
   const speakerLines = monthSpeakers
     .map((s) => {
       const paid = speakerIsPaid({
@@ -153,7 +171,7 @@ export async function GET(req: NextRequest) {
       });
       const share =
         paid && revenueCents !== null
-          ? ` — 15% share: <strong>${formatCents(Math.round(revenueCents * SPEAKER_REVENUE_SHARE))}</strong>`
+          ? ` — 15% share: <strong>${formatCents(speakerShareCents(revenueCents, payableSpeakers))}</strong>${payableSpeakers > 1 ? ` (split ${payableSpeakers} ways)` : ""}`
           : s.tsls_main_speaker
             ? " (TSLS Main Speaker — unpaid)"
             : !paid
