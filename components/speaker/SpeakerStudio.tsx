@@ -66,6 +66,7 @@ export function SpeakerStudio({
   startError,
   monthCard = null,
   previewAs = null,
+  agreementSignedLabel = null,
 }: {
   speaker: {
     name: string;
@@ -93,6 +94,10 @@ export function SpeakerStudio({
       Every server action re-checks ownership anyway, so this is honest UI
       (buttons that would fail are disabled), not the security boundary. */
   previewAs?: string | null;
+  /** Set for an Advisor who has signed the Leadership Advisor Agreement —
+      a way back to the wording they agreed to. Null for TSLS Main Speakers
+      and anyone an admin has waived, who have no agreement here. */
+  agreementSignedLabel?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -140,6 +145,14 @@ export function SpeakerStudio({
               : ""}
           </p>
         </div>
+        {agreementSignedLabel && (
+          /* Outside the disabled fieldset would be tidier, but a link is not
+             a form control — `disabled` doesn't reach it, so it stays
+             clickable here. */
+          <a className="btn-mini" href="/speaker/agreement">
+            Advisor Agreement — signed {agreementSignedLabel}
+          </a>
+        )}
       </div>
 
       {speaker.goLiveLabel && (

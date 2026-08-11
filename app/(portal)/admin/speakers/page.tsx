@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/SpeakerLifecyclePanel";
 import type { EntityRow } from "@/components/admin/EntityManager";
 import {} from "@/components/icons";
+import { AGREEMENT_VERSION } from "@/lib/advisor-agreement";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { speakers as placeholderSpeakers } from "@/lib/directory-data";
 import {
@@ -37,6 +38,7 @@ interface AdminSpeakerRow {
   speaker_month?: string | null;
   tsls_main_speaker?: boolean | null;
   payment_access?: boolean | null;
+  advisor_agreement_waived?: boolean | null;
   contact_email?: string | null;
   profile_id?: string | null;
 }
@@ -81,8 +83,11 @@ export default async function AdminSpeakersPage(
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
     const FULL =
+      "id, name, title, bio, industries, website, headshot_url, featured, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access, advisor_agreement_waived, contact_email, profile_id";
+    const PRE_0083 =
       "id, name, title, bio, industries, website, headshot_url, featured, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access, contact_email, profile_id";
-    // Pre-migration fallbacks: payment_access arrives with 0082,
+    // Pre-migration fallbacks: advisor_agreement_waived arrives with 0083,
+    // payment_access arrives with 0082,
     // contact_email with 0074, month columns with 0053, lifecycle columns
     // with 0028 — degrade gracefully until each is run.
     const PRE_0082 =
@@ -94,7 +99,7 @@ export default async function AdminSpeakersPage(
     const LEGACY =
       "id, name, title, bio, industries, website, headshot_url, featured";
     let data: AdminSpeakerRow[] | null = null;
-    for (const columns of [FULL, PRE_0082, PRE_0074, PRE_0053, LEGACY]) {
+    for (const columns of [FULL, PRE_0083, PRE_0082, PRE_0074, PRE_0053, LEGACY]) {
       data = (
         await admin
           .from("speakers")
@@ -122,6 +127,45 @@ export default async function AdminSpeakersPage(
       (invites ?? []).map((i) => String(i.email).toLowerCase()),
     );
 
+    /*
+     * Leadership Advisor Agreement status, one query for everyone. Ordered
+     * newest-first so the first row seen per speaker is their current
+     * signature; §32 lets the agreement be amended, so a speaker can hold
+     * several. `error` means migration 0083 hasn't run — every speaker then
+     * reads as unsigned, which is the honest answer on a database with no
+     * signature ledger.
+     */
+    const { data: signatureRows, error: signatureError } = await admin
+      .from("advisor_agreements")
+      .select("speaker_id, agreement_version, signed_at")
+      .order("signed_at", { ascending: false });
+    const latestSignature = new Map<string, { version: string; at: string }>();
+    for (const s of (!signatureError && signatureRows) || []) {
+      const id = s.speaker_id as string;
+      if (!latestSignature.has(id)) {
+        latestSignature.set(id, {
+          version: s.agreement_version as string,
+          at: s.signed_at as string,
+        });
+      }
+    }
+    const signedOn = (iso: string) =>
+      new Date(iso).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "America/New_York",
+      });
+    const agreementStatusOf = (s: AdminSpeakerRow): string => {
+      if (s.tsls_main_speaker) return "Not required — TSLS Main Speaker.";
+      if (s.advisor_agreement_waived) return "Waived — no in-app signature needed.";
+      const signature = latestSignature.get(s.id);
+      if (!signature) return "Not signed — Speaker Studio is closed to them.";
+      return signature.version === AGREEMENT_VERSION
+        ? `Signed ${signedOn(signature.at)}.`
+        : `Signed ${signedOn(signature.at)} against older wording — needs re-signing.`;
+    };
+
     rows = all.filter(isActive).map((s) => ({
       id: s.id,
       title: s.name,
@@ -142,11 +186,15 @@ export default async function AdminSpeakersPage(
         // show the switch ON, or an admin saving an unrelated edit would
         // quietly strip payment access from every speaker.
         paymentAccess: s.payment_access !== false,
+        // Mirror image of the line above: only an explicit true is a waiver,
+        // so a null column (pre-0083) leaves the agreement required.
+        advisorAgreementWaived: s.advisor_agreement_waived === true,
         hasAccount: Boolean(s.profile_id),
         invitePending: Boolean(
           s.contact_email &&
             pendingEmails.has(String(s.contact_email).toLowerCase()),
         ),
+        agreementStatus: agreementStatusOf(s),
       },
     }));
     uninvitedCount = all.filter(

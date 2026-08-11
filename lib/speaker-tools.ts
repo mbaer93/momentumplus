@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { sponsorActive } from "@/lib/sponsor-lifecycle";
+import type { SignedAgreement } from "@/lib/advisor-agreement";
 
 /*
  * Speaker Studio support: resolve the speaker record owned by a signed-in
@@ -27,6 +28,17 @@ export interface OwnSpeaker {
       payment feature entirely. A missing column reads as true, so an
       un-migrated database keeps today's behaviour. */
   paymentAccess: boolean;
+  /** Advisor's organization — §9 of the Leadership Advisor Agreement lists
+      it among the community-visible profile fields (migration 0083). */
+  organization: string | null;
+  /** §2 "Anticipated Featured Session Date" — an intention, not a booking:
+      the real event is a row in `sessions`. */
+  featuredSessionDate: string | null;
+  /** §2 "Anticipated Featured Session Time", free text ("12:00 PM ET"). */
+  featuredSessionTime: string | null;
+  /** Admin escape hatch (migration 0083): true lets this speaker into the
+      Studio with no in-app signature. Missing column reads as false. */
+  advisorAgreementWaived: boolean;
 }
 
 async function resolveSpeaker(
@@ -41,11 +53,23 @@ async function resolveSpeaker(
     await service
       .from("speakers")
       .select(
-        "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access",
+        "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access, organization, featured_session_date, featured_session_time, advisor_agreement_waived",
       )
       .eq(column, value)
       .maybeSingle()
   ).data;
+  if (!data) {
+    // Pre-migration-0083 fallback (no advisor-agreement columns yet).
+    data = (
+      await service
+        .from("speakers")
+        .select(
+          "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access",
+        )
+        .eq(column, value)
+        .maybeSingle()
+    ).data;
+  }
   if (!data) {
     // Pre-migration-0082 fallback (no payment_access column yet).
     data = (
@@ -93,6 +117,40 @@ async function resolveSpeaker(
     // Absent/null (pre-0082, or a row written before the default landed)
     // means "has payment access" — only an explicit false takes it away.
     paymentAccess: data.payment_access !== false,
+    organization: (data.organization as string | null) ?? null,
+    featuredSessionDate: (data.featured_session_date as string | null) ?? null,
+    featuredSessionTime: (data.featured_session_time as string | null) ?? null,
+    // Pre-0083 reads as false: nobody is waived until an admin says so.
+    advisorAgreementWaived: data.advisor_agreement_waived === true,
+  };
+}
+
+/**
+ * The speaker's most recent Leadership Advisor signature, or null if they
+ * have never signed. Newest first — §32 lets the agreement be amended, so a
+ * speaker can hold several rows and only the latest one decides the gate.
+ *
+ * Returns null (rather than throwing) when migration 0083 hasn't run, so the
+ * Studio keeps working on a database that predates the table.
+ */
+export async function latestAdvisorAgreement(
+  speakerId: string,
+): Promise<SignedAgreement | null> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  const { data, error } = await createServiceClient()
+    .from("advisor_agreements")
+    .select("agreement_version, signed_name, signed_at")
+    .eq("speaker_id", speakerId)
+    .order("signed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    agreementVersion: data.agreement_version as string,
+    signedName: data.signed_name as string,
+    signedAt: data.signed_at as string,
   };
 }
 
