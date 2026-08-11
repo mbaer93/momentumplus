@@ -4726,7 +4726,6 @@ do $mig$
 declare
   probe_speaker uuid;
   probe_intake uuid;
-  first_touch timestamptz;
 begin
   if not (select relrowsecurity from pg_class where oid = 'public.advisor_intake'::regclass) then
     raise exception '0084: RLS is not enabled on advisor_intake';
@@ -4754,14 +4753,29 @@ begin
 
   -- The updated_at trigger actually fires. Probe against a real speaker so
   -- the FK holds, then clean up.
+  --
+  -- The probe deliberately does NOT check that updated_at moved forward
+  -- against a timestamp read before the UPDATE. now() is
+  -- transaction_timestamp() — fixed for the whole transaction — so the trigger
+  -- writes back the exact value the INSERT default already stored, and a
+  -- "did it advance" test reads as failure however correctly the trigger
+  -- behaves. (In production each save is its own transaction, so the trigger
+  -- itself is right; only the test was unprovable here.) Instead the UPDATE
+  -- supplies a sentinel updated_at and the probe asserts the trigger
+  -- overwrote it — the property actually worth proving, and one that holds
+  -- inside a single transaction.
   select id into probe_speaker from speakers limit 1;
   if probe_speaker is not null then
     insert into advisor_intake (speaker_id, session_title)
     values (probe_speaker, '__probe__')
-    returning id, updated_at into probe_intake, first_touch;
+    returning id into probe_intake;
 
-    update advisor_intake set session_title = '__probe2__' where id = probe_intake;
-    if (select updated_at from advisor_intake where id = probe_intake) <= first_touch then
+    update advisor_intake
+      set session_title = '__probe2__',
+          updated_at = timestamptz '2000-01-01 00:00:00+00'
+      where id = probe_intake;
+    if (select updated_at from advisor_intake where id = probe_intake)
+         = timestamptz '2000-01-01 00:00:00+00' then
       raise exception '0084: the updated_at trigger did not fire on UPDATE';
     end if;
 
@@ -4887,7 +4901,6 @@ do $mig$
 declare
   probe_speaker uuid;
   probe_row uuid;
-  first_touch timestamptz;
 begin
   if not (select relrowsecurity from pg_class where oid = 'public.tsls_speaker_intake'::regclass) then
     raise exception '0085: RLS is not enabled on tsls_speaker_intake';
@@ -4912,16 +4925,21 @@ begin
     raise exception '0085: tsls_speaker_intake.speaker_id is not unique — upsert-on-save would duplicate rows';
   end if;
 
+  -- As in 0084: now() is transaction_timestamp() and does not advance within a
+  -- transaction, so the probe asserts the trigger OVERWROTE a sentinel
+  -- updated_at rather than that the value moved forward.
   select id into probe_speaker from speakers limit 1;
   if probe_speaker is not null then
     insert into tsls_speaker_intake (speaker_id, form_version, answers)
     values (probe_speaker, '__probe__', '{"name":"__probe__"}'::jsonb)
-    returning id, updated_at into probe_row, first_touch;
+    returning id into probe_row;
 
     update tsls_speaker_intake
-      set answers = '{"name":"__probe2__"}'::jsonb
+      set answers = '{"name":"__probe2__"}'::jsonb,
+          updated_at = timestamptz '2000-01-01 00:00:00+00'
       where id = probe_row;
-    if (select updated_at from tsls_speaker_intake where id = probe_row) <= first_touch then
+    if (select updated_at from tsls_speaker_intake where id = probe_row)
+         = timestamptz '2000-01-01 00:00:00+00' then
       raise exception '0085: the updated_at trigger did not fire on UPDATE';
     end if;
 
