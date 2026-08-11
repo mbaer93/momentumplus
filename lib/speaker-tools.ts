@@ -137,15 +137,23 @@ async function resolveSpeaker(
  * Returns null (rather than throwing) when migration 0083 hasn't run, so the
  * Studio keeps working on a database that predates the table.
  */
+export type LatestAdvisorAgreement = SignedAgreement & {
+  /** Snapshot from that signing, for seeding a later one. */
+  phone: string | null;
+  organization: string | null;
+};
+
 export async function latestAdvisorAgreement(
   speakerId: string,
-): Promise<SignedAgreement | null> {
+): Promise<LatestAdvisorAgreement | null> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return null;
   }
+  // phone/organization come back so a re-signature can seed the blanks from
+  // what this person already told us, rather than asking twice.
   const { data, error } = await createServiceClient()
     .from("advisor_agreements")
-    .select("agreement_version, signed_name, signed_at")
+    .select("agreement_version, signed_name, signed_at, phone, organization")
     .eq("speaker_id", speakerId)
     .order("signed_at", { ascending: false })
     .limit(1)
@@ -155,6 +163,8 @@ export async function latestAdvisorAgreement(
     agreementVersion: data.agreement_version as string,
     signedName: data.signed_name as string,
     signedAt: data.signed_at as string,
+    phone: (data.phone as string | null) ?? null,
+    organization: (data.organization as string | null) ?? null,
   };
 }
 

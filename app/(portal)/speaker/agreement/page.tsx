@@ -9,6 +9,7 @@ import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
 import { monthLabel } from "@/lib/revenue";
 import { getSpeakerById, getSpeakerForUser, latestAdvisorAgreement } from "@/lib/speaker-tools";
+import { getAdvisorIntake } from "@/lib/advisor-intake-db";
 import { getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -59,7 +60,20 @@ export default async function AdvisorAgreementPage(props: {
   // an admin has waived. Send them where they were trying to go.
   if (!agreementRequired(speaker)) redirect("/speaker");
 
-  const latest = await latestAdvisorAgreement(speaker.id);
+  /*
+   * Anything this Advisor has already given Momentum+ seeds the blanks:
+   * asking a second time for a number they typed into their intake — or
+   * into a previous signature of this very agreement — is exactly the
+   * friction Matt called out (2026-08-11). Their own signature snapshot
+   * wins over the intake, being the more deliberate of the two.
+   */
+  const [latest, intake] = await Promise.all([
+    latestAdvisorAgreement(speaker.id),
+    getAdvisorIntake(speaker.id),
+  ]);
+  const knownPhone = latest?.phone || intake.intake.phone || null;
+  const knownOrganization =
+    speaker.organization || latest?.organization || null;
   const signature: AdvisorAgreementSignature | null = latest
     ? {
         signedName: latest.signedName,
@@ -78,7 +92,8 @@ export default async function AdvisorAgreementPage(props: {
     <AdvisorAgreementForm
       speaker={{
         name: speaker.name,
-        organization: speaker.organization,
+        organization: knownOrganization,
+        phone: knownPhone,
         featuredSessionDate: speaker.featuredSessionDate,
         featuredSessionTime: speaker.featuredSessionTime,
         featuredMonthLabel: speaker.speakerMonth
