@@ -3,13 +3,14 @@ import {
   AdvisorAgreementForm,
   type AdvisorAgreementSignature,
 } from "@/components/speaker/AdvisorAgreementForm";
-import { AGREEMENT_VERSION, agreementRequired } from "@/lib/advisor-agreement";
+import { agreementIsCurrent, agreementRequired } from "@/lib/advisor-agreement";
 import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
 import { monthLabel } from "@/lib/revenue";
 import { getSpeakerById, getSpeakerForUser, latestAdvisorAgreement } from "@/lib/speaker-tools";
 import { getAdvisorIntake } from "@/lib/advisor-intake-db";
+import { getAgreementForSpeaker } from "@/lib/agreement-doc-db";
 import { getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -67,9 +68,10 @@ export default async function AdvisorAgreementPage(props: {
    * friction Matt called out (2026-08-11). Their own signature snapshot
    * wins over the intake, being the more deliberate of the two.
    */
-  const [latest, intake] = await Promise.all([
+  const [latest, intake, agreement] = await Promise.all([
     latestAdvisorAgreement(speaker.id),
     getAdvisorIntake(speaker.id),
+    getAgreementForSpeaker(speaker.id),
   ]);
   const knownPhone = latest?.phone || intake.intake.phone || null;
   const knownOrganization =
@@ -84,7 +86,7 @@ export default async function AdvisorAgreementPage(props: {
           timeZone: "America/New_York",
         }),
         agreementVersion: latest.agreementVersion,
-        current: latest.agreementVersion === AGREEMENT_VERSION,
+        current: agreementIsCurrent(latest, agreement.currency),
       }
     : null;
 
@@ -101,6 +103,8 @@ export default async function AdvisorAgreementPage(props: {
           : null,
       }}
       email={previewAs ? "" : (user.email ?? "")}
+      doc={agreement.doc}
+      hasOverrides={agreement.hasOverrides}
       signature={signature}
       readOnly={Boolean(previewAs)}
       previewAs={previewAs}

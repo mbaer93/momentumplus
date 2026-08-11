@@ -4,10 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signAdvisorAgreement } from "@/app/(portal)/speaker/agreement/actions";
 import {
-  AGREEMENT_ACCEPTANCE,
-  AGREEMENT_PREAMBLE,
-  AGREEMENT_SECTIONS,
-  AGREEMENT_TITLE,
+  DEFAULT_AGREEMENT_DOC,
+  type AgreementDoc,
   type AgreementBlock,
 } from "@/lib/advisor-agreement";
 
@@ -83,11 +81,21 @@ export function AdvisorAgreementForm({
   speaker,
   email,
   signature,
+  doc = DEFAULT_AGREEMENT_DOC,
+  hasOverrides = false,
   readOnly = false,
   previewAs = null,
 }: {
   speaker: AdvisorAgreementSpeaker;
   email: string;
+  /** The wording THIS Advisor is asked to sign: the published master with
+      their own clause overrides applied (migration 0086). Defaults to the
+      wording Momentum+ ships with, which is what a database with no
+      template rows still serves. */
+  doc?: AgreementDoc;
+  /** True when this copy differs from the master — worth saying out loud on
+      a contract rather than letting someone assume it is the standard one. */
+  hasOverrides?: boolean;
   /** The speaker's latest signature, or null if they've never signed. */
   signature: AdvisorAgreementSignature | null;
   /** True when nobody can sign from this view (admin looking at a speaker). */
@@ -114,7 +122,7 @@ export function AdvisorAgreementForm({
     <div className="admin-pad advisor-agreement">
       <div className="section-header">
         <div>
-          <h2>{AGREEMENT_TITLE}</h2>
+          <h2>{doc.title}</h2>
           <p>Sierra Learnership Collaborative, LLC</p>
         </div>
       </div>
@@ -123,6 +131,15 @@ export function AdvisorAgreementForm({
         <div className="admin-hint">
           Viewing {previewAs}&apos;s agreement. Signing is disabled — only the
           Advisor can sign their own.
+        </div>
+      )}
+
+      {/* Somebody signing a contract should not have to discover for
+          themselves that theirs is not the standard one. */}
+      {hasOverrides && (
+        <div className="admin-hint">
+          This copy has been tailored for {previewAs ?? "you"} — one or more
+          clauses differ from the standard Leadership Advisor Agreement.
         </div>
       )}
 
@@ -152,7 +169,7 @@ export function AdvisorAgreementForm({
       <form action={onSubmit}>
         {/* ---- Parties: the blanks at the head of the document ---- */}
         <div className="admin-form" style={{ maxWidth: "none" }}>
-          <p className="advisor-agreement-p">{AGREEMENT_PREAMBLE}</p>
+          <p className="advisor-agreement-p">{doc.preamble}</p>
 
           <div className="admin-field-row">
             <div className="admin-field">
@@ -204,7 +221,7 @@ export function AdvisorAgreementForm({
         </div>
 
         {/* ---- §1 and §2, with §2's blanks inline where they belong ---- */}
-        {AGREEMENT_SECTIONS.filter((s) => s.n <= 2).map((section) => (
+        {doc.sections.filter((s) => s.n <= 2).map((section) => (
           <section key={section.n} className="admin-form" style={{ maxWidth: "none" }}>
             <h3 className="advisor-agreement-h">
               {section.n}. {section.title}
@@ -255,7 +272,7 @@ export function AdvisorAgreementForm({
 
         {/* ---- §3 onwards, straight through ---- */}
         <div className="admin-form" style={{ maxWidth: "none" }}>
-          {AGREEMENT_SECTIONS.filter((s) => s.n > 2).map((section) => (
+          {doc.sections.filter((s) => s.n > 2).map((section) => (
             <section key={section.n}>
               <h3 className="advisor-agreement-h">
                 {section.n}. {section.title}
@@ -268,7 +285,7 @@ export function AdvisorAgreementForm({
         {/* ---- §34 Acceptance ---- */}
         <div className="admin-form" style={{ maxWidth: "none" }}>
           <h3 className="advisor-agreement-h">34. Acceptance</h3>
-          <p className="advisor-agreement-p">{AGREEMENT_ACCEPTANCE}</p>
+          <p className="advisor-agreement-p">{doc.acceptance}</p>
 
           <div className="admin-field">
             <label className="admin-check-row" htmlFor="accepted">
@@ -279,7 +296,7 @@ export function AdvisorAgreementForm({
                 defaultChecked={settled}
                 disabled={settled || readOnly}
               />
-              <span>{AGREEMENT_ACCEPTANCE}</span>
+              <span>{doc.acceptance}</span>
             </label>
           </div>
 

@@ -57,6 +57,14 @@ const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
         area: "content",
       },
       {
+        href: "/admin/agreement",
+        icon: SpeakersIcon,
+        title: "Advisor Agreement",
+        desc: "Edit the Leadership Advisor Agreement before it goes out, and tailor a clause for one Advisor. Signed copies are never changed.",
+        area: "content",
+        superOnly: true,
+      },
+      {
         href: "/admin/sponsors",
         icon: SponsorsIcon,
         title: "Sponsors",
