@@ -409,6 +409,20 @@ export default async function AdminSpeakersPage(
                         : r.stats.earningsCents === null
                           ? "—"
                           : formatCents(r.stats.earningsCents)}
+                      {/* Why this figure is a half: one 15% share (§14)
+                          divided between the payable speakers on the month.
+                          Main Speakers and payment-access-off speakers are
+                          not counted, so this only appears when the split
+                          is real. */}
+                      {!r.main &&
+                      r.paymentAccess &&
+                      r.stats.earningsCents !== null &&
+                      r.stats.payableSpeakers > 1 ? (
+                        <span className="admin-field-hint">
+                          {" "}
+                          (15% split {r.stats.payableSpeakers} ways)
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                 ))}
