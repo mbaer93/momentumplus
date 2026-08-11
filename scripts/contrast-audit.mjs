@@ -84,11 +84,54 @@ const AUDIT = () => {
     return { color: base };
   };
 
+  /*
+   * Worst-case opacity for each @keyframes animation.
+   *
+   * A rendered sweep samples whichever frame happens to be showing, so an
+   * animated fade is caught by luck or not at all — our "Live Now" badge sat
+   * at 3.97:1 for half of every cycle and was only found by reading the CSS
+   * by hand. Ported from the TSLS-Companion port of this script, which had
+   * already solved it. A label that spends half its life under AA is under
+   * AA, so the MINIMUM opacity across the frames is the one that counts.
+   */
+  const keyframeMinOpacity = new Map();
+  for (const sheet of document.styleSheets) {
+    let rules;
+    try { rules = sheet.cssRules; } catch { continue; }
+    const walkKeyframes = (list) => {
+      for (const rule of list) {
+        if (rule.type === CSSRule.KEYFRAMES_RULE || rule.cssRules && rule.name) {
+          let min = 1;
+          for (const frame of rule.cssRules ?? []) {
+            const v = frame.style?.getPropertyValue("opacity");
+            if (v !== "" && v != null) min = Math.min(min, parseFloat(v));
+          }
+          if (Number.isFinite(min)) {
+            keyframeMinOpacity.set(rule.name, Math.min(min, keyframeMinOpacity.get(rule.name) ?? 1));
+          }
+        } else if (rule.cssRules) {
+          walkKeyframes(rule.cssRules);
+        }
+      }
+    };
+    walkKeyframes(rules);
+  }
+
   const opacityOf = (el) => {
     let o = 1, n = el;
     while (n && n.nodeType === 1) {
-      const v = parseFloat(getComputedStyle(n).opacity);
-      if (!Number.isNaN(v)) o *= v;
+      const cs = getComputedStyle(n);
+      const sampled = parseFloat(cs.opacity);
+      // An animation that dips the opacity counts at its WORST frame, not at
+      // whatever frame this screenshot caught. The sampled value ALREADY
+      // reflects the animation, so the minimum REPLACES it — multiplying the
+      // two would penalise the element twice and invent failures.
+      let worst = Number.isNaN(sampled) ? 1 : sampled;
+      for (const name of (cs.animationName || "none").split(",")) {
+        const min = keyframeMinOpacity.get(name.trim());
+        if (min !== undefined) worst = Math.min(worst, min);
+      }
+      o *= worst;
       n = n.parentElement;
     }
     return o;
