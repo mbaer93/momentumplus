@@ -6,10 +6,13 @@ import type { AgreementDoc } from "@/lib/advisor-agreement";
 import {
   discardAgreementDraft,
   publishAgreementDraft,
+  requireResignature,
+  requireSpeakerResignature,
   saveAgreementDraft,
   saveSpeakerOverride,
   type EditorResult,
 } from "@/app/(portal)/admin/agreement/actions";
+import { describeChanges, type AgreementChange } from "@/lib/agreement-diff";
 
 /*
  * Editing the Leadership Advisor Agreement before it goes to an Advisor.
@@ -30,6 +33,8 @@ export interface AgreementEditorProps {
   draftVersion?: string | null;
   /** Master mode: the version currently in force. */
   publishedVersion?: string | null;
+  /** Master mode: what publishing this draft would change. */
+  changes?: AgreementChange[];
   /** Override mode: whose copy this is. */
   speaker?: { id: string; name: string } | null;
   /** Override mode: which section numbers already differ from the master. */
@@ -41,6 +46,7 @@ export function AgreementEditor({
   doc,
   draftVersion = null,
   publishedVersion = null,
+  changes = [],
   speaker = null,
   overriddenSections = [],
   overrideNote = "",
@@ -200,25 +206,46 @@ export function AgreementEditor({
         </div>
       </div>
 
-      <div className="card admin-pad">
-        {/* The one judgement the platform cannot make for itself. */}
-        <label className="admin-check-row">
-          <input
-            type="checkbox"
-            className="pref-toggle"
-            name="requiresResignature"
-            disabled={pending}
-          />
-          <span>This changes the terms — ask Advisors to sign again</span>
-        </label>
-        <p className="admin-field-hint">
-          §32 needs both parties to agree to a material amendment. Tick this
-          and every signature older than now stops counting, and those
-          Advisors are sent back to the agreement before their Studio opens.
-          Leave it clear for a typo or a formatting fix and existing
-          signatures still stand.
-        </p>
-      </div>
+      {/*
+       * What publishing would actually change. This is legal wording and §32
+       * needs both parties to agree to a material amendment, so the whole
+       * clause is shown before and after rather than a word-level highlight —
+       * a contract diff that invites skimming is worse than none.
+       */}
+      {!isOverride && draftVersion && (
+        <div className="card admin-pad">
+          <h3>Changes against the published wording</h3>
+          {changes.length === 0 ? (
+            <p className="admin-field-hint">
+              This draft says exactly what the published version says. There is
+              nothing to publish — a new version number on identical wording
+              only makes the signature ledger harder to read.
+            </p>
+          ) : (
+            <>
+              <p className="admin-field-hint">{describeChanges(changes)}.</p>
+              {changes.map((c) => (
+                <div className="admin-field" key={`${c.kind}-${c.n ?? c.label}`}>
+                  <label>
+                    {c.label}
+                    {c.headingChanged ? " (heading changed)" : ""}
+                  </label>
+                  <div className="agreement-diff">
+                    <div className="agreement-diff-side">
+                      <span className="admin-field-hint">Published</span>
+                      <pre>{c.before || "(empty)"}</pre>
+                    </div>
+                    <div className="agreement-diff-side">
+                      <span className="admin-field-hint">Draft</span>
+                      <pre>{c.after || "(empty)"}</pre>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="prefs-save-row">
         <button className="btn-primary" type="submit" disabled={pending}>
@@ -233,7 +260,7 @@ export function AgreementEditor({
             <button
               className="btn-secondary"
               type="submit"
-              disabled={pending}
+              disabled={pending || changes.length === 0}
               formAction={(fd) => run(publishAgreementDraft, fd)}
             >
               Publish draft
@@ -248,6 +275,87 @@ export function AgreementEditor({
             </button>
           </>
         )}
+      </div>
+
+      <p className="admin-field-hint">
+        Publishing never asks anyone to sign again. Existing signatures keep
+        counting until you deliberately amend the terms below.
+      </p>
+    </form>
+  );
+}
+
+/*
+ * §32's material amendment, as its own act.
+ *
+ * Deliberately NOT a checkbox on the publish form: it was the most
+ * consequential control on the screen and the easiest to trip by accident
+ * (Matt, 2026-08-11). It states how many people it would send back, and it
+ * takes a typed confirmation, because clearing it afterwards would silently
+ * reinstate signatures those people were already told no longer stood.
+ *
+ * Its own <form>, outside the editor's, so submitting it can never carry the
+ * draft's text along with it.
+ */
+export function RequireResignatureCard({
+  affectedCount,
+  speaker = null,
+}: {
+  affectedCount: number;
+  speaker?: { id: string; name: string } | null;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<EditorResult | null>(null);
+
+  const who = speaker
+    ? `${speaker.name} currently holds a signature that counts.`
+    : affectedCount === 0
+      ? "No Advisor currently holds a signature that counts, so this would send nobody back today."
+      : `${affectedCount} ${affectedCount === 1 ? "Advisor holds" : "Advisors hold"} a signature that counts. ${affectedCount === 1 ? "They" : "They"} would be sent back to the agreement before Speaker Studio opens.`;
+
+  return (
+    <form
+      className="admin-pad"
+      action={(fd) => {
+        setMsg(null);
+        start(async () => {
+          const res = await (speaker
+            ? requireSpeakerResignature(fd)
+            : requireResignature(fd));
+          setMsg(res);
+          if (res.ok) router.refresh();
+        });
+      }}
+    >
+      {speaker && <input type="hidden" name="speakerId" value={speaker.id} />}
+      <div className="card admin-pad">
+        <h3>Ask {speaker ? "this Advisor" : "Advisors"} to sign again</h3>
+        <p className="admin-field-hint">{who}</p>
+        <p className="admin-field-hint">
+          §32 requires a material amendment to be agreed by both parties. Use
+          this when the terms changed — not for a typo or a formatting fix.
+        </p>
+        {msg && (
+          <div className={msg.ok ? "admin-hint" : "admin-error"}>
+            {msg.message}
+          </div>
+        )}
+        <div className="admin-field">
+          <label htmlFor={`confirm-${speaker?.id ?? "master"}`}>
+            Type SIGN AGAIN to confirm
+          </label>
+          <input
+            id={`confirm-${speaker?.id ?? "master"}`}
+            name="confirm"
+            autoComplete="off"
+            placeholder="SIGN AGAIN"
+            disabled={pending}
+          />
+        </div>
+        <button className="btn-secondary" type="submit" disabled={pending}>
+          {pending ? "Recording…" : "Record the amendment"}
+        </button>
       </div>
     </form>
   );

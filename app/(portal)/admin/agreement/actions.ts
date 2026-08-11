@@ -10,6 +10,7 @@ import {
   type AgreementSection,
 } from "@/lib/advisor-agreement";
 import {
+  countAdvisorsHoldingCurrentSignature,
   getAgreementDraft,
   getPublishedAgreement,
   getSpeakerOverride,
@@ -158,22 +159,22 @@ export async function publishAgreementDraft(
   if (!draft) return { ok: false, message: "There's no draft to publish." };
 
   /*
-   * §32: a MATERIAL amendment needs both parties to agree, so publishing one
-   * invalidates every signature older than this moment and those Advisors are
-   * asked to sign again. A cosmetic fix leaves signatures alone. The platform
-   * cannot tell the two apart — the admin says which it is.
+   * PUBLISHING NEVER RE-GATES ANYBODY (Matt, 2026-08-11). It makes new
+   * wording the wording new signers see, and stops there. Existing
+   * signatures keep counting.
+   *
+   * Asking people to sign again is §32 territory — a material amendment both
+   * parties have to agree to — and it is a separate, deliberate action with
+   * its own confirmation and a count of who it would affect
+   * (requireResignature below). Bundling it into a checkbox on this form
+   * made the most consequential thing on the screen the easiest to do by
+   * accident.
    */
-  const material = formData.get("requiresResignature") === "on";
   const now = new Date().toISOString();
 
   const { error } = await createServiceClient()
     .from("agreement_templates")
-    .update({
-      status: "published",
-      published_at: now,
-      requires_resignature: material,
-      material_changed_at: material ? now : null,
-    })
+    .update({ status: "published", published_at: now })
     .eq("id", draft.id);
 
   if (error) return { ok: false, message: "Couldn't publish that draft." };
@@ -183,9 +184,60 @@ export async function publishAgreementDraft(
   revalidatePath("/speaker");
   return {
     ok: true,
-    message: material
-      ? `Published "${draft.version}". Advisors who signed earlier will be asked to sign again.`
-      : `Published "${draft.version}" as a cosmetic change. Existing signatures still stand.`,
+    message: `Published "${draft.version}". Advisors signing from now on get this wording; existing signatures still stand.`,
+  };
+}
+
+/**
+ * Ask every Advisor to sign again — §32's material amendment, as its own act.
+ *
+ * Stamps the moment older signatures stop counting on the published version
+ * in force. Guarded by a typed confirmation because it is not undoable in any
+ * meaningful sense: clearing the stamp afterwards would silently reinstate
+ * signatures people were already told no longer stood.
+ */
+export async function requireResignature(
+  formData: FormData,
+): Promise<EditorResult> {
+  const adminId = await requireSuperAdmin();
+  if (!adminId) return { ok: false, message: "Super Admins only." };
+
+  if (clean(formData.get("confirm")).toUpperCase() !== "SIGN AGAIN") {
+    return {
+      ok: false,
+      message: 'Type SIGN AGAIN to confirm — this sends Advisors back to the agreement.',
+    };
+  }
+
+  const published = await getPublishedAgreement();
+  if (!published.fromDatabase) {
+    return {
+      ok: false,
+      message:
+        "Nothing is published yet, so there is no amendment to agree to. Publish a version first.",
+    };
+  }
+
+  const affected = await countAdvisorsHoldingCurrentSignature(published.currency);
+  const now = new Date().toISOString();
+
+  const { error } = await createServiceClient()
+    .from("agreement_templates")
+    .update({ requires_resignature: true, material_changed_at: now })
+    .eq("status", "published")
+    .eq("version", published.currency.version);
+
+  if (error) return { ok: false, message: "Couldn't record the amendment." };
+
+  revalidatePath("/admin/agreement");
+  revalidatePath("/speaker/agreement");
+  revalidatePath("/speaker");
+  return {
+    ok: true,
+    message:
+      affected === 0
+        ? "Recorded. No Advisor currently held a signature, so nobody was sent back."
+        : `Recorded. ${affected} ${affected === 1 ? "Advisor" : "Advisors"} will be asked to sign again before Speaker Studio opens.`,
   };
 }
 
@@ -246,10 +298,15 @@ export async function saveSpeakerOverride(
     }
   }
 
-  const material = formData.get("requiresResignature") === "on";
   const note = clean(formData.get("note"));
-  const now = new Date().toISOString();
 
+  /*
+   * As with the master: saving tailored wording never re-gates this Advisor.
+   * Their existing signature keeps counting until someone deliberately asks
+   * them to sign again (requireSpeakerResignature below). The previous stamp
+   * carries forward untouched — a later edit must not un-invalidate what an
+   * earlier amendment already invalidated.
+   */
   const { error } = await createServiceClient()
     .from("agreement_overrides")
     .upsert(
@@ -257,10 +314,7 @@ export async function saveSpeakerOverride(
         speaker_id: speakerId,
         sections: overrides,
         note,
-        // Keep the previous stamp unless this edit is itself material —
-        // a later cosmetic tweak must not un-invalidate what a material one
-        // already invalidated.
-        material_changed_at: material ? now : existing.materialChangedAt,
+        material_changed_at: existing.materialChangedAt,
         updated_by: adminId,
       },
       { onConflict: "speaker_id" },
@@ -281,8 +335,46 @@ export async function saveSpeakerOverride(
     message:
       count === 0
         ? "Saved — this Advisor is back on the standard agreement."
-        : `Saved ${count} tailored ${count === 1 ? "clause" : "clauses"}.${
-            material ? " They'll be asked to sign again." : ""
-          }`,
+        : `Saved ${count} tailored ${count === 1 ? "clause" : "clauses"}. Their existing signature still stands.`,
+  };
+}
+
+/** The per-speaker counterpart: ask THIS Advisor to sign again. */
+export async function requireSpeakerResignature(
+  formData: FormData,
+): Promise<EditorResult> {
+  const adminId = await requireSuperAdmin();
+  if (!adminId) return { ok: false, message: "Super Admins only." };
+
+  const speakerId = clean(formData.get("speakerId"));
+  if (!speakerId) return { ok: false, message: "No speaker given." };
+  if (clean(formData.get("confirm")).toUpperCase() !== "SIGN AGAIN") {
+    return {
+      ok: false,
+      message: "Type SIGN AGAIN to confirm — this sends them back to the agreement.",
+    };
+  }
+
+  const existing = await getSpeakerOverride(speakerId);
+  const { error } = await createServiceClient()
+    .from("agreement_overrides")
+    .upsert(
+      {
+        speaker_id: speakerId,
+        sections: existing.overrides,
+        note: existing.note,
+        material_changed_at: new Date().toISOString(),
+        updated_by: adminId,
+      },
+      { onConflict: "speaker_id" },
+    );
+  if (error) return { ok: false, message: "Couldn't record the amendment." };
+
+  revalidatePath("/admin/agreement");
+  revalidatePath("/speaker/agreement");
+  revalidatePath("/speaker");
+  return {
+    ok: true,
+    message: "Recorded. This Advisor will be asked to sign again before their Studio opens.",
   };
 }
