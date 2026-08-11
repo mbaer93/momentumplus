@@ -1,6 +1,7 @@
 import {
   DEFAULT_AGREEMENT_DOC,
   DEFAULT_CURRENCY,
+  agreementIsCurrent,
   resolveAgreementDoc,
   type AgreementBlock,
   type AgreementCurrency,
@@ -207,6 +208,68 @@ export async function getSpeakerOverride(
     note: (data.note as string | null) ?? "",
     materialChangedAt: (data.material_changed_at as string | null) ?? null,
   };
+}
+
+/* -------------------------------------------------------------------------
+ * Who a re-gate would actually send back
+ * ---------------------------------------------------------------------- */
+
+/**
+ * How many Advisors hold a signature that a material amendment RIGHT NOW
+ * would stop counting.
+ *
+ * This is the number the confirm step shows, and it has to be the real one:
+ * "this will ask people to sign again" is the kind of warning that gets
+ * clicked through unless it says how many people, by name-count, are about
+ * to be sent back to a contract.
+ *
+ * Counts only speakers the agreement applies to (§1 — a TSLS Main Speaker
+ * is a different role, and an admin-waived speaker is out by definition),
+ * and only those whose signature currently counts. Someone already out of
+ * date is not re-gated by this; they were already going to sign.
+ */
+export async function countAdvisorsHoldingCurrentSignature(
+  currency: AgreementCurrency,
+): Promise<number> {
+  if (!configured()) return 0;
+  const admin = createServiceClient();
+
+  const { data: speakers, error: speakerError } = await admin
+    .from("speakers")
+    .select("id, tsls_main_speaker, advisor_agreement_waived")
+    .is("archived_at", null);
+  if (speakerError || !speakers) return 0;
+
+  const advisorIds = new Set(
+    speakers
+      .filter((s) => !s.tsls_main_speaker && !s.advisor_agreement_waived)
+      .map((s) => s.id as string),
+  );
+  if (advisorIds.size === 0) return 0;
+
+  const { data: rows, error } = await admin
+    .from("advisor_agreements")
+    .select("speaker_id, agreement_version, signed_at")
+    .order("signed_at", { ascending: false });
+  if (error || !rows) return 0;
+
+  // Newest first, so the first row seen per speaker is their current one —
+  // §32 lets the agreement be amended, so one Advisor can hold several.
+  const latest = new Map<string, { agreementVersion: string; signedAt: string }>();
+  for (const r of rows) {
+    const id = r.speaker_id as string;
+    if (!advisorIds.has(id) || latest.has(id)) continue;
+    latest.set(id, {
+      agreementVersion: r.agreement_version as string,
+      signedAt: r.signed_at as string,
+    });
+  }
+
+  let count = 0;
+  for (const [, signed] of latest) {
+    if (agreementIsCurrent({ ...signed, signedName: "" }, currency)) count++;
+  }
+  return count;
 }
 
 /* -------------------------------------------------------------------------

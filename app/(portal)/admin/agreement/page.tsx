@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AgreementEditor } from "@/components/admin/AgreementEditor";
 import {
+  AgreementEditor,
+  RequireResignatureCard,
+} from "@/components/admin/AgreementEditor";
+import { diffAgreementDocs } from "@/lib/agreement-diff";
+import {
+  countAdvisorsHoldingCurrentSignature,
   getAgreementDraft,
   getPublishedAgreement,
   getSpeakerOverride,
@@ -75,6 +80,10 @@ export default async function AdminAgreementPage(props: {
           overriddenSections={Object.keys(override.overrides).map(Number)}
           overrideNote={override.note}
         />
+        <RequireResignatureCard
+          affectedCount={1}
+          speaker={{ id: speaker.id, name: speaker.name }}
+        />
       </>
     );
   }
@@ -83,6 +92,12 @@ export default async function AdminAgreementPage(props: {
     getPublishedAgreement(),
     getAgreementDraft(),
   ]);
+  // Against what is in force — which is the shipped wording until something
+  // is published, so the first draft's diff is still meaningful.
+  const changes = draft ? diffAgreementDocs(published.doc, draft.doc) : [];
+  const affectedCount = await countAdvisorsHoldingCurrentSignature(
+    published.currency,
+  );
 
   // Advisors who could be given a tailored copy: everyone the agreement
   // actually applies to (§1 — mainstage speakers are a different role).
@@ -111,7 +126,10 @@ export default async function AdminAgreementPage(props: {
         doc={draft?.doc ?? published.doc}
         draftVersion={draft?.version ?? null}
         publishedVersion={published.fromDatabase ? published.currency.version : null}
+        changes={changes}
       />
+
+      <RequireResignatureCard affectedCount={affectedCount} />
 
       <div className="admin-pad">
         <div className="section-header">
