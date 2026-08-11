@@ -23,6 +23,10 @@ import {
 export interface AdvisorAgreementSpeaker {
   name: string;
   organization: string | null;
+  /** Seeded from whatever Momentum+ already holds — a previous signature or
+      the Advisor's session intake. Nobody should type a number they have
+      already given us once (Matt, 2026-08-11). */
+  phone: string | null;
   featuredSessionDate: string | null;
   featuredSessionTime: string | null;
   /** "February 2027", or null when SLC hasn't assigned the month yet. */
@@ -185,7 +189,7 @@ export function AdvisorAgreementForm({
                 id="phone"
                 name="phone"
                 type="tel"
-                defaultValue=""
+                defaultValue={speaker.phone ?? ""}
                 disabled={settled || readOnly}
               />
             </div>
