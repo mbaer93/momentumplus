@@ -3,6 +3,7 @@
 import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BreakableEmail } from "@/components/BreakableEmail";
+import { ToggleState } from "@/components/ToggleState";
 import type { Tier } from "@/lib/types";
 import { ADMIN_AREAS } from "@/lib/admin-perms";
 import {
@@ -740,6 +741,7 @@ export function MembersManager({
                                       })
                                     }
                                   />
+                                  <ToggleState on={accessForm.perms[a.key] !== false} />
                                   {a.label}
                                 </label>
                               ))}

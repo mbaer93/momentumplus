@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ToggleState } from "@/components/ToggleState";
 
 /*
  * Generic admin CRUD manager (speakers / resources / videos). Pages supply
@@ -19,6 +20,9 @@ export interface FieldDef {
   options?: { value: string; label: string }[];
   placeholder?: string;
   required?: boolean;
+  /** Explanatory line under the field — for switches, what turning it off
+      actually does, which the label alone has no room to say. */
+  hint?: string;
 }
 
 export type EntityValues = Record<string, string | number | boolean>;
@@ -120,18 +124,22 @@ function Fields({
               </select>
             )}
             {f.type === "checkbox" && (
-              <label className="admin-check-row" htmlFor={id} style={{ marginTop: 26 }}>
-                <input
-                  id={id}
-                  type="checkbox"
-                  className="pref-toggle"
-                  checked={Boolean(values[f.key])}
-                  onChange={(e) =>
-                    onChange({ ...values, [f.key]: e.target.checked })
-                  }
-                />
-                {f.label}
-              </label>
+              <>
+                <label className="admin-check-row" htmlFor={id} style={{ marginTop: 26 }}>
+                  <input
+                    id={id}
+                    type="checkbox"
+                    className="pref-toggle"
+                    checked={Boolean(values[f.key])}
+                    onChange={(e) =>
+                      onChange({ ...values, [f.key]: e.target.checked })
+                    }
+                  />
+                  <ToggleState on={Boolean(values[f.key])} />
+                  {f.label}
+                </label>
+                {f.hint && <div className="admin-field-hint">{f.hint}</div>}
+              </>
             )}
           </div>
         );

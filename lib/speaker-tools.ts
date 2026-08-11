@@ -23,6 +23,10 @@ export interface OwnSpeaker {
   speakerMonth: string | null;
   /** TSLS Main Speakers are unpaid — their card shows members, not money. */
   tslsMainSpeaker: boolean;
+  /** Admin switch (migration 0082): false takes this speaker off the
+      payment feature entirely. A missing column reads as true, so an
+      un-migrated database keeps today's behaviour. */
+  paymentAccess: boolean;
 }
 
 async function resolveSpeaker(
@@ -37,11 +41,23 @@ async function resolveSpeaker(
     await service
       .from("speakers")
       .select(
-        "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker",
+        "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access",
       )
       .eq(column, value)
       .maybeSingle()
   ).data;
+  if (!data) {
+    // Pre-migration-0082 fallback (no payment_access column yet).
+    data = (
+      await service
+        .from("speakers")
+        .select(
+          "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker",
+        )
+        .eq(column, value)
+        .maybeSingle()
+    ).data;
+  }
   if (!data) {
     // Pre-migration-0053 fallback (no speaker-month columns yet).
     data = (
@@ -74,6 +90,9 @@ async function resolveSpeaker(
     expiresAt: (data.expires_at as string | null) ?? null,
     speakerMonth: (data.speaker_month as string | null) ?? null,
     tslsMainSpeaker: Boolean(data.tsls_main_speaker),
+    // Absent/null (pre-0082, or a row written before the default landed)
+    // means "has payment access" — only an explicit false takes it away.
+    paymentAccess: data.payment_access !== false,
   };
 }
 

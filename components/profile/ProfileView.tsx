@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { PrefDefinition, PrefRow } from "@/lib/notifications";
 import { PushSetup } from "./PushSetup";
+import { ToggleState } from "@/components/ToggleState";
 import { PASSWORD_HINT, checkPassword } from "@/lib/password";
 import {
   BillingControls,
@@ -536,6 +537,7 @@ export function ProfileView({
                         setForm({ ...form, share_contact: e.target.checked })
                       }
                     />
+                    <ToggleState on={form.share_contact} />
                     <span>
                       Share my contact info in the Member Directory — other
                       members can see my email
@@ -683,8 +685,12 @@ export function ProfileView({
                                       onChange={() => togglePref(def.key, "email")}
                                       aria-label={`${def.label} email`}
                                     />
-                                    {def.emailLocked && (
+                                    {def.emailLocked ? (
+                                      /* "Always on" already states it — a
+                                         second On would just repeat it. */
                                       <div className="pref-locked-note">Always on</div>
+                                    ) : (
+                                      <ToggleState on={row.email} />
                                     )}
                                   </>
                                 )}
@@ -698,13 +704,16 @@ export function ProfileView({
                                     —
                                   </span>
                                 ) : (
-                                  <input
-                                    type="checkbox"
-                                    className="pref-toggle"
-                                    checked={row.sms}
-                                    onChange={() => togglePref(def.key, "sms")}
-                                    aria-label={`${def.label} SMS`}
-                                  />
+                                  <>
+                                    <input
+                                      type="checkbox"
+                                      className="pref-toggle"
+                                      checked={row.sms}
+                                      onChange={() => togglePref(def.key, "sms")}
+                                      aria-label={`${def.label} SMS`}
+                                    />
+                                    <ToggleState on={row.sms} />
+                                  </>
                                 )}
                               </td>
                               <td className="center">
@@ -716,13 +725,16 @@ export function ProfileView({
                                     —
                                   </span>
                                 ) : (
-                                  <input
-                                    type="checkbox"
-                                    className="pref-toggle"
-                                    checked={row.in_app}
-                                    onChange={() => togglePref(def.key, "in_app")}
-                                    aria-label={`${def.label} in-app`}
-                                  />
+                                  <>
+                                    <input
+                                      type="checkbox"
+                                      className="pref-toggle"
+                                      checked={row.in_app}
+                                      onChange={() => togglePref(def.key, "in_app")}
+                                      aria-label={`${def.label} in-app`}
+                                    />
+                                    <ToggleState on={row.in_app} />
+                                  </>
                                 )}
                               </td>
                             </tr>

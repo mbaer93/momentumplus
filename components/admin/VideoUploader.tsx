@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ToggleState } from "@/components/ToggleState";
 import {
   createVideoUpload,
   finalizeVideoUpload,
@@ -168,6 +169,7 @@ export function VideoUploader({ muxConnected }: { muxConnected: boolean }) {
             checked={meta.published}
             onChange={(e) => setMeta({ ...meta, published: e.target.checked })}
           />
+          <ToggleState on={meta.published} />
           Publish
         </label>
       </div>

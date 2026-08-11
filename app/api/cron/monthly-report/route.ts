@@ -11,6 +11,7 @@ import {
   monthLabel,
   monthWindow,
   monthlyEquivalentRevenueCents,
+  speakerIsPaid,
 } from "@/lib/revenue";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -100,12 +101,29 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Speaker(s) of the month + their share.
-  const { data: monthSpeakers } = await admin
-    .from("speakers")
-    .select("name, tsls_main_speaker")
-    .eq("speaker_month", reportKey)
-    .is("archived_at", null);
+  // Speaker(s) of the month + their share. payment_access arrives with
+  // migration 0082; fall back so the report still sends on a database that
+  // hasn't run it (every speaker then reads as having access, the default).
+  interface MonthSpeakerRow {
+    name: string;
+    tsls_main_speaker: boolean | null;
+    payment_access?: boolean | null;
+  }
+  let monthSpeakers: MonthSpeakerRow[] = [];
+  for (const columns of [
+    "name, tsls_main_speaker, payment_access",
+    "name, tsls_main_speaker",
+  ]) {
+    const res = await admin
+      .from("speakers")
+      .select(columns)
+      .eq("speaker_month", reportKey)
+      .is("archived_at", null);
+    if (!res.error) {
+      monthSpeakers = (res.data ?? []) as unknown as MonthSpeakerRow[];
+      break;
+    }
+  }
 
   const { count: emailFailures } = await admin
     .from("email_events")
@@ -127,14 +145,20 @@ export async function GET(req: NextRequest) {
           })
           .join("");
 
-  const speakerLines = (monthSpeakers ?? [])
+  const speakerLines = monthSpeakers
     .map((s) => {
+      const paid = speakerIsPaid({
+        tslsMainSpeaker: Boolean(s.tsls_main_speaker),
+        paymentAccess: s.payment_access !== false,
+      });
       const share =
-        !s.tsls_main_speaker && revenueCents !== null
+        paid && revenueCents !== null
           ? ` — 15% share: <strong>${formatCents(Math.round(revenueCents * SPEAKER_REVENUE_SHARE))}</strong>`
           : s.tsls_main_speaker
             ? " (TSLS Main Speaker — unpaid)"
-            : "";
+            : !paid
+              ? " (payment access off — no share)"
+              : "";
       return `<p style="margin:0 0 6px;">${esc(s.name as string)}${share}</p>`;
     })
     .join("");

@@ -13,6 +13,7 @@ import { speakers as placeholderSpeakers } from "@/lib/directory-data";
 import {
   formatCents,
   monthLabel,
+  speakerIsPaid,
   speakerMonthStats,
   type SpeakerMonthStats,
 } from "@/lib/revenue";
@@ -35,6 +36,7 @@ interface AdminSpeakerRow {
   archived_at?: string | null;
   speaker_month?: string | null;
   tsls_main_speaker?: boolean | null;
+  payment_access?: boolean | null;
   contact_email?: string | null;
   profile_id?: string | null;
 }
@@ -57,6 +59,8 @@ export default async function AdminSpeakersPage(
       bio: s.bio,
       featured: false,
       headshotUrl: s.headshotUrl ?? "",
+      // Preview mode has no database; show the switch in its real default.
+      paymentAccess: true,
     },
   }));
   let activeSpeakers: { id: string; name: string; expiresAt: string | null }[] =
@@ -68,6 +72,7 @@ export default async function AdminSpeakersPage(
   let monthRows: {
     name: string;
     main: boolean;
+    paymentAccess: boolean;
     stats: SpeakerMonthStats;
   }[] = [];
   let isSuper = false;
@@ -76,10 +81,12 @@ export default async function AdminSpeakersPage(
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
     const FULL =
+      "id, name, title, bio, industries, website, headshot_url, featured, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access, contact_email, profile_id";
+    // Pre-migration fallbacks: payment_access arrives with 0082,
+    // contact_email with 0074, month columns with 0053, lifecycle columns
+    // with 0028 — degrade gracefully until each is run.
+    const PRE_0082 =
       "id, name, title, bio, industries, website, headshot_url, featured, expires_at, archived_at, speaker_month, tsls_main_speaker, contact_email, profile_id";
-    // Pre-migration fallbacks: contact_email arrives with 0074, month
-    // columns with 0053, lifecycle columns with 0028 — degrade gracefully
-    // until each is run.
     const PRE_0074 =
       "id, name, title, bio, industries, website, headshot_url, featured, expires_at, archived_at, speaker_month, tsls_main_speaker, profile_id";
     const PRE_0053 =
@@ -87,7 +94,7 @@ export default async function AdminSpeakersPage(
     const LEGACY =
       "id, name, title, bio, industries, website, headshot_url, featured";
     let data: AdminSpeakerRow[] | null = null;
-    for (const columns of [FULL, PRE_0074, PRE_0053, LEGACY]) {
+    for (const columns of [FULL, PRE_0082, PRE_0074, PRE_0053, LEGACY]) {
       data = (
         await admin
           .from("speakers")
@@ -131,6 +138,10 @@ export default async function AdminSpeakersPage(
         headshotUrl: s.headshot_url ?? "",
         speakerMonth: s.speaker_month ?? "",
         tslsMainSpeaker: Boolean(s.tsls_main_speaker),
+        // Only an explicit false is "off": a null column (pre-0082) has to
+        // show the switch ON, or an admin saving an unrelated edit would
+        // quietly strip payment access from every speaker.
+        paymentAccess: s.payment_access !== false,
         hasAccount: Boolean(s.profile_id),
         invitePending: Boolean(
           s.contact_email &&
@@ -173,13 +184,20 @@ export default async function AdminSpeakersPage(
       const assigned = all.filter((s) => isActive(s) && s.speaker_month);
       monthRows = (
         await Promise.all(
-          assigned.map(async (s) => ({
-            name: s.name,
-            main: Boolean(s.tsls_main_speaker),
-            stats: await speakerMonthStats(s.speaker_month as string, {
-              paid: !s.tsls_main_speaker,
-            }),
-          })),
+          assigned.map(async (s) => {
+            const flags = {
+              tslsMainSpeaker: Boolean(s.tsls_main_speaker),
+              paymentAccess: s.payment_access !== false,
+            };
+            return {
+              name: s.name,
+              main: flags.tslsMainSpeaker,
+              paymentAccess: flags.paymentAccess,
+              stats: await speakerMonthStats(s.speaker_month as string, {
+                paid: speakerIsPaid(flags),
+              }),
+            };
+          }),
         )
       ).sort((a, b) => a.stats.monthKey.localeCompare(b.stats.monthKey));
     }
@@ -223,8 +241,9 @@ export default async function AdminSpeakersPage(
             The same numbers each speaker sees in their Studio: members on
             the platform in their month (excluding admins, speakers, and
             sponsors) and 15% of that month&apos;s monthly-equivalent
-            membership revenue. TSLS Main Speakers are unpaid. In-progress
-            months keep moving until the month closes.
+            membership revenue. TSLS Main Speakers are unpaid, as is anyone
+            whose payment access is switched off in their editor below.
+            In-progress months keep moving until the month closes.
           </p>
           <div className="admin-table-wrap">
             <table className="admin-table">
@@ -247,6 +266,7 @@ export default async function AdminSpeakersPage(
                     <td>
                       {r.name}
                       {r.main ? " (TSLS Main Speaker)" : ""}
+                      {!r.main && !r.paymentAccess ? " (payment access off)" : ""}
                     </td>
                     <td>{r.stats.memberCount}</td>
                     <td>
@@ -255,7 +275,7 @@ export default async function AdminSpeakersPage(
                         : formatCents(r.stats.revenueCents)}
                     </td>
                     <td>
-                      {r.main
+                      {r.main || !r.paymentAccess
                         ? "—"
                         : r.stats.earningsCents === null
                           ? "—"
