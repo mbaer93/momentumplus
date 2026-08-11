@@ -9,6 +9,7 @@ import {
 import type { EntityRow } from "@/components/admin/EntityManager";
 import {} from "@/components/icons";
 import { AGREEMENT_VERSION } from "@/lib/advisor-agreement";
+import { intakeStatusBySpeaker } from "@/lib/advisor-intake-db";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { speakers as placeholderSpeakers } from "@/lib/directory-data";
 import {
@@ -156,6 +157,26 @@ export default async function AdminSpeakersPage(
         year: "numeric",
         timeZone: "America/New_York",
       });
+    /*
+     * Session-intake status, one query for everyone. TSLS Main Speakers are
+     * not asked — theirs is the TSLS Speaker Tech Questionnaire in Jotform,
+     * which Momentum+ does not track.
+     */
+    const intakeStatus = await intakeStatusBySpeaker();
+    const intakeStatusOf = (s: AdminSpeakerRow): string => {
+      if (s.tsls_main_speaker) {
+        return "Not required — TSLS Main Speaker (Speaker Tech Questionnaire instead).";
+      }
+      const row = intakeStatus.get(s.id);
+      if (!row) return "Not started.";
+      if (!row.submittedAt) return "Draft saved, not submitted.";
+      const updated =
+        row.updatedAt && row.updatedAt.slice(0, 10) !== row.submittedAt.slice(0, 10)
+          ? ` (last updated ${signedOn(row.updatedAt)})`
+          : "";
+      return `Submitted ${signedOn(row.submittedAt)}.${updated}`;
+    };
+
     const agreementStatusOf = (s: AdminSpeakerRow): string => {
       if (s.tsls_main_speaker) return "Not required — TSLS Main Speaker.";
       if (s.advisor_agreement_waived) return "Waived — no in-app signature needed.";
@@ -195,6 +216,8 @@ export default async function AdminSpeakersPage(
             pendingEmails.has(String(s.contact_email).toLowerCase()),
         ),
         agreementStatus: agreementStatusOf(s),
+        intakeStatus: intakeStatusOf(s),
+        isMainSpeaker: Boolean(s.tsls_main_speaker),
       },
     }));
     uninvitedCount = all.filter(

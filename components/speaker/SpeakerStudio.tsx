@@ -67,6 +67,7 @@ export function SpeakerStudio({
   monthCard = null,
   previewAs = null,
   agreementSignedLabel = null,
+  intake = null,
 }: {
   speaker: {
     name: string;
@@ -98,6 +99,10 @@ export function SpeakerStudio({
       a way back to the wording they agreed to. Null for TSLS Main Speakers
       and anyone an admin has waived, who have no agreement here. */
   agreementSignedLabel?: string | null;
+  /** Session-intake state for an Advisor: what the button should say, and
+      whether it needs chasing. Null for TSLS Main Speakers, whose intake is
+      the TSLS Speaker Tech Questionnaire, not this. */
+  intake?: { label: string; outstanding: boolean } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -145,6 +150,14 @@ export function SpeakerStudio({
               : ""}
           </p>
         </div>
+        {intake && (
+          <a
+            className={`btn-mini${intake.outstanding ? " intake-cta" : ""}`}
+            href="/speaker/intake"
+          >
+            {intake.label}
+          </a>
+        )}
         {agreementSignedLabel && (
           /* Outside the disabled fieldset would be tidier, but a link is not
              a form control — `disabled` doesn't reach it, so it stays

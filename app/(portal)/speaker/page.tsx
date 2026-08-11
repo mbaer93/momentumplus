@@ -20,6 +20,8 @@ import {
   agreementRequired,
   mustSignBeforeStudio,
 } from "@/lib/advisor-agreement";
+import { intakeRequired } from "@/lib/advisor-intake";
+import { getAdvisorIntake } from "@/lib/advisor-intake-db";
 import { speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -60,6 +62,8 @@ export default async function SpeakerStudioPage(
   let previewAs: string | null = null;
   // Set for an Advisor whose signature is on file — a link back to it.
   let agreementSignedLabel: string | null = null;
+  // Session-intake state for an Advisor (null for TSLS Main Speakers).
+  let intakeState: { label: string; outstanding: boolean } | null = null;
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -177,6 +181,21 @@ export default async function SpeakerStudioPage(
         year: "numeric",
         timeZone: "America/New_York",
       });
+    }
+
+    /*
+     * Session intake (§§2, 3, 4, 6, 12, 21, 22, 23). Unlike the agreement it
+     * gates nothing — an Advisor can work in the Studio while it's still
+     * half-filled — but an unstarted intake is worth a nudge, because SLC
+     * can't schedule or promote a session it has no title for.
+     */
+    if (intakeRequired(speaker)) {
+      const stored = await getAdvisorIntake(speaker.id);
+      intakeState = stored.submittedAt
+        ? { label: "Session intake — submitted", outstanding: false }
+        : stored.exists
+          ? { label: "Finish your session intake", outstanding: true }
+          : { label: "Start your session intake", outstanding: true };
     }
 
     const admin = createServiceClient();
@@ -339,6 +358,7 @@ export default async function SpeakerStudioPage(
       monthCard={monthCard}
       previewAs={previewAs}
       agreementSignedLabel={agreementSignedLabel}
+      intake={intakeState}
     />
   );
 }
