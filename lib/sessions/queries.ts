@@ -1,6 +1,11 @@
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import type { AccessLevel, SessionCategory, SessionDetail } from "@/lib/types";
+import type {
+  AccessLevel,
+  SessionCategory,
+  SessionDetail,
+  SessionSpeaker,
+} from "@/lib/types";
 import { getPlaceholderSession, getPlaceholderSessions } from "./data";
 import { nextOccurrence } from "@/lib/recurrence";
 import { requestCache } from "@/lib/request-cache";
@@ -84,6 +89,16 @@ function mapRow(row: SessionRow): SessionDetail {
       avatarBg: "#1C3050",
       avatarColor: "#D4AE75",
     },
+    speakers: [
+      {
+        id: spk?.id ?? "tba",
+        name: speakerName,
+        title: spk?.title ?? (row.host_name && !spk ? "SLC Team" : ""),
+        initials: initialsFrom(speakerName),
+        avatarBg: "#1C3050",
+        avatarColor: "#D4AE75",
+      },
+    ],
     startsAt: row.starts_at ?? new Date().toISOString(),
     durationMin: row.duration_min ?? 60,
     capacity: row.capacity,
@@ -139,6 +154,62 @@ const SESSION_SELECT_NO_RESTRICTED =
 const SESSION_SELECT_LEGACY =
   "id, title, description, category, starts_at, duration_min, capacity, min_access, status, speakers ( id, name, title )";
 
+/*
+ * Fill in each session's full speaker lineup (migration 0087).
+ *
+ * Deliberately a SEPARATE query rather than another embed on SESSION_SELECT:
+ * that select already carries three deploy-window fallback tiers, and adding
+ * a fourth dimension to the chain would make every one of them ambiguous.
+ * Fetched for the whole page in one round trip, keyed by session id.
+ *
+ * Degrades to the single speaker already in place: before the migration runs
+ * the query errors, and every session keeps the lineup mapRow seeded.
+ */
+async function attachLineups(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sessions: SessionDetail[],
+): Promise<void> {
+  if (sessions.length === 0) return;
+  const { data, error } = await supabase
+    .from("session_speakers")
+    .select("session_id, sort, speakers ( id, name, title )")
+    .in(
+      "session_id",
+      sessions.map((s) => s.id),
+    )
+    .order("sort", { ascending: true });
+  if (error || !data) return;
+
+  const byId = new Map<string, SessionSpeaker[]>();
+  for (const row of data as unknown as Array<{
+    session_id: string;
+    sort: number;
+    speakers: { id: string; name: string; title: string | null } | null;
+  }>) {
+    const spk = row.speakers;
+    if (!spk) continue;
+    const list = byId.get(row.session_id) ?? [];
+    list.push({
+      id: spk.id,
+      name: spk.name,
+      title: spk.title ?? "",
+      initials: initialsFrom(spk.name),
+      avatarBg: "#1C3050",
+      avatarColor: "#D4AE75",
+    });
+    byId.set(row.session_id, list);
+  }
+  for (const s of sessions) {
+    const lineup = byId.get(s.id);
+    // An empty lineup means "not recorded yet", not "nobody presents" — keep
+    // the seeded single speaker rather than blanking the card.
+    if (lineup && lineup.length > 0) {
+      s.speakers = lineup;
+      s.speaker = lineup[0];
+    }
+  }
+}
+
 /* requestCache(): layout + page both call this — one execution per request. */
 export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
   if (!isSupabaseConfigured()) return getPlaceholderSessions();
@@ -185,6 +256,8 @@ export const listSessions = requestCache(async (): Promise<SessionDetail[]> => {
   const user = await getAuthUser();
 
   const sessions = (data as unknown as SessionRow[]).map(mapRow);
+
+  await attachLineups(supabase, sessions);
 
   // Real enrollment counts (members can only read their own enrollment rows,
   // so counting requires the service role — aggregate only, nothing personal).

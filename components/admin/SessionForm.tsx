@@ -75,6 +75,8 @@ export function SessionForm({
     minAccess: initial?.minAccess ?? "all_members",
     status: initial?.status ?? "draft",
     speakerId: initial?.speakerId ?? "",
+    speakerIds:
+      initial?.speakerIds ?? (initial?.speakerId ? [initial.speakerId] : []),
     program: initial?.program ?? "standard",
     recurrence: initial?.recurrence ?? "",
     recurrenceUntil: initial?.recurrenceUntil ?? "",
@@ -146,7 +148,7 @@ export function SessionForm({
               program,
               // Drop-ins are admin-hosted — a linked speaker would show the
               // session on that speaker's profile, which is wrong here.
-              ...(isDropInProgram(program) ? { speakerId: "" } : {}),
+              ...(isDropInProgram(program) ? { speakerId: "", speakerIds: [] } : {}),
               // Rooted Focus defaults: 90 minutes, weekly, Productivity.
               ...(program === "rooted_focus" && v.program !== "rooted_focus"
                 ? {
@@ -299,23 +301,122 @@ export function SessionForm({
         </div>
       ) : (
         <>
+          {/* A session can be co-presented (Matt, 2026-08-12). Everyone
+              listed is an equal speaker — the order here is billing order
+              only, and each of them gets the same Speaker Studio rights. */}
           <div className="admin-field">
-            <label htmlFor="speaker">Speaker</label>
+            <label htmlFor="speaker">Speakers</label>
+            {values.speakerIds.length > 0 && (
+              <ul
+                style={{
+                  listStyle: "none",
+                  margin: "0 0 8px",
+                  padding: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                {values.speakerIds.map((id, i) => (
+                  <li
+                    key={id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      border: "1px solid var(--warm-gray)",
+                      borderRadius: 4,
+                      padding: "6px 10px",
+                      fontSize: 13,
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      {speakers.find((s) => s.id === id)?.name ?? "Unknown speaker"}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-mini"
+                      disabled={i === 0}
+                      aria-label="Move up"
+                      onClick={() => {
+                        const next = [...values.speakerIds];
+                        [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                        setValues((v) => ({
+                          ...v,
+                          speakerIds: next,
+                          speakerId: next[0] ?? "",
+                        }));
+                      }}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-mini"
+                      disabled={i === values.speakerIds.length - 1}
+                      aria-label="Move down"
+                      onClick={() => {
+                        const next = [...values.speakerIds];
+                        [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                        setValues((v) => ({
+                          ...v,
+                          speakerIds: next,
+                          speakerId: next[0] ?? "",
+                        }));
+                      }}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-mini"
+                      aria-label={`Remove ${speakers.find((s) => s.id === id)?.name ?? "speaker"}`}
+                      onClick={() => {
+                        const next = values.speakerIds.filter((x) => x !== id);
+                        setValues((v) => ({
+                          ...v,
+                          speakerIds: next,
+                          speakerId: next[0] ?? "",
+                        }));
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <select
               id="speaker"
-              value={values.speakerId}
-              onChange={(e) => set("speakerId", e.target.value)}
+              value=""
+              onChange={(e) => {
+                const id = e.target.value;
+                if (!id || values.speakerIds.includes(id)) return;
+                const next = [...values.speakerIds, id];
+                setValues((v) => ({
+                  ...v,
+                  speakerIds: next,
+                  speakerId: next[0] ?? "",
+                }));
+              }}
             >
-              <option value="">— No speaker yet —</option>
-              {speakers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
+              <option value="">
+                {values.speakerIds.length === 0
+                  ? "— No speaker yet —"
+                  : "— Add another speaker —"}
+              </option>
+              {speakers
+                .filter((s) => !values.speakerIds.includes(s.id))
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
             </select>
             <div style={{ fontSize: 11.5, color: "var(--ink-secondary)", marginTop: 4 }}>
-              Speakers are managed in Admin → Speakers; linking one shows the
-              session on their profile.
+              Add as many as are presenting; the order above is how they&apos;re
+              listed. Every speaker on a session gets the same Studio access to
+              it. Speakers are managed in Admin → Speakers.
             </div>
           </div>
 

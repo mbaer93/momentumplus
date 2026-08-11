@@ -122,7 +122,17 @@ export interface SessionDetail {
   description: string;
   category: SessionCategory;
   objectives: string[];
+  /** The first listed speaker. Kept so single-speaker layouts and older
+      call sites keep working; `speakers` below is the full lineup. */
   speaker: SessionSpeaker;
+  /**
+   * Everyone presenting, in the order an admin arranged them (migration
+   * 0086). Co-speakers are equals, not lead-and-support — the order is
+   * billing only, and every one of them has the same rights in Speaker
+   * Studio. Always holds at least `speaker`, so callers can iterate it
+   * unconditionally.
+   */
+  speakers: SessionSpeaker[];
   startsAt: string; // ISO
   durationMin: number;
   capacity: number | null;
