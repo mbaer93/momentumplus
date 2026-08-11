@@ -996,6 +996,40 @@ export async function mergeSpeakers(
   if (sErr) return { ok: false, message: `Sessions: ${sErr.message}` };
   movedSessions = (sess ?? []).length;
 
+  // The lineup rows too (migration 0087) — without this a merge silently
+  // drops the duplicate from every session it co-presented. Rows where BOTH
+  // ids are already present would collide on the primary key, so the
+  // duplicate's row is deleted in that case rather than repointed.
+  const { data: keepRows } = await admin
+    .from("session_speakers")
+    .select("session_id")
+    .eq("speaker_id", keepId);
+  const keepSessions = new Set((keepRows ?? []).map((r) => String(r.session_id)));
+  const { data: dropRows, error: lineupReadErr } = await admin
+    .from("session_speakers")
+    .select("session_id")
+    .eq("speaker_id", dropId);
+  if (lineupReadErr && !/does not exist|schema cache/i.test(lineupReadErr.message)) {
+    return { ok: false, message: `Speaker lineup: ${lineupReadErr.message}` };
+  }
+  for (const row of dropRows ?? []) {
+    const sessionId = String(row.session_id);
+    if (keepSessions.has(sessionId)) {
+      await admin
+        .from("session_speakers")
+        .delete()
+        .eq("session_id", sessionId)
+        .eq("speaker_id", dropId);
+    } else {
+      const { error } = await admin
+        .from("session_speakers")
+        .update({ speaker_id: keepId })
+        .eq("session_id", sessionId)
+        .eq("speaker_id", dropId);
+      if (error) return { ok: false, message: `Speaker lineup: ${error.message}` };
+    }
+  }
+
   const { error: iErr } = await admin
     .from("speaker_invites")
     .update({ speaker_id: keepId })

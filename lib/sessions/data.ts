@@ -290,6 +290,9 @@ export function getPlaceholderSessions(): SessionDetail[] {
       category: seed.category,
       objectives: seed.objectives,
       speaker: seed.speaker,
+      // Preview fixtures are single-speaker; the real lineup comes from
+      // session_speakers (migration 0087).
+      speakers: [seed.speaker],
       startsAt: new Date(startsAtMs).toISOString(),
       durationMin: seed.durationMin,
       capacity: null,

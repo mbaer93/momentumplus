@@ -238,25 +238,23 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
                   ))}
                 </div>
               )}
-              <div className="sess-speaker-mini">
-                <div
-                  className="sess-speaker-mini-av"
-                  style={{
-                    background: session.speaker.avatarBg,
-                    color: session.speaker.avatarColor,
-                  }}
-                >
-                  {session.speaker.initials}
-                </div>
-                <div>
-                  <div className="sess-speaker-mini-name">
-                    {session.speaker.name}
+              {/* A session can be co-presented — list everyone, in the order
+                  an admin arranged them. `speakers` always holds at least
+                  the single speaker, so this covers both cases. */}
+              {(session.speakers ?? [session.speaker]).map((sp) => (
+                <div className="sess-speaker-mini" key={sp.id}>
+                  <div
+                    className="sess-speaker-mini-av"
+                    style={{ background: sp.avatarBg, color: sp.avatarColor }}
+                  >
+                    {sp.initials}
                   </div>
-                  <div className="sess-speaker-mini-title">
-                    {session.speaker.title}
+                  <div>
+                    <div className="sess-speaker-mini-name">{sp.name}</div>
+                    <div className="sess-speaker-mini-title">{sp.title}</div>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
           )}
 

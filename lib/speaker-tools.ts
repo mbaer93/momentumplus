@@ -192,7 +192,27 @@ export async function speakerOwnsSession(
 ): Promise<{ ok: boolean; speakerId?: string }> {
   const speaker = await getSpeakerForUser(userId);
   if (!speaker) return { ok: false };
-  const { data } = await createServiceClient()
+  const admin = createServiceClient();
+
+  // Co-speakers are equals (Matt, 2026-08-12): anyone on the session's
+  // lineup owns it, with the same Studio rights — start the Zoom, edit the
+  // page, see the roster, email enrollees. Checked against session_speakers
+  // (migration 0087), which is the source of truth.
+  const { data: lineup, error } = await admin
+    .from("session_speakers")
+    .select("speaker_id")
+    .eq("session_id", sessionId)
+    .eq("speaker_id", speaker.id)
+    .maybeSingle();
+  if (lineup) return { ok: true, speakerId: speaker.id };
+
+  // Only fall back to the legacy column when the table itself is missing
+  // (pre-migration). A present-but-empty lineup must NOT grant access —
+  // treating "no rows" as "check the old column" would let a speaker
+  // removed from the lineup keep control of the session.
+  if (!error) return { ok: false };
+
+  const { data } = await admin
     .from("sessions")
     .select("id")
     .eq("id", sessionId)

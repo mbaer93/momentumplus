@@ -226,12 +226,29 @@ export default async function SpeakerStudioPage(
     }
 
     const admin = createServiceClient();
-    const [{ data: sessionRows }, { data: resourceRow }] = await Promise.all([
-      admin
+    const speakerId: string = speaker.id;
+
+    /* Every session this speaker is on, not only the ones where they are
+       sessions.speaker_id — a co-speaker's Studio has to list the sessions
+       they actually present (migration 0087). Falls back to the legacy
+       column when session_speakers isn't deployed yet. */
+    async function ownSessions() {
+      const SESSION_COLS = "id, title, starts_at, status, zoom_meeting_id";
+      const viaLineup = await admin
         .from("sessions")
-        .select("id, title, starts_at, status, zoom_meeting_id")
-        .eq("speaker_id", speaker.id)
-        .order("starts_at", { ascending: false }),
+        .select(`${SESSION_COLS}, session_speakers!inner ( speaker_id )`)
+        .eq("session_speakers.speaker_id", speakerId)
+        .order("starts_at", { ascending: false });
+      if (!viaLineup.error) return viaLineup;
+      return admin
+        .from("sessions")
+        .select(SESSION_COLS)
+        .eq("speaker_id", speakerId)
+        .order("starts_at", { ascending: false });
+    }
+
+    const [{ data: sessionRows }, { data: resourceRow }] = await Promise.all([
+      ownSessions(),
       speaker.resourceId
         ? admin
             .from("resources")

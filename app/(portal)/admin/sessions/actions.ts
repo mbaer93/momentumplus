@@ -18,6 +18,9 @@ export interface SessionFormValues {
   status: SessionStatus;
   /** Speaker record this session links to ("" = none yet). */
   speakerId: string;
+  /** The full lineup, in billing order (migration 0087). speakerId mirrors
+      the first entry so older callers keep working. */
+  speakerIds: string[];
   /** Rooted Focus/Aspire live on their own member tabs; Add-on Sessions
       share the Sessions tab with Main Sessions. */
   program: "standard" | "rooted_focus" | "aspire" | "addon";
@@ -57,10 +60,13 @@ function toRow(values: SessionFormValues) {
     status: values.status,
     // Drop-ins are admin-hosted (host_name), never speaker-linked — enforced
     // here too so a stale client can't attach one.
+    // Mirrors the FIRST listed speaker. session_speakers is the source of
+    // truth (migration 0087); this column stays populated so any read path
+    // still on it shows a real speaker rather than nothing.
     speaker_id:
-      ["rooted_focus", "aspire"].includes(values.program) || !values.speakerId
+      ["rooted_focus", "aspire"].includes(values.program)
         ? null
-        : values.speakerId,
+        : (values.speakerIds?.[0] ?? values.speakerId) || null,
     program: ["rooted_focus", "aspire", "addon"].includes(values.program)
       ? values.program
       : "standard",
@@ -72,6 +78,56 @@ function toRow(values: SessionFormValues) {
     host_name: values.hostName.trim() || null,
     restricted: values.restricted,
   };
+}
+
+/*
+ * Write the session's speaker lineup (migration 0087).
+ *
+ * Replace-in-place rather than delete-then-insert-everything: the delete is
+ * scoped to rows no longer in the lineup, so a speaker who stays on the
+ * session keeps their row (and its created_at) instead of being briefly
+ * removed. That matters because session_speakers is what Speaker Studio
+ * checks for access — a delete/insert window would blink co-speakers out of
+ * their own session.
+ *
+ * Returns a note for the admin when the table isn't deployed yet, rather
+ * than failing the save: the session itself is already written, and
+ * sessions.speaker_id still carries the first speaker.
+ */
+async function syncLineup(
+  admin: ReturnType<typeof createServiceClient>,
+  sessionId: string,
+  values: SessionFormValues,
+): Promise<string> {
+  const ids = (
+    ["rooted_focus", "aspire"].includes(values.program)
+      ? []
+      : (values.speakerIds?.length
+          ? values.speakerIds
+          : values.speakerId
+            ? [values.speakerId]
+            : [])
+  ).filter((v, i, arr) => v && arr.indexOf(v) === i);
+
+  const { error: delErr } = await admin
+    .from("session_speakers")
+    .delete()
+    .eq("session_id", sessionId)
+    .not("speaker_id", "in", `(${ids.length ? ids.join(",") : "00000000-0000-0000-0000-000000000000"})`);
+  if (delErr) {
+    return /session_speakers/.test(delErr.message)
+      ? " Multiple speakers need migration 0087 — only the first was saved."
+      : ` Speaker lineup: ${delErr.message}`;
+  }
+  if (ids.length === 0) return "";
+
+  const { error: upErr } = await admin
+    .from("session_speakers")
+    .upsert(
+      ids.map((speaker_id, i) => ({ session_id: sessionId, speaker_id, sort: i })),
+      { onConflict: "session_id,speaker_id" },
+    );
+  return upErr ? ` Speaker lineup: ${upErr.message}` : "";
 }
 
 /** Friendly hint when the Rooted Focus columns aren't deployed yet. */
@@ -140,6 +196,7 @@ export async function createSession(
     .single();
 
   if (error) return { ok: false, message: migrationHint(error.message) };
+  const lineupNote = await syncLineup(admin, data.id, values);
   const inviteNote = await saveInvitees(admin, data.id, values);
   revalidatePath("/admin/sessions");
   revalidatePath("/sessions");
@@ -147,8 +204,8 @@ export async function createSession(
   return {
     ok: true,
     id: data.id,
-    warning: Boolean(inviteNote),
-    message: `Session created.${inviteNote}`,
+    warning: Boolean(inviteNote || lineupNote),
+    message: `Session created.${inviteNote}${lineupNote}`,
   };
 }
 
@@ -178,6 +235,8 @@ export async function updateSession(
     .select("zoom_meeting_id")
     .maybeSingle();
   if (error) return { ok: false, message: migrationHint(error.message) };
+
+  const lineupNote = await syncLineup(admin, id, values);
 
   // A published session already has a Zoom meeting — keep it in lockstep,
   // or members join a meeting whose schedule disagrees with the portal.
@@ -211,8 +270,8 @@ export async function updateSession(
   return {
     ok: true,
     id,
-    warning: Boolean(zoomNote || inviteNote),
-    message: `Session saved.${zoomNote}${inviteNote}`,
+    warning: Boolean(zoomNote || inviteNote || lineupNote),
+    message: `Session saved.${zoomNote}${inviteNote}${lineupNote}`,
   };
 }
 
