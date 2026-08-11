@@ -9,6 +9,10 @@ jobs:
   checks:
     name: Lint · Typecheck · Test
     runs-on: ubuntu-latest
+    # A hung step otherwise sits on GitHub's 360-minute default, burning
+    # runner time and leaving the PR amber with no signal. 20 minutes is
+    # ~6x the normal run, so a real slow-down still passes.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,6 +35,7 @@ jobs:
   e2e:
     name: Critical flows (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,6 +69,7 @@ jobs:
   contrast:
     name: Contrast (WCAG AA)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

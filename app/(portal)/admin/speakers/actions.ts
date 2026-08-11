@@ -134,7 +134,9 @@ export async function pullSpeakersFromTsls(): Promise<AdminResult> {
   const early = await guard();
   if (early) return early;
 
-  const { fetchTslsSpeakers, speakerNameKey } = await import("@/lib/tsls-speakers");
+  const { fetchTslsSpeakers, speakerNameKey, findLikelyDuplicates } = await import(
+    "@/lib/tsls-speakers"
+  );
   const fetched = await fetchTslsSpeakers();
   if (!fetched.ok) return { ok: false, message: fetched.message };
 
@@ -269,11 +271,32 @@ export async function pullSpeakersFromTsls(): Promise<AdminResult> {
     failed.length > 0
       ? ` Failed: ${failed.slice(0, 5).join("; ")}${failed.length > 5 ? `; +${failed.length - 5} more` : ""}.`
       : "";
+
+  // A pull that duplicated instead of updating used to look exactly like a
+  // successful one — the extra rows were simply counted as "added" (Matt,
+  // 2026-08-11). Re-read the table and say so plainly.
+  let dupeNote = "";
+  const { data: after } = await admin.from("speakers").select("id, name");
+  const dupes = findLikelyDuplicates(
+    (after ?? []).map((r) => ({ id: String(r.id), name: String(r.name) })),
+  );
+  if (dupes.length > 0) {
+    const names = dupes
+      .slice(0, 5)
+      .map((d) => d.rows.map((r) => r.name).join(" / "))
+      .join("; ");
+    dupeNote =
+      ` ⚠ ${dupes.length} possible duplicate${dupes.length === 1 ? "" : "s"}` +
+      ` in Speakers: ${names}${dupes.length > 5 ? "; …" : ""}.` +
+      ` Open each and delete the empty one — the pull won't merge them for you.`;
+  }
+
   return {
     ok: failed.length === 0,
     message:
       `Pulled ${fetched.speakers.length} from TSLS: ${added} added, ${updated} updated, ` +
-      `${unchanged} already current, ${emcees} emcee${emcees === 1 ? "" : "s"} skipped.${failNote}`,
+      `${unchanged} already current, ${emcees} emcee${emcees === 1 ? "" : "s"} skipped.` +
+      `${failNote}${dupeNote}`,
   };
 }
 
@@ -893,5 +916,107 @@ export async function reinstateSpeaker(id: string): Promise<AdminResult> {
     message: liveNow
       ? `Speaker reinstated — visible to members again, through ${endLabel}. Library items and business resource restored; re-publish any upcoming sessions from Admin → Sessions.`
       : `Speaker reinstated through ${endLabel} — they return to member view on ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (until then they can prep in their Studio). Library items and business resource restored; re-publish any upcoming sessions from Admin → Sessions.`,
+  };
+}
+
+/**
+ * Merge a duplicate speaker row into the one being kept.
+ *
+ * A TSLS pull that failed to match created a second row for people who
+ * were already here (Matt, 2026-08-11). Deleting the extra row on its own
+ * would NOT be safe: sessions.speaker_id and speaker_invites.speaker_id
+ * are both `on delete set null`, so a plain delete silently unlinks that
+ * speaker's sessions instead of failing. Everything is repointed first.
+ *
+ * The kept row wins every field it already has — merging only fills its
+ * blanks — so admin- and speaker-curated content is never overwritten by
+ * a machine-imported duplicate.
+ */
+export async function mergeSpeakers(
+  keepId: string,
+  dropId: string,
+): Promise<AdminResult> {
+  const early = await guard();
+  if (early) return early;
+  if (!keepId || !dropId || keepId === dropId) {
+    return { ok: false, message: "Pick two different speakers to merge." };
+  }
+
+  const admin = createServiceClient();
+  const { data: rows, error: readErr } = await admin
+    .from("speakers")
+    .select("*")
+    .in("id", [keepId, dropId]);
+  if (readErr) return { ok: false, message: readErr.message };
+  const keep = (rows ?? []).find((r) => String(r.id) === keepId);
+  const drop = (rows ?? []).find((r) => String(r.id) === dropId);
+  if (!keep || !drop) {
+    return { ok: false, message: "One of those speakers no longer exists." };
+  }
+
+  // Fill blanks only.
+  const patch: Record<string, unknown> = {};
+  const fillable = [
+    "title", "bio", "headshot_url", "website", "contact_email",
+    "profile_id", "speaker_month",
+  ] as const;
+  for (const col of fillable) {
+    const mine = (keep as Record<string, unknown>)[col];
+    const theirs = (drop as Record<string, unknown>)[col];
+    if ((mine === null || mine === undefined || mine === "") && theirs) {
+      patch[col] = theirs;
+    }
+  }
+  const keepTags = (keep.industries as string[] | null) ?? [];
+  const dropTags = (drop.industries as string[] | null) ?? [];
+  if (keepTags.length === 0 && dropTags.length > 0) patch.industries = dropTags;
+  const keepLinks = (keep.links as Record<string, unknown> | null) ?? {};
+  const dropLinks = (drop.links as Record<string, unknown> | null) ?? {};
+  if (Object.keys(keepLinks).length === 0 && Object.keys(dropLinks).length > 0) {
+    patch.links = dropLinks;
+  }
+  // Flags are OR-ed: if either row was a TSLS main speaker, the survivor is.
+  if (drop.tsls_main_speaker && !keep.tsls_main_speaker) {
+    patch.tsls_main_speaker = true;
+  }
+  if (drop.featured && !keep.featured) patch.featured = true;
+
+  if (Object.keys(patch).length > 0) {
+    const { error } = await admin.from("speakers").update(patch).eq("id", keepId);
+    if (error) return { ok: false, message: migrationHint(error.message) };
+  }
+
+  // Repoint dependents BEFORE deleting, or the FKs null them out.
+  let movedSessions = 0;
+  const { data: sess, error: sErr } = await admin
+    .from("sessions")
+    .update({ speaker_id: keepId })
+    .eq("speaker_id", dropId)
+    .select("id");
+  if (sErr) return { ok: false, message: `Sessions: ${sErr.message}` };
+  movedSessions = (sess ?? []).length;
+
+  const { error: iErr } = await admin
+    .from("speaker_invites")
+    .update({ speaker_id: keepId })
+    .eq("speaker_id", dropId);
+  // The invites table arrives with 0028; a missing table must not block the
+  // merge, but any other failure means something is still pointing at the
+  // row we are about to delete.
+  if (iErr && !/does not exist|schema cache/i.test(iErr.message)) {
+    return { ok: false, message: `Speaker invites: ${iErr.message}` };
+  }
+
+  const { error: delErr } = await admin.from("speakers").delete().eq("id", dropId);
+  if (delErr) return { ok: false, message: delErr.message };
+
+  refresh();
+  const moved =
+    movedSessions > 0
+      ? ` ${movedSessions} session${movedSessions === 1 ? "" : "s"} moved across.`
+      : "";
+  return {
+    ok: true,
+    message: `Merged "${String(drop.name)}" into "${String(keep.name)}".${moved}`,
   };
 }

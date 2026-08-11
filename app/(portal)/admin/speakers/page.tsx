@@ -1,5 +1,9 @@
 import { SpeakersManager } from "@/components/admin/SpeakersManager";
 import { PullTslsSpeakersButton } from "@/components/admin/PullTslsSpeakersButton";
+import {
+  DuplicateSpeakersPanel,
+  type DuplicateGroup,
+} from "@/components/admin/DuplicateSpeakersPanel";
 import { InviteAllSpeakersButton } from "@/components/admin/InviteAllSpeakersButton";
 import {
   SpeakerLifecyclePanel,
@@ -51,6 +55,7 @@ export default async function AdminSpeakersPage(
   }
 ) {
   const searchParams = await props.searchParams;
+  let duplicateGroups: DuplicateGroup[] = [];
   let rows: EntityRow[] = placeholderSpeakers.map((s) => ({
     id: s.id,
     title: s.name,
@@ -112,6 +117,42 @@ export default async function AdminSpeakersPage(
       if (data) break;
     }
     const all = data ?? [];
+
+    // Two rows for one person — the shape a TSLS pull leaves behind when its
+    // name matching misses (Matt, 2026-08-11). Session counts come along so
+    // the admin can tell which row is the real one before merging.
+    const { findLikelyDuplicates } = await import("@/lib/tsls-speakers");
+    const dupeGroups = findLikelyDuplicates(
+      all.map((s) => ({ id: String(s.id), name: String(s.name) })),
+    );
+    if (dupeGroups.length > 0) {
+      const dupeIds = dupeGroups.flatMap((g) => g.rows.map((r) => r.id));
+      const { data: dupeSessions } = await admin
+        .from("sessions")
+        .select("speaker_id")
+        .in("speaker_id", dupeIds);
+      const sessionCounts = new Map<string, number>();
+      for (const row of dupeSessions ?? []) {
+        const key = String(row.speaker_id);
+        sessionCounts.set(key, (sessionCounts.get(key) ?? 0) + 1);
+      }
+      const byId = new Map(all.map((s) => [String(s.id), s]));
+      duplicateGroups = dupeGroups.map((g) => ({
+        key: g.key,
+        rows: g.rows.map((r) => {
+          const full = byId.get(r.id);
+          return {
+            id: r.id,
+            name: r.name,
+            title: full?.title ?? null,
+            createdAt: null,
+            hasHeadshot: Boolean(full?.headshot_url),
+            hasBio: Boolean(full?.bio),
+            sessionCount: sessionCounts.get(r.id) ?? 0,
+          };
+        }),
+      }));
+    }
     const isActive = (s: AdminSpeakerRow) =>
       sponsorActive({
         archivedAt: s.archived_at ?? null,
@@ -314,6 +355,7 @@ export default async function AdminSpeakersPage(
           connected.
         </div>
       )}
+      <DuplicateSpeakersPanel groups={duplicateGroups} />
       <SpeakerLifecyclePanel
         activeSpeakers={activeSpeakers}
         pastSpeakers={pastSpeakers}
