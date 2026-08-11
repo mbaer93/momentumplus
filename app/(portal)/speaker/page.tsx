@@ -10,6 +10,7 @@ import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
 import { formatCents, speakerIsPaid, speakerMonthStats } from "@/lib/revenue";
+import { getAgreementForSpeaker } from "@/lib/agreement-doc-db";
 import {
   getSpeakerById,
   getSpeakerForUser,
@@ -168,14 +169,19 @@ export default async function SpeakerStudioPage(
      * at a speaker, not being asked to sign for them. Their view of the
      * agreement is /speaker/agreement?as=<id>, read-only.
      */
-    const signedAgreement = await latestAdvisorAgreement(speaker.id);
-    if (!previewAs && mustSignBeforeStudio(speaker, signedAgreement)) {
+    // The gate reads the same currency the signing page does, so an
+    // overridden Advisor is measured against THEIR wording (migration 0086).
+    const [signedAgreement, agreementCurrency] = await Promise.all([
+      latestAdvisorAgreement(speaker.id),
+      getAgreementForSpeaker(speaker.id).then((a) => a.currency),
+    ]);
+    if (!previewAs && mustSignBeforeStudio(speaker, signedAgreement, agreementCurrency)) {
       redirect("/speaker/agreement");
     }
     if (
       signedAgreement &&
       agreementRequired(speaker) &&
-      agreementIsCurrent(signedAgreement)
+      agreementIsCurrent(signedAgreement, agreementCurrency)
     ) {
       agreementSignedLabel = new Date(
         signedAgreement.signedAt,

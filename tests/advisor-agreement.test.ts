@@ -9,6 +9,9 @@ import {
   agreementRequired,
   canonicalAgreementText,
   mustSignBeforeStudio,
+  resolveAgreementDoc,
+  DEFAULT_AGREEMENT_DOC,
+  type AgreementDoc,
 } from "../lib/advisor-agreement";
 
 /*
@@ -146,5 +149,140 @@ test("no section is empty, and bullet lists have items", () => {
         );
       }
     }
+  }
+});
+
+/*
+ * Editing the agreement before it is sent (migration 0086).
+ *
+ * Matt, 2026-08-11: "I don't want a completed agreement to be editable, I
+ * want to be able to edit the agreement before it is sent to the speaker."
+ * The immutability of a SIGNED row is enforced in the database (0083's
+ * trigger); what these pin is the wording an Advisor is measured against and
+ * when an edit does — and does not — cost them a new signature.
+ */
+
+const signedAt = (iso: string) => ({
+  agreementVersion: "2026-08-10",
+  signedName: "Robert Fulcher",
+  signedAt: iso,
+});
+
+test("overrides are sparse: untouched clauses keep following the master", () => {
+  const master = DEFAULT_AGREEMENT_DOC;
+  const resolved = resolveAgreementDoc(master, {
+    "14": { blocks: [{ kind: "p", text: "A bespoke revenue share." }] },
+  });
+
+  const fourteen = resolved.sections.find((s) => s.n === 14)!;
+  assert.deepEqual(fourteen.blocks, [
+    { kind: "p", text: "A bespoke revenue share." },
+  ]);
+  // Its heading was not overridden, so it still comes from the master.
+  assert.equal(fourteen.title, master.sections.find((s) => s.n === 14)!.title);
+
+  // Every other clause is the master's, untouched.
+  for (const section of resolved.sections) {
+    if (section.n === 14) continue;
+    assert.deepEqual(section, master.sections.find((s) => s.n === section.n));
+  }
+  // Structure is preserved: same clauses, same numbering.
+  assert.equal(resolved.sections.length, master.sections.length);
+});
+
+test("an override cannot invent, delete, or renumber a clause", () => {
+  const master = DEFAULT_AGREEMENT_DOC;
+  // §99 does not exist; an override naming it must not append one — §6 and
+  // §14 are referenced by number elsewhere in the app.
+  const resolved = resolveAgreementDoc(master, {
+    "99": { title: "Smuggled in", blocks: [{ kind: "p", text: "nope" }] },
+  });
+  assert.equal(resolved.sections.length, master.sections.length);
+  assert.equal(resolved.sections.find((s) => s.n === 99), undefined);
+  assert.deepEqual(
+    resolved.sections.map((s) => s.n),
+    master.sections.map((s) => s.n),
+  );
+
+  // No overrides at all is the master itself, not a copy of it.
+  assert.equal(resolveAgreementDoc(master, {}), master);
+  assert.equal(resolveAgreementDoc(master, null), master);
+});
+
+test("overridden wording changes the hash, so the record says what was signed", () => {
+  const master = DEFAULT_AGREEMENT_DOC;
+  const tailored = resolveAgreementDoc(master, {
+    "14": { blocks: [{ kind: "p", text: "A bespoke revenue share." }] },
+  });
+  assert.notEqual(
+    canonicalAgreementText(tailored),
+    canonicalAgreementText(master),
+  );
+  // The default argument is still the shipped wording.
+  assert.equal(canonicalAgreementText(), canonicalAgreementText(master));
+});
+
+test("a material amendment invalidates earlier signatures; a cosmetic one does not", () => {
+  const amendedAt = "2026-09-01T00:00:00Z";
+  const before = signedAt("2026-08-11T14:00:00Z");
+  const after = signedAt("2026-09-02T09:00:00Z");
+
+  // Material: signed before the amendment, so they sign again.
+  const material = { version: "2026-09-01", materialChangedAt: amendedAt };
+  assert.equal(agreementIsCurrent(before, material), false);
+  assert.equal(agreementIsCurrent(after, material), true);
+  assert.equal(mustSignBeforeStudio(ADVISOR, before, material), true);
+  assert.equal(mustSignBeforeStudio(ADVISOR, after, material), false);
+
+  // Cosmetic: a new version published with no material change. Both
+  // signatures still stand even though neither names the new version.
+  const cosmetic = { version: "2026-09-05", materialChangedAt: amendedAt };
+  assert.equal(agreementIsCurrent(after, cosmetic), true);
+
+  // Signing at the very moment of the amendment counts — the boundary is
+  // inclusive, so a signature and an amendment in the same instant does not
+  // send someone back to a document they just agreed to.
+  assert.equal(agreementIsCurrent(signedAt(amendedAt), material), true);
+
+  // Nobody who isn't an Advisor is held, whatever the wording did.
+  assert.equal(mustSignBeforeStudio(MAIN_SPEAKER, before, material), false);
+  assert.equal(mustSignBeforeStudio(WAIVED, null, material), false);
+});
+
+test("with no material change on record, currency falls back to the version", () => {
+  // How a database with no template rows behaves — unchanged from pre-0086.
+  const shipped = { version: AGREEMENT_VERSION, materialChangedAt: null };
+  assert.equal(agreementIsCurrent(signature(AGREEMENT_VERSION), shipped), true);
+  assert.equal(agreementIsCurrent(signature("2026-01-01"), shipped), false);
+  assert.equal(agreementIsCurrent(null, shipped), false);
+});
+
+test("a rewording round-trips through the doc shape without losing structure", () => {
+  const master = DEFAULT_AGREEMENT_DOC;
+  // What the editor does: same shape, new text.
+  const reworded: AgreementDoc = {
+    ...master,
+    sections: master.sections.map((s) => ({
+      n: s.n,
+      title: s.title,
+      blocks: s.blocks.map((b) =>
+        b.kind === "ul"
+          ? { kind: "ul" as const, items: b.items.map((i) => `${i}.`) }
+          : { kind: b.kind, text: `${b.text}` },
+      ),
+    })),
+  };
+  assert.equal(reworded.sections.length, master.sections.length);
+  assert.deepEqual(
+    reworded.sections.map((s) => s.n),
+    master.sections.map((s) => s.n),
+  );
+  // Bullet lists stay lists — a rewrite must not flatten one into a
+  // paragraph, which the hash would treat as a different agreement.
+  for (const [i, section] of reworded.sections.entries()) {
+    assert.deepEqual(
+      section.blocks.map((b) => b.kind),
+      master.sections[i].blocks.map((b) => b.kind),
+    );
   }
 });

@@ -4,11 +4,11 @@ import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import {
-  AGREEMENT_VERSION,
   agreementIsCurrent,
   agreementRequired,
   canonicalAgreementText,
 } from "@/lib/advisor-agreement";
+import { getAgreementForSpeaker } from "@/lib/agreement-doc-db";
 import {
   getSpeakerForUser,
   latestAdvisorAgreement,
@@ -85,8 +85,17 @@ export async function signAdvisorAgreement(
 
   // Already signed this exact version: succeed without adding a second row.
   // A double-submit or a stale tab shouldn't produce two signatures.
+  /*
+   * Which wording THIS Advisor is being asked to sign — the published
+   * master with any per-speaker overrides applied (migration 0086). Both the
+   * duplicate check and the stored hash have to use it: an Advisor with an
+   * overridden clause signs different words from everyone else, and the
+   * record has to say so.
+   */
+  const { doc, currency } = await getAgreementForSpeaker(speaker.id);
+
   const existing = await latestAdvisorAgreement(speaker.id);
-  if (agreementIsCurrent(existing)) {
+  if (agreementIsCurrent(existing, currency)) {
     return { ok: true, message: "You've already signed this agreement." };
   }
 
@@ -126,10 +135,10 @@ export async function signAdvisorAgreement(
   const { error } = await admin.from("advisor_agreements").insert({
     speaker_id: speaker.id,
     profile_id: user.id,
-    agreement_version: AGREEMENT_VERSION,
+    agreement_version: currency.version,
     // The exact wording they read, not just the label it was filed under.
     agreement_sha256: createHash("sha256")
-      .update(canonicalAgreementText())
+      .update(canonicalAgreementText(doc))
       .digest("hex"),
     signed_name: signedName,
     advisor_name: advisorName,

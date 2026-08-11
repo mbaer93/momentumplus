@@ -984,9 +984,71 @@ export const AGREEMENT_SECTIONS: AgreementSection[] = [
  * layout does not. Bullets are prefixed so that moving a line between a
  * paragraph and a list still moves the hash.
  */
-export function canonicalAgreementText(): string {
-  const lines: string[] = [AGREEMENT_TITLE, AGREEMENT_PREAMBLE];
-  for (const section of AGREEMENT_SECTIONS) {
+/* -------------------------------------------------------------------------
+ * The agreement as DATA (migration 0086)
+ *
+ * The constants above are the wording Momentum+ ships with. An admin can
+ * edit the master before it goes to an Advisor, and can override individual
+ * clauses for one Advisor, so everything downstream works on a document
+ * rather than on the constants directly. With no template row in the
+ * database, DEFAULT_AGREEMENT_DOC is what everyone sees — the app behaves
+ * exactly as it did before 0086.
+ * ---------------------------------------------------------------------- */
+
+export interface AgreementDoc {
+  title: string;
+  preamble: string;
+  acceptance: string;
+  sections: AgreementSection[];
+}
+
+export const DEFAULT_AGREEMENT_DOC: AgreementDoc = {
+  title: AGREEMENT_TITLE,
+  preamble: AGREEMENT_PREAMBLE,
+  acceptance: AGREEMENT_ACCEPTANCE,
+  sections: AGREEMENT_SECTIONS,
+};
+
+/** Sparse per-speaker overrides: section number -> replacement content. */
+export type AgreementOverrides = Record<
+  string,
+  { title?: string; blocks?: AgreementBlock[] } | undefined
+>;
+
+/**
+ * One Advisor's copy: the master with their overridden clauses swapped in.
+ *
+ * Sparse on purpose — a section the admin has not overridden keeps following
+ * the master, so fixing a typo in §21 still reaches an Advisor who has
+ * bespoke wording in §14. Overrides for sections that do not exist are
+ * ignored rather than appended: §-numbers are referenced by number elsewhere
+ * (the intake's §6 checklist, the §14 revenue split), so an override cannot
+ * invent a clause.
+ */
+export function resolveAgreementDoc(
+  master: AgreementDoc,
+  overrides: AgreementOverrides | null | undefined,
+): AgreementDoc {
+  if (!overrides || Object.keys(overrides).length === 0) return master;
+  return {
+    ...master,
+    sections: master.sections.map((section) => {
+      const patch = overrides[String(section.n)];
+      if (!patch) return section;
+      return {
+        n: section.n,
+        title: patch.title ?? section.title,
+        blocks: patch.blocks ?? section.blocks,
+      };
+    }),
+  };
+}
+
+export function canonicalAgreementText(
+  doc: AgreementDoc = DEFAULT_AGREEMENT_DOC,
+): string {
+  const lines: string[] = [doc.title, doc.preamble];
+  for (const section of doc.sections) {
     lines.push(`${section.n}. ${section.title}`);
     for (const block of section.blocks) {
       switch (block.kind) {
@@ -1002,7 +1064,7 @@ export function canonicalAgreementText(): string {
     }
   }
   lines.push(`34. Acceptance`);
-  lines.push(`p:${AGREEMENT_ACCEPTANCE}`);
+  lines.push(`p:${doc.acceptance}`);
   return lines.join("\n");
 }
 
@@ -1031,19 +1093,54 @@ export function agreementRequired(speaker: AgreementGateSpeaker): boolean {
 }
 
 /**
- * Is an existing signature good for the wording currently on file? A
- * signature made against an older version does not carry forward — §32
- * needs both parties to agree to a material amendment, and the platform
- * cannot tell a material change from a cosmetic one.
+ * The wording an Advisor is being held to right now.
+ *
+ * `materialChangedAt` is the moment the terms last changed in a way that
+ * needs agreeing to again (§32) — set when an admin publishes a master
+ * version, or saves a per-speaker override, marked as material. The platform
+ * still cannot tell a typo fix from a change of terms; since 0086 it no
+ * longer has to guess, because the admin says which it is.
  */
-export function agreementIsCurrent(signed: SignedAgreement | null): boolean {
-  return signed?.agreementVersion === AGREEMENT_VERSION;
+export interface AgreementCurrency {
+  version: string;
+  /** ISO timestamp, or null when the wording has never changed materially. */
+  materialChangedAt: string | null;
+}
+
+/** Ships-with wording, never materially amended. */
+export const DEFAULT_CURRENCY: AgreementCurrency = {
+  version: AGREEMENT_VERSION,
+  materialChangedAt: null,
+};
+
+/**
+ * Is an existing signature good for the wording currently on file?
+ *
+ * With a material change on record, the question is whether they signed at
+ * or after it — a cosmetic edit deliberately leaves signatures alone, which
+ * is the whole reason the admin is asked to classify the change. Without
+ * one, this falls back to comparing versions, which is how it behaved before
+ * 0086 and is what a database with no template rows still does.
+ */
+export function agreementIsCurrent(
+  signed: SignedAgreement | null,
+  currency: AgreementCurrency = DEFAULT_CURRENCY,
+): boolean {
+  if (!signed) return false;
+  if (currency.materialChangedAt) {
+    return (
+      new Date(signed.signedAt).getTime() >=
+      new Date(currency.materialChangedAt).getTime()
+    );
+  }
+  return signed.agreementVersion === currency.version;
 }
 
 /** The one question the Studio asks: let this speaker in, or send them to sign? */
 export function mustSignBeforeStudio(
   speaker: AgreementGateSpeaker,
   signed: SignedAgreement | null,
+  currency: AgreementCurrency = DEFAULT_CURRENCY,
 ): boolean {
-  return agreementRequired(speaker) && !agreementIsCurrent(signed);
+  return agreementRequired(speaker) && !agreementIsCurrent(signed, currency);
 }
