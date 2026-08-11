@@ -22,6 +22,8 @@ import {
 } from "@/lib/advisor-agreement";
 import { intakeRequired } from "@/lib/advisor-intake";
 import { getAdvisorIntake } from "@/lib/advisor-intake-db";
+import { tslsIntakeRequired } from "@/lib/tsls-intake";
+import { getTslsIntake } from "@/lib/tsls-intake-db";
 import { speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -62,8 +64,10 @@ export default async function SpeakerStudioPage(
   let previewAs: string | null = null;
   // Set for an Advisor whose signature is on file — a link back to it.
   let agreementSignedLabel: string | null = null;
-  // Session-intake state for an Advisor (null for TSLS Main Speakers).
+  // Intake state — the Advisor session intake, or the TSLS Speaker Tech
+  // Questionnaire for a mainstage speaker. Never both.
   let intakeState: { label: string; outstanding: boolean } | null = null;
+  let intakeHref = "/speaker/intake";
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -196,6 +200,23 @@ export default async function SpeakerStudioPage(
         : stored.exists
           ? { label: "Finish your session intake", outstanding: true }
           : { label: "Start your session intake", outstanding: true };
+    }
+
+    /*
+     * A TSLS Main Speaker gets the Speaker Tech Questionnaire instead — the
+     * mainstage form (stage, mics, dressing rooms, call times), mirrored
+     * from Sierra's Jotform. The two are mutually exclusive by construction:
+     * intakeRequired is !tslsMainSpeaker, tslsIntakeRequired is
+     * tslsMainSpeaker, so exactly one link ever shows.
+     */
+    if (tslsIntakeRequired(speaker)) {
+      const stored = await getTslsIntake(speaker.id);
+      intakeState = stored.submittedAt
+        ? { label: "Speaker Tech Questionnaire — submitted", outstanding: false }
+        : stored.exists
+          ? { label: "Finish your Speaker Tech Questionnaire", outstanding: true }
+          : { label: "Start your Speaker Tech Questionnaire", outstanding: true };
+      intakeHref = "/speaker/tsls-intake";
     }
 
     const admin = createServiceClient();
@@ -359,6 +380,7 @@ export default async function SpeakerStudioPage(
       previewAs={previewAs}
       agreementSignedLabel={agreementSignedLabel}
       intake={intakeState}
+      intakeHref={intakeHref}
     />
   );
 }

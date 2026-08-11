@@ -10,6 +10,7 @@ import type { EntityRow } from "@/components/admin/EntityManager";
 import {} from "@/components/icons";
 import { AGREEMENT_VERSION } from "@/lib/advisor-agreement";
 import { intakeStatusBySpeaker } from "@/lib/advisor-intake-db";
+import { tslsIntakeStatusBySpeaker } from "@/lib/tsls-intake-db";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { speakers as placeholderSpeakers } from "@/lib/directory-data";
 import {
@@ -162,12 +163,13 @@ export default async function AdminSpeakersPage(
      * not asked — theirs is the TSLS Speaker Tech Questionnaire in Jotform,
      * which Momentum+ does not track.
      */
-    const intakeStatus = await intakeStatusBySpeaker();
-    const intakeStatusOf = (s: AdminSpeakerRow): string => {
-      if (s.tsls_main_speaker) {
-        return "Not required — TSLS Main Speaker (Speaker Tech Questionnaire instead).";
-      }
-      const row = intakeStatus.get(s.id);
+    const [intakeStatus, tslsStatus] = await Promise.all([
+      intakeStatusBySpeaker(),
+      tslsIntakeStatusBySpeaker(),
+    ]);
+    const progressLine = (
+      row: { submittedAt: string | null; updatedAt: string | null } | undefined,
+    ): string => {
       if (!row) return "Not started.";
       if (!row.submittedAt) return "Draft saved, not submitted.";
       const updated =
@@ -176,6 +178,19 @@ export default async function AdminSpeakersPage(
           : "";
       return `Submitted ${signedOn(row.submittedAt)}.${updated}`;
     };
+    // Mainstage speakers answer the Speaker Tech Questionnaire; Advisors
+    // answer the session intake. tsls_main_speaker decides which, so a
+    // speaker is never chased for both.
+    const intakeStatusOf = (s: AdminSpeakerRow): string =>
+      s.tsls_main_speaker
+        ? progressLine(tslsStatus.get(s.id))
+        : progressLine(intakeStatus.get(s.id));
+    const intakeLabelOf = (s: AdminSpeakerRow): string =>
+      s.tsls_main_speaker ? "Speaker Tech Questionnaire" : "Session intake";
+    const intakeHrefOf = (s: AdminSpeakerRow): string =>
+      s.tsls_main_speaker
+        ? `/speaker/tsls-intake?as=${s.id}`
+        : `/speaker/intake?as=${s.id}`;
 
     const agreementStatusOf = (s: AdminSpeakerRow): string => {
       if (s.tsls_main_speaker) return "Not required — TSLS Main Speaker.";
@@ -217,7 +232,8 @@ export default async function AdminSpeakersPage(
         ),
         agreementStatus: agreementStatusOf(s),
         intakeStatus: intakeStatusOf(s),
-        isMainSpeaker: Boolean(s.tsls_main_speaker),
+        intakeLabel: intakeLabelOf(s),
+        intakeHref: intakeHrefOf(s),
       },
     }));
     uninvitedCount = all.filter(

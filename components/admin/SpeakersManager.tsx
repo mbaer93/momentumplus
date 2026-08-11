@@ -153,8 +153,10 @@ function InviteControls({ row }: { row: EntityRow }) {
   // Empty in preview mode (placeholder speakers carry no agreement state).
   const agreementStatus = String(row.values.agreementStatus ?? "").trim();
   const intakeStatus = String(row.values.intakeStatus ?? "").trim();
-  // A main speaker's intake lives in Jotform — there's nothing to open here.
-  const isMainSpeaker = Boolean(row.values.isMainSpeaker);
+  // Which intake this speaker answers — the Advisor session intake, or the
+  // TSLS Speaker Tech Questionnaire for the mainstage. Never both.
+  const intakeLabel = String(row.values.intakeLabel ?? "Session intake");
+  const intakeHref = String(row.values.intakeHref ?? "");
 
   const state = hasAccount
     ? "Has a Momentum+ login."
@@ -222,12 +224,12 @@ function InviteControls({ row }: { row: EntityRow }) {
         <div style={{ marginTop: 14 }}>
           <div className="admin-field" style={{ marginBottom: 6 }}>
             <label style={{ fontSize: 13 }}>
-              Session intake — {intakeStatus}
+              {intakeLabel} — {intakeStatus}
             </label>
           </div>
-          {!isMainSpeaker && (
-            <a className="btn-mini" href={`/speaker/intake?as=${row.id}`}>
-              Open their intake
+          {intakeHref && (
+            <a className="btn-mini" href={intakeHref}>
+              Open their {intakeLabel.toLowerCase()}
             </a>
           )}
         </div>

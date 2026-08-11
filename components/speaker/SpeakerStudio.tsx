@@ -68,6 +68,7 @@ export function SpeakerStudio({
   previewAs = null,
   agreementSignedLabel = null,
   intake = null,
+  intakeHref = "/speaker/intake",
 }: {
   speaker: {
     name: string;
@@ -103,6 +104,9 @@ export function SpeakerStudio({
       whether it needs chasing. Null for TSLS Main Speakers, whose intake is
       the TSLS Speaker Tech Questionnaire, not this. */
   intake?: { label: string; outstanding: boolean } | null;
+  /** Where that button goes — the Advisor session intake, or the TSLS
+      Speaker Tech Questionnaire for a mainstage speaker. */
+  intakeHref?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -153,7 +157,7 @@ export function SpeakerStudio({
         {intake && (
           <a
             className={`btn-mini${intake.outstanding ? " intake-cta" : ""}`}
-            href="/speaker/intake"
+            href={intakeHref}
           >
             {intake.label}
           </a>
