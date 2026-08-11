@@ -9,7 +9,7 @@ import Link from "next/link";
 import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
-import { formatCents, speakerMonthStats } from "@/lib/revenue";
+import { formatCents, speakerIsPaid, speakerMonthStats } from "@/lib/revenue";
 import { getSpeakerById, getSpeakerForUser } from "@/lib/speaker-tools";
 import { speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -215,11 +215,14 @@ export default async function SpeakerStudioPage(
     }
 
     // Speaker-of-the-month card. TSLS Main Speakers see reach only (they're
-    // unpaid); everyone else also sees their 15% share.
+    // unpaid); everyone else also sees their 15% share — unless an admin has
+    // switched their payment access off (migration 0082), which takes the
+    // money off the card for them too. The gate is here, on the server: with
+    // paid=false the share is never computed and never reaches the browser,
+    // so hiding it isn't left to the component.
     if (speaker.speakerMonth) {
-      const stats = await speakerMonthStats(speaker.speakerMonth, {
-        paid: !speaker.tslsMainSpeaker,
-      });
+      const paid = speakerIsPaid(speaker);
+      const stats = await speakerMonthStats(speaker.speakerMonth, { paid });
       monthCard = {
         monthLabel: stats.monthLabel,
         memberCount: stats.memberCount,
@@ -227,9 +230,13 @@ export default async function SpeakerStudioPage(
           stats.earningsCents !== null ? formatCents(stats.earningsCents) : null,
         note: speaker.tslsMainSpeaker
           ? "Member count excludes admins, speakers, and sponsors. As a TSLS Main Speaker your Momentum+ month is part of your Summit engagement."
-          : stats.revenueCents === null
-            ? "Member count excludes admins, speakers, and sponsors. Earnings appear once billing is connected."
-            : "Member count excludes admins, speakers, and sponsors. Earnings are 15% of membership revenue attributed to your month (longer plans are spread evenly across the months they cover); the figure settles when the month closes.",
+          : !speaker.paymentAccess
+            ? // Deliberately says nothing about a share this speaker does not
+              // have — the number, not an explanation, is what's withheld.
+              "Member count excludes admins, speakers, and sponsors."
+            : stats.revenueCents === null
+              ? "Member count excludes admins, speakers, and sponsors. Earnings appear once billing is connected."
+              : "Member count excludes admins, speakers, and sponsors. Earnings are 15% of membership revenue attributed to your month (longer plans are spread evenly across the months they cover); the figure settles when the month closes.",
         inProgress: stats.inProgress,
       };
     }

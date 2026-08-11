@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ToggleState } from "@/components/ToggleState";
 import {
   addLesson,
   createCourse,
@@ -178,6 +179,7 @@ function CourseFields({
           checked={value.published}
           onChange={(e) => onChange({ ...value, published: e.target.checked })}
         />
+        <ToggleState on={value.published} />
         Published (visible on the Education page)
       </label>
     </>

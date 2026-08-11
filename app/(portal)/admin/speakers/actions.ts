@@ -22,6 +22,10 @@ export interface SpeakerInput {
   speakerMonth?: string;
   /** TSLS Main Speakers are unpaid — hides the earnings line in their Studio. */
   tslsMainSpeaker?: boolean;
+  /** Admin-only payment access (migration 0082). Undefined means "leave it
+      on" — only an explicit false takes a speaker off the payment feature,
+      so a caller that predates this field can't strip access by omission. */
+  paymentAccess?: boolean;
 }
 
 export interface AdminResult {
@@ -48,6 +52,9 @@ function toRow(input: SpeakerInput) {
       ? input.speakerMonth
       : null,
     tsls_main_speaker: Boolean(input.tslsMainSpeaker),
+    // Admin-only, and the ONLY writer of this column: the TSLS pull and
+    // Speaker Studio both write explicit field lists that omit it.
+    payment_access: input.paymentAccess !== false,
   };
 }
 
@@ -55,6 +62,9 @@ function toRow(input: SpeakerInput) {
 function migrationHint(message: string): string {
   if (/contact_email/.test(message)) {
     return "The database doesn't have the speaker contact-email column yet — run migration 0074 first.";
+  }
+  if (/payment_access/.test(message)) {
+    return "The database doesn't have the speaker payment-access column yet — run migration 0082 first.";
   }
   return /speaker_month|tsls_main_speaker/.test(message)
     ? "The database doesn't have the speaker-month columns yet — run migration 0053 first."

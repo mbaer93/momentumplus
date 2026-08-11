@@ -4,6 +4,7 @@
 
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ToggleState } from "@/components/ToggleState";
 import { sponsorLive, sponsorTermEnd, upcomingSponsorReveal } from "@/lib/sponsor-lifecycle";
 import { SPONSOR_PACKAGES_2026 } from "@/lib/sponsor-packages";
 import { RAIL_TIERS, SPONSOR_TIERS, sponsorTierLabel } from "@/lib/sponsor-tiers";
@@ -220,6 +221,7 @@ function SponsorFields({
             checked={value.railActive}
             onChange={(e) => onChange({ ...value, railActive: e.target.checked })}
           />
+          <ToggleState on={value.railActive} />
           Show in the sponsor side panel
         </label>
       ) : (
@@ -1258,14 +1260,17 @@ export function SponsorsManager({
                   </td>
                   <td>
                     {RAIL_TIERS.has(s.tier) ? (
-                      <input
-                        type="checkbox"
-                        className="pref-toggle"
-                        checked={s.railActive}
-                        disabled={pending}
-                        onChange={(e) => run(() => toggleRail(s.id, e.target.checked))}
-                        aria-label={`${s.name} rail`}
-                      />
+                      <>
+                        <input
+                          type="checkbox"
+                          className="pref-toggle"
+                          checked={s.railActive}
+                          disabled={pending}
+                          onChange={(e) => run(() => toggleRail(s.id, e.target.checked))}
+                          aria-label={`${s.name} rail`}
+                        />
+                        <ToggleState on={s.railActive} />
+                      </>
                     ) : (
                       <span
                         style={{ fontSize: 11, color: "var(--ink-secondary)" }}

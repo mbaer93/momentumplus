@@ -354,6 +354,31 @@ export async function eligibleMemberCount(monthKey: string): Promise<number> {
 // The speaker card, in one call
 // ---------------------------------------------------------------------------
 
+/**
+ * The two flags that decide whether a speaker is on the revenue share.
+ * They answer different questions and are set by different people:
+ *
+ *   tslsMainSpeaker — WHO the speaker is. TSLS mainstage speakers are
+ *     unpaid on Momentum+ (their month is part of the Summit engagement),
+ *     and the TSLS pull sets this itself from the lineup.
+ *   paymentAccess — an admin DECISION about one speaker (migration 0082):
+ *     may they use the payment feature at all. Only an admin sets it, in
+ *     Admin -> Speakers; the TSLS bridge and Speaker Studio never write it.
+ *
+ * Both suppress money, so they overlap without contradicting: a speaker is
+ * paid only when payment access is on AND they are not a TSLS Main Speaker.
+ * paymentAccess reads true whenever the column is missing or null, so a
+ * database that hasn't run 0082 behaves exactly as it did before.
+ */
+export interface SpeakerPayFlags {
+  tslsMainSpeaker: boolean;
+  paymentAccess: boolean;
+}
+
+export function speakerIsPaid(flags: SpeakerPayFlags): boolean {
+  return flags.paymentAccess && !flags.tslsMainSpeaker;
+}
+
 export interface SpeakerMonthStats {
   monthKey: string;
   monthLabel: string;
@@ -361,7 +386,8 @@ export interface SpeakerMonthStats {
   /** Total monthly-equivalent revenue for the month; null = Stripe not
       connected (the card says so instead of showing $0). */
   revenueCents: number | null;
-  /** 15% share — null when unpaid (TSLS Main Speaker) or revenue unknown. */
+  /** 15% share — null when the speaker isn't paid (TSLS Main Speaker, or
+      payment access switched off) or revenue is unknown. */
   earningsCents: number | null;
   /** True while the month hasn't ended (numbers still moving). */
   inProgress: boolean;

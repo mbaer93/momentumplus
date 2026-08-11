@@ -81,6 +81,16 @@ const FIELDS: FieldDef[] = [
     label: "TSLS Main Speaker (unpaid — no 15% earnings share)",
     type: "checkbox",
   },
+  /* Admin-only, and deliberately separate from TSLS Main Speaker above:
+     that flag says what someone IS (and the TSLS pull sets it itself),
+     this one is Matt's decision about one speaker. Default on, so every
+     existing speaker keeps the payment feature until it's turned off. */
+  {
+    key: "paymentAccess",
+    label: "Payment access",
+    type: "checkbox",
+    hint: "On: this speaker sees their earnings in Speaker Studio and appears with their 15% share in the month table. Off: every payment figure is hidden from them and no share is calculated — they keep their speaker page, sessions, and member count. Only an admin can change this; speakers can't set it themselves.",
+  },
 ];
 
 const EMPTY: EntityValues = {
@@ -93,6 +103,8 @@ const EMPTY: EntityValues = {
   featured: false,
   speakerMonth: "",
   tslsMainSpeaker: false,
+  // New speakers get payment access; it is switched off case by case.
+  paymentAccess: true,
 };
 
 function toInput(v: EntityValues): SpeakerInput {
@@ -106,6 +118,9 @@ function toInput(v: EntityValues): SpeakerInput {
     featured: Boolean(v.featured),
     speakerMonth: String(v.speakerMonth ?? ""),
     tslsMainSpeaker: Boolean(v.tslsMainSpeaker),
+    // Defensive: an absent value means the switch was never rendered (or the
+    // row predates the field), which is "has access", not "take it away".
+    paymentAccess: v.paymentAccess !== false,
   };
 }
 
