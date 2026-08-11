@@ -69,6 +69,7 @@ export default async function TslsIntakePage(props: {
         ...stored.answers,
         ...(speaker.name ? { name: speaker.name } : {}),
         ...(previewAs ? {} : user.email ? { email: user.email } : {}),
+        ...(speaker.website ? { website: speaker.website } : {}),
       };
 
   return (

@@ -271,3 +271,46 @@ test("unanswered questions display as nothing", () => {
   );
   assert.equal(displayTslsAnswer(platforms, { socialPlatforms: [] }), null);
 });
+
+/*
+ * Website is the one field this copy deliberately makes optional while the
+ * Jotform requires it (Matt, 2026-08-11). A future re-transcription from the
+ * form would silently flip it back and start blocking speakers with no site
+ * from filing the whole questionnaire, so the divergence is pinned here.
+ */
+test("website is optional and never blocks completion", () => {
+  const website = tslsFieldByKey("website");
+  assert.ok(website, "the Website question still exists");
+  assert.equal(website.required, false);
+
+  // Fill every visible required answer and leave website blank: complete.
+  const answers: TslsAnswers = {};
+  for (const field of allTslsFields()) {
+    if (!field.required || field.showWhen) continue;
+    answers[field.key] =
+      field.kind === "checkbox"
+        ? [field.options![0]]
+        : field.options
+          ? field.options[0]
+          : field.kind === "date"
+            ? "2026-09-01"
+            : "filled";
+  }
+  for (const field of allTslsFields()) {
+    if (!field.required || !tslsFieldVisible(field, answers)) continue;
+    if (!answerIsBlank(answers[field.key])) continue;
+    answers[field.key] = field.options ? field.options[0] : "filled";
+  }
+  delete answers.website;
+
+  assert.equal(answerIsBlank(answers.website), true);
+  assert.ok(
+    !missingTslsAnswers(answers).some((f) => f.key === "website"),
+    "a blank website is not reported as missing",
+  );
+  assert.equal(tslsIntakeComplete(answers), true);
+
+  // It is still collected when given — optional must not mean dropped.
+  const kept = sanitizeTslsAnswers({ ...answers, website: "example.com" });
+  assert.equal(kept.website, "example.com");
+});

@@ -19,6 +19,9 @@ export interface OwnSpeaker {
   headshotUrl: string | null;
   resourceId: string | null;
   expiresAt: string | null;
+  /** The speaker's own site (migration 0013). Seeds the Website answer on
+      the TSLS questionnaire so nobody retypes what Momentum+ already has. */
+  website: string | null;
   /** Speaker-of-the-month assignment ("YYYY-MM") — drives the Studio's
       members/earnings card. Null until an admin assigns a month. */
   speakerMonth: string | null;
@@ -53,7 +56,7 @@ async function resolveSpeaker(
     await service
       .from("speakers")
       .select(
-        "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access, organization, featured_session_date, featured_session_time, advisor_agreement_waived",
+        "id, name, title, bio, industries, website, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access, organization, featured_session_date, featured_session_time, advisor_agreement_waived",
       )
       .eq(column, value)
       .maybeSingle()
@@ -64,7 +67,7 @@ async function resolveSpeaker(
       await service
         .from("speakers")
         .select(
-          "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access",
+          "id, name, title, bio, industries, website, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access",
         )
         .eq(column, value)
         .maybeSingle()
@@ -76,7 +79,7 @@ async function resolveSpeaker(
       await service
         .from("speakers")
         .select(
-          "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker",
+          "id, name, title, bio, industries, website, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker",
         )
         .eq(column, value)
         .maybeSingle()
@@ -88,7 +91,7 @@ async function resolveSpeaker(
       await service
         .from("speakers")
         .select(
-          "id, name, title, bio, industries, headshot_url, resource_id, expires_at, archived_at",
+          "id, name, title, bio, industries, website, headshot_url, resource_id, expires_at, archived_at",
         )
         .eq(column, value)
         .maybeSingle()
@@ -112,6 +115,7 @@ async function resolveSpeaker(
     headshotUrl: (data.headshot_url as string | null) ?? null,
     resourceId: (data.resource_id as string | null) ?? null,
     expiresAt: (data.expires_at as string | null) ?? null,
+    website: (data.website as string | null) ?? null,
     speakerMonth: (data.speaker_month as string | null) ?? null,
     tslsMainSpeaker: Boolean(data.tsls_main_speaker),
     // Absent/null (pre-0082, or a row written before the default landed)
