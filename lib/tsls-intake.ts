@@ -7,6 +7,10 @@
  * event policy: do not reword, re-order, or "tidy" any of it. Changing an
  * option here changes what a speaker is answering.
  *
+ * ONE DELIBERATE EXCEPTION, and it is marked at the field: Website is
+ * optional here and required on the Jotform. Nothing else diverges — if you
+ * find a second difference, it is a transcription bug, not a decision.
+ *
  * This is the counterpart to lib/advisor-intake.ts, and the two never
  * overlap: a TSLS Main Speaker answers THIS (stage, mics, dressing rooms,
  * call times at The Maryland Theatre), a Leadership Advisor answers that one
@@ -19,8 +23,11 @@
  */
 
 /** Bumped whenever the question set below changes, so a stored answer map
-    can always be read back against the questions that produced it. */
-export const TSLS_INTAKE_VERSION = "2026-07-24";
+    can always be read back against the questions that produced it. Was
+    "2026-07-24", matching the Jotform's own last-edited date; it moves off
+    that date here because the Website field is deliberately optional in this
+    copy (see the field), so the two question sets are no longer identical. */
+export const TSLS_INTAKE_VERSION = "2026-08-11";
 
 export const TSLS_INTAKE_TITLE = "Speaker Tech Questionnaire";
 
@@ -118,7 +125,24 @@ export const TSLS_INTAKE_SECTIONS: TslsSection[] = [
           "XXXL",
         ],
       },
-      { key: "website", label: "Website", kind: "text", required: true },
+      /*
+       * OPTIONAL here, required on the Jotform — the one place this file
+       * knowingly diverges from Sierra's form (Matt, 2026-08-11).
+       *
+       * Website was added to the Jotform partway through July: of the five
+       * submissions it holds, the three from 2026-07-07 and 2026-07-09
+       * (Sierra, the "John Smith" test row, Holly) have no answer for it,
+       * while 2026-07-27 and 2026-07-30 (Rob, Allison) do. Those blanks are
+       * evidence the field did not exist yet, NOT evidence those people have
+       * no website — but they do show the form was submittable without it.
+       *
+       * Required would block a speaker with no site from filing a ~70-answer
+       * questionnaire over a promo field, unlike the emergency contact or
+       * stage questions that actually gate event logistics. The page seeds
+       * this from speakers.website, so anyone whose site Momentum+ already
+       * knows still arrives with it filled in.
+       */
+      { key: "website", label: "Website", kind: "text", required: false },
     ],
   },
   {
