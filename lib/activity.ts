@@ -96,13 +96,13 @@ export async function listActivity(): Promise<ActivityEvent[]> {
 
   const [
     authUsers,
-    { data: memberships },
-    { data: enrollments },
-    { data: lessons },
-    { data: views },
-    { data: resources },
-    { data: clicks },
-    { data: announcements },
+    membershipsRes,
+    enrollmentsRes,
+    lessonsRes,
+    viewsRes,
+    resourcesRes,
+    clicksRes,
+    announcementsRes,
   ] = await Promise.all([
     // Auth layer: invites, invite acceptance (first login), latest sign-in.
     (async () => {
@@ -132,10 +132,15 @@ export async function listActivity(): Promise<ActivityEvent[]> {
       .limit(PER_SOURCE_LIMIT),
     admin
       .from("enrollments")
+      // enrolled_at, NOT created_at — enrollments has never had a created_at
+      // (see 0001_init). The error was discarded below, so the query failed
+      // and this feed rendered as "no enrollments" from the day it shipped.
+      // Found 2026-08-12 by the health check's page-data probe, not by anyone
+      // looking at the page.
       .select(
-        "created_at, attended, profiles ( full_name, email ), sessions ( title )",
+        "enrolled_at, attended, profiles ( full_name, email ), sessions ( title )",
       )
-      .order("created_at", { ascending: false })
+      .order("enrolled_at", { ascending: false })
       .limit(PER_SOURCE_LIMIT),
     admin
       .from("lesson_progress")
@@ -167,6 +172,40 @@ export async function listActivity(): Promise<ActivityEvent[]> {
       .order("sent_at", { ascending: false })
       .limit(50),
   ]);
+
+  /*
+   * Every feed below used to be destructured as `{ data }`, throwing the
+   * error away. A single wrong column name (enrollments.created_at, which
+   * has never existed) therefore rendered as "no enrollments ever" rather
+   * than as a fault — for months, on a page whose entire job is to show what
+   * happened. An empty category and a broken query must not look the same.
+   *
+   * The page still renders what it can: one dead feed should not take out
+   * the whole log. But the failure is written where somebody sees it.
+   */
+  const feeds = {
+    memberships: membershipsRes,
+    enrollments: enrollmentsRes,
+    lessons: lessonsRes,
+    views: viewsRes,
+    resources: resourcesRes,
+    clicks: clicksRes,
+    announcements: announcementsRes,
+  };
+  for (const [name, res] of Object.entries(feeds)) {
+    if (res.error) {
+      console.error(
+        `[activity] ${name} feed failed, category will be empty: ${res.error.message}`,
+      );
+    }
+  }
+  const memberships = membershipsRes.data;
+  const enrollments = enrollmentsRes.data;
+  const lessons = lessonsRes.data;
+  const views = viewsRes.data;
+  const resources = resourcesRes.data;
+  const clicks = clicksRes.data;
+  const announcements = announcementsRes.data;
 
   // Profile names for auth users come from profiles in one lookup.
   const authIds = authUsers.map((u) => u.id);
@@ -235,12 +274,12 @@ export async function listActivity(): Promise<ActivityEvent[]> {
   }
 
   for (const e of (enrollments ?? []) as unknown as Joined<{
-    created_at: string;
+    enrolled_at: string;
     attended: boolean;
     sessions: { title: string } | null;
   }>[]) {
     events.push({
-      at: e.created_at,
+      at: e.enrolled_at,
       kind: "enrolled",
       kindLabel: KIND_LABELS.enrolled,
       ...memberOf(e.profiles),
