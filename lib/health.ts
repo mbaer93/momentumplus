@@ -10,6 +10,7 @@ import {
 } from "@/lib/health-shared";
 import { isMuxConfigured } from "@/lib/mux";
 import { sendEmailViaGhl } from "@/lib/notifications";
+import { expectedFailure } from "@/lib/db-selects-expected";
 import { PROBED_SELECTS } from "@/lib/db-selects.generated";
 import {
   getAnthropicApiKey,
@@ -300,6 +301,13 @@ export async function runHealthChecks(): Promise<HealthReport> {
        */
       const service = createServiceClient();
       const broken: string[] = [];
+      // Deliberately-absent schema (lib/db-selects-expected.ts). Counted and
+      // named below rather than dropped, so the exemption stays visible.
+      // Two units on purpose: how many SELECTS were exempt, and which TABLES
+      // they belong to — the note reports the tables, the arithmetic uses the
+      // selects.
+      let skippedSelects = 0;
+      const skippedTables = new Set<string>();
       // Batched rather than all at once: opening ~300 statements together is
       // a needless spike on a pooled connection.
       const BATCH = 25;
@@ -311,7 +319,14 @@ export async function runHealthChecks(): Promise<HealthReport> {
               .from(p.table)
               .select(p.select)
               .limit(1);
-            return error ? `${p.table}: ${error.message}` : null;
+            if (!error) return null;
+            const expected = expectedFailure(p.table, p.select);
+            if (expected) {
+              skippedSelects += 1;
+              skippedTables.add(expected.table);
+              return null;
+            }
+            return `${p.table}: ${error.message}`;
           }),
         );
         for (const r of results) if (r) broken.push(r);
@@ -334,7 +349,14 @@ export async function runHealthChecks(): Promise<HealthReport> {
       return {
         name: "Page data queries",
         ok: true,
-        note: `all ${PROBED_SELECTS.length} selects resolve`,
+        // Name the exemptions every run. An allow-list nobody sees is how a
+        // deliberate absence quietly becomes an unnoticed regression.
+        note:
+          skippedSelects > 0
+            ? `${PROBED_SELECTS.length - skippedSelects} selects resolve; ` +
+              `${skippedSelects} skipped on ${[...skippedTables].sort().join(", ")} ` +
+              `(deliberately absent — lib/db-selects-expected.ts)`
+            : `all ${PROBED_SELECTS.length} selects resolve`,
       };
     },
     // Hundreds of statements need more than the 8s a single API call gets.

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { PROBED_SELECTS } from "../lib/db-selects.generated";
+import { EXPECTED_FAILURES, expectedFailure } from "../lib/db-selects-expected";
 import {
   embeddedRelations,
   findSelects,
@@ -65,6 +66,39 @@ test("the registry covers the query that caused the outage", () => {
     hinted.length >= 3,
     `expected the three SESSION_SELECT fallback tiers to be probed, got ${hinted.length}`,
   );
+});
+
+test("every expected-failure entry still matches a real select", () => {
+  // An exemption for a select that no longer exists is dead weight that
+  // reads as coverage. If the referral code is ever deleted outright, this
+  // fails and the entry goes with it.
+  for (const e of EXPECTED_FAILURES) {
+    const matched = PROBED_SELECTS.filter(
+      (p) => p.table === e.table && (e.contains === "" || p.select.includes(e.contains)),
+    );
+    assert.ok(
+      matched.length > 0,
+      `No select matches the expected-failure entry for ${e.table}` +
+        `${e.contains ? ` containing "${e.contains}"` : ""} — delete it from ` +
+        `lib/db-selects-expected.ts.`,
+    );
+  }
+});
+
+test("expected failures are confined to the referral schema", () => {
+  /*
+   * A deliberately narrow assertion. The exemption list is the one place
+   * this health check can be silenced, so widening it should take a
+   * deliberate edit here as well — not just a line added in passing while
+   * chasing a red build.
+   */
+  assert.deepEqual(
+    EXPECTED_FAILURES.map((e) => e.table).sort(),
+    ["profiles", "referrals"],
+  );
+  for (const e of EXPECTED_FAILURES) {
+    assert.ok(e.reason.length > 40, `${e.table} exemption needs a real reason`);
+  }
 });
 
 test("the scanner recognises the embed shapes the app uses", () => {
