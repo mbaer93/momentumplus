@@ -40,6 +40,11 @@ export interface AgreementEditorProps {
   /** Override mode: which section numbers already differ from the master. */
   overriddenSections?: number[];
   overrideNote?: string;
+  /** Override mode: this Advisor has completed their agreement, so it is
+      locked to everyone. The server refuses the save regardless; this stops
+      someone typing into a form that will only reject them. */
+  locked?: boolean;
+  lockedSignedLabel?: string | null;
 }
 
 export function AgreementEditor({
@@ -50,6 +55,8 @@ export function AgreementEditor({
   speaker = null,
   overriddenSections = [],
   overrideNote = "",
+  locked = false,
+  lockedSignedLabel = null,
 }: AgreementEditorProps) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -97,6 +104,16 @@ export function AgreementEditor({
         <div className={msg.ok ? "admin-hint" : "admin-error"}>{msg.message}</div>
       )}
 
+      {locked && (
+        <div className="admin-hint">
+          <strong>Locked — this agreement is completed.</strong> Signed
+          {lockedSignedLabel ? ` on ${lockedSignedLabel}` : ""}. Nobody can
+          edit a completed agreement, including a Super Admin. To change these
+          terms, ask this Advisor to sign again below — that starts a new
+          agreement they actually agree to.
+        </div>
+      )}
+
       {!isOverride && (
         <div className="card admin-pad">
           <div className="admin-field">
@@ -106,7 +123,7 @@ export function AgreementEditor({
               name="version"
               defaultValue={draftVersion ?? ""}
               placeholder="2026-09-01"
-              disabled={pending}
+              disabled={pending || locked}
             />
             <p className="admin-field-hint">
               How this wording is filed on every signature made against it.
@@ -127,7 +144,7 @@ export function AgreementEditor({
               name="note"
               defaultValue={overrideNote}
               placeholder="Agreed a different featured-month commitment"
-              disabled={pending}
+              disabled={pending || locked}
             />
             <p className="admin-field-hint">
               Never shown to the Advisor — it is here so the next person can
@@ -140,7 +157,7 @@ export function AgreementEditor({
       <div className="card admin-pad">
         <div className="admin-field">
           <label htmlFor="title">Title</label>
-          <input id="title" name="title" defaultValue={doc.title} disabled={pending} />
+          <input id="title" name="title" defaultValue={doc.title} disabled={pending || locked} />
         </div>
         <div className="admin-field">
           <label htmlFor="preamble">Preamble</label>
@@ -149,7 +166,7 @@ export function AgreementEditor({
             name="preamble"
             rows={3}
             defaultValue={doc.preamble}
-            disabled={pending}
+            disabled={pending || locked}
           />
         </div>
       </div>
@@ -165,7 +182,7 @@ export function AgreementEditor({
               id={`s${section.n}.title`}
               name={`s${section.n}.title`}
               defaultValue={section.title}
-              disabled={pending}
+              disabled={pending || locked}
             />
           </div>
           {section.blocks.map((block, i) => (
@@ -186,7 +203,7 @@ export function AgreementEditor({
                 defaultValue={
                   block.kind === "ul" ? block.items.join("\n") : block.text
                 }
-                disabled={pending}
+                disabled={pending || locked}
               />
             </div>
           ))}
@@ -201,7 +218,7 @@ export function AgreementEditor({
             name="acceptance"
             rows={3}
             defaultValue={doc.acceptance}
-            disabled={pending}
+            disabled={pending || locked}
           />
         </div>
       </div>
@@ -248,7 +265,7 @@ export function AgreementEditor({
       )}
 
       <div className="prefs-save-row">
-        <button className="btn-primary" type="submit" disabled={pending}>
+        <button className="btn-primary" type="submit" disabled={pending || locked}>
           {pending
             ? "Saving…"
             : isOverride
@@ -268,7 +285,7 @@ export function AgreementEditor({
             <button
               className="btn-secondary"
               type="button"
-              disabled={pending}
+              disabled={pending || locked}
               onClick={() => run(() => discardAgreementDraft(), new FormData())}
             >
               Discard draft

@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import {
+  agreementIsCurrent,
   canonicalAgreementText,
   type AgreementBlock,
   type AgreementDoc,
@@ -12,9 +13,11 @@ import {
 import {
   countAdvisorsHoldingCurrentSignature,
   getAgreementDraft,
+  getAgreementForSpeaker,
   getPublishedAgreement,
   getSpeakerOverride,
 } from "@/lib/agreement-doc-db";
+import { latestAdvisorAgreement } from "@/lib/speaker-tools";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { getAuthUser } from "@/lib/supabase/server";
@@ -271,10 +274,36 @@ export async function saveSpeakerOverride(
   const speakerId = clean(formData.get("speakerId"));
   if (!speakerId) return { ok: false, message: "No speaker given." };
 
-  const [published, existing] = await Promise.all([
+  /*
+   * A COMPLETED AGREEMENT IS LOCKED. No edits, by anybody (Matt,
+   * 2026-08-12). This is a hard rule, not a permission tier — a Super Admin
+   * is refused here exactly like everyone else, because the point is not who
+   * is trusted, it is that the document somebody signed stops moving the
+   * moment they sign it.
+   *
+   * The signature itself was already safe: advisor_agreements is append-only
+   * and stores the hash of the words as rendered at signing, so an edit could
+   * never rewrite what they agreed to. What it COULD do is change the copy
+   * their agreement resolves to from now on, which is a different document
+   * wearing their signature. That is what this closes.
+   *
+   * The escape hatch is the honest one: ask them to sign again
+   * (requireSpeakerResignature). That is a new agreement, deliberately taken,
+   * with them agreeing to it — which is what §32 asks for.
+   */
+  const [published, existing, signed] = await Promise.all([
     getPublishedAgreement(),
     getSpeakerOverride(speakerId),
+    latestAdvisorAgreement(speakerId),
   ]);
+  const currency = await getAgreementForSpeaker(speakerId).then((a) => a.currency);
+  if (agreementIsCurrent(signed, currency)) {
+    return {
+      ok: false,
+      message:
+        "This Advisor has already completed their agreement, so it is locked — nobody can edit it, including you. To change their terms, ask them to sign again below; that starts a new agreement they actually agree to.",
+    };
+  }
   const edited = docFromForm(published.doc, formData);
 
   /*

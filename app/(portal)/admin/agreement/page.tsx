@@ -8,12 +8,14 @@ import { diffAgreementDocs } from "@/lib/agreement-diff";
 import {
   countAdvisorsHoldingCurrentSignature,
   getAgreementDraft,
+  getAgreementForSpeaker,
   getPublishedAgreement,
   getSpeakerOverride,
 } from "@/lib/agreement-doc-db";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
-import { getSpeakerById } from "@/lib/speaker-tools";
+import { getSpeakerById, latestAdvisorAgreement } from "@/lib/speaker-tools";
+import { agreementIsCurrent } from "@/lib/advisor-agreement";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -48,12 +50,26 @@ export default async function AdminAgreementPage(props: {
   const speakerId = searchParams?.speaker?.trim();
 
   if (speakerId) {
-    const [speaker, published, override] = await Promise.all([
+    const [speaker, published, override, signed, forSpeaker] = await Promise.all([
       getSpeakerById(speakerId),
       getPublishedAgreement(),
       getSpeakerOverride(speakerId),
+      latestAdvisorAgreement(speakerId),
+      getAgreementForSpeaker(speakerId),
     ]);
     if (!speaker) redirect("/admin/agreement");
+
+    // Completed means locked, to everyone (Matt, 2026-08-12). The server
+    // refuses the save either way; this is so the screen says so first.
+    const locked = agreementIsCurrent(signed, forSpeaker.currency);
+    const signedLabel = signed
+      ? new Date(signed.signedAt).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+          timeZone: "America/New_York",
+        })
+      : null;
 
     // Show the master with this Advisor's wording already swapped in, so the
     // admin edits what the Advisor will actually read.
@@ -79,6 +95,8 @@ export default async function AdminAgreementPage(props: {
           speaker={{ id: speaker.id, name: speaker.name }}
           overriddenSections={Object.keys(override.overrides).map(Number)}
           overrideNote={override.note}
+          locked={locked}
+          lockedSignedLabel={signedLabel}
         />
         <RequireResignatureCard
           affectedCount={1}
