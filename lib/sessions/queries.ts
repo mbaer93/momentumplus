@@ -146,7 +146,11 @@ function mapRow(row: SessionRow): SessionDetail {
 // `speakers` is embedded through an explicit foreign-key hint — since
 // migration 0087 added session_speakers there are two paths between the
 // tables and an unhinted embed is ambiguous. See lib/session-speaker-embed.ts.
-const SESSION_SELECT =
+//
+// Exported so the health check can probe THIS string rather than a copy of
+// it (lib/health.ts, "Page data queries"). A copy would drift, and then the
+// probe would go green while the real query was broken.
+export const SESSION_SELECT =
   `id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, restricted, ${SPEAKER_FROM_SESSION} ( id, name, title, archived_at, expires_at )`;
 // Deploy-window fallback (before 0059 adds `restricted`, or before 0060
 // grants it — sessions uses COLUMN-level grants since 0020, so an unnamed
