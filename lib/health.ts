@@ -39,6 +39,10 @@ import { getZoomAccessToken } from "@/lib/zoom";
 
 const REPORT_KEY = "health_report";
 const PROBE_TIMEOUT_MS = 8_000;
+/* The page-data probe runs every select in the app — hundreds of round
+   trips. Still far inside the cycle's 120s ceiling, and every check runs
+   concurrently, so this does not slow the others down. */
+const PAGE_DATA_TIMEOUT_MS = 45_000;
 
 /** Scheduled interval per cron, in minutes — keep in step with vercel.json. */
 const CRON_EXPECTATIONS: CronExpectations = {
@@ -67,14 +71,18 @@ function skippedCheck(name: string, note: string): HealthCheck {
 async function guard(
   name: string,
   fn: () => Promise<HealthCheck>,
+  // Per-check override. 8s is right for a single API call; the page-data
+  // probe runs hundreds of statements and needs its own budget. Everything
+  // runs concurrently inside the cycle's 120s ceiling.
+  timeoutMs: number = PROBE_TIMEOUT_MS,
 ): Promise<HealthCheck> {
   try {
     return await Promise.race([
       fn(),
       new Promise<never>((_, reject) =>
         setTimeout(
-          () => reject(new Error(`timed out after ${PROBE_TIMEOUT_MS / 1000}s`)),
-          PROBE_TIMEOUT_MS,
+          () => reject(new Error(`timed out after ${timeoutMs / 1000}s`)),
+          timeoutMs,
         ),
       ),
     ]);
@@ -273,22 +281,28 @@ export async function runHealthChecks(): Promise<HealthReport> {
     guard("Page data queries", async () => {
       if (!dbReady()) return skippedCheck("Page data queries", "no database");
       /*
-       * EVERY select in the app that embeds a related table, generated from
-       * the source by scripts/sync-db-selects.mjs. Probing a hand-picked
-       * couple would repeat the mistake this check exists to prevent — the
-       * outage happened in a query nobody was watching.
+       * EVERY select the app performs, generated from the source by
+       * scripts/sync-db-selects.mjs. Probing a hand-picked few would repeat
+       * the mistake this check exists to prevent — the queries that break
+       * are the ones nobody is watching.
+       *
+       * It covered only EMBEDDED selects at first, on the theory that embeds
+       * are the fragile ones because a migration elsewhere can make them
+       * ambiguous. Then it found lib/activity.ts asking enrollments for a
+       * `created_at` that has never existed — a plain column list, wrong
+       * since the day it was written, silently empty for months. A select
+       * does not have to be clever to be broken.
        *
        * Run through the SERVICE role on purpose: that takes RLS and column
-       * grants out of the picture, so the check goes red for a schema or
-       * relationship fault (a renamed table, a dropped column, an embed that
-       * stopped resolving) and not for a permissions quirk affecting anon.
+       * grants out of the picture, so the check goes red for a schema fault
+       * (a renamed table, a wrong column, an embed that stopped resolving)
+       * and not for a permissions quirk affecting anon.
        */
       const service = createServiceClient();
       const broken: string[] = [];
-      // Batched rather than all at once: 50 statements opened together is a
-      // needless spike on a pooled connection, and the whole probe still
-      // finishes well inside the 8s cap.
-      const BATCH = 10;
+      // Batched rather than all at once: opening ~300 statements together is
+      // a needless spike on a pooled connection.
+      const BATCH = 25;
       for (let i = 0; i < PROBED_SELECTS.length; i += BATCH) {
         const batch = PROBED_SELECTS.slice(i, i + BATCH);
         const results = await Promise.all(
@@ -303,20 +317,28 @@ export async function runHealthChecks(): Promise<HealthReport> {
         for (const r of results) if (r) broken.push(r);
       }
       if (broken.length > 0) {
-        // Two is enough to identify the fault; the rest would bloat the email.
+        // guard() truncates the note to 200 characters, so a run that finds
+        // several faults would show two and swallow the rest. Log all of
+        // them where they can actually be read; the note stays short enough
+        // to be useful in an alert email.
+        console.error(
+          `[health] ${broken.length} select(s) failing:\n  ${broken.join("\n  ")}`,
+        );
         const shown = broken.slice(0, 2).join(" | ");
         throw new Error(
           broken.length > 2
-            ? `${broken.length} selects failing — ${shown} | …`
+            ? `${broken.length} selects failing (full list in logs) — ${shown} | …`
             : shown,
         );
       }
       return {
         name: "Page data queries",
         ok: true,
-        note: `all ${PROBED_SELECTS.length} embedded selects resolve`,
+        note: `all ${PROBED_SELECTS.length} selects resolve`,
       };
-    }),
+    },
+    // Hundreds of statements need more than the 8s a single API call gets.
+    PAGE_DATA_TIMEOUT_MS),
 
     guard("Public pages", async () => {
       const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");

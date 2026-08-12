@@ -21,6 +21,10 @@ import {
 
 export const SCAN_ROOTS = ["app", "lib", "components", "scripts"];
 
+/* This module's own regex constants are named …SELECT… and would be scanned
+   as if they were queries. The scanner must not read itself. */
+const SELF = "lib/db-select-scan.ts";
+
 /*
  * A related table followed by a parenthesised column list: `profiles ( email )`,
  * `speakers!hint ( name )`, or `${SPEAKER_FROM_SESSION} ( name )`. A comma or
@@ -125,17 +129,19 @@ function tableFor(src: string, index: number): string | null {
 const SELECT_CALL = /\.select\(\s*(["'`])([\s\S]*?)\1/g;
 const SELECT_CONST = /\b[A-Z][A-Z0-9_]*SELECT[A-Z0-9_]*\s*=\s*(["'`])([\s\S]*?)\1/g;
 
-export function findEmbeddedSelects(roots: string[] = SCAN_ROOTS): FoundSelect[] {
+/** Every select in the source, embedding or not. */
+export function findSelects(roots: string[] = SCAN_ROOTS): FoundSelect[] {
   const found: FoundSelect[] = [];
   for (const root of roots) {
     for (const file of sourceFiles(root)) {
+      if (file === SELF) continue;
       const src = readFileSync(file, "utf8");
       for (const re of [SELECT_CALL, SELECT_CONST]) {
         re.lastIndex = 0;
         let m: RegExpExecArray | null;
         while ((m = re.exec(src)) !== null) {
           const select = normalizeSelect(m[2]);
-          if (!select || !hasEmbed(select)) continue;
+          if (!select) continue;
           found.push({
             file,
             select,
@@ -146,4 +152,15 @@ export function findEmbeddedSelects(roots: string[] = SCAN_ROOTS): FoundSelect[]
     }
   }
   return found;
+}
+
+/**
+ * Only the selects that embed a related table.
+ *
+ * Kept as its own export because embeds are the shape that breaks from a
+ * distance — a migration elsewhere can make one ambiguous. A plain column
+ * list breaks only when its own table or column changes.
+ */
+export function findEmbeddedSelects(roots: string[] = SCAN_ROOTS): FoundSelect[] {
+  return findSelects(roots).filter((f) => hasEmbed(f.select));
 }
