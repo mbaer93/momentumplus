@@ -1,11 +1,24 @@
 import { createServiceClient } from "@/lib/supabase/admin";
 
 /*
- * Member referrals: every member gets a code; /join?ref=CODE attributes the
- * signup; when the referred member's first payment lands (Stripe webhook),
- * the referrer earns a free month — as Stripe account credit equal to their
- * own plan price when they pay by card, otherwise as a one-month access
- * extension on their membership.
+ * Member referrals: every member gets a code, /join?ref=CODE attributes the
+ * signup, and that attribution is recorded when the referred member's first
+ * payment lands (Stripe webhook). Bookkeeping only — who referred whom.
+ *
+ * THERE IS NO REWARD, AND NOTHING HERE MAY SPEND MONEY (Matt, 2026-08-12:
+ * "there should be no real money being paid out to referrals").
+ *
+ * There used to be. grantReferralReward credited the referrer one month of
+ * their own plan against their next Stripe invoice, or extended a comped
+ * member's access_expires_at by a month. It never actually paid anybody —
+ * production has neither the referrals table nor profiles.referral_code, so
+ * attribution returned before reaching it — but the code shipped in every
+ * deploy, which meant any future schema sync would have armed a payout path
+ * silently. It is deleted rather than disabled: a dormant thing that spends
+ * money is exactly what nearly went live here.
+ *
+ * If a referral reward is ever wanted, it is a pricing decision to agree
+ * first and build second, not a function to un-comment.
  */
 
 const CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"; // no 0/O/1/l/i
@@ -61,117 +74,10 @@ export async function getReferralCount(profileId: string): Promise<number> {
 }
 
 /**
- * One month's worth of a subscription price, in the smallest currency unit.
- * A monthly price returns its full amount; a term price (interval=month,
- * count=N, or interval=year) is divided down to a single month so the
- * referral credit is always ~one month regardless of the referrer's term.
- */
-export function oneMonthAmount(
-  unitAmount: number,
-  recurring?: { interval?: string; interval_count?: number } | null,
-): number {
-  const interval = recurring?.interval ?? "month";
-  const count = Math.max(1, recurring?.interval_count ?? 1);
-  const months =
-    interval === "year"
-      ? 12 * count
-      : interval === "week"
-        ? Math.max(1, Math.round((count * 7) / 30))
-        : interval === "day"
-          ? 1
-          : count; // month
-  return Math.round(unitAmount / Math.max(1, months));
-}
-
-/** One free month for the referrer: Stripe credit when they pay by card,
-    otherwise a one-month access extension. Returns the reward kind. */
-async function grantReferralReward(
-  referrerProfileId: string,
-): Promise<"stripe_credit" | "access_extended" | "none"> {
-  const admin = createServiceClient();
-
-  // Stripe path: credit their balance by one period of their own plan.
-  try {
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("stripe_customer_id")
-      .eq("id", referrerProfileId)
-      .maybeSingle();
-    const customerId = profile?.stripe_customer_id as string | null;
-    if (customerId) {
-      const { getStripeSettings, stripeReady, stripeRequest } = await import(
-        "@/lib/stripe"
-      );
-      const settings = await getStripeSettings();
-      if (stripeReady(settings)) {
-        const subs = await stripeRequest<{
-          data: {
-            items: {
-              data: {
-                price: {
-                  unit_amount: number | null;
-                  currency: string;
-                  recurring?: { interval?: string; interval_count?: number } | null;
-                };
-              }[];
-            };
-          }[];
-        }>(
-          settings.secretKey,
-          "GET",
-          `/subscriptions?customer=${customerId}&status=active&limit=1`,
-        );
-        const price = subs.data?.[0]?.items?.data?.[0]?.price;
-        if (price?.unit_amount) {
-          // Credit exactly ONE MONTH — never the whole billing period. A
-          // term price (3/6/12-month) has a unit_amount covering the full
-          // term, so divide by how many months that term spans, or the
-          // reward balloons to a full year for an annual subscriber.
-          const monthly = oneMonthAmount(price.unit_amount, price.recurring);
-          await stripeRequest(
-            settings.secretKey,
-            "POST",
-            `/customers/${customerId}/balance_transactions`,
-            {
-              amount: -monthly,
-              currency: price.currency || "usd",
-              description: "Momentum+ referral reward — one free month",
-            },
-          );
-          return "stripe_credit";
-        }
-      }
-    }
-  } catch {
-    // fall through to the extension path
-  }
-
-  // Non-Stripe members (comps, imports): extend their expiry by a month.
-  const { data: memberships } = await admin
-    .from("memberships")
-    .select("id, access_expires_at")
-    .eq("profile_id", referrerProfileId)
-    .eq("status", "active")
-    .not("access_expires_at", "is", null)
-    .order("access_expires_at", { ascending: false })
-    .limit(1);
-  const m = memberships?.[0];
-  if (m?.access_expires_at) {
-    const extended = new Date(m.access_expires_at as string);
-    extended.setMonth(extended.getMonth() + 1);
-    const { error } = await admin
-      .from("memberships")
-      .update({ access_expires_at: extended.toISOString() })
-      .eq("id", m.id);
-    if (!error) return "access_extended";
-  }
-  return "none";
-}
-
-/**
  * Called from the Stripe webhook when a referred signup's first payment
  * lands. Attribution is once-per-new-member (unique constraint) and never
- * self-referring; the reward + a bell notification go to the referrer.
+ * self-referring. It records who referred whom and tells the referrer their
+ * referral joined — nothing is credited, extended, or owed.
  */
 export async function attributeReferral(input: {
   referredProfileId: string;
@@ -188,10 +94,10 @@ export async function attributeReferral(input: {
       .maybeSingle();
     if (!referrer || referrer.id === input.referredProfileId) return;
 
-    // Reward only referrers who currently hold access — a lapsed/canceled
-    // account can't sit on a code and farm credits. Combined with the
-    // one-month reward cap, this removes the "pay one cheap month, earn a
-    // full term" economics.
+    // Attribute only to referrers who currently hold access. This was
+    // anti-farming logic when a reward existed; with no reward there is
+    // nothing to farm, and it stays because crediting a lapsed account with
+    // referrals it can't see is just a confusing record.
     const { data: refMemberships } = await admin
       .from("memberships")
       .select("status, access_expires_at")
@@ -211,22 +117,14 @@ export async function attributeReferral(input: {
     });
     if (insertError) return; // duplicate attribution (or pre-migration)
 
-    const reward = await grantReferralReward(referrer.id as string);
-    await admin
-      .from("referrals")
-      .update({ reward })
-      .eq("referred_profile_id", input.referredProfileId);
-
+    // No reward is granted and the `reward` column is left null. The
+    // notice thanks them and promises nothing — a message implying a credit
+    // that never arrives is worse than no message.
     await admin.from("notifications").insert({
       profile_id: referrer.id,
       kind: "platform",
-      title: "Your referral joined — you earned a free month",
-      body:
-        reward === "stripe_credit"
-          ? "A credit for one month of your plan was applied to your next bill. Thank you for growing the community."
-          : reward === "access_extended"
-            ? "Your membership access was extended by one month. Thank you for growing the community."
-            : "Thank you for growing the community — the team will apply your reward.",
+      title: "Your referral joined",
+      body: "Someone you referred just became a member. Thank you for growing the community.",
       link: "/profile",
     });
   } catch {
