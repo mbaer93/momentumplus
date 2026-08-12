@@ -21,7 +21,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/(portal)/admin/education/page.tsx
   { table: "courses", select: "id, title, description, category, min_access, published_at, ce_hours, course_lessons ( id, title, summary, video_id, position, content, image_url, documents, quiz )" },
   // lib/activity.ts
-  { table: "enrollments", select: "created_at, attended, profiles ( full_name, email ), sessions ( title )" },
+  { table: "enrollments", select: "enrolled_at, attended, profiles ( full_name, email ), sessions ( title )" },
   // lib/attendance.ts
   { table: "enrollments", select: "id, profile_id, profiles ( email, full_name )" },
   // app/(portal)/speaker/actions.ts
