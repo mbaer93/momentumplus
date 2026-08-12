@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
-    "contrast": "node scripts/contrast-audit.mjs"
+    "contrast": "node scripts/contrast-audit.mjs",
+    "selects:sync": "node --import tsx scripts/sync-db-selects.mjs"
   },
   "dependencies": {
     "@mux/mux-player-react": "^3.13.0",
