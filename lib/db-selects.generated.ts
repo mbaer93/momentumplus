@@ -202,8 +202,6 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "memberships", select: "profile_id, tier, source" },
   // lib/directory-queries.ts
   { table: "memberships", select: "profiles ( full_name )" },
-  // lib/referrals.ts
-  { table: "memberships", select: "status, access_expires_at" },
   // app/(portal)/admin/members/actions.ts
   { table: "memberships", select: "stripe_subscription_id" },
   // app/(portal)/admin/control-center/page.tsx
@@ -298,16 +296,12 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "profiles", select: "phone, company, title, industry, bio, admin_title, stripe_customer_id, created_at" },
   // app/(portal)/profile/page.tsx
   { table: "profiles", select: "phone, company, title, industry, bio, share_contact, admin_title, stripe_customer_id, created_at" },
-  // lib/referrals.ts
-  { table: "profiles", select: "referral_code" },
   // app/api/stream/token/route.ts
   { table: "profiles", select: "stream_synced_key" },
   // app/(portal)/upgrade/page.tsx
   { table: "profiles", select: "stripe_customer_id" },
   // lib/push.ts
   { table: "push_subscriptions", select: "id, endpoint, p256dh, auth" },
-  // lib/referrals.ts
-  { table: "referrals", select: "id" },
   // app/(portal)/admin/analytics/page.tsx
   { table: "resource_use_counts", select: "*" },
   // app/(portal)/admin/analytics/page.tsx

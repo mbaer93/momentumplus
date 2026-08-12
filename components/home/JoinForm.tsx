@@ -13,15 +13,12 @@ export type TermMap = Record<string, number | null | undefined>;
 export function JoinForm({
   initialPlan,
   terms,
-  referralCode,
   availablePlans = ["basic", "pro"],
 }: {
   initialPlan: "basic" | "pro";
   /** Plans that have gone live. A single entry hides the picker entirely —
       there is no choice to offer. */
   availablePlans?: ("basic" | "pro")[];
-  /** Referral code from /join?ref=… — attributed at checkout. */
-  referralCode?: string;
   /** Configured billing terms per plan: months -> total USD (1 = monthly). */
   terms?: { basic: TermMap; pro: TermMap };
 }) {
@@ -51,7 +48,6 @@ export function JoinForm({
           email,
           name: `${firstName.trim()} ${lastName.trim()}`.trim(),
           months,
-          ref: referralCode,
         });
         if (res.ok && res.url) {
           window.location.href = res.url;
