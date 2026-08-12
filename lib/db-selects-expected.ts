@@ -25,25 +25,21 @@ export interface ExpectedFailure {
   reason: string;
 }
 
-export const EXPECTED_FAILURES: ExpectedFailure[] = [
-  {
-    table: "referrals",
-    contains: "",
-    reason:
-      "referrals table intentionally not created — 0035's referral half was " +
-      "never applied and 0088 deliberately left it that way; the reward was " +
-      "never agreed (Matt: no real money paid out for referrals) and the " +
-      "payout code is deleted. Delete this entry if the table is ever created.",
-  },
-  {
-    table: "profiles",
-    contains: "referral_code",
-    reason:
-      "profiles.referral_code comes from the same unapplied half of 0035. " +
-      "lib/referrals.ts returns early when it is missing, so attribution is " +
-      "inert rather than broken. Delete this entry with the one above.",
-  },
-];
+/*
+ * Empty, and that is the healthy state.
+ *
+ * The two entries this list was created for — the referrals table and
+ * profiles.referral_code — are gone because the referral feature itself was
+ * deleted rather than exempted. It had never worked in production: 0035's
+ * referral half was never applied, so no member ever saw a referral link or a
+ * count. An exemption would have made a permanently-dead feature look like a
+ * deliberate, maintained absence.
+ *
+ * So this is the second-best outcome the mechanism can produce, after "no
+ * exemption was ever needed": the exemption existed exactly as long as the
+ * thing it described, and left with it. Keep it that way.
+ */
+export const EXPECTED_FAILURES: ExpectedFailure[] = [];
 
 /** The reason this select is expected to fail, or null if it is not. */
 export function expectedFailure(

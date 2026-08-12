@@ -85,17 +85,19 @@ test("every expected-failure entry still matches a real select", () => {
   }
 });
 
-test("expected failures are confined to the referral schema", () => {
+test("nothing is exempt from the page-data check", () => {
   /*
-   * A deliberately narrow assertion. The exemption list is the one place
-   * this health check can be silenced, so widening it should take a
-   * deliberate edit here as well — not just a line added in passing while
-   * chasing a red build.
+   * A deliberately narrow assertion. The exemption list is the one place this
+   * health check can be silenced, so widening it should take a deliberate
+   * edit here as well — not just a line added in passing while chasing a red
+   * build.
+   *
+   * It used to name the two referral entries. Those went when the referral
+   * feature was deleted outright instead of exempted, which is why the list
+   * is empty: a select nobody wants is better removed than excused. Adding
+   * the first entry back means editing this line and saying what it is.
    */
-  assert.deepEqual(
-    EXPECTED_FAILURES.map((e) => e.table).sort(),
-    ["profiles", "referrals"],
-  );
+  assert.deepEqual(EXPECTED_FAILURES.map((e) => e.table).sort(), []);
   for (const e of EXPECTED_FAILURES) {
     assert.ok(e.reason.length > 40, `${e.table} exemption needs a real reason`);
   }
