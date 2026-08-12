@@ -4,6 +4,7 @@ import {
   type TaggableItem,
 } from "@/components/admin/TopicsManager";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { SPEAKER_FROM_SESSION } from "@/lib/session-speaker-embed";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { listTopics } from "@/lib/topics";
@@ -47,7 +48,7 @@ export default async function AdminTopicsPage() {
       db
         .from("videos")
         .select(
-          "id, title, session_id, video_topics ( topic_id, is_primary ), sessions ( speakers ( name ) )",
+          `id, title, session_id, video_topics ( topic_id, is_primary ), sessions ( ${SPEAKER_FROM_SESSION} ( name ) )`,
         )
         .is("archived_at", null)
         .order("published_at", { ascending: false })
@@ -55,7 +56,7 @@ export default async function AdminTopicsPage() {
       db
         .from("sessions")
         .select(
-          "id, title, host_name, session_topics ( topic_id, is_primary ), speakers ( name )",
+          `id, title, host_name, session_topics ( topic_id, is_primary ), ${SPEAKER_FROM_SESSION} ( name )`,
         )
         .order("starts_at", { ascending: false })
         .limit(300),

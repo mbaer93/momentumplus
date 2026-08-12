@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canAccess } from "@/lib/access";
 import { isMuxConfigured, muxThumbnailUrl } from "@/lib/mux";
 import { seasonInScope, seasonOf } from "@/lib/season";
+import { SPEAKER_FROM_SESSION } from "@/lib/session-speaker-embed";
 import { mapTopicRows } from "@/lib/topics";
 import { getAccessMatrix, libraryScopeFor, type LibraryScope } from "@/lib/tiers";
 import type { Tier } from "@/lib/types";
@@ -93,21 +94,23 @@ function mapRow(row: VideoRow): VideoItem {
   };
 }
 
+// The speaker embed is hinted: session_speakers (migration 0087) makes an
+// unhinted sessions -> speakers embed ambiguous. See lib/session-speaker-embed.ts.
 const VIDEO_SELECT =
-  "id, title, category, season, video_topics ( is_primary, content_topics ( id, name, slug ) ), mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ), ai_summaries ( takeaways, quotes, action_items, highlights, model, generated_at ) ), ai_summaries!video_id ( takeaways, quotes, action_items, highlights, model, generated_at )";
+  `id, title, category, season, video_topics ( is_primary, content_topics ( id, name, slug ) ), mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( ${SPEAKER_FROM_SESSION} ( name ), ai_summaries ( takeaways, quotes, action_items, highlights, model, generated_at ) ), ai_summaries!video_id ( takeaways, quotes, action_items, highlights, model, generated_at )`;
 
 const VIDEO_SELECT_LEGACY =
-  "id, title, category, mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ), ai_summaries ( takeaways, quotes, action_items, highlights, model, generated_at ) ), ai_summaries!video_id ( takeaways, quotes, action_items, highlights, model, generated_at )";
+  `id, title, category, mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( ${SPEAKER_FROM_SESSION} ( name ), ai_summaries ( takeaways, quotes, action_items, highlights, model, generated_at ) ), ai_summaries!video_id ( takeaways, quotes, action_items, highlights, model, generated_at )`;
 
 // List view: no AI summaries — nothing on the grid renders them, and the
 // full summaries added 1-3 KB of dead RSC payload per video per view.
 const VIDEO_LIST_SELECT =
-  "id, title, category, season, video_topics ( is_primary, content_topics ( id, name, slug ) ), mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ) )";
+  `id, title, category, season, video_topics ( is_primary, content_topics ( id, name, slug ) ), mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( ${SPEAKER_FROM_SESSION} ( name ) )`;
 
 /* Everything 0055 added, dropped when running against a database that hasn't
    had it yet — an un-migrated environment should show a library, not a 500. */
 const VIDEO_LIST_SELECT_LEGACY =
-  "id, title, category, mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( speakers ( name ) )";
+  `id, title, category, mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( ${SPEAKER_FROM_SESSION} ( name ) )`;
 
 export async function listVideos(viewerTier: Tier): Promise<VideoItem[]> {
   if (!isSupabaseConfigured()) {
@@ -186,7 +189,7 @@ async function lockedVideoTeasers(
     let res = await createServiceClient()
       .from("videos")
       .select(
-        "id, title, category, season, video_topics ( is_primary, content_topics ( id, name, slug ) ), thumbnail_url, duration_sec, min_access, published_at, sessions ( speakers ( name ) )",
+        `id, title, category, season, video_topics ( is_primary, content_topics ( id, name, slug ) ), thumbnail_url, duration_sec, min_access, published_at, sessions ( ${SPEAKER_FROM_SESSION} ( name ) )`,
       )
       .is("archived_at", null)
       .not("published_at", "is", null)
@@ -197,7 +200,7 @@ async function lockedVideoTeasers(
       res = (await createServiceClient()
         .from("videos")
         .select(
-          "id, title, category, thumbnail_url, duration_sec, min_access, published_at, sessions ( speakers ( name ) )",
+          `id, title, category, thumbnail_url, duration_sec, min_access, published_at, sessions ( ${SPEAKER_FROM_SESSION} ( name ) )`,
         )
         .is("archived_at", null)
         .not("published_at", "is", null)

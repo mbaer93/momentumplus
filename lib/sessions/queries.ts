@@ -9,6 +9,10 @@ import type {
 import { getPlaceholderSession, getPlaceholderSessions } from "./data";
 import { nextOccurrence } from "@/lib/recurrence";
 import { requestCache } from "@/lib/request-cache";
+import {
+  SPEAKER_FROM_LINEUP,
+  SPEAKER_FROM_SESSION,
+} from "@/lib/session-speaker-embed";
 import { speakerLive } from "@/lib/sponsor-lifecycle";
 
 /*
@@ -139,8 +143,11 @@ function mapRow(row: SessionRow): SessionDetail {
 // intentionally NOT selectable by members — column grants in migration 0020
 // hide them, and getSession attaches them via the service role only after
 // confirming the viewer is enrolled.
+// `speakers` is embedded through an explicit foreign-key hint — since
+// migration 0087 added session_speakers there are two paths between the
+// tables and an unhinted embed is ambiguous. See lib/session-speaker-embed.ts.
 const SESSION_SELECT =
-  "id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, restricted, speakers ( id, name, title, archived_at, expires_at )";
+  `id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, restricted, ${SPEAKER_FROM_SESSION} ( id, name, title, archived_at, expires_at )`;
 // Deploy-window fallback (before 0059 adds `restricted`, or before 0060
 // grants it — sessions uses COLUMN-level grants since 0020, so an unnamed
 // new column reads as "permission denied for table sessions"). RLS also
@@ -149,10 +156,10 @@ const SESSION_SELECT =
 const restrictedUnreadable = (message: string) =>
   /restricted|permission denied/.test(message);
 const SESSION_SELECT_NO_RESTRICTED =
-  "id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, speakers ( id, name, title, archived_at, expires_at )";
+  `id, title, description, category, starts_at, duration_min, capacity, min_access, status, program, recurrence, recurrence_until, host_name, ${SPEAKER_FROM_SESSION} ( id, name, title, archived_at, expires_at )`;
 // Pre-migration fallback (before 0030 adds the Rooted Focus columns).
 const SESSION_SELECT_LEGACY =
-  "id, title, description, category, starts_at, duration_min, capacity, min_access, status, speakers ( id, name, title )";
+  `id, title, description, category, starts_at, duration_min, capacity, min_access, status, ${SPEAKER_FROM_SESSION} ( id, name, title )`;
 
 /*
  * Fill in each session's full speaker lineup (migration 0087).
@@ -172,7 +179,7 @@ async function attachLineups(
   if (sessions.length === 0) return;
   const { data, error } = await supabase
     .from("session_speakers")
-    .select("session_id, sort, speakers ( id, name, title )")
+    .select(`session_id, sort, ${SPEAKER_FROM_LINEUP} ( id, name, title )`)
     .in(
       "session_id",
       sessions.map((s) => s.id),

@@ -8,6 +8,7 @@ import {
   ResourcesIcon,
   SessionsIcon,
 } from "@/components/icons";
+import { SPEAKER_FROM_SESSION } from "@/lib/session-speaker-embed";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { getAuthUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -120,7 +121,7 @@ async function upcomingPublicSessions(): Promise<
   try {
     const { data } = await createServiceClient()
       .from("sessions")
-      .select("id, title, starts_at, speakers(name)")
+      .select(`id, title, starts_at, ${SPEAKER_FROM_SESSION} ( name )`)
       .eq("status", "scheduled")
       .gte("starts_at", new Date().toISOString())
       .order("starts_at", { ascending: true })

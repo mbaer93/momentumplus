@@ -2,6 +2,7 @@ import { bearerAuthorized } from "@/lib/db-utils";
 import { revalidatePath } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 import { recordCronRun } from "@/lib/cron-health";
+import { SPEAKER_FROM_SESSION } from "@/lib/session-speaker-embed";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
@@ -323,7 +324,7 @@ export async function POST(req: NextRequest) {
   const admin = createServiceClient();
   const { data: session } = await admin
     .from("sessions")
-    .select("id, title, speakers ( name )")
+    .select(`id, title, ${SPEAKER_FROM_SESSION} ( name )`)
     .eq("id", body.sessionId)
     .maybeSingle();
   if (!session) {
