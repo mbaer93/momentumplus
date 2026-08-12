@@ -85,7 +85,6 @@ export default async function JoinPage(
               )}
               initialPlan={plan}
               terms={terms}
-              referralCode={searchParams?.ref}
             />
           </>
         )}

@@ -29,8 +29,6 @@ export async function startPublicCheckout(input: {
   name: string;
   /** Billing term in months: 1 (default), 3, 6, or 12 when configured. */
   months?: number;
-  /** Referral code from /join?ref=… (falls back to the mp_ref cookie). */
-  ref?: string;
 }): Promise<JoinResult> {
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
@@ -81,15 +79,6 @@ export async function startPublicCheckout(input: {
     };
   }
 
-  // Referral attribution: explicit param first, then the cookie set by
-  // the middleware when they first landed with ?ref=.
-  let ref = (input.ref ?? "").trim().toLowerCase().slice(0, 20);
-  if (!ref) {
-    const { cookies } = await import("next/headers");
-    const jar = await cookies();
-    ref = (jar.get("mp_ref")?.value ?? "").trim().toLowerCase().slice(0, 20);
-  }
-
   const site = await requestSiteUrl() ?? "";
   try {
     const session = await stripeRequest<{ url: string }>(
@@ -106,7 +95,6 @@ export async function startPublicCheckout(input: {
         "metadata[signup_email]": email,
         "metadata[signup_name]": name,
         "metadata[plan]": plan,
-        ...(ref ? { "metadata[referral_code]": ref } : {}),
         "subscription_data[metadata][plan]": plan,
         // Session metadata dies with the checkout session; the SUBSCRIPTION
         // carries this email for the life of the plan so the webhook's

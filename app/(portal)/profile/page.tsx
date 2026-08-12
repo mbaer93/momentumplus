@@ -22,7 +22,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
-/* Account details block: profile row + prefs + membership status + referral.
+/* Account details block: profile row + prefs + membership status.
    One parallel batch (audit P2-15: this page was 12-15 sequential
    round-trips; it's now three parallel phases). */
 async function loadAccount() {
@@ -38,7 +38,6 @@ async function loadAccount() {
       created_at: string;
     },
     savedPrefs: [] as Partial<PrefRow>[],
-    referral: null as { link: string; count: number } | null,
     hasStripeCustomer: false,
     membershipStatusLabel: "● Active",
   };
@@ -46,21 +45,7 @@ async function loadAccount() {
   if (!user) return out;
   const supabase = await createClient();
 
-  const referralPromise = process.env.SUPABASE_SERVICE_ROLE_KEY
-    ? (async () => {
-        // Referral program: mint the code on first visit; count conversions.
-        const { ensureReferralCode, getReferralCount } = await import(
-          "@/lib/referrals"
-        );
-        const code = await ensureReferralCode(user.id);
-        if (!code) return null;
-        const site =
-          process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
-        return { link: `${site}/join?ref=${code}`, count: await getReferralCount(user.id) };
-      })()
-    : Promise.resolve(null);
-
-  const [profileRes, prefsRes, membershipsRes, referral] = await Promise.all([
+  const [profileRes, prefsRes, membershipsRes] = await Promise.all([
     supabase
       .from("profiles")
       .select(
@@ -76,7 +61,6 @@ async function loadAccount() {
       .from("memberships")
       .select("tier, status, access_expires_at")
       .eq("profile_id", user.id),
-    referralPromise,
   ]);
   let p = profileRes.data;
   if (!p) {
@@ -103,7 +87,6 @@ async function loadAccount() {
     out.hasStripeCustomer = Boolean(p.stripe_customer_id);
   }
   out.savedPrefs = (prefsRes.data ?? []) as Partial<PrefRow>[];
-  out.referral = referral;
 
   // Honest status: past_due and canceled members are still in the portal
   // (grace semantics) — "Active" must not paper over that.
@@ -160,7 +143,7 @@ export default async function ProfilePage() {
           admin_title: "",
           created_at: new Date().toISOString(),
         });
-  const { savedPrefs, referral, hasStripeCustomer, membershipStatusLabel } =
+  const { savedPrefs, hasStripeCustomer, membershipStatusLabel } =
     account;
 
   // Earned certificates: courses with every lesson complete (viewer-scoped
@@ -308,7 +291,6 @@ export default async function ProfilePage() {
       prefDefinitions={PREF_DEFINITIONS}
       initialPrefs={mergePrefs(savedPrefs)}
       certificates={certificates}
-      referral={referral}
       billing={{
         enabled: billingEnabled,
         basicPrice: stripeSettings?.displayPrices?.basic ?? null,

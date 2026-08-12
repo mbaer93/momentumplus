@@ -55,21 +55,7 @@ const AUTH_FREE_PATHS = new Set([
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  // Referral attribution: ?ref=CODE on any page sticks for 30 days, so the
-  // code survives browsing before they hit checkout.
-  const refParam = request.nextUrl.searchParams.get("ref");
-  const stampRef = (res: NextResponse) => {
-    if (refParam) {
-      res.cookies.set("mp_ref", refParam.slice(0, 20), {
-        maxAge: 60 * 60 * 24 * 30,
-        path: "/",
-        sameSite: "lax",
-      });
-    }
-    return res;
-  };
-
-  if (AUTH_FREE_PATHS.has(request.nextUrl.pathname)) return stampRef(response);
+  if (AUTH_FREE_PATHS.has(request.nextUrl.pathname)) return response;
 
   // Phase 1 dev convenience: without Supabase env configured, skip auth so the
   // shell is viewable — LOCAL DEV ONLY. On any deployed environment, missing
@@ -94,7 +80,7 @@ export async function updateSession(request: NextRequest) {
         { status: 503 },
       );
     }
-    return stampRef(response);
+    return response;
   }
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -136,5 +122,5 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return stampRef(response);
+  return response;
 }
