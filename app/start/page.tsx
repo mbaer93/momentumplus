@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Raleway } from "next/font/google";
 import { StartHubAdmin } from "@/components/start/StartHubAdmin";
 import { StoreBadges } from "@/components/start/StoreBadges";
 import { getAdminAccess } from "@/lib/auth-helpers";
@@ -9,8 +8,8 @@ import { readStartHubSettings, tslsAppUrl } from "@/lib/start-hub";
 export const dynamic = "force-dynamic";
 
 // Body font on sierralearnership.com — the hub mirrors her site because it
-// will also live as a page there.
-const raleway = Raleway({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+// will also live as a page there. Self-hosted; see app/fonts.css.
+const RALEWAY = 'var(--font-raleway), "Raleway", sans-serif';
 
 export const metadata = {
   title: "Get Started | Sierra Learnership Collaborative",
@@ -106,8 +105,8 @@ export default async function StartHubPage() {
 
   return (
     <div
-      className={raleway.className}
       style={{
+        fontFamily: RALEWAY,
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",

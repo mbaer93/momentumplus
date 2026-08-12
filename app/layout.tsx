@@ -1,21 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+// Fonts are self-hosted (app/fonts.css). next/font/google downloaded them
+// from Google at BUILD time, which put an outside service on the critical
+// path of every build and every deploy.
+import "./fonts.css";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["700"],
-  style: ["normal", "italic"],
-  variable: "--font-playfair",
-  display: "swap",
-});
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
 
@@ -63,7 +51,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+    <html lang="en">
+      <head>
+        {/* The two faces above the fold on every page. Preloaded because a
+            hand-written @font-face is only discovered after the CSS parses,
+            where next/font used to inject the hint for us. latin-ext is
+            deliberately NOT preloaded — most pages never need it. */}
+        <link
+          rel="preload"
+          href="/fonts/inter-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/playfair-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );
