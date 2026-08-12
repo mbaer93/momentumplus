@@ -4,21 +4,23 @@ import { readFileSync } from "node:fs";
 import { PROBED_SELECTS } from "../lib/db-selects.generated";
 import {
   embeddedRelations,
-  findEmbeddedSelects,
+  findSelects,
   hasEmbed,
   isUnresolved,
   resolveConstants,
 } from "../lib/db-select-scan";
 
 /*
- * lib/db-selects.generated.ts lists every select in the app that embeds a
- * related table. The health check runs all of them against the database
- * every six hours.
+ * lib/db-selects.generated.ts lists every select the app performs. The
+ * health check runs all of them against the database every six hours.
  *
  * The list is generated rather than curated because the 2026-08-12 outage
  * broke a query nobody was watching — a registry containing only the queries
- * somebody remembered to add has exactly that hole. These tests keep the
- * committed file honest about what the source actually does.
+ * somebody remembered to add has exactly that hole. It covered only embedded
+ * selects for one day, until the probe found a plain column list
+ * (enrollments.created_at) that had been wrong since it was written.
+ *
+ * These tests keep the committed file honest about what the source does.
  */
 
 test("the generated registry is up to date with the source", async () => {
@@ -36,9 +38,9 @@ test("the generated registry is up to date with the source", async () => {
   );
 });
 
-test("every embedded select in the source is probed", () => {
+test("every select in the source is probed", () => {
   const missing: string[] = [];
-  for (const found of findEmbeddedSelects()) {
+  for (const found of findSelects()) {
     const select = resolveConstants(found.select);
     // Selects whose table comes from a template variable cannot be probed;
     // the generator refuses them and the previous test pins the generator.
