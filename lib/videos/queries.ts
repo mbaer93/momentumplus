@@ -104,9 +104,7 @@ const VIDEO_SELECT_LEGACY =
 
 // List view: no AI summaries — nothing on the grid renders them, and the
 // full summaries added 1-3 KB of dead RSC payload per video per view.
-// Exported for the health check's "Page data queries" probe — see the note
-// on SESSION_SELECT in lib/sessions/queries.ts.
-export const VIDEO_LIST_SELECT =
+const VIDEO_LIST_SELECT =
   `id, title, category, season, video_topics ( is_primary, content_topics ( id, name, slug ) ), mux_playback_id, thumbnail_url, duration_sec, min_access, published_at, session_id, sessions ( ${SPEAKER_FROM_SESSION} ( name ) )`;
 
 /* Everything 0055 added, dropped when running against a database that hasn't
