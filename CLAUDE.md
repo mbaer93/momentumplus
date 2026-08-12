@@ -37,6 +37,19 @@ speaker profiles, partner resources, sponsor content, and a personal learning re
    join data), and notes (private per member). These feed the member profile stats.
 5. Secrets go in `.env.local` (gitignored). Never hardcode keys. `.env.example` lists
    every required variable with a comment.
+6. **A migration can break a query it never mentions.** Adding a table with two
+   foreign keys gives PostgREST a second path between those two tables, and every
+   existing `select` that embeds one in the other stops resolving — PGRST201,
+   "more than one relationship was found". This is not theoretical: migration 0087
+   added `session_speakers` and took every page that lists a session offline for a
+   day (2026-08-12), with the migration clean, the code compiling, and every test
+   passing. So, when a migration adds a table referencing two others:
+   - Search for existing embeds between that pair (`grep -n 'tableB *(' `) and give
+     each one an explicit foreign-key hint — see `lib/session-speaker-embed.ts`.
+   - Run `npm run selects:sync` and check the diff.
+   - After the migration runs in production, open Admin → Connections and hit
+     **Run checks now**. "Page data queries" probes every embedded select in the
+     app and is the fastest way to know the schema change didn't break a read.
 
 ## Build phases (work in order, one phase per session/PR)
 - Phase 1: Scaffold + auth + database schema + member dashboard shell

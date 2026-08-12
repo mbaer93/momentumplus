@@ -53,6 +53,12 @@ test("every sessions -> speakers embed names its foreign key", () => {
       if (file === SELF) continue;
       const lines = readFileSync(file, "utf8").split("\n");
       lines.forEach((line, i) => {
+        // Comments first: a doc comment explaining this rule often quotes an
+        // unhinted embed in backticks, which the literal scan below reads as
+        // a template literal. Flagging the explanation of a rule as a
+        // violation of it is the fastest way to get a test ignored.
+        const t = line.trim();
+        if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return;
         for (const literal of line.match(LITERAL) ?? []) {
           if (UNHINTED.test(literal)) {
             offenders.push(`${file}:${i + 1}`);

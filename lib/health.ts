@@ -10,8 +10,7 @@ import {
 } from "@/lib/health-shared";
 import { isMuxConfigured } from "@/lib/mux";
 import { sendEmailViaGhl } from "@/lib/notifications";
-import { SESSION_SELECT } from "@/lib/sessions/queries";
-import { VIDEO_LIST_SELECT } from "@/lib/videos/queries";
+import { PROBED_SELECTS } from "@/lib/db-selects.generated";
 import {
   getAnthropicApiKey,
   getGhlCreds,
@@ -273,28 +272,49 @@ export async function runHealthChecks(): Promise<HealthReport> {
 
     guard("Page data queries", async () => {
       if (!dbReady()) return skippedCheck("Page data queries", "no database");
-      // The real select strings the pages use, imported rather than copied.
-      // Run through the SERVICE role on purpose: that strips RLS and column
-      // grants out of the picture, so this check goes red for a schema or
-      // relationship fault (a renamed table, a dropped column, an ambiguous
-      // embed) and not for a permissions quirk that only affects anon.
+      /*
+       * EVERY select in the app that embeds a related table, generated from
+       * the source by scripts/sync-db-selects.mjs. Probing a hand-picked
+       * couple would repeat the mistake this check exists to prevent — the
+       * outage happened in a query nobody was watching.
+       *
+       * Run through the SERVICE role on purpose: that takes RLS and column
+       * grants out of the picture, so the check goes red for a schema or
+       * relationship fault (a renamed table, a dropped column, an embed that
+       * stopped resolving) and not for a permissions quirk affecting anon.
+       */
       const service = createServiceClient();
-      const probes: { label: string; table: string; select: string }[] = [
-        { label: "sessions", table: "sessions", select: SESSION_SELECT },
-        { label: "library", table: "videos", select: VIDEO_LIST_SELECT },
-      ];
-      const results = await Promise.all(
-        probes.map(async (p) => {
-          const { error } = await service.from(p.table).select(p.select).limit(1);
-          return error ? `${p.label}: ${error.message}` : null;
-        }),
-      );
-      const broken = results.filter((r): r is string => r !== null);
-      if (broken.length > 0) throw new Error(broken.join(" | "));
+      const broken: string[] = [];
+      // Batched rather than all at once: 50 statements opened together is a
+      // needless spike on a pooled connection, and the whole probe still
+      // finishes well inside the 8s cap.
+      const BATCH = 10;
+      for (let i = 0; i < PROBED_SELECTS.length; i += BATCH) {
+        const batch = PROBED_SELECTS.slice(i, i + BATCH);
+        const results = await Promise.all(
+          batch.map(async (p) => {
+            const { error } = await service
+              .from(p.table)
+              .select(p.select)
+              .limit(1);
+            return error ? `${p.table}: ${error.message}` : null;
+          }),
+        );
+        for (const r of results) if (r) broken.push(r);
+      }
+      if (broken.length > 0) {
+        // Two is enough to identify the fault; the rest would bloat the email.
+        const shown = broken.slice(0, 2).join(" | ");
+        throw new Error(
+          broken.length > 2
+            ? `${broken.length} selects failing — ${shown} | …`
+            : shown,
+        );
+      }
       return {
         name: "Page data queries",
         ok: true,
-        note: `${probes.length} shared selects resolve`,
+        note: `all ${PROBED_SELECTS.length} embedded selects resolve`,
       };
     }),
 
