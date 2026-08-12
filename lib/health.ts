@@ -10,6 +10,8 @@ import {
 } from "@/lib/health-shared";
 import { isMuxConfigured } from "@/lib/mux";
 import { sendEmailViaGhl } from "@/lib/notifications";
+import { SESSION_SELECT } from "@/lib/sessions/queries";
+import { VIDEO_LIST_SELECT } from "@/lib/videos/queries";
 import {
   getAnthropicApiKey,
   getGhlCreds,
@@ -259,6 +261,76 @@ export async function runHealthChecks(): Promise<HealthReport> {
       }
       if (!res.ok) throw new Error(`TSLS ping returned ${res.status}`);
       return { name: "TSLS bridge key", ok: true, note: "keys match" };
+    }),
+
+    /*
+     * The two probes below exist because of the 2026-08-12 outage: migration
+     * 0087 made a PostgREST embed ambiguous, listSessions threw, and every
+     * page that lists a session showed the error boundary for a day. Not one
+     * of the checks above went red — they all probe INTEGRATIONS, and every
+     * integration was fine. The app itself was down.
+     */
+
+    guard("Page data queries", async () => {
+      if (!dbReady()) return skippedCheck("Page data queries", "no database");
+      // The real select strings the pages use, imported rather than copied.
+      // Run through the SERVICE role on purpose: that strips RLS and column
+      // grants out of the picture, so this check goes red for a schema or
+      // relationship fault (a renamed table, a dropped column, an ambiguous
+      // embed) and not for a permissions quirk that only affects anon.
+      const service = createServiceClient();
+      const probes: { label: string; table: string; select: string }[] = [
+        { label: "sessions", table: "sessions", select: SESSION_SELECT },
+        { label: "library", table: "videos", select: VIDEO_LIST_SELECT },
+      ];
+      const results = await Promise.all(
+        probes.map(async (p) => {
+          const { error } = await service.from(p.table).select(p.select).limit(1);
+          return error ? `${p.label}: ${error.message}` : null;
+        }),
+      );
+      const broken = results.filter((r): r is string => r !== null);
+      if (broken.length > 0) throw new Error(broken.join(" | "));
+      return {
+        name: "Page data queries",
+        ok: true,
+        note: `${probes.length} shared selects resolve`,
+      };
+    }),
+
+    guard("Public pages", async () => {
+      const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+      if (!base) {
+        return skippedCheck("Public pages", "NEXT_PUBLIC_SITE_URL unset");
+      }
+      // Signed-out routes only — a cron has no session, and the custom domain
+      // skips Vercel's deployment protection (preview URLs do not). This
+      // catches the app being down, misconfigured, or throwing at render;
+      // the query probe above covers what a page swallows quietly.
+      const routes = ["/", "/join", "/login"];
+      const results = await Promise.all(
+        routes.map(async (path) => {
+          try {
+            const res = await fetch(`${base}${path}`, {
+              cache: "no-store",
+              redirect: "manual",
+              headers: { "user-agent": "momentumplus-healthcheck" },
+              signal: abortSoon(),
+            });
+            // 3xx is a healthy answer (a redirect is the app working).
+            return res.status < 400 ? null : `${path} → ${res.status}`;
+          } catch (e) {
+            return `${path} → ${e instanceof Error ? e.message : "unreachable"}`;
+          }
+        }),
+      );
+      const bad = results.filter((r): r is string => r !== null);
+      if (bad.length > 0) throw new Error(bad.join(" | "));
+      return {
+        name: "Public pages",
+        ok: true,
+        note: `${routes.length} routes answering`,
+      };
     }),
 
     guard("Scheduled jobs", async () => {
