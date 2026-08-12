@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { speakerNameKey, findLikelyDuplicates } from "../lib/tsls-speakers";
+import {
+  findLikelyDuplicates,
+  parseTslsEventYear,
+  parseTslsSpeakers,
+  speakerNameKey,
+} from "../lib/tsls-speakers";
 
 /*
  * Every mismatch here becomes a duplicate speaker row on the next TSLS
@@ -89,4 +94,34 @@ test("findLikelyDuplicates reports nothing for a clean list", () => {
     ]),
     [],
   );
+});
+
+/*
+ * The season a pull came from (Matt, 2026-08-12: a pull must not quietly land
+ * in the wrong year).
+ *
+ * The value is easy to over-read, so the parse is deliberately narrow: TSLS's
+ * event_speakers table is NOT year-scoped, and this is the year whose AGENDA
+ * decided who counts as a panelist. Null means TSLS didn't say — an older
+ * deploy, or its settings read failed — and the UI prints "season unstated"
+ * rather than inventing a year, because a wrong year stated confidently is
+ * worse than no year at all.
+ */
+test("the pull reports which season TSLS answered for", () => {
+  assert.equal(parseTslsEventYear({ eventYear: 2026, speakers: [] }), 2026);
+
+  // Absent, wrong-typed, or nonsense → null, never a guess.
+  assert.equal(parseTslsEventYear({ speakers: [] }), null);
+  assert.equal(parseTslsEventYear({ eventYear: "2026", speakers: [] }), null);
+  assert.equal(parseTslsEventYear({ eventYear: null }), null);
+  assert.equal(parseTslsEventYear({ eventYear: Number.NaN }), null);
+  assert.equal(parseTslsEventYear(null), null);
+  assert.equal(parseTslsEventYear(undefined), null);
+  assert.equal(parseTslsEventYear("not an object"), null);
+
+  // The lineup still parses when the year is missing — an older TSLS deploy
+  // must not stop a pull, it just can't name its season.
+  const payload = { speakers: [{ name: "Rob Wentz", role: "main" }] };
+  assert.equal(parseTslsSpeakers(payload).length, 1);
+  assert.equal(parseTslsEventYear(payload), null);
 });

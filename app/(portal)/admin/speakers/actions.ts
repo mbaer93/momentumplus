@@ -294,7 +294,13 @@ export async function pullSpeakersFromTsls(): Promise<AdminResult> {
   return {
     ok: failed.length === 0,
     message:
-      `Pulled ${fetched.speakers.length} from TSLS: ${added} added, ${updated} updated, ` +
+      // Name the season the lineup came from. A pull that doesn't say which
+      // year it took is a pull you can only audit by trusting it
+      // (Matt, 2026-08-12). "season unstated" is the honest reading when
+      // TSLS is on an older deploy that doesn't report one.
+      `Pulled ${fetched.speakers.length} from TSLS (${
+        fetched.eventYear ? `${fetched.eventYear} season` : "season unstated"
+      }): ${added} added, ${updated} updated, ` +
       `${unchanged} already current, ${emcees} emcee${emcees === 1 ? "" : "s"} skipped.` +
       `${failNote}${dupeNote}`,
   };
