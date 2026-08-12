@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentMember } from "@/lib/current-member";
 import { nextOccurrence, type Recurrence } from "@/lib/recurrence";
+import { SPEAKER_FROM_SESSION } from "@/lib/session-speaker-embed";
 import { isJoinWindowOpen } from "@/lib/sessions/view";
 import { sponsorActive } from "@/lib/sponsor-lifecycle";
 import { generateZoomSignature } from "@/lib/zoom-signature";
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
     admin
       .from("sessions")
       .select(
-        "id, starts_at, duration_min, status, recurrence, recurrence_until, zoom_meeting_id, zoom_passcode, speakers ( profile_id, archived_at, expires_at )",
+        `id, starts_at, duration_min, status, recurrence, recurrence_until, zoom_meeting_id, zoom_passcode, ${SPEAKER_FROM_SESSION} ( profile_id, archived_at, expires_at )`,
       )
       .eq("id", sessionId)
       .maybeSingle(),
