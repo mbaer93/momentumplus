@@ -12,7 +12,7 @@ import {
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { readCronHealth } from "@/lib/cron-health";
 import { readHealthReport } from "@/lib/health";
-import { runHealthNowAction } from "./health-actions";
+import { RunHealthChecksButton } from "@/components/admin/RunHealthChecksButton";
 import { isMuxConfigured } from "@/lib/mux";
 import { pushConfigured } from "@/lib/push";
 import {
@@ -30,6 +30,12 @@ import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
+/* "Run checks now" calls every integration for real and can send alert
+   emails afterwards. On the platform default (15s) a slow-but-healthy run
+   was killed mid-flight, and a killed server action shows the user nothing
+   — which is exactly how a working button reads as a dead one. Matches the
+   cron's own ceiling in app/api/cron/health/route.ts. */
+export const maxDuration = 120;
 
 /*
  * Connections: one place to see and set up every outside service. Stripe,
@@ -361,11 +367,7 @@ export default async function AdminConnectionsPage() {
                 when something breaks or recovers.
               </p>
             </div>
-            <form action={runHealthNowAction}>
-              <button type="submit" className="btn-sm-gold">
-                Run checks now
-              </button>
-            </form>
+            <RunHealthChecksButton />
           </div>
           <div className="card" style={{ padding: 0, maxWidth: 860 }}>
             {!healthReport ? (
