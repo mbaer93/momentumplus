@@ -107,6 +107,21 @@ function asRole(value: unknown): TslsSpeaker["role"] {
   return value === "panelist" || value === "emcee" ? value : "main";
 }
 
+/**
+ * Which season's agenda decided the roles in this reply, or null when TSLS
+ * didn't say (an older deploy, or its settings read failed).
+ *
+ * Worth stating precisely, because it is easy to over-read: TSLS's
+ * event_speakers table is NOT year-scoped — the lineup is simply its active
+ * speakers. This year is the one whose AGENDA decided who counts as a
+ * panelist. Naming it stops a pull quietly being attributed to the wrong
+ * season (Matt, 2026-08-12).
+ */
+export function parseTslsEventYear(payload: unknown): number | null {
+  const year = (payload as { eventYear?: unknown })?.eventYear;
+  return typeof year === "number" && Number.isFinite(year) ? year : null;
+}
+
 /** Parse the TSLS reply defensively — a missing or malformed entry is
     skipped, never thrown on. */
 export function parseTslsSpeakers(payload: unknown): TslsSpeaker[] {
@@ -144,7 +159,8 @@ export function parseTslsSpeakers(payload: unknown): TslsSpeaker[] {
 /** Fetch the TSLS speaker lineup. Fails closed with a reason when the
     bridge isn't configured or TSLS doesn't have its endpoint yet. */
 export async function fetchTslsSpeakers(): Promise<
-  { ok: true; speakers: TslsSpeaker[] } | { ok: false; message: string }
+  | { ok: true; speakers: TslsSpeaker[]; eventYear: number | null }
+  | { ok: false; message: string }
 > {
   const key = process.env.TSLS_SSO_KEY;
   if (!key) return { ok: false, message: "TSLS bridge not configured (TSLS_SSO_KEY unset)" };
@@ -172,7 +188,12 @@ export async function fetchTslsSpeakers(): Promise<
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       return { ok: false, message: data.error ?? `TSLS returned ${res.status}` };
     }
-    return { ok: true, speakers: parseTslsSpeakers(await res.json()) };
+    const payload = await res.json();
+    return {
+      ok: true,
+      speakers: parseTslsSpeakers(payload),
+      eventYear: parseTslsEventYear(payload),
+    };
   } catch (e) {
     return {
       ok: false,

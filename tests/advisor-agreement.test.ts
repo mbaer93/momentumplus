@@ -286,3 +286,53 @@ test("a rewording round-trips through the doc shape without losing structure", (
     );
   }
 });
+
+/*
+ * A completed agreement is locked — no edits, by anybody (Matt, 2026-08-12).
+ *
+ * The signature was already safe: advisor_agreements is append-only and
+ * stores the hash of the words as rendered at signing, so no later edit can
+ * rewrite what somebody agreed to. What an edit COULD still do is change the
+ * copy their agreement resolves to from here on — a different document
+ * wearing their signature. agreementIsCurrent is the predicate the save path
+ * refuses on, so these pin its two directions.
+ */
+test("a current signature is what locks an Advisor's copy", () => {
+  const currency = { version: "2026-08-10", materialChangedAt: null };
+
+  // Signed the wording in force → locked.
+  assert.equal(agreementIsCurrent(signature("2026-08-10"), currency), true);
+
+  // Never signed → not locked, which is the whole point of a pre-send editor.
+  assert.equal(agreementIsCurrent(null, currency), false);
+
+  // Signed an older version → not locked: they are already being asked to
+  // sign again, so their copy is still in play.
+  assert.equal(agreementIsCurrent(signature("2026-07-01"), currency), false);
+});
+
+test("asking them to sign again is what unlocks it", () => {
+  const signedOn = "2026-08-11T14:00:00Z";
+  const signed = {
+    agreementVersion: "2026-08-10",
+    signedName: "Robert Fulcher",
+    signedAt: signedOn,
+  };
+
+  // Locked while their signature stands.
+  assert.equal(
+    agreementIsCurrent(signed, { version: "2026-08-10", materialChangedAt: null }),
+    true,
+  );
+
+  // A material amendment recorded AFTER they signed drops their signature out
+  // of currency — the copy becomes editable again, and they are asked to
+  // agree to the new terms. That is the only route back to an unlocked copy.
+  assert.equal(
+    agreementIsCurrent(signed, {
+      version: "2026-08-10",
+      materialChangedAt: "2026-08-12T00:00:00Z",
+    }),
+    false,
+  );
+});

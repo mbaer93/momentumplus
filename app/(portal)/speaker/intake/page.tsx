@@ -6,7 +6,11 @@ import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { requireMember } from "@/lib/current-member";
 import { monthLabel } from "@/lib/revenue";
-import { getSpeakerById, getSpeakerForUser } from "@/lib/speaker-tools";
+import {
+  getSpeakerById,
+  getSpeakerForUser,
+  latestAdvisorAgreement,
+} from "@/lib/speaker-tools";
 import { getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -60,6 +64,10 @@ export default async function AdvisorIntakePage(props: {
   if (!intakeRequired(speaker)) redirect("/speaker");
 
   const stored = await getAdvisorIntake(speaker.id);
+  // Anything this Advisor has already given us seeds the form; asking twice
+  // for the same fact is the friction Matt ruled out (2026-08-12). Phone
+  // comes from their own signature snapshot, website from the speaker record.
+  const signed = await latestAdvisorAgreement(speaker.id);
 
   /*
    * Seed a blank intake from what the Advisor already told us on the
@@ -73,6 +81,8 @@ export default async function AdvisorIntakePage(props: {
         ...stored.intake,
         preferredSessionDate: speaker.featuredSessionDate ?? "",
         preferredSessionTime: speaker.featuredSessionTime ?? "",
+        phone: signed?.phone ?? "",
+        website: speaker.website ?? "",
       };
 
   return (
