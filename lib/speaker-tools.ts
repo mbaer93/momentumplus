@@ -175,6 +175,57 @@ export async function getSpeakerForUser(
 }
 
 /**
+ * What this speaker still has to fill in before the Studio opens, or [] when
+ * they are complete. See lib/speaker-profile.ts for the rule.
+ *
+ * The three required pieces live in three tables — the speaker page, the
+ * business resource it points at, and the phone number on their profile —
+ * so completeness cannot be read off any single row.
+ *
+ * Fails OPEN. If a lookup errors we return no gaps rather than locking a
+ * speaker out of the Studio on the strength of a query that did not run; a
+ * blocked speaker with a session starting is a worse outcome than a thin
+ * page that stays thin for another six hours.
+ */
+export async function speakerProfileGaps(
+  speaker: OwnSpeaker,
+  profileId: string,
+): Promise<string[]> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return [];
+  }
+  const admin = createServiceClient();
+  const [resourceRes, profileRes] = await Promise.all([
+    speaker.resourceId
+      ? admin
+          .from("resources")
+          .select("title, description, url")
+          .eq("id", speaker.resourceId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    admin.from("profiles").select("phone").eq("id", profileId).maybeSingle(),
+  ]);
+  if (resourceRes.error || profileRes.error) return [];
+
+  const resource = resourceRes.data as {
+    title?: string | null;
+    description?: string | null;
+    url?: string | null;
+  } | null;
+  const { missingSpeakerFields } = await import("@/lib/speaker-profile");
+  return missingSpeakerFields({
+    name: speaker.name,
+    title: speaker.title,
+    bio: speaker.bio,
+    industries: speaker.industries,
+    businessName: resource?.title ?? null,
+    businessDescription: resource?.description ?? null,
+    businessUrl: resource?.url ?? null,
+    phone: (profileRes.data as { phone?: string | null } | null)?.phone ?? null,
+  });
+}
+
+/**
  * A speaker by their row id — how an admin opens someone's Studio to see
  * what that speaker sees. Same active-season rule as the owner path: an
  * archived or expired speaker has no Studio for anyone.
