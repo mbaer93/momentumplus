@@ -15,6 +15,7 @@ import {
   getSpeakerById,
   getSpeakerForUser,
   latestAdvisorAgreement,
+  speakerProfileGaps,
 } from "@/lib/speaker-tools";
 import {
   agreementIsCurrent,
@@ -177,6 +178,20 @@ export default async function SpeakerStudioPage(
     ]);
     if (!previewAs && mustSignBeforeStudio(speaker, signedAgreement, agreementCurrency)) {
       redirect("/speaker/agreement");
+    }
+    /*
+     * The other half of the gate (Matt, 2026-08-12): a complete profile. A
+     * speaker page with no title, bio, topics or business is a broken page
+     * on a public directory, and one shipped because the form asked for
+     * nothing but a name. /speaker-onboarding collects exactly these fields
+     * and now accepts an existing speaker, not just an invitee.
+     *
+     * As with the agreement, an admin inspecting someone via ?as= passes
+     * through — they are looking, not editing, and bouncing THEM to a setup
+     * form would be nonsense.
+     */
+    if (!previewAs && (await speakerProfileGaps(speaker, user.id)).length > 0) {
+      redirect("/speaker-onboarding");
     }
     if (
       signedAgreement &&

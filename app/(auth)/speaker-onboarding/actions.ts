@@ -5,6 +5,10 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { seasonEnd } from "@/lib/sponsor-lifecycle";
+import {
+  missingFieldsSentence,
+  missingSpeakerFields,
+} from "@/lib/speaker-profile";
 
 /*
  * Completion of a speaker invite: the signed-in speaker submits their
@@ -47,10 +51,22 @@ export async function completeSpeakerOnboarding(
   if (!user) return { ok: false, message: "Please sign in first." };
 
   const displayName = input.displayName.trim();
-  // First AND last name are required before access is granted (Matt's
-  // rule, applies to members, speakers, and sponsors alike).
-  if (displayName.split(/\s+/).length < 2) {
-    return { ok: false, message: "Please enter your first and last name." };
+  // Every field is required before access is granted (Matt, 2026-08-12,
+  // after a test speaker got a public page and Pro-level access with only a
+  // name). Checked SERVER-side: the form's `required` attributes are a
+  // convenience and are trivially bypassed.
+  const missing = missingSpeakerFields({
+    name: displayName,
+    title: input.speakerTitle,
+    bio: input.bio,
+    industries: input.industries.split(","),
+    businessName: input.businessName,
+    businessDescription: input.businessDescription,
+    businessUrl: input.businessUrl,
+    phone: input.repPhone,
+  });
+  if (missing.length > 0) {
+    return { ok: false, message: missingFieldsSentence(missing) };
   }
 
   const admin = createServiceClient();
@@ -60,7 +76,23 @@ export async function completeSpeakerOnboarding(
     "speaker_invites",
     user,
   );
+  /*
+   * An open invite is the usual authorization. A speaker who is ALREADY set
+   * up but whose profile predates this rule is the other: the Studio sends
+   * them here to finish, and their existing speaker row is their authority.
+   * Without this they would be bounced between a Studio that refuses them
+   * and a form that says they were never invited.
+   */
+  let existingSpeakerId: string | null = null;
   if (!invite) {
+    const { data: own } = await admin
+      .from("speakers")
+      .select("id")
+      .eq("profile_id", user.id)
+      .maybeSingle();
+    existingSpeakerId = (own?.id as string) ?? null;
+  }
+  if (!invite && !existingSpeakerId) {
     return {
       ok: false,
       message:
@@ -79,8 +111,34 @@ export async function completeSpeakerOnboarding(
   const warnings: string[] = [];
 
   // 1) Their business as a member resource (their single resource page).
+  //    An existing speaker sent here to finish an incomplete profile already
+  //    has one — update it rather than leaving a second, orphaned resource
+  //    behind every time they save.
   let resourceId: string | null = null;
-  if (input.businessName.trim()) {
+  if (existingSpeakerId) {
+    const { data: own } = await admin
+      .from("speakers")
+      .select("resource_id")
+      .eq("id", existingSpeakerId)
+      .maybeSingle();
+    resourceId = (own?.resource_id as string) ?? null;
+  }
+  if (resourceId) {
+    const { error: updateError } = await admin
+      .from("resources")
+      .update({
+        title: input.businessName.trim(),
+        description: input.businessDescription.trim() || null,
+        url: input.businessUrl.trim() || null,
+        partner_name: displayName,
+      })
+      .eq("id", resourceId);
+    if (updateError) {
+      warnings.push(
+        `Your business resource page didn't save (${updateError.message}) — you can edit it from your Speaker Studio.`,
+      );
+    }
+  } else if (input.businessName.trim()) {
     const { data: resource, error: resourceError } = await admin
       .from("resources")
       .insert({
@@ -196,11 +254,15 @@ export async function completeSpeakerOnboarding(
     };
   }
 
-  // 5) Close the invite.
-  await admin
-    .from("speaker_invites")
-    .update({ completed_at: new Date().toISOString(), speaker_id: speakerId })
-    .eq("id", invite.id);
+  // 5) Close the invite, when this was an invite rather than an existing
+  //    speaker finishing a profile the Studio turned them away for.
+  if (invite) {
+    await admin
+      .from("speaker_invites")
+      .update({ completed_at: new Date().toISOString(), speaker_id: speakerId })
+      .eq("id", invite.id);
+  }
+  revalidatePath("/speaker");
 
   revalidatePath("/speakers");
   revalidatePath("/resources");
@@ -233,10 +295,26 @@ export async function getPendingSpeakerInvite(): Promise<{
     user,
     "id, display_name, account_created",
   );
-  if (!invite) return { pending: false };
-  return {
-    pending: true,
-    displayName: (invite.display_name as string) ?? "",
-    needsPassword: Boolean(invite.account_created),
-  };
+  if (invite) {
+    return {
+      pending: true,
+      displayName: (invite.display_name as string) ?? "",
+      needsPassword: Boolean(invite.account_created),
+    };
+  }
+
+  /*
+   * No invite, but an existing speaker the Studio turned away for an
+   * incomplete profile still needs this form — it is the only place that
+   * collects all of these fields in one pass. Their speaker row is the
+   * authorization; completeSpeakerOnboarding checks for it too.
+   */
+  const { getSpeakerForUser, speakerProfileGaps } = await import(
+    "@/lib/speaker-tools"
+  );
+  const speaker = await getSpeakerForUser(user.id);
+  if (!speaker) return { pending: false };
+  const gaps = await speakerProfileGaps(speaker, user.id);
+  if (gaps.length === 0) return { pending: false };
+  return { pending: true, displayName: speaker.name, needsPassword: false };
 }

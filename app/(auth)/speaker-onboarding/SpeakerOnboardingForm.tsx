@@ -149,6 +149,7 @@ export function SpeakerOnboardingForm({
           <label htmlFor="sk-title">Professional title</label>
           <input
             id="sk-title"
+            required
             value={form.speakerTitle}
             onChange={(e) => set("speakerTitle", e.target.value)}
             placeholder="e.g. Leadership Coach & Author"
@@ -159,6 +160,7 @@ export function SpeakerOnboardingForm({
           <textarea
             id="sk-bio"
             rows={4}
+            required
             value={form.bio}
             onChange={(e) => set("bio", e.target.value)}
             placeholder="A few sentences members will see on your speaker page"
@@ -169,6 +171,7 @@ export function SpeakerOnboardingForm({
           <label htmlFor="sk-industries">Topics / industries (comma-separated)</label>
           <input
             id="sk-industries"
+            required
             value={form.industries}
             onChange={(e) => set("industries", e.target.value)}
             placeholder="Leadership, Wellness, Finance"
@@ -176,44 +179,48 @@ export function SpeakerOnboardingForm({
         </div>
 
         <div className="login-field">
-          <label htmlFor="sk-biz">Your business (optional — shared as a member resource)</label>
+          <label htmlFor="sk-biz">Your business (shared as a member resource)</label>
           <input
             id="sk-biz"
+            required
             value={form.businessName}
             onChange={(e) => set("businessName", e.target.value)}
             placeholder="Business or product name"
           />
         </div>
-        {form.businessName.trim() && (
-          <>
-            <div className="login-field">
-              <label htmlFor="sk-biz-desc">What should members know about it?</label>
-              <textarea
-                id="sk-biz-desc"
-                rows={3}
-                value={form.businessDescription}
-                onChange={(e) => set("businessDescription", e.target.value)}
-                placeholder="A sentence or two about the business, product, or service"
-                style={{ width: "100%", resize: "vertical" }}
-              />
-            </div>
-            <div className="login-field">
-              <label htmlFor="sk-biz-url">Link</label>
-              <input
-                id="sk-biz-url"
-                type="url"
-                value={form.businessUrl}
-                onChange={(e) => set("businessUrl", e.target.value)}
-                placeholder="https://…"
-              />
-            </div>
-          </>
-        )}
+        {/* Always shown. These used to appear only once a business name was
+            typed, which was fine when the whole section was optional — now
+            that it is required, hiding two required fields behind a third is
+            a form you cannot submit and cannot see why. */}
+        <div className="login-field">
+          <label htmlFor="sk-biz-desc">What should members know about it?</label>
+          <textarea
+            id="sk-biz-desc"
+            rows={3}
+            required
+            value={form.businessDescription}
+            onChange={(e) => set("businessDescription", e.target.value)}
+            placeholder="A sentence or two about the business, product, or service"
+            style={{ width: "100%", resize: "vertical" }}
+          />
+        </div>
+        <div className="login-field">
+          <label htmlFor="sk-biz-url">Link</label>
+          <input
+            id="sk-biz-url"
+            type="url"
+            required
+            value={form.businessUrl}
+            onChange={(e) => set("businessUrl", e.target.value)}
+            placeholder="https://…"
+          />
+        </div>
 
         <div className="login-field">
-          <label htmlFor="sk-phone">Your phone (optional)</label>
+          <label htmlFor="sk-phone">Your phone</label>
           <input
             id="sk-phone"
+            required
             autoComplete="tel"
             value={form.repPhone}
             onChange={(e) => set("repPhone", e.target.value)}
