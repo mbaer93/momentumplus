@@ -75,3 +75,27 @@ export function seesLaunchedApp(opts: {
 }): boolean {
   return opts.isAdmin || (opts.isTester && opts.rehearsalOn);
 }
+
+/**
+ * The profile ids of every test account.
+ *
+ * A Set rather than a per-row lookup: the list is tiny (a handful of people
+ * before launch, zero after), and callers are filtering directories where a
+ * query per row would be the expensive part. Cached per request.
+ *
+ * Fails OPEN — an error returns an empty set, so a directory renders in full
+ * rather than empty. Hiding a tester matters; showing an empty Speakers page
+ * to every member because one query hiccuped matters more.
+ */
+export const testerProfileIds = requestCache(async (): Promise<Set<string>> => {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return new Set();
+  }
+  const { data, error } = await createServiceClient()
+    .from("profiles")
+    .select("id")
+    .eq("tester", true);
+  // Pre-migration 0089 the column doesn't exist; nobody is a tester yet.
+  if (error || !data) return new Set();
+  return new Set(data.map((r) => String(r.id)));
+});
