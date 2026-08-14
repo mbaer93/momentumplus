@@ -41,15 +41,15 @@ export interface SpeakerOnboardingResult {
 export async function completeSpeakerOnboarding(
   input: SpeakerOnboardingInput,
 ): Promise<SpeakerOnboardingResult> {
-  if (!isSupabaseConfigured()) {
-    return { ok: true, message: "Saved (preview mode)." };
-  }
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Please sign in first." };
-
+  /*
+   * Validation runs BEFORE the preview short-circuit, deliberately.
+   *
+   * With it below, a credential-free preview accepted anything and returned
+   * "Saved" — which is the environment the e2e suite runs in, so the one
+   * gate protecting speaker access was the one thing the tests could not
+   * reach. A preview that disagrees with production about what is valid is
+   * not a preview of production.
+   */
   const displayName = input.displayName.trim();
   // Every field is required before access is granted (Matt, 2026-08-12,
   // after a test speaker got a public page and Pro-level access with only a
@@ -68,6 +68,15 @@ export async function completeSpeakerOnboarding(
   if (missing.length > 0) {
     return { ok: false, message: missingFieldsSentence(missing) };
   }
+
+  if (!isSupabaseConfigured()) {
+    return { ok: true, message: "Saved (preview mode)." };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Please sign in first." };
 
   const admin = createServiceClient();
   const { findOpenInvite } = await import("@/lib/invite-lookup");
