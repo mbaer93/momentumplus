@@ -41,6 +41,27 @@ export default async function ExpiredPage() {
       if (speakerInvite) redirect("/speaker-onboarding");
       if (sponsorInvite) redirect("/sponsor-onboarding");
 
+      /*
+       * Second door, for when the invite row is not the thing that matches.
+       * A speaker can hold a LIVE speaker row and still have no membership:
+       * the membership is created by the onboarding form, not by the invite,
+       * so anyone whose invite was closed, recreated, or linked to a listing
+       * by a different path lands here with a "your membership has lapsed"
+       * paywall — for a membership they have never had (Matt, 2026-08-14:
+       * Sierra clicked her invite and got exactly that).
+       *
+       * Only when the profile is genuinely incomplete: a complete speaker
+       * with no membership would be bounced to a form that has nothing to
+       * ask them, which is a loop rather than a fix.
+       */
+      const { getSpeakerForUser, speakerProfileGaps } = await import(
+        "@/lib/speaker-tools"
+      );
+      const ownSpeaker = await getSpeakerForUser(user.id);
+      if (ownSpeaker && (await speakerProfileGaps(ownSpeaker, user.id)).length > 0) {
+        redirect("/speaker-onboarding");
+      }
+
       const { sponsorActive } = await import("@/lib/sponsor-lifecycle");
       const [{ data: speakerRow }, { data: seatRows }] = await Promise.all([
         admin
