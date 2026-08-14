@@ -157,6 +157,13 @@
 .login-field input:focus {
   border-color: var(--gold);
 }
+/* The auth cards are navy: the light-surface placeholder colour below would
+   read 2.34:1 here. Dimmed white instead — 6.6:1 over this surface, and the
+   same "quieter than the value you type" role. */
+.login-field input::placeholder,
+.login-field textarea::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
 .login-badge {
   display: inline-flex;
   align-items: center;
@@ -445,6 +452,18 @@
 .topbar-search-link { display: none; }
 
 .topbar-search input::placeholder {
+  color: var(--ink-secondary);
+}
+
+/* Placeholder text is text: 1.4.3 applies to it like anything else, and the
+   browser default (Chrome paints #9ca3af) measures 2.54:1 on white. Found by
+   the contrast audit once its pseudo-state pass started running at all —
+   every ::placeholder rule had been skipped since CSS nesting shipped (#199).
+   --ink-secondary is the same warm-gray role at AA strength, 5.8:1 on white.
+   Surfaces with their own placeholder colour — the navy topbar search above,
+   the chat composer — are more specific and keep theirs. */
+input::placeholder,
+textarea::placeholder {
   color: var(--ink-secondary);
 }
 .topbar-icon-btn {
