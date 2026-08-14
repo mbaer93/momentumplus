@@ -109,7 +109,10 @@ const AUDIT = () => {
           if (Number.isFinite(min)) {
             keyframeMinOpacity.set(rule.name, Math.min(min, keyframeMinOpacity.get(rule.name) ?? 1));
           }
-        } else if (rule.cssRules) {
+        } else if (rule.cssRules?.length) {
+          // Same nested-CSS trap as pass 2: every plain style rule exposes an
+          // empty .cssRules, so testing presence recurses into nothing on
+          // every rule in the sheet.
           walkKeyframes(rule.cssRules);
         }
       }
@@ -187,56 +190,171 @@ const AUDIT = () => {
   }
 
   // ---- pass 2: pseudo-states replayed --------------------------------
-  // :hover / :focus / :disabled / ::placeholder never appear in a static
-  // render, so each such rule is applied to the elements it targets and the
-  // resulting colour measured against their real background.
+  /*
+   * :hover / :focus / :disabled / ::placeholder never appear in a static
+   * render, so every such rule is replayed against the elements it targets.
+   *
+   * Replayed through the ENGINE, not by reading a declaration.
+   * `rule.style.color` is what one rule asks for, which is not what paints:
+   * .filter-btn:hover and .filter-btn.active have identical specificity, and
+   * .active is declared later, so on the active button the hover colour never
+   * lands. Reading the declaration reported that button as 3.24:1 against
+   * navy — a failure the user cannot reach.
+   *
+   * Instead each pseudo-CLASS rule is cloned onto a marker class of equal
+   * specificity (:hover and .marker both weigh one class) and inserted
+   * IMMEDIATELY AFTER its source, so document order — and therefore the
+   * cascade — is preserved. Adding the marker to an element and reading its
+   * computed colour then gives exactly what the browser would paint in that
+   * state, with var(), specificity, order and shorthands all resolved.
+   *
+   * Pseudo-ELEMENTS can't be replayed by class, and don't need to be:
+   * getComputedStyle(el, "::placeholder") already reports the resolved value.
+   */
   const PSEUDO = /(:hover|:focus(-visible)?|:disabled|::placeholder|\.disabled|\[disabled\])/;
+  const PSEUDO_CLASS = /(:hover|:focus(-visible)?|:disabled|\.disabled|\[disabled\])/g;
+  const MARK = "cq-replay-marker";
+
+  const stripState = (s) =>
+    s.replace(/::?(hover|focus(-visible)?|disabled|placeholder)/g, "")
+     .replace(/\[disabled\]/g, "")
+     .replace(/\.disabled/g, "")
+     .trim();
+
+  // Collect first, mutate after: inserting into a list being iterated shifts
+  // every index behind it.
+  const replays = [];
   for (const sheet of document.styleSheets) {
-    let rules;
-    try { rules = sheet.cssRules; } catch { continue; }
-    const walk = (list) => {
-      for (const rule of list) {
-        if (rule.cssRules) { walk(rule.cssRules); continue; }
+    try { void sheet.cssRules; } catch { continue; }
+    /*
+     * `owner` is the thing that can insert — a stylesheet or a grouping rule.
+     * The CSSRuleList itself has no insertRule, so the list alone is not
+     * enough to put a clone back next to its source.
+     */
+    const walk = (owner) => {
+      const list = owner.cssRules;
+      for (let i = 0; i < list.length; i++) {
+        const rule = list[i];
+        /*
+         * Recurse on rules that actually CONTAIN rules, and then keep going
+         * rather than `continue`-ing.
+         *
+         * `if (rule.cssRules) { walk(...); continue; }` looks right and does
+         * nothing: since CSS Nesting shipped, CSSStyleRule extends
+         * CSSGroupingRule, so an ordinary style rule exposes .cssRules — an
+         * EMPTY CSSRuleList, which is an object, which is truthy. Every plain
+         * rule took the recurse branch, walked nothing, and never reached the
+         * selector test below. This entire pass measured zero selectors, on
+         * every run, silently (reported from the TSLS Companion port, #199).
+         *
+         * Not `continue`, because a nested rule can carry both a selector of
+         * its own and children.
+         */
+        if (rule.cssRules?.length) walk(rule);
         if (!rule.selectorText || !PSEUDO.test(rule.selectorText)) continue;
-        const col = rule.style?.getPropertyValue("color");
-        if (!col) continue;
-        for (const part of rule.selectorText.split(",")) {
-          const p = part.trim();
-          if (!PSEUDO.test(p)) continue;
-          const base = p.replace(/::?(hover|focus(-visible)?|disabled|placeholder)/g, "")
-                        .replace(/\[disabled\]/g, "").replace(/\.disabled/g, "").trim();
-          if (!base) continue;
-          let els;
-          try { els = document.querySelectorAll(base); } catch { continue; }
-          for (const el of [...els].slice(0, 4)) {
-            const cs = getComputedStyle(el);
-            const bg = bgOf(el);
-            if (bg.gradient) continue;
-            // Resolve the declared colour through a throwaway element so
-            // var() and keywords resolve the same way the engine would.
-            const probe = document.createElement("span");
-            probe.style.color = col;
-            el.appendChild(probe);
-            const resolved = parse(getComputedStyle(probe).color);
-            probe.remove();
-            if (!resolved) continue;
-            const op = opacityOf(el);
-            const eff = over([resolved[0],resolved[1],resolved[2],resolved[3]*op], bg.color);
-            const cr = ratio(eff, bg.color);
-            const need = threshold(cs);
-            if (cr < need) {
-              push({
-                state: p.match(PSEUDO)[0],
-                sel: `${base}  {${p.match(PSEUDO)[0]}}`,
-                ratio: cr, need, color: col, opacity: op,
-                text: el.textContent.trim().slice(0, 40),
-              });
-            }
-          }
-        }
+        if (!rule.style?.getPropertyValue("color")) continue;
+        // Only the comma-parts that carry a state. Keeping the others would
+        // restyle elements that are in no state at all.
+        const parts = rule.selectorText
+          .split(",")
+          .map((p) => p.trim())
+          .filter((p) => PSEUDO.test(p) && stripState(p));
+        if (parts.length === 0) continue;
+        replays.push({ owner, index: i, rule, parts });
       }
     };
-    walk(rules);
+    walk(sheet);
+  }
+
+  const inserted = [];
+  // Each insertion pushes everything behind it down one, so a source rule's
+  // recorded index is stale by however many clones already went into that
+  // same owner. Without this the clones drift ahead of rules they must lose
+  // to — reintroducing the cascade error by a different route.
+  const shift = new Map();
+  for (const { owner, index, rule, parts } of replays) {
+    const classParts = parts.filter((p) => !p.includes("::"));
+    if (classParts.length === 0) continue;
+    const selector = classParts
+      .map((p) => p.replace(PSEUDO_CLASS, `.${MARK}`))
+      .join(", ");
+    const body = rule.cssText.slice(rule.cssText.indexOf("{"));
+    try {
+      // Right after the source rule: a clone appended to the end of the
+      // document would beat later rules it should lose to, which is the
+      // very mistake this pass is here to stop making.
+      const offset = shift.get(owner) ?? 0;
+      const at = owner.insertRule(`${selector} ${body}`, index + 1 + offset);
+      shift.set(owner, offset + 1);
+      inserted.push({ owner, at });
+    } catch { /* selector the engine won't take — skip it */ }
+  }
+
+  const measure = (el, state, label, pseudoEl) => {
+    const cs = getComputedStyle(el, pseudoEl ?? undefined);
+    const bg = bgOf(el);
+    if (bg.gradient) return;
+    const fg = parse(cs.color);
+    if (!fg) return;
+    const op = opacityOf(el);
+    const eff = over([fg[0], fg[1], fg[2], fg[3] * op], bg.color);
+    const cr = ratio(eff, bg.color);
+    const need = threshold(getComputedStyle(el));
+    if (cr < need) {
+      push({
+        state, sel: label, ratio: cr, need,
+        color: cs.color, opacity: op,
+        text: el.textContent.trim().slice(0, 40),
+      });
+    }
+  };
+
+  /*
+   * Rendered elements only — the same guard pass 1 applies, and for the same
+   * reason. .sidebar-close is display:none above 900px and its hover rule
+   * lives in a media query that isn't active at this viewport, so measuring
+   * it read the inherited ink colour against the navy drawer and called it
+   * 1.15:1: a failure in a state no user at this width can reach.
+   */
+  const rendered = (el) => {
+    const cs = getComputedStyle(el);
+    if (cs.display === "none" || cs.visibility === "hidden") return false;
+    const r = el.getBoundingClientRect();
+    return r.width >= 2 && r.height >= 2;
+  };
+
+  for (const { parts } of replays) {
+    for (const p of parts) {
+      const base = stripState(p);
+      let els;
+      try { els = document.querySelectorAll(base); } catch { continue; }
+      const state = p.match(PSEUDO)[0];
+      for (const el of [...els].slice(0, 4)) {
+        if (!rendered(el)) continue;
+        if (p.includes("::")) {
+          measure(el, state, `${base}  {${state}}`, state);
+          continue;
+        }
+        /*
+         * If the marker changes nothing, the rule did not apply here — it is
+         * behind an inactive media query, or outscored by something later.
+         * Measuring anyway would report the element's ORDINARY colour as if
+         * it were the hover state, which is a failure nobody can reach.
+         * Nothing is lost by skipping: pass 1 has already measured that.
+         */
+        const before = getComputedStyle(el).color;
+        el.classList.add(MARK);
+        if (getComputedStyle(el).color !== before) {
+          measure(el, state, `${base}  {${state}}`, null);
+        }
+        el.classList.remove(MARK);
+      }
+    }
+  }
+
+  // Leave the page as we found it — later routes reuse this context.
+  for (const { owner, at } of inserted.reverse()) {
+    try { owner.deleteRule(at); } catch { /* already gone */ }
   }
   return out;
 };
@@ -248,8 +366,19 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const all = [];
 for (const route of ROUTES) {
   try {
-    const res = await page.goto(BASE + route, { waitUntil: "networkidle", timeout: 20000 });
+    /*
+     * "load" plus a short settle, NOT networkidle.
+     *
+     * networkidle waits for the network to go quiet, and one request that
+     * never settles takes the whole route down with it: /start prefetches a
+     * link whose RSC response stays open, so the page loaded fine in 31ms and
+     * the audit skipped it on a 20s timeout — for months, on a public page,
+     * reported as one grey "skip" line among the genuine 404s.
+     */
+    const res = await page.goto(BASE + route, { waitUntil: "load", timeout: 20000 });
     if (!res || res.status() >= 400) { console.error(`skip ${route} (${res?.status()})`); continue; }
+    // Let fonts, images and any client render land before measuring.
+    await page.waitForTimeout(1200);
     const found = await page.evaluate(AUDIT);
     for (const f of found) all.push({ route, ...f });
     console.error(`${route}: ${found.length}`);
