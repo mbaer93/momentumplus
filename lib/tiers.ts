@@ -219,13 +219,24 @@ export function tierHasFeature(
   matrix: AccessMatrix,
   tier: string,
   featureKey: string,
+  opts?: {
+    /** A tester while the rehearsal switch is on — see lib/testers.ts. */
+    launchedForViewer?: boolean;
+  },
 ): boolean {
   if (tier === "admin") return true;
   const feature = matrix.features.find((f) => f.key === featureKey);
   // A feature nobody has registered is not a gate — routes that predate the
   // registry keep working until someone adds them to it.
   if (!feature) return true;
-  if (!feature.isLaunched) return false;
+  /*
+   * The launch gate is what the tester rehearsal lifts — and ONLY that gate.
+   * The grant below still decides, so a tester on the Member tier sees
+   * exactly what a Member will see on October 14, not everything. Handing
+   * testers a blanket bypass would rehearse an app nobody is ever going to
+   * use (Matt, 2026-08-14).
+   */
+  if (!feature.isLaunched && !opts?.launchedForViewer) return false;
   return matrix.grants[tier]?.[featureKey] === true;
 }
 

@@ -268,9 +268,11 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "profiles", select: "full_name, email" },
   // lib/current-member.ts
   { table: "profiles", select: "full_name, email, admin_title, admin_role" },
+  // lib/current-member.ts
+  { table: "profiles", select: "full_name, email, admin_title, admin_role, tester" },
   // app/(portal)/profile/billing-actions.ts
   { table: "profiles", select: "full_name, email, stripe_customer_id" },
-  // app/(portal)/admin/members/actions.ts
+  // app/(portal)/admin/control-center/page.tsx
   { table: "profiles", select: "id" },
   // app/(portal)/admin/members/actions.ts
   { table: "profiles", select: "id, admin_role, memberships ( tier, status )" },
@@ -286,6 +288,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "profiles", select: "id, full_name, email" },
   // app/(portal)/admin/members/page.tsx
   { table: "profiles", select: "id, full_name, email, title, company, phone, admin_role, admin_perms, memberships!inner ( id, tier, status, access_expires_at, source, created_at )" },
+  // app/(portal)/admin/members/page.tsx
+  { table: "profiles", select: "id, full_name, email, title, company, phone, admin_role, admin_perms, tester, memberships!inner ( id, tier, status, access_expires_at, source, created_at )" },
   // app/api/community/members/route.ts
   { table: "profiles", select: "id, full_name, title, company" },
   // app/(portal)/members/page.tsx

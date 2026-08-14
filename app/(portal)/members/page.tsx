@@ -70,7 +70,7 @@ export default async function MembersPage(
   }
 ) {
   const searchParams = await props.searchParams;
-  await requireMember();
+  const member = await requireMember();
   await requireFeature("members");
   // Strip PostgREST filter syntax so the search string can ride in .or()
   // safely; it's a human name/company either way.
@@ -93,7 +93,7 @@ export default async function MembersPage(
      * 1,000-row cap, so the directory was wrong as well as slow.
      * memberships!inner keeps only active members; admin rows stay out.
      */
-    const buildQuery = () => {
+    const buildQuery = (hideTesters: boolean) => {
       let query = admin
         .from("profiles")
         .select(
@@ -103,6 +103,9 @@ export default async function MembersPage(
         .in("memberships.status", ["active", "past_due"])
         .neq("memberships.tier", "admin")
         .not("full_name", "is", null);
+      // Test accounts are real members in every other respect, so nothing
+      // else here excludes them. Admins see them (flagged in the row).
+      if (hideTesters) query = query.eq("tester", false);
       if (q) {
         query = query.or(
           `full_name.ilike.%${q}%,company.ilike.%${q}%,industry.ilike.%${q}%,title.ilike.%${q}%`,
@@ -127,7 +130,17 @@ export default async function MembersPage(
     let profiles: ProfileHit[] | null = null;
     let count: number | null = null;
     {
-      const res = await buildQuery();
+      let res = await buildQuery(!member.isAdmin);
+      /*
+       * `tester` arrives with migration 0089. Between deploy and migration
+       * the filtered query errors, and an errored directory renders as an
+       * EMPTY one — the whole membership apparently vanished. Fall back to
+       * the unfiltered read: a pre-launch window where a tester might show
+       * up beats a directory that looks like data loss.
+       */
+      if (res.error && /tester/i.test(res.error.message)) {
+        res = await buildQuery(false);
+      }
       profiles = res.data as ProfileHit[] | null;
       count = res.count;
     }

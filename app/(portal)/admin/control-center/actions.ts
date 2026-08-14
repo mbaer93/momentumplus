@@ -329,3 +329,49 @@ export async function archiveTier(slug: string): Promise<ControlResult> {
   bust();
   return { ok: true, message: `${tier.label} archived.` };
 }
+
+// ---------------------------------------------------------------------------
+// Go Live for Testers
+// ---------------------------------------------------------------------------
+
+/**
+ * The October 14 rehearsal (Matt, 2026-08-14).
+ *
+ * One switch, not a per-feature grid. The point is to see the launch as it
+ * will actually be, and a per-feature rehearsal would be a second launch
+ * configuration to keep in step with the real one — the moment they differ,
+ * what testers approved is not what ships.
+ *
+ * On: every launched-or-not feature opens to testers, still bounded by
+ * their tier. Off: testers see exactly what today's members see, which is
+ * how a tester should experience the pre-launch app.
+ *
+ * Real members are untouched either way — this reads profiles.tester, and
+ * nobody else has it.
+ */
+export async function setTestersLive(live: boolean): Promise<ControlResult> {
+  if (!isSupabaseConfigured()) return PREVIEW;
+  const auth = await requireSuper();
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const { TESTERS_LIVE_KEY } = await import("@/lib/testers");
+  const db = createServiceClient();
+  const { error } = await db.from("app_settings").upsert(
+    {
+      key: TESTERS_LIVE_KEY,
+      value: { live },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "key" },
+  );
+  if (error) return { ok: false, message: error.message };
+
+  await audit(auth, live ? "testers.go_live" : "testers.stand_down", "all");
+  bust();
+  return {
+    ok: true,
+    message: live
+      ? "Testers are living October 14 — every feature their tier includes is open to them now. Members see no change."
+      : "Rehearsal off. Testers are back to seeing today's app.",
+  };
+}

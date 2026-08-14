@@ -78,20 +78,32 @@ export default async function SearchPage(
       process.env.SUPABASE_SERVICE_ROLE_KEY
         ? (async () => {
             // Mirrors the /members directory filter exactly: active members
-            // only, admin rows out. Same fields the directory itself shows.
-            const { data } = await createServiceClient()
-              .from("profiles")
-              .select(
-                "id, full_name, title, company, industry, memberships!inner(tier, status)",
-              )
-              .in("memberships.status", ["active", "past_due"])
-              .neq("memberships.tier", "admin")
-              .not("full_name", "is", null)
-              .or(
-                `full_name.ilike.%${q}%,company.ilike.%${q}%,industry.ilike.%${q}%,title.ilike.%${q}%`,
-              )
-              .order("full_name", { ascending: true })
-              .limit(8);
+            // only, admin rows out, test accounts hidden from everyone but
+            // admins. Search is the other way a hidden member becomes
+            // visible, so the two filters have to stay identical.
+            const run = (hideTesters: boolean) => {
+              let query = createServiceClient()
+                .from("profiles")
+                .select(
+                  "id, full_name, title, company, industry, memberships!inner(tier, status)",
+                )
+                .in("memberships.status", ["active", "past_due"])
+                .neq("memberships.tier", "admin")
+                .not("full_name", "is", null);
+              if (hideTesters) query = query.eq("tester", false);
+              return query
+                .or(
+                  `full_name.ilike.%${q}%,company.ilike.%${q}%,industry.ilike.%${q}%,title.ilike.%${q}%`,
+                )
+                .order("full_name", { ascending: true })
+                .limit(8);
+            };
+            // Pre-migration 0089 fallback, as on /members.
+            let res = await run(!member.isAdmin);
+            if (res.error && /tester/i.test(res.error.message)) {
+              res = await run(false);
+            }
+            const { data } = res;
             return (data ?? []) as {
               id: string;
               full_name: string | null;

@@ -65,6 +65,17 @@ export async function POST(req: NextRequest) {
   // but holds the gift until then — TSLS sends the first of the event month
   // so the free months start with the event, not the ticket purchase.
   const startAt = typeof body.startAt === "string" ? body.startAt : null;
+  /*
+   * isTester: create this account as a TEST account — full tier access,
+   * hidden from every member-facing list (Matt, 2026-08-14). TSLS sends it
+   * when Matt marks someone a tester there, so one action on his side
+   * produces a matching hidden member here.
+   *
+   * Set-only, by design: provisionMember never clears the flag, so a later
+   * ordinary grant for the same person cannot quietly reveal a test account.
+   * Unmarking is an admin action in Admin → Members.
+   */
+  const isTester = body.isTester === true || body.isTester === "true";
   if (!email) {
     return NextResponse.json({ error: "email is required" }, { status: 400 });
   }
@@ -104,6 +115,7 @@ export async function POST(req: NextRequest) {
     source: "zapier",
     quiet,
     startAt,
+    tester: isTester,
     ...(accessExpiresAt !== undefined ? { accessExpiresAt } : {}),
   });
 
