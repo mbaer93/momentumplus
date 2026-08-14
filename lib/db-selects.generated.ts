@@ -267,7 +267,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/(portal)/admin/sponsors/page.tsx
   { table: "profiles", select: "full_name, email" },
   // lib/current-member.ts
-  { table: "profiles", select: "full_name, email, admin_title, admin_role" },
+  { table: "profiles", select: "full_name, email, phone, admin_title, admin_role" },
   // app/(portal)/profile/billing-actions.ts
   { table: "profiles", select: "full_name, email, stripe_customer_id" },
   // app/(portal)/admin/members/actions.ts
@@ -318,7 +318,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "resources", select: "id, title, category, description, url, partner_name, min_access, active, image_url" },
   // lib/directory-queries.ts
   { table: "resources", select: "id, title, category, description, url, partner_name, min_access, image_url" },
-  // lib/speaker-tools.ts
+  // lib/current-member.ts
   { table: "resources", select: "title, description, url" },
   // app/(portal)/speaker/page.tsx
   { table: "resources", select: "title, description, url, image_url" },
@@ -433,7 +433,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/(auth)/speaker-onboarding/actions.ts
   { table: "speakers", select: "id" },
   // lib/current-member.ts
-  { table: "speakers", select: "id, archived_at, expires_at" },
+  { table: "speakers", select: "id, archived_at, expires_at, name, title, bio, industries, resource_id" },
   // app/api/bridge/profile/route.ts
   { table: "speakers", select: "id, links" },
   // app/(portal)/admin/speakers/actions.ts
