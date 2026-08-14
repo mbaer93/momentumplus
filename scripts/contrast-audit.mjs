@@ -366,8 +366,19 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const all = [];
 for (const route of ROUTES) {
   try {
-    const res = await page.goto(BASE + route, { waitUntil: "networkidle", timeout: 20000 });
+    /*
+     * "load" plus a short settle, NOT networkidle.
+     *
+     * networkidle waits for the network to go quiet, and one request that
+     * never settles takes the whole route down with it: /start prefetches a
+     * link whose RSC response stays open, so the page loaded fine in 31ms and
+     * the audit skipped it on a 20s timeout — for months, on a public page,
+     * reported as one grey "skip" line among the genuine 404s.
+     */
+    const res = await page.goto(BASE + route, { waitUntil: "load", timeout: 20000 });
     if (!res || res.status() >= 400) { console.error(`skip ${route} (${res?.status()})`); continue; }
+    // Let fonts, images and any client render land before measuring.
+    await page.waitForTimeout(1200);
     const found = await page.evaluate(AUDIT);
     for (const f of found) all.push({ route, ...f });
     console.error(`${route}: ${found.length}`);
