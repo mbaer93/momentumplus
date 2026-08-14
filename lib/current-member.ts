@@ -113,9 +113,7 @@ export const getCurrentMember = requestCache(
   ] = await Promise.all([
     supabase
       .from("profiles")
-      // phone comes along for the speaker-setup gate below — it is one of the
-      // required fields, and this query already runs on every portal request.
-      .select("full_name, email, phone, admin_title, admin_role")
+      .select("full_name, email, admin_title, admin_role")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -160,8 +158,13 @@ export const getCurrentMember = requestCache(
    * be locked out of the admin panel by their own speaker profile — losing
    * the ability to fix it is a worse failure than a thin speaker page.
    *
-   * One extra query, and only for a live speaker: the business resource. The
-   * speaker row and profile above already carry everything else.
+   * The completeness rule itself lives in ONE place (speakerSetupGaps) and
+   * runs against the service role. Computing it here against the signed-in
+   * user's client instead put this gate and the setup page on different
+   * readings of the same speaker: `resources` is only readable under RLS
+   * while it is active and within the member's access level, so an admin
+   * deactivating a speaker's business page made the portal say "incomplete"
+   * and setup say "nothing pending" — a closed loop with no way into either.
    */
   const liveSpeaker =
     speakerRow &&
@@ -178,39 +181,23 @@ export const getCurrentMember = requestCache(
       industries?: string[] | null;
       resource_id?: string | null;
     };
-    const { data: resource, error: resourceError } = s.resource_id
-      ? await supabase
-          .from("resources")
-          .select("title, description, url")
-          .eq("id", s.resource_id)
-          .maybeSingle()
-      : { data: null, error: null };
-    /*
-     * Fails OPEN, matching speakerProfileGaps. A transient error on this
-     * lookup would otherwise read as "no business on file" and lock the
-     * speaker out of the ENTIRE portal — a worse outcome than a thin page
-     * surviving until the next request. The gate is for incomplete
-     * profiles, not for databases having a moment.
-     */
-    if (!resourceError) {
-      const r = resource as {
-        title?: string | null;
-        description?: string | null;
-        url?: string | null;
-      } | null;
-      const { missingSpeakerFields } = await import("@/lib/speaker-profile");
-      speakerSetupComplete =
-        missingSpeakerFields({
-          name: s.name ?? null,
-          title: s.title ?? null,
-          bio: s.bio ?? null,
-          industries: s.industries ?? null,
-          businessName: r?.title ?? null,
-          businessDescription: r?.description ?? null,
-          businessUrl: r?.url ?? null,
-          phone: (profile as { phone?: string | null } | null)?.phone ?? null,
-        }).length === 0;
-    }
+    // Fails OPEN (see speakerSetupGaps): a lookup that errors returns no
+    // gaps rather than locking a speaker out of the whole portal on the
+    // strength of a query that did not run.
+    const { speakerSetupGaps } = await import("@/lib/speaker-tools");
+    speakerSetupComplete =
+      (
+        await speakerSetupGaps(
+          {
+            name: s.name ?? null,
+            title: s.title ?? null,
+            bio: s.bio ?? null,
+            industries: s.industries ?? null,
+            resourceId: s.resource_id ?? null,
+          },
+          user.id,
+        )
+      ).length === 0;
   }
 
   /*

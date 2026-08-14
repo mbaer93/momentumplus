@@ -203,26 +203,92 @@ export async function fetchTslsSpeakers(): Promise<
 }
 
 /**
- * Group speaker rows that normalize to the same name — i.e. rows that are
- * almost certainly the same person entered twice.
+ * Group speaker rows that are almost certainly the same person entered twice.
  *
  * Exists because the pull used to fail silently: when matching missed, it
  * inserted a second row and reported it as "added", so a duplicated pull
  * looked identical to a successful one. The pull now reports these, and
  * the admin Speakers page can show them for rows that already exist.
+ *
+ * Three signals, not one:
+ *
+ * - the normalized NAME, which catches "Dr. Jane Smith" vs "Jane Smith";
+ * - a shared ACCOUNT (profile id), which is conclusive — one login cannot be
+ *   two speakers, and while it lasts it breaks both the Studio and the portal
+ *   gate, because a lookup expecting one row gets an error and reads it as
+ *   "not a speaker";
+ * - a shared contact EMAIL, unclaimed listings included.
+ *
+ * The last two exist because name matching missed the real case. Sierra
+ * finished setup as "Sierra C." while already listed as "Sierra Collins";
+ * those normalize differently, so the panel showed nothing and the pair had
+ * to be found by eye and renamed before it could be merged (Matt,
+ * 2026-08-14).
+ *
+ * Rows linked by different signals end up in ONE group rather than two
+ * overlapping ones — merging is per group, and a pair listed twice invites an
+ * admin to merge a row that no longer exists.
  */
-export function findLikelyDuplicates<T extends { id: string; name: string }>(
-  rows: T[],
-): Array<{ key: string; rows: T[] }> {
-  const byKey = new Map<string, T[]>();
+export function findLikelyDuplicates<
+  T extends {
+    id: string;
+    name: string;
+    profileId?: string | null;
+    contactEmail?: string | null;
+  },
+>(rows: T[]): Array<{ key: string; rows: T[] }> {
+  const keysFor = (row: T): string[] => {
+    const keys: string[] = [];
+    const name = speakerNameKey(String(row.name));
+    if (name) keys.push(`name:${name}`);
+    if (row.profileId) keys.push(`account:${row.profileId}`);
+    const email = (row.contactEmail ?? "").trim().toLowerCase();
+    if (email) keys.push(`email:${email}`);
+    return keys;
+  };
+
+  // Union-find over the rows: any shared key joins two rows into the same
+  // group, however many hops apart they are.
+  const parent = new Map<string, string>();
+  const find = (id: string): string => {
+    let root = id;
+    while (parent.get(root) && parent.get(root) !== root) {
+      root = parent.get(root) as string;
+    }
+    return root;
+  };
+  const union = (a: string, b: string) => {
+    const rootA = find(a);
+    const rootB = find(b);
+    if (rootA !== rootB) parent.set(rootA, rootB);
+  };
+  for (const row of rows) parent.set(row.id, row.id);
+
+  const firstSeen = new Map<string, string>();
   for (const row of rows) {
-    const key = speakerNameKey(String(row.name));
-    if (!key) continue;
-    const list = byKey.get(key);
-    if (list) list.push(row);
-    else byKey.set(key, [row]);
+    for (const key of keysFor(row)) {
+      const owner = firstSeen.get(key);
+      if (owner) union(owner, row.id);
+      else firstSeen.set(key, row.id);
+    }
   }
-  return [...byKey.entries()]
-    .filter(([, list]) => list.length > 1)
-    .map(([key, list]) => ({ key, rows: list }));
+
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const root = find(row.id);
+    const list = groups.get(root);
+    if (list) list.push(row);
+    else groups.set(root, [row]);
+  }
+
+  // The label is whichever signal actually grouped them, so the panel can say
+  // why these rows are together.
+  return [...groups.values()]
+    .filter((list) => list.length > 1)
+    .map((list) => {
+      const shared = keysFor(list[0]).find((key) =>
+        list.every((row) => keysFor(row).includes(key)),
+      );
+      return { key: shared ?? `merged:${list[0].id}`, rows: list };
+    });
 }

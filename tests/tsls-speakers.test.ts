@@ -78,11 +78,63 @@ test("findLikelyDuplicates groups rows sharing a normalized name", () => {
   ]);
   assert.equal(dupes.length, 2);
   const keys = dupes.map((d) => d.key).sort();
-  assert.deepEqual(keys, ["holly bertone", "jane smith"]);
-  const jane = dupes.find((d) => d.key === "jane smith")!;
+  assert.deepEqual(keys, ["name:holly bertone", "name:jane smith"]);
+  const jane = dupes.find((d) => d.key === "name:jane smith")!;
   assert.deepEqual(
     jane.rows.map((r) => r.id).sort(),
     ["1", "2"],
+  );
+});
+
+/*
+ * The pair that got past this. Sierra was listed as "Sierra Collins" and
+ * completed setup as "Sierra C." — different name keys, so the panel showed
+ * nothing and the duplicate had to be found by eye (Matt, 2026-08-14). Both
+ * rows carried her, so both other signals were there to be used.
+ */
+test("rows sharing an account are duplicates whatever the names say", () => {
+  const dupes = findLikelyDuplicates([
+    { id: "1", name: "Sierra Collins", profileId: "acct-1" },
+    { id: "2", name: "Sierra C.", profileId: "acct-1" },
+    { id: "3", name: "Marcus Hall", profileId: "acct-2" },
+  ]);
+  assert.equal(dupes.length, 1);
+  assert.deepEqual(dupes[0].rows.map((r) => r.id).sort(), ["1", "2"]);
+  assert.equal(dupes[0].key, "account:acct-1");
+});
+
+test("rows sharing a contact email are duplicates, unclaimed listings included", () => {
+  // The TSLS listing has no account yet — email is the only link.
+  const dupes = findLikelyDuplicates([
+    { id: "1", name: "Sierra Collins", profileId: null, contactEmail: "S@x.com" },
+    { id: "2", name: "Sierra C.", profileId: "acct-1", contactEmail: "s@x.com" },
+  ]);
+  assert.equal(dupes.length, 1);
+  assert.deepEqual(dupes[0].rows.map((r) => r.id).sort(), ["1", "2"]);
+});
+
+test("rows linked by different signals form ONE group, not two", () => {
+  // A merge panel that lists the same row in two groups invites an admin to
+  // merge a row the first merge already deleted.
+  const dupes = findLikelyDuplicates([
+    { id: "1", name: "Jane Smith", contactEmail: "jane@x.com" },
+    { id: "2", name: "Dr. Jane Smith", contactEmail: null },
+    { id: "3", name: "J. Smith", contactEmail: "jane@x.com" },
+  ]);
+  assert.equal(dupes.length, 1);
+  assert.deepEqual(dupes[0].rows.map((r) => r.id).sort(), ["1", "2", "3"]);
+});
+
+test("a missing account or email never groups anyone", () => {
+  // Nulls are the common case for imported listings. Treating them as a
+  // shared value would merge the entire directory into one person.
+  assert.deepEqual(
+    findLikelyDuplicates([
+      { id: "1", name: "Jane Smith", profileId: null, contactEmail: null },
+      { id: "2", name: "Marcus Hall", profileId: null, contactEmail: "" },
+      { id: "3", name: "Ada Lovelace", profileId: null, contactEmail: null },
+    ]),
+    [],
   );
 });
 

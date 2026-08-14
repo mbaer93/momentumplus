@@ -267,7 +267,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/(portal)/admin/sponsors/page.tsx
   { table: "profiles", select: "full_name, email" },
   // lib/current-member.ts
-  { table: "profiles", select: "full_name, email, phone, admin_title, admin_role" },
+  { table: "profiles", select: "full_name, email, admin_title, admin_role" },
   // app/(portal)/profile/billing-actions.ts
   { table: "profiles", select: "full_name, email, stripe_customer_id" },
   // app/(portal)/admin/members/actions.ts
@@ -318,7 +318,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "resources", select: "id, title, category, description, url, partner_name, min_access, active, image_url" },
   // lib/directory-queries.ts
   { table: "resources", select: "id, title, category, description, url, partner_name, min_access, image_url" },
-  // lib/current-member.ts
+  // lib/speaker-tools.ts
   { table: "resources", select: "title, description, url" },
   // app/(portal)/speaker/page.tsx
   { table: "resources", select: "title, description, url, image_url" },
@@ -437,7 +437,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/api/bridge/profile/route.ts
   { table: "speakers", select: "id, links" },
   // app/(portal)/admin/speakers/actions.ts
-  { table: "speakers", select: "id, name" },
+  { table: "speakers", select: "id, name, profile_id" },
   // app/(portal)/admin/speakers/actions.ts
   { table: "speakers", select: "id, name, profile_id, contact_email" },
   // app/(portal)/admin/speakers/actions.ts
@@ -460,6 +460,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "speakers", select: "id, name, title, bio, industries, website, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access, organization, featured_session_date, featured_session_time, advisor_agreement_waived" },
   // app/(portal)/admin/agreement/page.tsx
   { table: "speakers", select: "id, name, tsls_main_speaker, advisor_agreement_waived" },
+  // app/(auth)/speaker-onboarding/actions.ts
+  { table: "speakers", select: "id, resource_id" },
   // lib/agreement-doc-db.ts
   { table: "speakers", select: "id, tsls_main_speaker, advisor_agreement_waived" },
   // lib/revenue.ts
@@ -472,8 +474,6 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "speakers", select: "profile_id, expires_at, archived_at" },
   // app/(portal)/admin/speakers/actions.ts
   { table: "speakers", select: "profile_id, resource_id" },
-  // app/(auth)/speaker-onboarding/actions.ts
-  { table: "speakers", select: "resource_id" },
   // app/(portal)/admin/analytics/page.tsx
   { table: "sponsor_event_counts", select: "*" },
   // lib/activity.ts

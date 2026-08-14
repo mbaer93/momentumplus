@@ -30,6 +30,60 @@ export interface SpeakerOnboardingInput {
   repPhone: string;
 }
 
+interface OwnedSpeakerRow {
+  id: string;
+  resourceId: string | null;
+  /** True when the row is already wired to this account, false when it is an
+      unclaimed listing matched only by email. Authorization reads this. */
+  linkedToProfile: boolean;
+}
+
+/**
+ * The speaker row this account already owns, by profile id first and then by
+ * an UNCLAIMED listing carrying the same contact email.
+ *
+ * `order(...).limit(1)` rather than `maybeSingle()` on the email lookup:
+ * maybeSingle treats two matches as an error and returns nothing, which here
+ * would mean "no listing found" and mint a third row for a person who already
+ * had two. Oldest first, so repeated runs converge on the same row instead of
+ * ping-ponging between them.
+ */
+async function findOwnSpeaker(
+  admin: ReturnType<typeof createServiceClient>,
+  user: { id: string; email?: string | null },
+): Promise<OwnedSpeakerRow | null> {
+  const { data: own } = await admin
+    .from("speakers")
+    .select("id, resource_id")
+    .eq("profile_id", user.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (own) {
+    return {
+      id: own.id as string,
+      resourceId: (own.resource_id as string | null) ?? null,
+      linkedToProfile: true,
+    };
+  }
+  if (!user.email) return null;
+  const { emailPattern } = await import("@/lib/db-utils");
+  const { data: byEmail } = await admin
+    .from("speakers")
+    .select("id, resource_id")
+    .ilike("contact_email", emailPattern(user.email))
+    .is("profile_id", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!byEmail) return null;
+  return {
+    id: byEmail.id as string,
+    resourceId: (byEmail.resource_id as string | null) ?? null,
+    linkedToProfile: false,
+  };
+}
+
 export interface SpeakerOnboardingResult {
   ok: boolean;
   message?: string;
@@ -92,16 +146,36 @@ export async function completeSpeakerOnboarding(
    * Without this they would be bounced between a Studio that refuses them
    * and a form that says they were never invited.
    */
-  let existingSpeakerId: string | null = null;
-  if (!invite) {
-    const { data: own } = await admin
-      .from("speakers")
-      .select("id")
-      .eq("profile_id", user.id)
-      .maybeSingle();
-    existingSpeakerId = (own?.id as string) ?? null;
-  }
-  if (!invite && !existingSpeakerId) {
+  /*
+   * Which speaker row this person already owns — resolved ONCE, before
+   * anything is written, because both the authorization check below and the
+   * business-resource write further down need the answer.
+   *
+   * Matching on profile_id alone was not enough. A listing pulled from TSLS
+   * has no profile_id until someone links it, and the plain "invite a
+   * speaker" form (as opposed to the per-listing invite button) never links
+   * it. So Sierra onboarded and got a brand-new "Sierra C." row alongside the
+   * "Sierra Collins" listing she already had — two records, one person, and
+   * the name-based duplicate finder cannot spot that pair because the names
+   * normalise differently (Matt, 2026-08-14).
+   *
+   * Same profile-id-OR-email rule the invite lookup already uses, for the
+   * same reason: two readers keyed differently is how people end up
+   * duplicated or locked out. Unclaimed listings only — a row already wired
+   * to a DIFFERENT account is somebody else's, and taking it over would be
+   * worse than a duplicate.
+   */
+  const ownedSpeaker = await findOwnSpeaker(admin, user);
+  const existingSpeakerId = ownedSpeaker?.id ?? null;
+  /*
+   * Authorization is the invite, or a speaker row already linked to THIS
+   * account (the Studio sends an existing speaker here to finish a profile
+   * that predates the completeness rule). An unclaimed listing that merely
+   * carries the same email is NOT authorization to become a speaker — it is
+   * only used, below, to decide which row to write into once someone is
+   * already entitled to be here.
+   */
+  if (!invite && !ownedSpeaker?.linkedToProfile) {
     return {
       ok: false,
       message:
@@ -120,18 +194,12 @@ export async function completeSpeakerOnboarding(
   const warnings: string[] = [];
 
   // 1) Their business as a member resource (their single resource page).
-  //    An existing speaker sent here to finish an incomplete profile already
-  //    has one — update it rather than leaving a second, orphaned resource
-  //    behind every time they save.
-  let resourceId: string | null = null;
-  if (existingSpeakerId) {
-    const { data: own } = await admin
-      .from("speakers")
-      .select("resource_id")
-      .eq("id", existingSpeakerId)
-      .maybeSingle();
-    resourceId = (own?.resource_id as string) ?? null;
-  }
+  //    Whichever row they already own — linked account or claimed listing —
+  //    its resource is UPDATED rather than replaced. Reading this only for
+  //    the account-linked case used to strand the old resource: a claimed
+  //    listing's business page stayed published with nothing pointing at it,
+  //    and the speaker got a second one.
+  let resourceId: string | null = ownedSpeaker?.resourceId ?? null;
   if (resourceId) {
     const { error: updateError } = await admin
       .from("resources")
@@ -169,39 +237,8 @@ export async function completeSpeakerOnboarding(
     }
   }
 
-  /*
-   * 2) The speaker directory page — CLAIMING an existing listing wherever
-   *    one exists, rather than creating a second record for the same person.
-   *
-   *    Matching on profile_id alone was not enough. A listing pulled from
-   *    TSLS has no profile_id until someone links it, and the plain "invite a
-   *    speaker" form (as opposed to the per-listing invite button) never
-   *    links it. So Sierra onboarded and got a brand-new "Sierra C." row
-   *    alongside the "Sierra Collins" listing she already had — two records,
-   *    one person, and the name-based duplicate finder cannot spot that pair
-   *    because the names normalise differently (Matt, 2026-08-14).
-   *
-   *    Same profile-id-OR-email rule the invite lookup already uses, for the
-   *    same reason: two readers keyed differently is how people end up
-   *    duplicated or locked out.
-   */
-  let { data: existingSpeaker } = await admin
-    .from("speakers")
-    .select("id")
-    .eq("profile_id", user.id)
-    .maybeSingle();
-  if (!existingSpeaker && user.email) {
-    const { emailPattern } = await import("@/lib/db-utils");
-    // Unclaimed listings only. A row already wired to a DIFFERENT account is
-    // somebody else's; taking it over would be worse than a duplicate.
-    const { data: byEmail } = await admin
-      .from("speakers")
-      .select("id")
-      .ilike("contact_email", emailPattern(user.email))
-      .is("profile_id", null)
-      .maybeSingle();
-    existingSpeaker = byEmail ?? null;
-  }
+  // 2) The speaker directory page — writing into the row resolved above
+  //    (see findOwnSpeaker) rather than creating a second record.
   const speakerRow = {
     profile_id: user.id,
     name: displayName,
@@ -213,8 +250,8 @@ export async function completeSpeakerOnboarding(
     resource_id: resourceId,
   };
   let speakerId: string;
-  if (existingSpeaker) {
-    speakerId = existingSpeaker.id as string;
+  if (existingSpeakerId) {
+    speakerId = existingSpeakerId;
     const { error: updateError } = await admin
       .from("speakers")
       .update(speakerRow)

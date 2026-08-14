@@ -123,7 +123,14 @@ export default async function AdminSpeakersPage(
     // the admin can tell which row is the real one before merging.
     const { findLikelyDuplicates } = await import("@/lib/tsls-speakers");
     const dupeGroups = findLikelyDuplicates(
-      all.map((s) => ({ id: String(s.id), name: String(s.name) })),
+      all.map((s) => ({
+        id: String(s.id),
+        name: String(s.name),
+        // A shared account or contact email is the signal that caught the
+        // pair name matching missed — see findLikelyDuplicates.
+        profileId: s.profile_id ?? null,
+        contactEmail: s.contact_email ?? null,
+      })),
     );
     if (dupeGroups.length > 0) {
       const dupeIds = dupeGroups.flatMap((g) => g.rows.map((r) => r.id));
