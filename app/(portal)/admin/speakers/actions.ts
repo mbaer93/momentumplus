@@ -962,9 +962,18 @@ export async function mergeSpeakers(
 
   // Fill blanks only.
   const patch: Record<string, unknown> = {};
+  /*
+   * resource_id is in this list for the same reason profile_id is: without
+   * it the survivor keeps a null. A speaker who onboarded into the DUPLICATE
+   * row holds their business page there, so merging into the older listing
+   * used to leave the resource orphaned — and because the portal gate reads
+   * the business through speakers.resource_id, the merged speaker would be
+   * sent back to the onboarding form on their next login with no way to see
+   * why (Matt, 2026-08-14, merging Sierra's two rows).
+   */
   const fillable = [
     "title", "bio", "headshot_url", "website", "contact_email",
-    "profile_id", "speaker_month",
+    "profile_id", "speaker_month", "resource_id",
   ] as const;
   for (const col of fillable) {
     const mine = (keep as Record<string, unknown>)[col];
@@ -990,6 +999,23 @@ export async function mergeSpeakers(
   if (Object.keys(patch).length > 0) {
     const { error } = await admin.from("speakers").update(patch).eq("id", keepId);
     if (error) return { ok: false, message: migrationHint(error.message) };
+  }
+
+  /*
+   * When BOTH rows had a business page the survivor keeps its own, and the
+   * duplicate's would otherwise stay published on /resources forever with
+   * nothing pointing at it. Deactivated, not deleted — same treatment
+   * archiving gives a speaker's resource, and an admin can turn it back on.
+   */
+  const dropResourceId = (drop as Record<string, unknown>).resource_id as
+    | string
+    | null;
+  if (dropResourceId && patch.resource_id !== dropResourceId) {
+    await admin
+      .from("resources")
+      .update({ active: false })
+      .eq("id", dropResourceId);
+    revalidatePath("/resources");
   }
 
   // Repoint dependents BEFORE deleting, or the FKs null them out.
