@@ -29,6 +29,10 @@ export interface CurrentMember {
   /** False until the member has given their name — portal requires it on
       first login (they're sent to the /welcome profile step). */
   profileComplete: boolean;
+  /** A live speaker whose onboarding form is fully filled in. True for
+      everyone who is not a speaker, and for admins (who are exempt so a
+      thin speaker page cannot lock them out of the admin panel). */
+  speakerSetupComplete: boolean;
   accessExpiresAt: string | null;
 }
 
@@ -57,6 +61,16 @@ export async function requireMember(): Promise<CurrentMember> {
   // in via a magic link were never prompted). Step 1 offers a skip for the
   // rare already-passworded member who's only missing their name.
   if (!member.profileComplete) redirect("/welcome");
+  /*
+   * A speaker who has not finished setup gets the form, not the portal —
+   * on their FIRST page load, not whenever they next open the Studio. This
+   * covers both the new invitee and the one already inside: the check reads
+   * the speaker row every request, so it applies the moment this deploys.
+   *
+   * Admins are exempt (see getCurrentMember) so an admin who is also a
+   * speaker can still reach the tools to fix it.
+   */
+  if (!member.speakerSetupComplete) redirect("/speaker-onboarding");
   return member;
 }
 
@@ -81,6 +95,7 @@ export const getCurrentMember = requestCache(
       adminTitle: tier === "admin" ? "Momentum+ Team" : null,
       membershipActive: true,
       profileComplete: true,
+      speakerSetupComplete: true,
       accessExpiresAt: null,
       viewingAs: null,
     };
@@ -98,7 +113,9 @@ export const getCurrentMember = requestCache(
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("full_name, email, admin_title, admin_role")
+      // phone comes along for the speaker-setup gate below — it is one of the
+      // required fields, and this query already runs on every portal request.
+      .select("full_name, email, phone, admin_title, admin_role")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -107,7 +124,8 @@ export const getCurrentMember = requestCache(
       .eq("profile_id", user.id),
     supabase
       .from("speakers")
-      .select("id, archived_at, expires_at")
+      // The page fields ride along for the setup gate — same row, same query.
+      .select("id, archived_at, expires_at, name, title, bio, industries, resource_id")
       .eq("profile_id", user.id)
       .maybeSingle(),
     // Own seats via RLS (migration 0039). Errors (pre-migration) → no studio.
@@ -129,13 +147,81 @@ export const getCurrentMember = requestCache(
   const realIsAdmin = effective?.tier === "admin";
 
   /*
+   * Speaker setup gate (Matt, 2026-08-14: "how do we ensure they must
+   * complete the form before they access the app?").
+   *
+   * #223 blocked the Studio. That is not the app — a half-set-up speaker
+   * could still browse sessions, the library and the community, and the one
+   * who already got in would only be stopped if they happened to open the
+   * Studio. This stops them at the portal door instead, on the next page
+   * they load rather than the next time they think to visit /speaker.
+   *
+   * ADMINS ARE EXEMPT. An admin who also has a speaker row would otherwise
+   * be locked out of the admin panel by their own speaker profile — losing
+   * the ability to fix it is a worse failure than a thin speaker page.
+   *
+   * One extra query, and only for a live speaker: the business resource. The
+   * speaker row and profile above already carry everything else.
+   */
+  const liveSpeaker =
+    speakerRow &&
+    !(speakerRow as { archived_at?: string | null }).archived_at &&
+    (!(speakerRow as { expires_at?: string | null }).expires_at ||
+      new Date((speakerRow as { expires_at: string }).expires_at) > new Date());
+
+  let speakerSetupComplete = true;
+  if (liveSpeaker && !realIsAdmin) {
+    const s = speakerRow as {
+      name?: string | null;
+      title?: string | null;
+      bio?: string | null;
+      industries?: string[] | null;
+      resource_id?: string | null;
+    };
+    const { data: resource, error: resourceError } = s.resource_id
+      ? await supabase
+          .from("resources")
+          .select("title, description, url")
+          .eq("id", s.resource_id)
+          .maybeSingle()
+      : { data: null, error: null };
+    /*
+     * Fails OPEN, matching speakerProfileGaps. A transient error on this
+     * lookup would otherwise read as "no business on file" and lock the
+     * speaker out of the ENTIRE portal — a worse outcome than a thin page
+     * surviving until the next request. The gate is for incomplete
+     * profiles, not for databases having a moment.
+     */
+    if (!resourceError) {
+      const r = resource as {
+        title?: string | null;
+        description?: string | null;
+        url?: string | null;
+      } | null;
+      const { missingSpeakerFields } = await import("@/lib/speaker-profile");
+      speakerSetupComplete =
+        missingSpeakerFields({
+          name: s.name ?? null,
+          title: s.title ?? null,
+          bio: s.bio ?? null,
+          industries: s.industries ?? null,
+          businessName: r?.title ?? null,
+          businessDescription: r?.description ?? null,
+          businessUrl: r?.url ?? null,
+          phone: (profile as { phone?: string | null } | null)?.phone ?? null,
+        }).length === 0;
+    }
+  }
+
+  /*
    * View as: an admin previewing the portal as another tier (any admin, not
    * just Super — Matt, 2026-08-05). Only ever narrows — the cookie is
    * checked against the signer's REAL admin role on every request, so it
    * does nothing in anyone else's browser.
+   *
+   * The tier registry names Lite and any Control-Center-created tier that the
+   * static label map doesn't know — resolve the plan label against it below.
    */
-  // The tier registry names Lite and any Control-Center-created tier that the
-  // static label map doesn't know — resolve the plan label against it below.
   const matrix = await getAccessMatrix();
   const requested = realIsAdmin ? await readViewAsCookie() : null;
   let viewingAs: CurrentMember["viewingAs"] = null;
@@ -177,6 +263,7 @@ export const getCurrentMember = requestCache(
         ? (profile?.admin_title ?? null)
         : null,
     membershipActive: effective !== null,
+    speakerSetupComplete,
     profileComplete: Boolean(profile?.full_name?.trim()),
     accessExpiresAt: effective?.access_expires_at ?? null,
     viewingAs,
