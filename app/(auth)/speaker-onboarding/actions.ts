@@ -168,14 +168,33 @@ export async function completeSpeakerOnboarding(
   const ownedSpeaker = await findOwnSpeaker(admin, user);
   const existingSpeakerId = ownedSpeaker?.id ?? null;
   /*
-   * Authorization is the invite, or a speaker row already linked to THIS
-   * account (the Studio sends an existing speaker here to finish a profile
-   * that predates the completeness rule). An unclaimed listing that merely
-   * carries the same email is NOT authorization to become a speaker — it is
-   * only used, below, to decide which row to write into once someone is
-   * already entitled to be here.
+   * Three ways to be entitled to this form:
+   *
+   * 1. an open invite;
+   * 2. a speaker row already linked to THIS account (the Studio sends an
+   *    existing speaker here to finish a profile that predates the
+   *    completeness rule);
+   * 3. an UNCLAIMED listing carrying this account's verified email address
+   *    (Matt, 2026-08-14).
+   *
+   * The third is a deliberate widening. It means a speaker whose invite went
+   * astray — bounced, spam-filtered, sent to the wrong address, completed by
+   * a since-deleted account — can still get in, instead of waiting on an
+   * admin to notice. What it does NOT do is let anyone claim a listing that
+   * belongs to someone else: findOwnSpeaker only matches rows with a null
+   * profile_id, and the email comes from the Supabase session, so it is one
+   * this person has actually proven they control.
+   *
+   * Logged, because this path grants speaker access without an admin
+   * involved and an unexplained speaker is worse than a noisy log. Ids only
+   * — an email address is personal data and this is a log line.
    */
-  if (!invite && !ownedSpeaker?.linkedToProfile) {
+  if (!invite && ownedSpeaker && !ownedSpeaker.linkedToProfile) {
+    console.info(
+      `[speaker-onboarding] profile ${user.id} claimed unclaimed listing ${ownedSpeaker.id} by verified email, with no open invite`,
+    );
+  }
+  if (!invite && !ownedSpeaker) {
     return {
       ok: false,
       message:
@@ -376,14 +395,39 @@ export async function getPendingSpeakerInvite(): Promise<{
   }
 
   /*
-   * No invite, but an existing speaker the Studio turned away for an
-   * incomplete profile still needs this form — it is the only place that
-   * collects all of these fields in one pass. Their speaker row is the
-   * authorization; completeSpeakerOnboarding checks for it too.
+   * No invite. Two other people belong here, and this page has to recognise
+   * BOTH — the same rule completeSpeakerOnboarding applies, or the form
+   * refuses someone the action would have accepted (or the reverse, which is
+   * how the last dead end happened).
    */
+  const admin = createServiceClient();
+  const owned = await findOwnSpeaker(admin, user);
+  if (!owned) return { pending: false };
+
   const { getSpeakerForUser, speakerProfileGaps } = await import(
     "@/lib/speaker-tools"
   );
+  if (!owned.linkedToProfile) {
+    /*
+     * An unclaimed listing matching this account's verified email. Nothing is
+     * linked yet, so there is always something to do here — at minimum the
+     * business page and phone the listing has never carried. Seed the name
+     * from the listing so they aren't retyping what we already show publicly.
+     */
+    const { data: listing } = await admin
+      .from("speakers")
+      .select("name")
+      .eq("id", owned.id)
+      .maybeSingle();
+    return {
+      pending: true,
+      displayName: (listing?.name as string) ?? "",
+      needsPassword: false,
+    };
+  }
+
+  // An existing speaker the Studio turned away for an incomplete profile.
+  // This form is the only place that collects all of these fields in one pass.
   const speaker = await getSpeakerForUser(user.id);
   if (!speaker) return { pending: false };
   const gaps = await speakerProfileGaps(speaker, user.id);
