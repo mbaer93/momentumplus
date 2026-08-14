@@ -169,13 +169,39 @@ export async function completeSpeakerOnboarding(
     }
   }
 
-  // 2) The speaker directory page (reuses an existing record if an admin
-  //    already created one wired to this account).
-  const { data: existingSpeaker } = await admin
+  /*
+   * 2) The speaker directory page — CLAIMING an existing listing wherever
+   *    one exists, rather than creating a second record for the same person.
+   *
+   *    Matching on profile_id alone was not enough. A listing pulled from
+   *    TSLS has no profile_id until someone links it, and the plain "invite a
+   *    speaker" form (as opposed to the per-listing invite button) never
+   *    links it. So Sierra onboarded and got a brand-new "Sierra C." row
+   *    alongside the "Sierra Collins" listing she already had — two records,
+   *    one person, and the name-based duplicate finder cannot spot that pair
+   *    because the names normalise differently (Matt, 2026-08-14).
+   *
+   *    Same profile-id-OR-email rule the invite lookup already uses, for the
+   *    same reason: two readers keyed differently is how people end up
+   *    duplicated or locked out.
+   */
+  let { data: existingSpeaker } = await admin
     .from("speakers")
     .select("id")
     .eq("profile_id", user.id)
     .maybeSingle();
+  if (!existingSpeaker && user.email) {
+    const { emailPattern } = await import("@/lib/db-utils");
+    // Unclaimed listings only. A row already wired to a DIFFERENT account is
+    // somebody else's; taking it over would be worse than a duplicate.
+    const { data: byEmail } = await admin
+      .from("speakers")
+      .select("id")
+      .ilike("contact_email", emailPattern(user.email))
+      .is("profile_id", null)
+      .maybeSingle();
+    existingSpeaker = byEmail ?? null;
+  }
   const speakerRow = {
     profile_id: user.id,
     name: displayName,
