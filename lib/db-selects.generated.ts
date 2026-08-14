@@ -468,6 +468,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "speakers", select: "id, tsls_main_speaker, archived_at, expires_at" },
   // lib/revenue.ts
   { table: "speakers", select: "id, tsls_main_speaker, payment_access, archived_at, expires_at" },
+  // app/(auth)/speaker-onboarding/actions.ts
+  { table: "speakers", select: "name" },
   // app/(portal)/admin/speakers/actions.ts
   { table: "speakers", select: "profile_id" },
   // app/(portal)/members/page.tsx
