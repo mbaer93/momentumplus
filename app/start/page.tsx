@@ -3,7 +3,7 @@ import Link from "next/link";
 import { StartHubAdmin } from "@/components/start/StartHubAdmin";
 import { StoreBadges } from "@/components/start/StoreBadges";
 import { getAdminAccess } from "@/lib/auth-helpers";
-import { readStartHubSettings, tslsAppUrl } from "@/lib/start-hub";
+import { readStartHubSettings, ticketsUrl, tslsStartUrl } from "@/lib/start-hub";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +36,9 @@ export default async function StartHubPage() {
     readStartHubSettings(),
     getAdminAccess(),
   ]);
-  const tslsUrl = tslsAppUrl();
+  // Both external: the TSLS app owns its front door and its ticket sales.
+  const tslsUrl = tslsStartUrl();
+  const ticketsHref = ticketsUrl(settings);
 
   const cardStyle: React.CSSProperties = {
     background: "#fff",
@@ -266,9 +268,13 @@ export default async function StartHubPage() {
                 <a href={tslsUrl} style={greenBtnStyle}>
                   Open the TSLS App
                 </a>
-                <Link href="/tickets" style={secondaryStyle}>
+                <a
+                  href={ticketsHref}
+                  style={secondaryStyle}
+                  rel="noopener noreferrer"
+                >
                   Purchase tickets to the summit
-                </Link>
+                </a>
               </>
             ) : (
               <>
@@ -286,9 +292,13 @@ export default async function StartHubPage() {
                 >
                   {settings.closedNote}
                 </div>
-                <Link href="/tickets" style={greenBtnStyle}>
+                <a
+                  href={ticketsHref}
+                  style={greenBtnStyle}
+                  rel="noopener noreferrer"
+                >
                   Get your ticket for next year
-                </Link>
+                </a>
               </>
             )}
             <StoreBadges

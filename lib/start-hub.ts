@@ -20,6 +20,12 @@ export interface StartHubSettings {
   momentumPlayUrl: string;
   tslsAppStoreUrl: string;
   tslsPlayUrl: string;
+  /** Where "Purchase tickets" / "Get your ticket" go. Blank uses the TSLS
+      app's own ticket page (see ticketsUrl below). A SETTING rather than a
+      constant because both buttons pointed at a /tickets route that has
+      never existed here — a 404 on the revenue path, invisible until
+      someone clicked (Matt, 2026-08-14). */
+  ticketsUrl: string;
 }
 
 export const START_HUB_DEFAULTS: StartHubSettings = {
@@ -30,6 +36,7 @@ export const START_HUB_DEFAULTS: StartHubSettings = {
   momentumPlayUrl: "",
   tslsAppStoreUrl: "",
   tslsPlayUrl: "",
+  ticketsUrl: "",
 };
 
 export function tslsAppUrl(): string {
@@ -37,6 +44,24 @@ export function tslsAppUrl(): string {
     (process.env.NEXT_PUBLIC_TSLS_EVENT_URL ?? "").replace(/\/$/, "") ||
     "https://thetslsapp.com"
   );
+}
+
+/** The TSLS app's front door — where "Open the TSLS App" lands. */
+export function tslsStartUrl(): string {
+  return `${tslsAppUrl()}/start`;
+}
+
+/**
+ * Where ticket buying happens: the override if one is set, otherwise the
+ * TSLS app's ticket page, which is where prices, the go-live switch and the
+ * notify list live.
+ *
+ * Never a relative path. The old `/tickets` link resolved against THIS
+ * domain, where no such route exists.
+ */
+export function ticketsUrl(settings: Pick<StartHubSettings, "ticketsUrl">): string {
+  const override = settings.ticketsUrl.trim();
+  return override || `${tslsAppUrl()}/tickets`;
 }
 
 export async function readStartHubSettings(): Promise<StartHubSettings> {
@@ -61,6 +86,7 @@ export async function readStartHubSettings(): Promise<StartHubSettings> {
       momentumPlayUrl: v.momentumPlayUrl ?? "",
       tslsAppStoreUrl: v.tslsAppStoreUrl ?? "",
       tslsPlayUrl: v.tslsPlayUrl ?? "",
+      ticketsUrl: v.ticketsUrl ?? "",
     };
   } catch {
     return START_HUB_DEFAULTS;
