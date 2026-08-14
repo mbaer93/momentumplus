@@ -676,7 +676,18 @@ export async function provisionMember(
   // now exists, but the free months must not start until the month of the
   // event (Matt, 2026-07-30) — park the gift in scheduled_gifts for the
   // gift-activate cron and stop here.
-  const startAt = parseGiftStart(input.startAt);
+  /*
+   * A TESTER's gift starts NOW, whatever start date came with it.
+   *
+   * TSLS sends startAt = the first of the event month for every attendee
+   * gift, so a tester provisioned in August would get an account with no
+   * active membership until October 1 — i.e. the paywall, which is the one
+   * thing they cannot test through. Ignoring the date here rather than
+   * asking the sender to special-case it keeps the rule in one place: any
+   * caller that flags someone a tester gets a usable account, and there is
+   * no second thing to remember (Matt, 2026-08-14).
+   */
+  const startAt = input.tester ? null : parseGiftStart(input.startAt);
   if (isGiftTier(input.tier) && (input.months ?? 0) > 0 && isFutureStart(startAt)) {
     const scheduled = await scheduleGift({
       profileId,

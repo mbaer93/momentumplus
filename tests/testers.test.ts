@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { seesLaunchedApp } from "../lib/testers";
+import { isFutureStart, parseGiftStart } from "../lib/gifts";
 import { tierHasFeature } from "../lib/tiers";
 import type { AccessMatrix } from "../lib/tiers";
 
@@ -68,4 +69,24 @@ test("who sees the launched app", () => {
   // A real member: never, switch or no switch. This is the leak that must
   // not happen.
   assert.equal(seesLaunchedApp({ isAdmin: false, isTester: false, ...on }), false);
+});
+
+/*
+ * A tester's gift starts NOW.
+ *
+ * TSLS stamps every attendee gift with the first of the event month, so a
+ * tester provisioned in August would hold an account whose membership
+ * activates on October 1 — the paywall, which is the one screen a tester
+ * cannot test through. provisionMember drops the start date for testers;
+ * these pin the two halves of that rule.
+ */
+test("a future gift start is scheduled for a real member", () => {
+  const oct = "2026-10-01T04:00:00.000Z";
+  assert.equal(isFutureStart(parseGiftStart(oct), Date.parse("2026-08-14")), true);
+});
+
+test("dropping the start date makes the gift immediate", () => {
+  // What provisionMember does for a tester: startAt becomes null, and null
+  // is never a future start, so the grant applies on the spot.
+  assert.equal(isFutureStart(null, Date.parse("2026-08-14")), false);
 });
