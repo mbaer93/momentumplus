@@ -98,7 +98,16 @@ test("a fully completed form is accepted", async ({ page }) => {
     await page.locator("#sk-confirm").fill("TestPass123!");
   }
   await page.locator('button[type="submit"]').click();
-  // Preview mode has no database; reaching the save path at all is the
-  // assertion — the gate let a complete profile through.
   await expect(page.getByText(/Please add/i)).toHaveCount(0);
+
+  // A completed setup ends on the thank-you and orientation screen, not a
+  // silent redirect into a tool the speaker has never seen (Matt,
+  // 2026-08-14). Assert the orientation is actually there, not just that
+  // the gate passed.
+  await expect(page.getByText(/Thank you/i)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/Speaker Studio/i).first()).toBeVisible();
+  await expect(page.getByText(/Leadership Advisor Agreement/i)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Open your Speaker Studio/i }),
+  ).toBeVisible();
 });

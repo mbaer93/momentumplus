@@ -62,6 +62,21 @@ export default async function ExpiredPage() {
         redirect("/speaker-onboarding");
       }
 
+      /*
+       * Neither door opened, so this person is about to be shown a paywall.
+       * That is correct for a lapsed member and wrong for anyone mid-setup,
+       * and the two are indistinguishable from the outside — which is how
+       * the one real occurrence got away from us: Sierra hit it, moved on,
+       * and by the time we looked there was nothing to look at
+       * (Matt, 2026-08-14).
+       *
+       * Profile id only. An email address is personal data and this is a log
+       * line, not a support ticket; the id is enough to find the row.
+       */
+      console.warn(
+        `[expired] no membership, no open invite, no incomplete speaker row for profile ${user.id} — showing the paywall`,
+      );
+
       const { sponsorActive } = await import("@/lib/sponsor-lifecycle");
       const [{ data: speakerRow }, { data: seatRows }] = await Promise.all([
         admin
