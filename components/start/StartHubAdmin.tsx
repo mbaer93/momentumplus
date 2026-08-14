@@ -104,6 +104,13 @@ export function StartHubAdmin({ settings }: { settings: StartHubSettings }) {
           aria-label="TSLS Google Play link"
           style={inputStyle}
         />
+        <input
+          value={values.ticketsUrl}
+          onChange={(e) => set({ ticketsUrl: e.target.value })}
+          placeholder="Ticket page (blank = the TSLS app's own)"
+          aria-label="Ticket purchase link"
+          style={inputStyle}
+        />
       </div>
       <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center" }}>
         <button

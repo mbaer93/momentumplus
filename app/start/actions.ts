@@ -35,6 +35,20 @@ export async function saveStartHubSettings(
   if (Object.values(stores).some((s) => s === null)) {
     return { ok: false, message: "Store links must start with https://" };
   }
+  /*
+   * Absolute https only, and checked separately so the message names the
+   * right field. A relative value here is the exact bug this setting
+   * replaces: "/tickets" resolved against momentumplus.co, where there is
+   * no such route, and shipped as a 404 on the buy button.
+   */
+  const tickets = url(values.ticketsUrl);
+  if (tickets === null) {
+    return {
+      ok: false,
+      message:
+        "The ticket link must be a full https:// address — a path like /tickets points at this site, which has no ticket page.",
+    };
+  }
   const admin = createServiceClient();
   const { error } = await admin.from("app_settings").upsert(
     {
@@ -43,6 +57,7 @@ export async function saveStartHubSettings(
         tslsOpen: Boolean(values.tslsOpen),
         closedNote: values.closedNote.trim(),
         ...stores,
+        ticketsUrl: tickets,
       },
       updated_at: new Date().toISOString(),
     },
