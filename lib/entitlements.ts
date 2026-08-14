@@ -23,7 +23,11 @@ export async function requireFeature(featureKey: string): Promise<void> {
   ]);
   if (!member) redirect("/login");
   if (member.isAdmin) return;
-  if (!tierHasFeature(matrix, member.tier, featureKey)) {
+  if (
+    !tierHasFeature(matrix, member.tier, featureKey, {
+      launchedForViewer: member.seesLaunchedApp,
+    })
+  ) {
     redirect(`/upgrade?feature=${encodeURIComponent(featureKey)}`);
   }
 }
@@ -35,5 +39,7 @@ export async function hasFeature(featureKey: string): Promise<boolean> {
     getAccessMatrix(),
   ]);
   if (!member) return false;
-  return tierHasFeature(matrix, member.tier, featureKey);
+  return tierHasFeature(matrix, member.tier, featureKey, {
+    launchedForViewer: member.seesLaunchedApp,
+  });
 }

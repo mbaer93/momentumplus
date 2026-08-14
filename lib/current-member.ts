@@ -7,6 +7,7 @@ import { isSupabaseConfigured } from "./supabase/config";
 import type { Membership, Tier } from "./types";
 import { requestCache } from "@/lib/request-cache";
 import { readViewAsCookie, viewAsStateFor } from "./view-as";
+import { testersLive } from "./testers";
 import { getAccessMatrix, findTier } from "./tiers";
 
 export interface CurrentMember {
@@ -33,6 +34,12 @@ export interface CurrentMember {
       everyone who is not a speaker, and for admins (who are exempt so a
       thin speaker page cannot lock them out of the admin panel). */
   speakerSetupComplete: boolean;
+  /** A test account: full tier access, hidden from every member-facing list. */
+  isTester: boolean;
+  /** Sees the app as it will be at launch — admins always, testers once the
+      rehearsal switch is on (lib/testers.ts). Lifts the LAUNCH gate only;
+      tier grants still apply, so a tester rehearses their own tier. */
+  seesLaunchedApp: boolean;
   accessExpiresAt: string | null;
 }
 
@@ -96,6 +103,8 @@ export const getCurrentMember = requestCache(
       membershipActive: true,
       profileComplete: true,
       speakerSetupComplete: true,
+      isTester: false,
+      seesLaunchedApp: tier === "admin",
       accessExpiresAt: null,
       viewingAs: null,
     };
@@ -106,14 +115,16 @@ export const getCurrentMember = requestCache(
   if (!user) return null;
 
   const [
-    { data: profile },
+    { data: profileRow },
     { data: memberships },
     { data: speakerRow },
     sponsorSeats,
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("full_name, email, admin_title, admin_role")
+      // `tester` rides along: it decides both what this member can reach
+      // before launch and whether anyone else can see them.
+      .select("full_name, email, admin_title, admin_role, tester")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -134,6 +145,23 @@ export const getCurrentMember = requestCache(
       .in("role", ["owner", "manager"]),
   ]);
 
+  /*
+   * `tester` arrives with migration 0089. Between the deploy and the
+   * migration this select fails as a whole, and a null profile here is not a
+   * cosmetic loss — it drops full_name (→ everyone bounced to /welcome),
+   * email, and admin_role (→ every admin demoted). Same pre-migration
+   * ladder the rest of the app uses.
+   */
+  const profile =
+    profileRow ??
+    (
+      await supabase
+        .from("profiles")
+        .select("full_name, email, admin_title, admin_role")
+        .eq("id", user.id)
+        .maybeSingle()
+    ).data;
+
   const name = profile?.full_name || user.email || "Member";
   const rows = (memberships ?? []) as Pick<
     Membership,
@@ -143,6 +171,11 @@ export const getCurrentMember = requestCache(
 
   const realTier: Tier = effective?.tier ?? "tsls_attendee";
   const realIsAdmin = effective?.tier === "admin";
+
+  const isTester = (profile as { tester?: boolean } | null)?.tester === true;
+  // Only asked when it can matter — the settings read is cached per request,
+  // but a non-tester's answer never depends on it.
+  const rehearsalOn = isTester ? await testersLive() : false;
 
   /*
    * Speaker setup gate (Matt, 2026-08-14: "how do we ensure they must
@@ -251,6 +284,14 @@ export const getCurrentMember = requestCache(
         : null,
     membershipActive: effective !== null,
     speakerSetupComplete,
+    isTester,
+    /*
+     * View-as is a role preview, not a person preview: an admin previewing
+     * "Member" keeps their own launch visibility, because the point of the
+     * preview is to check the launch before it happens. Testers get it from
+     * the rehearsal switch.
+     */
+    seesLaunchedApp: realIsAdmin || (isTester && rehearsalOn),
     profileComplete: Boolean(profile?.full_name?.trim()),
     accessExpiresAt: effective?.access_expires_at ?? null,
     viewingAs,

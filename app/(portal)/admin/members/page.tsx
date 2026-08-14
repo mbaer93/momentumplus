@@ -31,6 +31,7 @@ const PREVIEW_PROFILE_DEFAULTS = {
   adminRole: null,
   adminPerms: {},
   sponsorSeat: null,
+  tester: false,
 } as const;
 
 const PREVIEW_MEMBERS: AdminMemberRow[] = [
@@ -195,15 +196,38 @@ export default async function AdminMembersPage(
     let query = admin
       .from("profiles")
       .select(
-        "id, full_name, email, title, company, phone, admin_role, admin_perms, memberships!inner ( id, tier, status, access_expires_at, source, created_at )",
+        "id, full_name, email, title, company, phone, admin_role, admin_perms, tester, memberships!inner ( id, tier, status, access_expires_at, source, created_at )",
         { count: "exact" },
       );
     if (q) {
       query = query.or(`full_name.ilike.*${q}*,email.ilike.*${q}*`);
     }
-    const { data, count } = await query
+    let res = await query
       .order("created_at", { ascending: false })
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+    /*
+     * `tester` arrives with migration 0089. Until it runs, selecting it
+     * fails the WHOLE query — which would empty the admin members screen,
+     * the one place an admin would go to work out why. Retry without it.
+     */
+    if (res.error && /tester/i.test(res.error.message)) {
+      let retry = admin
+        .from("profiles")
+        .select(
+          "id, full_name, email, title, company, phone, admin_role, admin_perms, memberships!inner ( id, tier, status, access_expires_at, source, created_at )",
+          { count: "exact" },
+        );
+      if (q) {
+        retry = retry.or(`full_name.ilike.*${q}*,email.ilike.*${q}*`);
+      }
+      // The fallback's row type lacks `tester`; the reader below treats it
+      // as optional and defaults to false, which is the right answer for a
+      // database that has no such column yet.
+      res = (await retry
+        .order("created_at", { ascending: false })
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)) as typeof res;
+    }
+    const { data, count } = res;
     totalCount = count ?? 0;
     const authActivity = await fetchAuthActivity(
       (data ?? []).map((r) => r.id as string),
@@ -272,6 +296,7 @@ export default async function AdminMembersPage(
           profilePhone: (p.phone as string) ?? "",
           adminRole: (p.admin_role as "super" | "standard" | null) ?? null,
           adminPerms: (p.admin_perms as Record<string, boolean>) ?? {},
+          tester: (p as { tester?: boolean }).tester === true,
           sponsorSeat: null,
           otherMemberships: others.map((o) => ({
             membershipId: o.id,

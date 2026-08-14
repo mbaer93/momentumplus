@@ -39,6 +39,10 @@ export interface ProvisionInput {
       email. Used by the TSLS Companion bridge, where TSLS is the single
       inviter and members cross over via SSO — so nobody gets two emails. */
   quiet?: boolean;
+  /** Mark this account as a TEST account: full tier access, hidden from
+      every member-facing list (migration 0089). Set-only — see the upsert
+      below. */
+  tester?: boolean;
   /** Gift start (ISO). In the future → the account is created now but the
       gift itself waits in scheduled_gifts until the gift-activate cron
       applies it on that date (TSLS sends the first of the event month —
@@ -642,14 +646,31 @@ export async function provisionMember(
   }
 
   // Signup trigger races the invite; upsert keeps the name.
-  await admin.from("profiles").upsert(
-    {
-      id: profileId,
-      email,
-      ...(input.name?.trim() ? { full_name: input.name.trim() } : {}),
-    },
-    { onConflict: "id" },
-  );
+  const profileRow: Record<string, unknown> = {
+    id: profileId,
+    email,
+    ...(input.name?.trim() ? { full_name: input.name.trim() } : {}),
+  };
+  /*
+   * Only ever SET the flag, never clear it. An un-flagged provisioning run
+   * for someone already marked (a re-sync, a second grant) must not quietly
+   * turn a test account into a visible member — unmarking is a deliberate
+   * admin action, not a side effect of a webhook.
+   */
+  if (input.tester) {
+    profileRow.tester = true;
+    profileRow.tester_since = new Date().toISOString();
+  }
+  const { error: profileError } = await admin
+    .from("profiles")
+    .upsert(profileRow, { onConflict: "id" });
+  // Pre-migration-0089: retry without the tester columns rather than lose
+  // the name and email this upsert also carries.
+  if (profileError && /tester/i.test(profileError.message)) {
+    delete profileRow.tester;
+    delete profileRow.tester_since;
+    await admin.from("profiles").upsert(profileRow, { onConflict: "id" });
+  }
 
   // Gift with a future start (ticket bought before the event): the account
   // now exists, but the free months must not start until the month of the

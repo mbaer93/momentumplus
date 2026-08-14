@@ -6,6 +6,7 @@ import {
   archiveTier,
   createTier,
   setFeatureLaunched,
+  setTestersLive,
   setTierFeature,
   setTierPublic,
   updateTier,
@@ -48,10 +49,16 @@ function toInput(t: TierDef): TierInput {
 export function ControlCenter({
   matrix,
   memberCounts,
+  testersLive,
+  testerCount,
 }: {
   matrix: AccessMatrix;
   /** Live members per tier — what a Go Live or a restriction would touch. */
   memberCounts: Record<string, number>;
+  /** Is the October 14 rehearsal on for test accounts? */
+  testersLive: boolean;
+  /** How many test accounts exist — "on" with nobody flagged does nothing. */
+  testerCount: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -92,6 +99,38 @@ export function ControlCenter({
           {msg.text}
         </div>
       )}
+
+      <div className="section-header">
+        <div>
+          <h2>Go Live for Testers</h2>
+          <p>
+            A dress rehearsal for October 14, for test accounts only. Turn it
+            on and every tester sees the launched app — bounded by the tier
+            you gave them, so a tester on Member rehearses Member. Real
+            members see no change at all, whether it is on or off.
+          </p>
+        </div>
+      </div>
+
+      <div className="admin-form" style={{ marginBottom: 32 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className={testersLive ? "btn-ghost" : "btn-gold"}
+            disabled={pending}
+            onClick={() => run(() => setTestersLive(!testersLive))}
+          >
+            {testersLive ? "End the rehearsal" : "Go Live for Testers"}
+          </button>
+          <span style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
+            {testersLive
+              ? `${testerCount} test ${testerCount === 1 ? "account is" : "accounts are"} living October 14 right now.`
+              : testerCount === 0
+                ? "No test accounts yet — mark one under Admin → Members first."
+                : `${testerCount} test ${testerCount === 1 ? "account" : "accounts"} waiting. They currently see today's app.`}
+          </span>
+        </div>
+      </div>
 
       <div className="section-header">
         <div>

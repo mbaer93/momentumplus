@@ -894,3 +894,56 @@ export async function expireMembership(
   revalidatePath("/admin/members");
   return { ok: true, message: "Membership expired." };
 }
+
+/**
+ * Mark (or unmark) a member as a test account.
+ *
+ * Matt, 2026-08-14: several people need to be inside the app before
+ * October 14, living the real member experience — real tier, real emails,
+ * real notifications — without appearing to anyone who is actually a
+ * member. This is the flag every member-facing list filters on.
+ *
+ * The TIER is not set here. A tester is an ordinary member whose tier is
+ * granted the ordinary way (Grant / Change level), which is the point: a
+ * tester on Pro rehearses Pro, using the same code path a real member's
+ * Pro runs through. A separate tester-tier control would be a second way
+ * to grant access, and a second thing to be wrong.
+ */
+export async function setTester(
+  profileId: string,
+  tester: boolean,
+): Promise<AdminMemberResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Saved (preview mode)." };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({
+      tester,
+      // Kept so "why is this person hidden?" has a date on it. Cleared on
+      // unmark so a re-marked account dates from the new decision.
+      tester_since: tester ? new Date().toISOString() : null,
+    })
+    .eq("id", profileId);
+  if (error) {
+    const hint = /tester/i.test(error.message)
+      ? " (The team needs to apply database migration 0089.)"
+      : "";
+    return { ok: false, message: `${error.message}${hint}` };
+  }
+
+  // The directory, search, and the member count all read this column.
+  revalidatePath("/admin/members");
+  revalidatePath("/members");
+  revalidatePath("/search");
+  return {
+    ok: true,
+    message: tester
+      ? "Marked as a test account — hidden from members, full access kept."
+      : "No longer a test account — this person is now visible to members.",
+  };
+}

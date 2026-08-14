@@ -9,6 +9,7 @@ import { ADMIN_AREAS } from "@/lib/admin-perms";
 import {
   deleteMember,
   changeMembershipTier,
+  setTester,
   deleteMembership,
   expireMembership,
   extendMembership,
@@ -44,6 +45,8 @@ export interface AdminMemberRow {
   profilePhone: string;
   adminRole: "super" | "standard" | null;
   adminPerms: Record<string, boolean>;
+  /** Test account: full tier access, hidden from every member-facing list. */
+  tester: boolean;
   /** Sponsor-business seat, when linked (owner seats managed in Sponsors). */
   sponsorSeat: { sponsorId: string; sponsorName: string; role: string } | null;
   /** Additional access grants beyond the effective one (e.g. a Stripe sub
@@ -271,6 +274,18 @@ export function MembersManager({
                         Super Admin
                       </span>
                     )}
+                    {/* Flagged here because this is the only screen a
+                        tester appears on — everywhere else they are
+                        deliberately invisible, so without a badge an admin
+                        has no way to tell one from a real member. */}
+                    {m.tester && (
+                      <span
+                        className="admin-status draft"
+                        style={{ marginLeft: 8 }}
+                      >
+                        Tester
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                     <BreakableEmail email={m.email} />
@@ -467,6 +482,28 @@ export function MembersManager({
                           }}
                         >
                           {pending ? "Saving…" : "Change level"}
+                        </button>
+                        {/* Deliberately next to the level control: a tester
+                            is defined by the tier they rehearse, and the two
+                            decisions are made together. */}
+                        <button
+                          type="button"
+                          className="btn-mini"
+                          style={{ marginBottom: 14 }}
+                          disabled={pending}
+                          onClick={() => {
+                            if (
+                              m.tester &&
+                              !confirm(
+                                `${m.name || m.email} will become VISIBLE to real members — directory, search, and the member count. Their access doesn't change. Continue?`,
+                              )
+                            ) {
+                              return;
+                            }
+                            run(() => setTester(m.profileId, !m.tester));
+                          }}
+                        >
+                          {m.tester ? "Not a tester" : "Mark as tester"}
                         </button>
                         {msg && (
                           <span
