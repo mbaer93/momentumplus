@@ -33,8 +33,9 @@ export function SpeakerOnboardingForm({
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** Setup finished but with notes worth reading — shown on a success panel
-      instead of a silent redirect. */
+  /** Non-null once setup succeeded — switches the card to the thank-you and
+      orientation screen. The array holds any partial-failure notes, and is
+      usually empty; an empty array still means "done", not "not yet". */
   const [doneNotes, setDoneNotes] = useState<string[] | null>(null);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
@@ -71,13 +72,10 @@ export function SpeakerOnboardingForm({
         setError(res.message ?? "Something went wrong — try again.");
         return;
       }
-      // Partial failures (resource/profile writes) are shown, not hidden
-      // behind the redirect.
-      if (res.warnings && res.warnings.length > 0) {
-        setDoneNotes(res.warnings);
-        return;
-      }
-      router.replace("/speaker");
+      // Always the thank-you screen, warnings or not. Partial failures
+      // (resource/profile writes) appear on it rather than being hidden
+      // behind a redirect.
+      setDoneNotes(res.warnings ?? []);
     } catch (err) {
       setError(
         err instanceof Error
@@ -89,16 +87,71 @@ export function SpeakerOnboardingForm({
     }
   }
 
+  /*
+   * Every completed setup lands here, not just the ones with warnings
+   * (Matt, 2026-08-14). A silent redirect into the Studio dropped a new
+   * speaker into a tool they had never seen, with no idea what it was for
+   * or where anything else lived.
+   */
   if (doneNotes) {
     return (
       <div className="login-card" style={{ textAlign: "left" }}>
-        <h2>Your speaker page is set up</h2>
-        <p>A couple of things to know before you head in:</p>
+        <h2>Thank you — you&apos;re set up</h2>
+        <p style={{ fontSize: 13.5, lineHeight: 1.6 }}>
+          Your speaker page is live in the member directory, your business is
+          published as a member resource, and you have full access through the
+          season.
+        </p>
+
+        {doneNotes.length > 0 && (
+          <>
+            <p style={{ fontSize: 13.5, marginBottom: 6 }}>
+              Two things didn&apos;t save — you can fix both from the Studio:
+            </p>
+            <ul
+              style={{ fontSize: 13.5, lineHeight: 1.6, margin: "0 0 16px 18px" }}
+            >
+              {doneNotes.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        <h3 style={{ fontSize: 15, margin: "18px 0 6px" }}>
+          Your Speaker Studio
+        </h3>
+        <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: "0 0 8px" }}>
+          Everything you control lives there — it&apos;s the Speaker Studio
+          link in the left-hand menu:
+        </p>
         <ul style={{ fontSize: 13.5, lineHeight: 1.6, margin: "0 0 16px 18px" }}>
-          {doneNotes.map((n) => (
-            <li key={n}>{n}</li>
-          ))}
+          <li>Edit your speaker page, headshot, bio and topics</li>
+          <li>Edit your business resource page</li>
+          <li>
+            For each session you&apos;re presenting: start the Zoom room as
+            host, see who&apos;s enrolled, email them, and attach handouts
+          </li>
         </ul>
+
+        <h3 style={{ fontSize: 15, margin: "18px 0 6px" }}>
+          The rest of Momentum+
+        </h3>
+        <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: "0 0 16px" }}>
+          You have the same access as a Pro member: Sessions to enrol in
+          anything you&apos;d like to attend, the Library of past recordings,
+          Community for the member chat, and Calendar for what&apos;s coming
+          up. Your own details are under My Profile.
+        </p>
+
+        {/* The agreement gate fires on the way into the Studio. Saying so
+            here turns a surprise redirect into an expected next step. */}
+        <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: "0 0 16px" }}>
+          One more step for most speakers: the Leadership Advisor Agreement.
+          If it applies to you, the next screen will be the agreement to read
+          and sign — the Studio opens once that&apos;s done.
+        </p>
+
         <button
           type="button"
           className="btn-gold"
