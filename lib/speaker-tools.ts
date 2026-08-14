@@ -191,6 +191,31 @@ export async function speakerProfileGaps(
   speaker: OwnSpeaker,
   profileId: string,
 ): Promise<string[]> {
+  return speakerSetupGaps(speaker, profileId);
+}
+
+/**
+ * The same rule, for callers holding a raw speakers row rather than a full
+ * OwnSpeaker — the portal gate in lib/current-member.ts.
+ *
+ * ONE reader, deliberately. The gate used to compute this itself against the
+ * signed-in user's RLS client while this function used the service role, and
+ * `resources` is only readable under RLS when it is `active` and within the
+ * member's access level. Deactivate a speaker's business page in Admin →
+ * Resources and the two disagreed: the portal said "incomplete" and sent them
+ * to setup, setup said "nothing pending" and offered a button back to the
+ * portal. No way in, and nothing in either screen to explain why.
+ */
+export async function speakerSetupGaps(
+  speaker: {
+    name: string | null;
+    title: string | null;
+    bio: string | null;
+    industries: string[] | null;
+    resourceId: string | null;
+  },
+  profileId: string,
+): Promise<string[]> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return [];
   }

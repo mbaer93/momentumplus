@@ -276,9 +276,21 @@ export async function pullSpeakersFromTsls(): Promise<AdminResult> {
   // successful one — the extra rows were simply counted as "added" (Matt,
   // 2026-08-11). Re-read the table and say so plainly.
   let dupeNote = "";
-  const { data: after } = await admin.from("speakers").select("id, name");
+  // contact_email arrives with 0074 — fall back so an un-migrated database
+  // still gets the name-based warning rather than none at all.
+  let after: Array<Record<string, unknown>> | null = (
+    await admin.from("speakers").select("id, name, profile_id, contact_email")
+  ).data;
+  if (!after) {
+    after = (await admin.from("speakers").select("id, name, profile_id")).data;
+  }
   const dupes = findLikelyDuplicates(
-    (after ?? []).map((r) => ({ id: String(r.id), name: String(r.name) })),
+    (after ?? []).map((r) => ({
+      id: String(r.id),
+      name: String(r.name),
+      profileId: (r.profile_id as string | null) ?? null,
+      contactEmail: (r.contact_email as string | null) ?? null,
+    })),
   );
   if (dupes.length > 0) {
     const names = dupes
