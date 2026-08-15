@@ -96,7 +96,14 @@ export default async function CertificatePage(
           <div className="certificate-date">Completed {dateLabel}</div>
           <div className="certificate-footer">
             <div className="certificate-line">
-              <div className="certificate-signature">Sierra Collins</div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="certificate-signature"
+                src="/sierra-signature.png"
+                alt="Sierra W. Collins"
+                width={1130}
+                height={199}
+              />
               <div className="certificate-rule" />
               <div>Momentum+ Education</div>
             </div>
