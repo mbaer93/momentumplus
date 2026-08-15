@@ -3977,12 +3977,18 @@ a.course-card:hover {
 .dm-picker-empty { padding: 14px; font-size: 13px; color: var(--ink-secondary); }
 
 /* ---- Certificate: signature, seal, and full-page print ---- */
+/* Her actual signature, not a script font (Matt, 2026-08-14). The asset is
+   black strokes on transparency, and this certificate prints on NAVY —
+   invert paints them cream without needing a second file, and alpha is
+   untouched by invert() so the antialiased edges stay soft. */
 .certificate-signature {
-  font-family: "Snell Roundhand", "Segoe Script", "Brush Script MT", cursive;
-  font-size: 32px;
-  color: #f8f6f1;
-  line-height: 1;
-  margin-bottom: 6px;
+  display: block;
+  height: 54px;
+  width: auto;
+  max-width: 300px;
+  object-fit: contain;
+  margin: 0 auto 6px;
+  filter: invert(1);
 }
 .certificate-seal {
   display: flex;
