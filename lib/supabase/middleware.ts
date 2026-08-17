@@ -50,6 +50,9 @@ const AUTH_FREE_PATHS = new Set([
   "/sitemap.xml",
   "/og.png",
   "/manifest.webmanifest",
+  // Same category: fetched by scanners and researchers, identical for
+  // everyone, and pointless to spend an auth round trip on.
+  "/.well-known/security.txt",
 ]);
 
 export async function updateSession(request: NextRequest) {
