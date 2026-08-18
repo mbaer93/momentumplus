@@ -14,6 +14,9 @@ export interface ChatMessage {
   authorIsAdmin?: boolean;
   /** Admin's title shown with the badge (e.g. "Co-Founder, TSLS"). */
   adminTitle?: string | null;
+  /** Engagement level, from the Stream user. Empty for members at the entry
+      level and for anyone who hid their badges. */
+  badgeLevel?: string | null;
   timeLabel: string;
   paragraphs: string[];
   reactions: { color: string; count: number }[];
