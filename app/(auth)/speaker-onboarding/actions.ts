@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { emailPattern } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -67,7 +68,6 @@ async function findOwnSpeaker(
     };
   }
   if (!user.email) return null;
-  const { emailPattern } = await import("@/lib/db-utils");
   const { data: byEmail } = await admin
     .from("speakers")
     .select("id, resource_id")
@@ -345,13 +345,49 @@ export async function completeSpeakerOnboarding(
     };
   }
 
-  // 5) Close the invite, when this was an invite rather than an existing
-  //    speaker finishing a profile the Studio turned them away for.
-  if (invite) {
-    await admin
-      .from("speaker_invites")
-      .update({ completed_at: new Date().toISOString(), speaker_id: speakerId })
-      .eq("id", invite.id);
+  /*
+   * 5) Close EVERY open invite for this person, not just the one that
+   *    authorized them.
+   *
+   *    Closing only `invite` left rows open whenever setup was authorized by
+   *    something else — an existing speaker row, or (since #229) an
+   *    unclaimed listing matching their verified email. It also missed the
+   *    case of an invite whose email differs from the account they signed in
+   *    with, and any second invite an admin re-sent while they were mid-form.
+   *
+   *    The visible symptom is Admin → Speakers listing someone under
+   *    "Waiting on" who finished their setup days ago (Matt, 2026-08-15),
+   *    which makes the one screen tracking speaker onboarding untrustworthy
+   *    — you cannot tell who genuinely hasn't started.
+   *
+   *    Matched the same two ways every other invite reader matches: the
+   *    account id, and the email.
+   */
+  const closedAt = new Date().toISOString();
+  const closeInvite = (column: "invited_profile_id" | "email", value: string) =>
+    column === "email"
+      ? admin
+          .from("speaker_invites")
+          .update({ completed_at: closedAt, speaker_id: speakerId })
+          .is("completed_at", null)
+          .ilike("email", emailPattern(value))
+      : admin
+          .from("speaker_invites")
+          .update({ completed_at: closedAt, speaker_id: speakerId })
+          .is("completed_at", null)
+          .eq("invited_profile_id", value);
+
+  const closes = [closeInvite("invited_profile_id", user.id)];
+  if (user.email) closes.push(closeInvite("email", user.email));
+  const closeResults = await Promise.all(closes);
+  const closeError = closeResults.find((r) => r.error)?.error;
+  if (closeError) {
+    // Their access is already granted, so this must not fail the setup —
+    // but an admin chasing a completed speaker is exactly the confusion
+    // this step exists to prevent, so say so.
+    warnings.push(
+      `Your invite is still showing as outstanding to the Momentum+ team (${closeError.message}) — you're fully set up; they can clear it.`,
+    );
   }
   revalidatePath("/speaker");
 
