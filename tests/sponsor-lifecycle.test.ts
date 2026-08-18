@@ -209,3 +209,27 @@ test("seasonEnd is always Oct 1 of the year after joining (ET)", () => {
     "2027-10-01T04:00:00.000Z",
   );
 });
+
+test("the bridge webhook grants speakers seasonEnd, never the nearest Oct 1", () => {
+  /*
+   * 2026-08-18: the zapier route (the TSLS bridge's provisioning path) used
+   * nextOctoberFirst() for speakers, which from any pre-October date is
+   * Oct 1 of the SAME year — it expired 8 bridge-provisioned speakers
+   * thirteen days before the summit they were speaking at. The onboarding
+   * flows always used seasonEnd (Oct 1 of the following year). Pin the
+   * route to the correct clock so the two paths cannot drift apart again.
+   */
+  const src = require("node:fs").readFileSync(
+    "app/api/webhooks/zapier/route.ts",
+    "utf8",
+  );
+  const speakerBranch = src.slice(src.indexOf("let accessExpiresAt"));
+  assert.ok(
+    /mapping\.tier === "speaker"\s*\?\s*seasonEnd\(\)/.test(speakerBranch),
+    "speaker grants must use seasonEnd()",
+  );
+  assert.ok(
+    !speakerBranch.includes("nextOctoberFirst"),
+    "nextOctoberFirst must not reappear in the grant branch",
+  );
+});

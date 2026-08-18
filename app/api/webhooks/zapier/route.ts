@@ -84,15 +84,23 @@ export async function POST(req: NextRequest) {
    * expiry here minted permanent Pro-level access that the Oct 1 / Apr 1
    * expiries could not touch (and that the real onboarding flows couldn't
    * see, because they look for their own source values).
+   *
+   * seasonEnd, NOT nextOctoberFirst (2026-08-18): speakers get the season
+   * (Matt: "full VIP access through the end of the season"), and the
+   * season containing a mid-October summit ends October 1 of the FOLLOWING
+   * year — the same clock the speaker-onboarding flows already use. The
+   * nearest-Oct-1 clock this branch used expired 8 bridge-provisioned 2026
+   * speakers on 2026-10-01, thirteen days BEFORE the summit they were
+   * speaking at.
    */
   let accessExpiresAt: string | undefined;
   if (mapping.tier === "speaker" || mapping.tier === "sponsor") {
-    const { nextOctoberFirst, sponsorTermEnd } = await import(
+    const { seasonEnd, sponsorTermEnd } = await import(
       "@/lib/sponsor-lifecycle"
     );
     accessExpiresAt =
       mapping.tier === "speaker"
-        ? nextOctoberFirst().toISOString()
+        ? seasonEnd().toISOString()
         : sponsorTermEnd().toISOString();
   }
 
