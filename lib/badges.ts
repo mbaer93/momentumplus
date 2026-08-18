@@ -154,6 +154,23 @@ export interface MemberBadges {
   hidden: boolean;
 }
 
+/**
+ * "1 course", "6 courses", "3 sessions with notes".
+ *
+ * Only the FIRST word is singularised: the unit is a noun phrase, and
+ * "1 session with note" is worse than the plural bug it fixes.
+ */
+export function unitLabel(unit: string, count: number): string {
+  if (count !== 1) return unit;
+  const [head, ...rest] = unit.split(" ");
+  const singular = head.endsWith("ies")
+    ? `${head.slice(0, -3)}y`
+    : head.endsWith("s")
+      ? head.slice(0, -1)
+      : head;
+  return [singular, ...rest].join(" ");
+}
+
 /** The tier this count has reached, or null when it hasn't reached bronze. */
 export function tierFor(
   count: number | null,

@@ -8,6 +8,7 @@ import {
   levelForPoints,
   nextThreshold,
   tierFor,
+  unitLabel,
   type BadgeCounts,
 } from "../lib/badges";
 
@@ -148,4 +149,15 @@ test("earnedTracks drops the tracks with nothing on them", () => {
 test("hidden is carried through, not inferred", () => {
   assert.equal(badgesFrom(base).hidden, false);
   assert.equal(badgesFrom(base, { hidden: true }).hidden, true);
+});
+
+test("units read correctly at one", () => {
+  // "1 courses" shipped to a screenshot before this test existed.
+  assert.equal(unitLabel("courses", 1), "course");
+  assert.equal(unitLabel("courses", 6), "courses");
+  assert.equal(unitLabel("months", 1), "month");
+  // Noun phrases singularise only their head word — "1 session with note"
+  // would be a worse bug than the one being fixed.
+  assert.equal(unitLabel("sessions with notes", 1), "session with notes");
+  assert.equal(unitLabel("episodes", 0), "episodes");
 });

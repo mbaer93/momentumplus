@@ -311,7 +311,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/(portal)/profile/page.tsx
   { table: "profiles", select: "phone, company, title, industry, bio, admin_title, stripe_customer_id, created_at" },
   // app/(portal)/profile/page.tsx
-  { table: "profiles", select: "phone, company, title, industry, bio, share_contact, admin_title, stripe_customer_id, created_at" },
+  { table: "profiles", select: "phone, company, title, industry, bio, share_contact, hide_badges, admin_title, stripe_customer_id, created_at" },
   // app/api/stream/token/route.ts
   { table: "profiles", select: "stream_synced_key" },
   // app/(portal)/upgrade/page.tsx

@@ -78,11 +78,35 @@ export async function POST() {
   // members re-running it on every community open would rate-limit Stream
   // on event day. The synced key marks "already provisioned for exactly
   // this state"; any change (or a missing 0069 column) re-provisions.
+  /*
+   * The engagement level rides on the Stream user, exactly as adminTitle
+   * does — Stream owns the message list, so anything shown beside a name in
+   * chat has to be a field on the user. It is part of the sync key, or a
+   * member who levels up keeps the old chip until something ELSE about them
+   * changes.
+   */
+  const badgeLevel = await (async () => {
+    if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return "";
+    }
+    try {
+      const { badgesForOthers } = await import("@/lib/badge-queries");
+      const badges = (await badgesForOthers([userId])).get(userId);
+      // Absent = opted out. "start" is the entry level and shows no chip.
+      if (!badges || badges.level.key === "start") return "";
+      return badges.level.label;
+    } catch {
+      // A badge is decoration; chat access is not. Never block the token.
+      return "";
+    }
+  })();
+
   const syncKey = [
     member.tier,
     member.isAdmin ? "1" : "0",
     member.name,
     member.adminTitle ?? "",
+    badgeLevel,
   ].join("|");
   let alreadyProvisioned = false;
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -118,6 +142,8 @@ export async function POST() {
         role: member.isAdmin ? "admin" : "user",
         // Custom field rendered next to the Admin badge in chat.
         adminTitle: member.isAdmin ? (member.adminTitle ?? "") : "",
+        // Empty for members who opted out, or who are at the entry level.
+        badgeLevel,
       };
       const teamUser = {
         id: "momentum-team",

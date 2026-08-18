@@ -10,6 +10,7 @@ import {
   type ChatMessage,
 } from "@/lib/community-data";
 import { ArrowLeftIcon, ChannelIcon } from "@/components/icons";
+import { LevelChip } from "@/components/badges/LevelChip";
 
 interface ChannelInfo {
   id: string;
@@ -50,6 +51,12 @@ interface DirectoryMember {
   id: string;
   name: string;
   detail: string;
+}
+
+/** Same custom-field trick as adminTitle — set server-side on upsert. */
+function badgeLevelOf(user: unknown): string | null {
+  const v = (user as { badgeLevel?: unknown } | undefined)?.badgeLevel;
+  return typeof v === "string" && v.trim() ? v : null;
 }
 
 /** Stream user with our custom adminTitle field (set server-side on upsert). */
@@ -99,6 +106,7 @@ function toChatMessage(
     isYou: m.user?.id === viewerId,
     authorIsAdmin: m.user?.role === "admin",
     adminTitle: adminTitleOf(m.user),
+    badgeLevel: badgeLevelOf(m.user),
     timeLabel: liveTime
       ? nowLabel()
       : m.created_at
@@ -690,6 +698,9 @@ export function CommunityView({
                       <span className="msg-admin-tag">
                         Admin{m.adminTitle ? ` · ${m.adminTitle}` : ""}
                       </span>
+                    )}
+                    {m.badgeLevel && (
+                      <LevelChip label={m.badgeLevel} levelKey="earned" size="xs" />
                     )}
                     {m.isYou && <span className="msg-you-tag">You</span>}
                     <span className="msg-time">{m.timeLabel}</span>

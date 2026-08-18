@@ -81,6 +81,8 @@ export async function updateProfile(input: {
   bio: string;
   /** Opt-in: show email/phone on the Member Directory (default off). */
   share_contact?: boolean;
+  /** Opt-out: hide engagement badges from other members (default off). */
+  hide_badges?: boolean;
   /** Only persisted when the caller is an admin (chat badge title). */
   admin_title?: string;
 }): Promise<ProfileResult> {
@@ -104,9 +106,28 @@ export async function updateProfile(input: {
   if (input.share_contact !== undefined) {
     update.share_contact = input.share_contact;
   }
+  if (input.hide_badges !== undefined) {
+    update.hide_badges = input.hide_badges;
+  }
 
   // RLS: members can only update their own profile row.
   let { error } = await supabase.from("profiles").update(update).eq("id", user.id);
+  /*
+   * hide_badges arrives with 0090, and its column-level grant with it. Until
+   * both are applied, saving the rest of the form must still work — the same
+   * degrade share_contact needed when it was new (0034 without 0049).
+   */
+  if (error && /hide_badges/i.test(error.message)) {
+    delete update.hide_badges;
+    ({ error } = await supabase.from("profiles").update(update).eq("id", user.id));
+    if (!error && input.hide_badges !== undefined) {
+      return {
+        ok: false,
+        message:
+          "Saved, except the badge visibility toggle — the team needs to apply database migration 0090.",
+      };
+    }
+  }
   if (error && /share_contact|permission denied/i.test(error.message)) {
     // The column-level grant arrives with 0049 (column itself with 0034) —
     // save everything else rather than failing the whole form.

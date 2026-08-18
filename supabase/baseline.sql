@@ -5462,3 +5462,10 @@ comment on column profiles.hide_badges is
 -- Only ever read as a filter over a set of members being rendered.
 create index if not exists profiles_hide_badges_idx
   on profiles (hide_badges) where hide_badges;
+
+-- 0022 restricted profiles UPDATE to a column allowlist, so a new column is
+-- not member-updatable until it is granted — 0034 added share_contact
+-- without this and toggling it failed with "permission denied for table
+-- profiles" until 0049 fixed it. This is the member's OWN switch, so it has
+-- to be theirs to set. RLS still limits updates to their own row.
+grant update (hide_badges) on public.profiles to authenticated;
