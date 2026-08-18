@@ -74,6 +74,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "content_topics", select: "id, name, slug, description, sort" },
   // app/(portal)/admin/education/actions.ts
   { table: "course_lessons", select: "documents" },
+  // lib/badge-queries.ts
+  { table: "course_lessons", select: "id, course_id" },
   // app/(portal)/admin/education/actions.ts
   { table: "course_lessons", select: "id, course_id, position" },
   // app/(portal)/admin/education/actions.ts
@@ -108,6 +110,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "enrollments", select: "id" },
   // lib/attendance.ts
   { table: "enrollments", select: "id, profile_id, profiles ( email, full_name )" },
+  // lib/badge-queries.ts
+  { table: "enrollments", select: "profile_id" },
   // app/(portal)/speaker/actions.ts
   { table: "enrollments", select: "profile_id, profiles ( email, full_name )" },
   // app/api/cron/reminders/route.ts
@@ -150,6 +154,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "lesson_progress", select: "lesson_id" },
   // app/(portal)/profile/page.tsx
   { table: "lesson_progress", select: "lesson_id, completed_at" },
+  // lib/badge-queries.ts
+  { table: "lesson_progress", select: "profile_id, lesson_id" },
   // app/(portal)/admin/control-center/actions.ts
   { table: "member_tiers", select: "slug" },
   // lib/revenue.ts
@@ -200,6 +206,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "memberships", select: "profile_id, tier" },
   // lib/revenue.ts
   { table: "memberships", select: "profile_id, tier, source" },
+  // lib/badge-queries.ts
+  { table: "memberships", select: "profile_id, tier, status, access_starts_at, created_at" },
   // lib/directory-queries.ts
   { table: "memberships", select: "profiles ( full_name )" },
   // app/(portal)/admin/members/actions.ts
@@ -236,6 +244,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "podcast_episode_progress", select: "completed, completed_at" },
   // lib/podcast.ts
   { table: "podcast_episode_progress", select: "episode_id, completed, notes" },
+  // lib/badge-queries.ts
+  { table: "podcast_episode_progress", select: "profile_id" },
   // lib/podcast.ts
   { table: "podcast_episodes", select: "*" },
   // app/(portal)/admin/podcast/actions.ts
@@ -348,6 +358,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "session_invitees", select: "session_id, profile_id" },
   // app/(portal)/library/[id]/page.tsx
   { table: "session_notes", select: "body" },
+  // lib/badge-queries.ts
+  { table: "session_notes", select: "profile_id, body" },
   // app/(portal)/profile/page.tsx
   { table: "session_notes", select: "session_id, body" },
   // lib/session-resources.ts
