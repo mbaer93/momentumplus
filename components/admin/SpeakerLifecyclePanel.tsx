@@ -24,6 +24,11 @@ export interface PendingSpeakerInvite {
   email: string;
   displayName: string;
   createdAt: string;
+  /** This person already has a live speaker page — the invite row is stale,
+      not outstanding. Kept visible rather than hidden so the row can be
+      cleared, but it must not read as "hasn't started" (Matt, 2026-08-15:
+      speakers who had finished were still listed as waiting). */
+  alreadySetUp: boolean;
 }
 
 function dateLabel(iso: string): string {
@@ -169,6 +174,11 @@ export function SpeakerLifecyclePanel({
                   {i.email}
                   {i.displayName ? ` (${i.displayName})` : ""} — invited{" "}
                   {dateLabel(i.createdAt)}
+                  {i.alreadySetUp && (
+                    <span style={{ color: "var(--accent-green)", marginLeft: 6 }}>
+                      · setup already finished, this row is stale
+                    </span>
+                  )}
                 </span>
                 <button
                   type="button"
