@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   BADGE_TRACKS,
+  PAID_TIERS,
+  wasBought,
   OVERALL_LEVELS,
   badgeKeyLabel,
   badgesFrom,
@@ -276,4 +278,41 @@ test("a measured community count of zero SHOWS the track", () => {
   assert.equal(track?.nextAt, BADGE_TRACKS.find((t) => t.key === "community")?.thresholds[0]);
   // Still unearned, so it awards no key.
   assert.ok(!earnedBadgeKeys({ ...base, community: 0 }).some((k) => k.startsWith("community:")));
+});
+
+/*
+ * Who counts as having BOUGHT something (Founding Member).
+ *
+ * Nearly cost a paying member their badge: the Stripe webhook's
+ * missed-checkout heal writes the membership as `basic`/`pro` — the member
+ * LEVEL — rather than the plan bought, so a real customer with a receipt
+ * would have been read as a comp.
+ */
+
+test("the four sold plans count however they were recorded", () => {
+  for (const tier of PAID_TIERS) {
+    assert.ok(wasBought(tier, "stripe"));
+    // Source-independent: a plan tier is only ever written by a purchase.
+    assert.ok(wasBought(tier, "admin"));
+    assert.ok(wasBought(tier, null));
+  }
+});
+
+test("a member level counts only when it came from a payment", () => {
+  // The healed-checkout case: real money, recorded as a level.
+  assert.ok(wasBought("basic", "stripe"));
+  assert.ok(wasBought("pro", "ghl"));
+  // The comp case: same tier, granted by hand.
+  assert.ok(!wasBought("basic", "admin"));
+  assert.ok(!wasBought("pro", "zapier"));
+  assert.ok(!wasBought("basic", "tsls_import"));
+  assert.ok(!wasBought("basic", null));
+});
+
+test("granted tiers never count, whatever the source says", () => {
+  // A summit ticket, a gift, and a comped speaker are not purchases of this.
+  for (const tier of ["gift", "vip", "tsls_attendee", "tsls_vip", "speaker", "sponsor", "admin"]) {
+    assert.ok(!wasBought(tier, "stripe"), `${tier} must not read as bought`);
+    assert.ok(!wasBought(tier, "ghl"), `${tier} must not read as bought`);
+  }
 });

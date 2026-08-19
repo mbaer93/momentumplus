@@ -3,6 +3,12 @@ import { getCurrentMember } from "@/lib/current-member";
 import { getAnthropicApiKey } from "@/lib/service-config";
 import { createClient } from "@/lib/supabase/server";
 import { allowAction } from "@/lib/throttle";
+import {
+  extractReplyText,
+  isSendableHistory,
+  sanitizeChatHistory,
+  type ChatMessage,
+} from "@/lib/help-chat";
 
 /*
  * AI help chat: answers member questions about using Momentum+. Runs on the
@@ -36,11 +42,6 @@ Rules:
 - If asked something unrelated to Momentum+/TSLS, politely steer back to the platform.
 - Never invent features. If you're not sure something exists, say you're not sure and point them to the closest real feature.`;
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
 export async function POST(req: Request) {
   const member = await getCurrentMember();
   if (!member || !member.membershipActive) {
@@ -65,17 +66,8 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
-  const history = (body.messages ?? [])
-    .filter(
-      (m): m is ChatMessage =>
-        Boolean(m) &&
-        (m.role === "user" || m.role === "assistant") &&
-        typeof m.content === "string" &&
-        m.content.trim().length > 0,
-    )
-    .slice(-12)
-    .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
-  if (history.length === 0 || history[history.length - 1].role !== "user") {
+  const history = sanitizeChatHistory(body.messages);
+  if (!isSendableHistory(history)) {
     return NextResponse.json({ error: "Send a message first." }, { status: 400 });
   }
 
@@ -109,14 +101,7 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
-    const data = (await res.json()) as {
-      content?: { type: string; text?: string }[];
-    };
-    const reply = (data.content ?? [])
-      .filter((b) => b.type === "text" && b.text)
-      .map((b) => b.text)
-      .join("\n")
-      .trim();
+    const reply = extractReplyText(await res.json());
     return NextResponse.json({
       reply: reply || "Sorry — I didn't catch that. Could you rephrase?",
     });

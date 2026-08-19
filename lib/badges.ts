@@ -87,6 +87,30 @@ export const BADGE_TRACKS: BadgeTrackDef[] = [
   },
 ];
 
+/*
+ * What counts as having BOUGHT something.
+ *
+ * The four plans lib/pricing.ts sells are the obvious half. The other half
+ * is not obvious and nearly cost a paying member their badge: a checkout
+ * that Stripe has to heal (the webhook's missed-checkout path) writes the
+ * membership as `basic` or `pro` — the member LEVEL — rather than the plan
+ * they bought. Matt, 2026-08-19: "Basic is simply Momentum+ Member." So a
+ * real customer can hold a `basic` row and would have been read here as a
+ * comp, silently missing Founding Member with the receipt to disprove it.
+ *
+ * Hence the second rule: a member level counts when it arrived from a
+ * PAYMENT source. Stripe and GHL take money; admin, zapier, tsls_import,
+ * and sponsor are grants, and a granted `basic` is still a comp.
+ */
+export const PAID_TIERS = ["sub_monthly", "sub_3mo", "sub_6mo", "sub_annual"];
+const LEVEL_TIERS = ["basic", "pro"];
+const PAYMENT_SOURCES = ["stripe", "ghl"];
+
+export function wasBought(tier: string, source: string | null): boolean {
+  if (PAID_TIERS.includes(tier)) return true;
+  return LEVEL_TIERS.includes(tier) && PAYMENT_SOURCES.includes(source ?? "");
+}
+
 export type MilestoneKey = "summit" | "founding" | "certified";
 
 export interface MilestoneDef {
