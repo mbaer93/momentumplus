@@ -53,16 +53,19 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-      # SPLIT, and both bounded (2026-08-19). This was one
-      # `playwright install --with-deps chromium`, and its apt-get stalled
-      # on a package mirror for 24 minutes — past the job's own 20-minute
-      # cap — three times in one evening, each time leaving the PR amber
-      # with no signal and nothing to read. A stalled step now fails in
-      # five minutes, which is a red check someone can re-run, rather than
-      # an hour of silence.
-      - name: Install browser system deps
-        run: npx playwright install-deps chromium
-        timeout-minutes: 5
+      # NO `install-deps` (2026-08-19). It was the thing hanging, and the
+      # timeout added earlier that day finally produced a readable log:
+      # every library Chromium actually needs — libxkbcommon0, libxrandr2,
+      # libfontconfig1, libfreetype6, fonts-liberation — reported "already
+      # the newest version" on the runner image. The 21MB it then spent
+      # three minutes a package fetching was OPTIONAL CJK and Cyrillic
+      # fonts (ipafont, wqy-zenhei, unifont, xfonts-cyrillic), which an
+      # English-language suite renders nothing with.
+      #
+      # So the step was buying nothing and costing everything. If a real
+      # library ever does go missing from the image, the browser fails to
+      # launch in the test step — loud, immediate, and easy to read, which
+      # is more than the hang ever was.
       - name: Install Chromium
         run: npx playwright install chromium
         timeout-minutes: 5
@@ -109,16 +112,19 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-      # SPLIT, and both bounded (2026-08-19). This was one
-      # `playwright install --with-deps chromium`, and its apt-get stalled
-      # on a package mirror for 24 minutes — past the job's own 20-minute
-      # cap — three times in one evening, each time leaving the PR amber
-      # with no signal and nothing to read. A stalled step now fails in
-      # five minutes, which is a red check someone can re-run, rather than
-      # an hour of silence.
-      - name: Install browser system deps
-        run: npx playwright install-deps chromium
-        timeout-minutes: 5
+      # NO `install-deps` (2026-08-19). It was the thing hanging, and the
+      # timeout added earlier that day finally produced a readable log:
+      # every library Chromium actually needs — libxkbcommon0, libxrandr2,
+      # libfontconfig1, libfreetype6, fonts-liberation — reported "already
+      # the newest version" on the runner image. The 21MB it then spent
+      # three minutes a package fetching was OPTIONAL CJK and Cyrillic
+      # fonts (ipafont, wqy-zenhei, unifont, xfonts-cyrillic), which an
+      # English-language suite renders nothing with.
+      #
+      # So the step was buying nothing and costing everything. If a real
+      # library ever does go missing from the image, the browser fails to
+      # launch in the test step — loud, immediate, and easy to read, which
+      # is more than the hang ever was.
       - name: Install Chromium
         run: npx playwright install chromium
         timeout-minutes: 5
