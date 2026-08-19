@@ -252,6 +252,12 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "notifications", select: "id, title, body, link, read_at, created_at" },
   // app/(portal)/speaker/actions.ts
   { table: "notifications", select: "profile_id" },
+  // lib/offers.ts
+  { table: "offer_dismissals", select: "offer_id" },
+  // app/(portal)/admin/announcements/offer-actions.ts
+  { table: "offers", select: "id, title, body, cta_label, cta_url, audience_badges, audience_tiers, ends_at, active" },
+  // lib/offers.ts
+  { table: "offers", select: "id, title, body, cta_label, cta_url, ends_at, audience_badges, audience_tiers" },
   // app/(portal)/branching-out/actions.ts
   { table: "podcast_episode_progress", select: "completed, completed_at" },
   // lib/podcast.ts

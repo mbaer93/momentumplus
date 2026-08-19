@@ -1,4 +1,5 @@
 import { AnnouncementComposer } from "@/components/admin/AnnouncementComposer";
+import { OffersManager } from "@/components/admin/OffersManager";
 import {
   ScheduledAnnouncements,
   type ScheduledAnnouncementRow,
@@ -76,6 +77,10 @@ export default async function AdminAnnouncementsPage() {
 
       <div className="two-col" style={{ alignItems: "start" }}>
         <AnnouncementComposer />
+
+        {/* Targeted offers — the same audiences, shown in the app instead of
+            sent (Matt, 2026-08-19). */}
+        <OffersManager />
         <div style={{ display: "grid", gap: 16 }}>
           <ScheduledAnnouncements rows={scheduled} />
           <div className="card">
