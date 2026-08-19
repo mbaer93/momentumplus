@@ -348,6 +348,69 @@ export async function runHealthChecks(): Promise<HealthReport> {
     // Hundreds of statements need more than the 8s a single API call gets.
     PAGE_DATA_TIMEOUT_MS),
 
+    guard("Database functions", async () => {
+      if (!dbReady()) {
+        return skippedCheck("Database functions", "no database");
+      }
+      /*
+       * The three SECURITY DEFINER functions, probed for real (2026-08-19).
+       *
+       * "Page data queries" above covers every embedded select, but it
+       * cannot see an RPC — and these three are the ones nobody would
+       * notice breaking, because every caller degrades instead of failing:
+       *
+       *   auth_activity        → members page falls back to paging
+       *                          listUsers, which is slow but works
+       *   auth_user_id_by_email→ same fallback (lib/onboarding.ts)
+       *   auth_has_password    → fails CLOSED to "they have one", which
+       *                          silently restores the double-password-ask
+       *                          Rob hit (0095)
+       *
+       * So a revoked grant, a search_path change, or a migration rolled
+       * back leaves no symptom until a member reports one. That is exactly
+       * the shape of the sign-in bugs that cost us August; this turns them
+       * into a red row on Admin → Connections instead.
+       *
+       * Called with arguments that match nothing — an empty uuid array and
+       * an address no account can hold. A working function returns empty;
+       * a missing or unreachable one errors. Nothing is read about any real
+       * member to run this.
+       */
+      const admin = createServiceClient();
+      const probes: [string, () => Promise<{ error: unknown }>][] = [
+        ["auth_activity", async () => await admin.rpc("auth_activity", { ids: [] })],
+        [
+          "auth_has_password",
+          async () => await admin.rpc("auth_has_password", { ids: [] }),
+        ],
+        [
+          "auth_user_id_by_email",
+          async () =>
+            await admin.rpc("auth_user_id_by_email", {
+              p_email: "healthcheck@invalid",
+            }),
+        ],
+      ];
+      const results = await Promise.all(
+        probes.map(async ([name, run]) => {
+          try {
+            const { error } = await run();
+            const message = (error as { message?: string } | null)?.message;
+            return message ? `${name}: ${message}` : null;
+          } catch (e) {
+            return `${name}: ${e instanceof Error ? e.message : "failed"}`;
+          }
+        }),
+      );
+      const broken = results.filter((r): r is string => r !== null);
+      if (broken.length > 0) throw new Error(broken.join(" | "));
+      return {
+        name: "Database functions",
+        ok: true,
+        note: `all ${probes.length} auth functions answer`,
+      };
+    }),
+
     guard("Public pages", async () => {
       const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
       if (!base) {
