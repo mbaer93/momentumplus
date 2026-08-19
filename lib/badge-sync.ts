@@ -1,3 +1,4 @@
+import { allRows } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { badgeCountsForMany } from "@/lib/badge-queries";
@@ -46,11 +47,18 @@ export async function syncMemberBadges(
      * membership has nothing to have earned, and the members table is the
      * same population every other badge surface counts.
      */
-    const { data, error } = await admin
-      .from("memberships")
-      .select("profile_id");
-    if (error) return { ...empty, error: error.message };
-    ids = [...new Set((data ?? []).map((r) => String(r.profile_id)))];
+    /*
+     * PAGED. A plain select stops at PostgREST's row ceiling without saying
+     * so, and the failure is invisible in exactly the wrong way: the sync
+     * reports success, having simply never looked at the members past the
+     * cut. A member it never scanned is a badge never awarded, a tag never
+     * pushed, and an offer they never see.
+     */
+    const { rows, error } = await allRows<{ profile_id: string }>((from, to) =>
+      admin.from("memberships").select("profile_id").order("profile_id").range(from, to),
+    );
+    if (error) return { ...empty, error };
+    ids = [...new Set(rows.map((r) => String(r.profile_id)))];
   }
   ids = [...new Set(ids)];
   if (ids.length === 0) return empty;
@@ -60,16 +68,26 @@ export async function syncMemberBadges(
 
   for (let i = 0; i < ids.length; i += BATCH) {
     const slice = ids.slice(i, i + BATCH);
+    /*
+     * Paged as well: 200 members can hold well over a thousand badge rows
+     * between them, and a truncated "already held" set makes the sync
+     * re-offer badges it has already written. Harmless (the unique index
+     * absorbs them) but it inflates the awarded count into a lie.
+     */
     const [counts, existing] = await Promise.all([
       badgeCountsForMany(slice),
-      admin
-        .from("member_badges")
-        .select("profile_id, badge_key")
-        .in("profile_id", slice),
+      allRows<{ profile_id: string; badge_key: string }>((from, to) =>
+        admin
+          .from("member_badges")
+          .select("profile_id, badge_key")
+          .in("profile_id", slice)
+          .order("profile_id")
+          .range(from, to),
+      ),
     ]);
 
     const held = new Map<string, Set<string>>();
-    for (const row of existing.data ?? []) {
+    for (const row of existing.rows) {
       const id = String(row.profile_id);
       const set = held.get(id) ?? new Set<string>();
       set.add(String(row.badge_key));
@@ -118,17 +136,24 @@ export async function profilesWithBadges(
   ) {
     return out;
   }
-  const { data, error } = await createServiceClient()
-    .from("member_badges")
-    .select("profile_id")
-    .in("badge_key", keys);
+  const admin = createServiceClient();
+  // Paged for the same reason the audience query in announcements-delivery
+  // is: a truncated audience silently drops the people at the end of it.
+  const { rows, error } = await allRows<{ profile_id: string }>((from, to) =>
+    admin
+      .from("member_badges")
+      .select("profile_id")
+      .in("badge_key", keys)
+      .order("profile_id")
+      .range(from, to),
+  );
   /*
    * Fails CLOSED — an empty set, not "everyone". This feeds who gets
    * messaged and who gets an offer; a read error must never widen an
    * audience beyond what was chosen.
    */
   if (error) return new Set();
-  for (const row of data ?? []) out.add(String(row.profile_id));
+  for (const row of rows) out.add(String(row.profile_id));
   return out;
 }
 
@@ -137,12 +162,15 @@ export async function badgeHolderCounts(): Promise<Record<string, number>> {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return {};
   }
-  const { data, error } = await createServiceClient()
-    .from("member_badges")
-    .select("badge_key");
+  // Paged: this is the number an admin reads before aiming an offer, and a
+  // silently truncated count would understate a segment without saying so.
+  const admin = createServiceClient();
+  const { rows, error } = await allRows<{ badge_key: string }>((from, to) =>
+    admin.from("member_badges").select("badge_key").order("badge_key").range(from, to),
+  );
   if (error) return {};
   const out: Record<string, number> = {};
-  for (const row of data ?? []) {
+  for (const row of rows) {
     const key = String(row.badge_key);
     out[key] = (out[key] ?? 0) + 1;
   }
