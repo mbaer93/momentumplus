@@ -1098,3 +1098,157 @@ export async function mergeSpeakers(
     message: `Merged "${String(drop.name)}" into "${String(keep.name)}".${moved}`,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Speaker access expiring before the summit (2026-08-19)
+// ---------------------------------------------------------------------------
+
+export interface SpeakerExpiryDrift {
+  membershipId: string;
+  profileId: string;
+  name: string;
+  email: string;
+  /** What their portal access currently ends. */
+  currentExpiry: string;
+  /** What it should be — their speaker row's season end. */
+  correctExpiry: string;
+}
+
+/**
+ * Speakers whose MEMBERSHIP expires before their SPEAKER RECORD does.
+ *
+ * The bridge granted speakers `nextOctoberFirst()`, which from any date
+ * before October is October 1 of the SAME year — so speakers provisioned
+ * for the 2026 summit had portal access ending thirteen days before the
+ * summit they were speaking at. The route now uses seasonEnd(), but that
+ * only changes what FUTURE provisioning writes; rows already stored keep
+ * the wrong date until something repairs them. This finds them.
+ *
+ * The comparison is against the speaker's OWN season end, not against a
+ * date computed here. A speaker row is written by the onboarding flows and
+ * by admin lifecycle actions, both of which use the season clock, so it is
+ * the authority on when this person's season ends — and a speaker whose
+ * season genuinely ends this October (they joined last season) must not be
+ * "repaired" into another year of access.
+ */
+export async function findSpeakerExpiryDrift(): Promise<{
+  ok: boolean;
+  message?: string;
+  rows: SpeakerExpiryDrift[];
+}> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: true, rows: [] };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message, rows: [] };
+
+  const admin = createServiceClient();
+  const { data: speakers, error: speakerError } = await admin
+    .from("speakers")
+    .select("profile_id, name, expires_at, archived_at")
+    .not("profile_id", "is", null)
+    .is("archived_at", null);
+  if (speakerError) return { ok: false, message: speakerError.message, rows: [] };
+
+  const byProfile = new Map(
+    (speakers ?? [])
+      .filter((s) => s.expires_at)
+      .map((s) => [
+        String(s.profile_id),
+        { name: String(s.name ?? ""), expiresAt: String(s.expires_at) },
+      ]),
+  );
+  if (byProfile.size === 0) return { ok: true, rows: [] };
+
+  const ids = [...byProfile.keys()];
+  const [{ data: memberships, error: membershipError }, { data: profiles }] =
+    await Promise.all([
+      admin
+        .from("memberships")
+        .select("id, profile_id, access_expires_at, status")
+        .eq("tier", "speaker")
+        .in("profile_id", ids)
+        .in("status", ["active", "past_due"]),
+      admin.from("profiles").select("id, email").in("id", ids),
+    ]);
+  if (membershipError) {
+    return { ok: false, message: membershipError.message, rows: [] };
+  }
+  const emailBy = new Map(
+    (profiles ?? []).map((p) => [String(p.id), String(p.email ?? "")]),
+  );
+
+  const rows: SpeakerExpiryDrift[] = [];
+  for (const m of memberships ?? []) {
+    const profileId = String(m.profile_id);
+    const speaker = byProfile.get(profileId);
+    const current = m.access_expires_at as string | null;
+    // A null expiry is open-ended access, not drift — leave it alone.
+    if (!speaker || !current) continue;
+    if (current >= speaker.expiresAt) continue;
+    rows.push({
+      membershipId: String(m.id),
+      profileId,
+      name: speaker.name,
+      email: emailBy.get(profileId) ?? "",
+      currentExpiry: current,
+      correctExpiry: speaker.expiresAt,
+    });
+  }
+  return { ok: true, rows };
+}
+
+/**
+ * Extend those memberships to match their speaker record.
+ *
+ * Only ever EXTENDS: every row is re-checked here rather than trusting a
+ * list the browser sent back, so a stale page cannot shorten anyone's
+ * access, and a row that has since been fixed by hand is skipped instead of
+ * being written twice.
+ */
+export async function fixSpeakerExpiryDrift(): Promise<AdminResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: true, preview: true, message: "Fixed (preview mode)." };
+  }
+  const auth = await requireAdmin("members");
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const found = await findSpeakerExpiryDrift();
+  if (!found.ok) return { ok: false, message: found.message };
+  if (found.rows.length === 0) {
+    return { ok: true, message: "Nothing to fix — every speaker's access already runs to their season end." };
+  }
+
+  const admin = createServiceClient();
+  const { logAdminAction } = await import("@/lib/admin-audit");
+  let fixed = 0;
+  const failed: string[] = [];
+  for (const row of found.rows) {
+    const { error } = await admin
+      .from("memberships")
+      .update({ access_expires_at: row.correctExpiry, status: "active" })
+      .eq("id", row.membershipId);
+    if (error) {
+      failed.push(`${row.name || row.email}: ${error.message}`);
+      continue;
+    }
+    fixed += 1;
+    await logAdminAction({
+      actorId: auth.userId,
+      actorEmail: auth.userEmail,
+      action: "speaker.access_extended",
+      targetProfileId: row.profileId,
+      targetEmail: row.email,
+      detail: `${row.currentExpiry} → ${row.correctExpiry} (bridge grant used the wrong season clock)`,
+    });
+  }
+
+  revalidatePath("/admin/speakers");
+  revalidatePath("/admin/members");
+  return {
+    ok: failed.length === 0,
+    message:
+      `Extended ${fixed} speaker${fixed === 1 ? "" : "s"} to their season end.` +
+      (failed.length > 0 ? ` ${failed.length} failed: ${failed.slice(0, 3).join("; ")}` : ""),
+  };
+}

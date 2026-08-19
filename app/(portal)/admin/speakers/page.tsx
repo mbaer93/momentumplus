@@ -5,6 +5,7 @@ import {
   type DuplicateGroup,
 } from "@/components/admin/DuplicateSpeakersPanel";
 import { InviteAllSpeakersButton } from "@/components/admin/InviteAllSpeakersButton";
+import { SpeakerExpiryPanel } from "@/components/admin/SpeakerExpiryPanel";
 import {
   SpeakerLifecyclePanel,
   type PastSpeakerRow,
@@ -86,6 +87,14 @@ export default async function AdminSpeakersPage(
   }[] = [];
   let isSuper = false;
   let uninvitedCount = 0;
+  /*
+   * Speakers whose membership expires before their speaker season does —
+   * the rows the bridge wrote on the wrong clock. Read on every load so the
+   * panel disappears by itself once they are fixed (or fixed by hand).
+   */
+  let expiryDrift: Awaited<
+    ReturnType<typeof import("./actions").findSpeakerExpiryDrift>
+  >["rows"] = [];
 
   if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createServiceClient();
@@ -346,6 +355,9 @@ export default async function AdminSpeakersPage(
           speakerEmails.has(email) || speakerProfileEmails.has(email),
       };
     });
+
+    const { findSpeakerExpiryDrift } = await import("./actions");
+    expiryDrift = (await findSpeakerExpiryDrift()).rows;
 
     const access = await getAdminAccess();
     isSuper = access?.role === "super";
