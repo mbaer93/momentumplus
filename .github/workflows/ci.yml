@@ -43,7 +43,29 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Browsers are ~150MB and the download is the slow half of this job;
+      # the deps step below is the half that HANGS. Cached on the resolved
+      # Playwright version, so a version bump invalidates it and nothing
+      # else does.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+      # SPLIT, and both bounded (2026-08-19). This was one
+      # `playwright install --with-deps chromium`, and its apt-get stalled
+      # on a package mirror for 24 minutes — past the job's own 20-minute
+      # cap — three times in one evening, each time leaving the PR amber
+      # with no signal and nothing to read. A stalled step now fails in
+      # five minutes, which is a red check someone can re-run, rather than
+      # an hour of silence.
+      - name: Install browser system deps
+        run: npx playwright install-deps chromium
+        timeout-minutes: 5
+      - name: Install Chromium
+        run: npx playwright install chromium
+        timeout-minutes: 5
       # Build as its own step, in the same preview env the suite serves under,
       # so a slow cold build can't burn the webServer readiness timeout (that
       # deadline shrank as the app grew and started failing CI mid-compile).
@@ -77,7 +99,29 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Browsers are ~150MB and the download is the slow half of this job;
+      # the deps step below is the half that HANGS. Cached on the resolved
+      # Playwright version, so a version bump invalidates it and nothing
+      # else does.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+      # SPLIT, and both bounded (2026-08-19). This was one
+      # `playwright install --with-deps chromium`, and its apt-get stalled
+      # on a package mirror for 24 minutes — past the job's own 20-minute
+      # cap — three times in one evening, each time leaving the PR amber
+      # with no signal and nothing to read. A stalled step now fails in
+      # five minutes, which is a red check someone can re-run, rather than
+      # an hour of silence.
+      - name: Install browser system deps
+        run: npx playwright install-deps chromium
+        timeout-minutes: 5
+      - name: Install Chromium
+        run: npx playwright install chromium
+        timeout-minutes: 5
       # Same credential-free preview build the e2e suite uses: the audit only
       # needs rendered markup, and preview mode reaches every route without
       # a database.
