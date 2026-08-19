@@ -87,3 +87,68 @@ test("the page is never cached", async () => {
   assert.match(res.headers.get("cache-control") ?? "", /no-store/);
   assert.equal(res.headers.get("referrer-policy"), "no-referrer");
 });
+
+/*
+ * The /auth/callback fragment fallback (2026-08-19 audit).
+ *
+ * Which shape an emailed link arrives in depends on a Supabase email
+ * template that lives outside this repo. The implicit flow puts the whole
+ * session in the URL FRAGMENT — which is never sent to the server — so a
+ * route that only reads the query string sees an empty request, calls the
+ * link mangled, and throws away a working session. On go-live that would
+ * be every member at once, from a template change nobody made in code.
+ */
+
+async function callbackPage(query: string): Promise<Response> {
+  const { GET } = await import("../app/auth/callback/route");
+  return GET(new NextRequest(`https://momentumplus.co/auth/callback?${query}`));
+}
+
+test("a link with no code hands off to the browser instead of dying", async () => {
+  const res = await callbackPage("redirect=/welcome");
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  assert.match(html, /location\.hash/);
+  assert.match(html, /access_token/);
+  assert.match(html, /refresh_token/);
+});
+
+test("the handoff carries the redirect through", async () => {
+  const html = await (await callbackPage("redirect=/welcome")).text();
+  assert.match(html, /name="redirect" value="\/welcome"/);
+});
+
+test("an off-site redirect is refused before it reaches the form", async () => {
+  const html = await (
+    await callbackPage(`redirect=${encodeURIComponent("//evil.example.com")}`)
+  ).text();
+  assert.match(html, /name="redirect" value="\/dashboard"/);
+  assert.ok(!html.includes("evil.example.com"));
+});
+
+test("a recovery link that fails falls back to the reset form, not sign-in", async () => {
+  // Sending someone to a password box answers "invalid login credentials",
+  // which reads as "your password is wrong" and restarts the loop.
+  const html = await (await callbackPage("redirect=/welcome%3Fmode=reset")).text();
+  assert.match(html, /\/reset\?error=/);
+  assert.ok(!/\/login\?error=/.test(html));
+});
+
+test("the page works without JavaScript, and never caches", async () => {
+  const res = await callbackPage("redirect=/welcome");
+  const html = await res.text();
+  // A scanner or a JS-less browser must still be told what to do.
+  assert.match(html, /<noscript>/);
+  assert.match(res.headers.get("cache-control") ?? "", /no-store/);
+  assert.equal(res.headers.get("referrer-policy"), "no-referrer");
+});
+
+test("a scanner fetching the bare URL submits nothing", async () => {
+  /*
+   * The script only submits when a fragment actually carries tokens, and a
+   * scanner's fetch has no fragment — so unlike the auto-submit that broke
+   * /auth/confirm, this one cannot spend anything.
+   */
+  const html = await (await callbackPage("redirect=/welcome")).text();
+  assert.match(html, /if \(at && rt\)/);
+});

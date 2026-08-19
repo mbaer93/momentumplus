@@ -68,6 +68,17 @@ export async function GET(req: NextRequest) {
         the function limit and Supabase's invite-email rate; the 30-minute
         cadence drains the rest (350 October registrants ≈ a few hours). */
     deferredToNextRun: 0,
+    /*
+     * Accounts created WITHOUT their invite email, because Supabase
+     * throttled the send. The member exists and is never lost — but they
+     * were told nothing, and `imported` counts them as a success. On a
+     * launch-day burst that silence is the whole failure: hundreds of
+     * accounts, no emails, and a summary reading imported=N (2026-08-19
+     * audit). Counted and named so Admin → Connections shows it and the
+     * invites can be re-sent.
+     */
+    createdWithoutEmail: 0,
+    notEmailed: [] as string[],
   };
 
   // Cap ATTEMPTED rows per run (already-imported skips are free).
@@ -140,6 +151,11 @@ export async function GET(req: NextRequest) {
                 row.name,
               );
               profileId = created.profileId;
+              if (profileId) {
+                summary.createdWithoutEmail++;
+                // Redacted: this is a log line, not a support ticket.
+                summary.notEmailed.push(redactEmail(row.email));
+              }
             } catch {
               profileId = null;
             }
@@ -206,7 +222,10 @@ export async function GET(req: NextRequest) {
   // Scheduled-jobs probe reads these to spot a silently dead import.
   await recordCronRun(
     "tsls-import",
-    `imported=${summary.imported} errors=${summary.errors.length}`,
+    `imported=${summary.imported} errors=${summary.errors.length}` +
+      (summary.createdWithoutEmail > 0
+        ? ` · ${summary.createdWithoutEmail} created WITHOUT an invite email (email throttled) — re-send from Admin → Members`
+        : ""),
   );
   return NextResponse.json({ ok: true, eventYear, ...summary });
 }
