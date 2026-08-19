@@ -18,10 +18,14 @@ describe("planToTier", () => {
     // "vip" now means the July 2026 member level (free Basic-level, 3 months);
     // the old TSLS VIP tier is reachable as "tslsvip".
     assert.deepEqual(planToTier("VIP"), { tier: "vip", months: 3 });
-    assert.deepEqual(planToTier("tslsvip"), { tier: "tsls_vip", months: 12 });
+    // A TSLS ticket buys 1 month (General Admission) or 3 (VIP) — Matt,
+    // 2026-08-19, matching SPEC §2. Both said 12 here until then, which is
+    // how the wrong grant survived: the test agreed with the bug.
+    // tests/tsls-grants.test.ts now checks these against SPEC.md itself.
+    assert.deepEqual(planToTier("tslsvip"), { tier: "tsls_vip", months: 3 });
     assert.deepEqual(planToTier("attendee"), {
       tier: "tsls_attendee",
-      months: 12,
+      months: 1,
     });
   });
 

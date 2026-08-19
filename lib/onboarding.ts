@@ -99,11 +99,23 @@ export function planToTier(plan: string): { tier: Tier; months: number } | null 
     case "yearly":
     case "1year":
       return { tier: "sub_annual", months: 12 };
+    /*
+     * TSLS ticket → free Momentum+ membership (Matt, 2026-08-19):
+     * "General Admission gets one month free access to Momentum+ as a
+     * Momentum+ Member. VIP gets 3 months."
+     *
+     * Both said 12 until now, which came in with PR #171 and contradicted
+     * SPEC.md's own tier table. Nothing caught it because a grant that is
+     * eleven months too long looks exactly like a correct one on every
+     * screen — the member is simply a member. On ~350 October registrants
+     * that is eleven extra months each of a $198/month product, given away
+     * silently. tests/tsls-grants.test.ts now pins both numbers.
+     */
     case "attendee":
     case "tslsattendee":
-      return { tier: "tsls_attendee", months: 12 };
+      return { tier: "tsls_attendee", months: 1 };
     case "tslsvip":
-      return { tier: "tsls_vip", months: 12 };
+      return { tier: "tsls_vip", months: 3 };
     // Member levels (July 2026): basic paid; gift = free Basic 1 month;
     // vip = free Basic-level 3 months; pro = everything.
     case "basic":
@@ -209,6 +221,34 @@ export async function createAccountWithoutEmail(
       : (linkData?.properties?.action_link ?? null),
     error: null,
   };
+}
+
+/**
+ * A one-time sign-in link that lands on /welcome to set a password.
+ *
+ * For accounts provisioned quietly — a TSLS guest whose account was created
+ * when they bought their ticket and who has never been emailed — this is the
+ * only way in: they have no password to be asked for.
+ *
+ * `token_hash` rather than the raw action_link, deliberately. That shape is
+ * device-independent and survives a corporate mail scanner following the URL
+ * (see app/auth/confirm/route.ts); the PKCE `?code=` shape does not, which is
+ * how Rob's links kept failing in August.
+ */
+export async function mintWelcomeLink(email: string): Promise<string | null> {
+  const admin = createServiceClient();
+  const siteUrl = await requestSiteUrl();
+  const { data } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: {
+      redirectTo: siteUrl ? `${siteUrl}/auth/callback?redirect=/welcome` : undefined,
+    },
+  });
+  const hashed = data?.properties?.hashed_token;
+  return hashed
+    ? `${siteUrl ?? ""}/auth/confirm?token_hash=${hashed}&type=recovery&redirect=/welcome`
+    : (data?.properties?.action_link ?? null);
 }
 
 /** Park a gift until its start date (the month of the event). */

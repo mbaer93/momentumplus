@@ -362,7 +362,9 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "resources", select: "title, description, url, image_url" },
   // app/(portal)/admin/resources/actions.ts
   { table: "resources", select: "url" },
-  // app/api/cron/gift-activate/route.ts
+  // app/api/bridge/reveal/route.ts
+  { table: "scheduled_gifts", select: "id" },
+  // app/api/bridge/reveal/route.ts
   { table: "scheduled_gifts", select: "id, profile_id, email, name, tier, months, starts_at, source" },
   // lib/onboarding.ts
   { table: "scheduled_gifts", select: "id, starts_at, tier, months" },
