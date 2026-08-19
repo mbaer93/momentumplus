@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { PASSWORD_RULES } from "@/lib/password";
+import { PASSWORD_HINT, PASSWORD_RULES, passwordProgress } from "@/lib/password";
 
 /*
  * A password box that tells you where you stand while you type (Rob, via
@@ -55,6 +55,9 @@ export function PasswordField({
   }));
   const metCount = results.filter((r) => r.met).length;
   const allMet = metCount === results.length;
+  // Partial credit, so the bar grows with each character rather than
+  // sitting empty and snapping to full at the minimum length.
+  const progress = passwordProgress(value);
 
   // Only speak up once there is something to say — an empty box is not a
   // failure, and a wall of red before the first keystroke is hostile.
@@ -121,7 +124,7 @@ export function PasswordField({
           >
             <div
               style={{
-                width: `${(metCount / results.length) * 100}%`,
+                width: `${progress * 100}%`,
                 height: "100%",
                 background: allMet
                   ? "var(--accent-green-on-dark, #7FC9A2)"
@@ -164,12 +167,27 @@ export function PasswordField({
             ))}
           </ul>
 
+          {/* The policy is one rule now, so the checklist alone says only
+              "longer". This says what actually makes a long password good —
+              the guidance that replaces the character-class rules rather
+              than leaving a gap where they were. */}
+          <p
+            style={{
+              fontSize: 11.5,
+              lineHeight: 1.5,
+              color: "var(--mid-gray, #b0a99e)",
+              margin: "7px 0 0",
+            }}
+          >
+            {PASSWORD_HINT}
+          </p>
+
           {/* One live region, so a screen reader hears progress once rather
               than on every keystroke of every rule. */}
           <p aria-live="polite" className="sr-only">
             {touched
               ? allMet
-                ? "Password meets every requirement."
+                ? "Password meets the requirement."
                 : `${metCount} of ${results.length} requirements met.`
               : ""}
           </p>

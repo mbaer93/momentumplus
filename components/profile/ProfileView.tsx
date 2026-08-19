@@ -7,7 +7,7 @@ import Link from "next/link";
 import type { PrefDefinition, PrefRow } from "@/lib/notifications";
 import { PushSetup } from "./PushSetup";
 import { ToggleState } from "@/components/ToggleState";
-import { PASSWORD_HINT, checkPassword } from "@/lib/password";
+import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, checkPassword } from "@/lib/password";
 import {
   BillingControls,
   type BillingInfo,
@@ -582,7 +582,7 @@ export function ProfileView({
                         id="pw-next"
                         type="password"
                         autoComplete="new-password"
-                        minLength={8}
+                        minLength={PASSWORD_MIN_LENGTH}
                         value={pw.next}
                         onChange={(e) => setPw({ ...pw, next: e.target.value })}
                         placeholder="Choose a strong password"
@@ -594,7 +594,7 @@ export function ProfileView({
                         id="pw-confirm"
                         type="password"
                         autoComplete="new-password"
-                        minLength={8}
+                        minLength={PASSWORD_MIN_LENGTH}
                         value={pw.confirm}
                         onChange={(e) => setPw({ ...pw, confirm: e.target.value })}
                       />
@@ -606,7 +606,7 @@ export function ProfileView({
                   <button
                     type="submit"
                     className="btn-primary"
-                    disabled={pending || pw.next.length < 8 || !pw.current}
+                    disabled={pending || pw.next.length < PASSWORD_MIN_LENGTH || !pw.current}
                   >
                     {pending ? "Saving…" : "Change password"}
                   </button>
