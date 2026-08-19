@@ -62,7 +62,10 @@ export function PasswordField({
   const matches = mustMatch === undefined || value === mustMatch;
 
   return (
-    <div className="admin-field">
+    /* login-field, not admin-field: every use of this is on the dark login
+       card, and the admin label colour is near-black — 1.01:1 against that
+       ground, which the contrast gate caught before it reached anyone. */
+    <div className="login-field">
       <label htmlFor={fieldId}>
         {label}
         {required && <span aria-hidden="true"> *</span>}
@@ -120,7 +123,9 @@ export function PasswordField({
               style={{
                 width: `${(metCount / results.length) * 100}%`,
                 height: "100%",
-                background: allMet ? "var(--accent-green, #3A7055)" : "var(--gold, #B8965A)",
+                background: allMet
+                  ? "var(--accent-green-on-dark, #7FC9A2)"
+                  : "var(--gold, #B8965A)",
                 transition: "width 140ms linear",
               }}
             />
@@ -141,11 +146,11 @@ export function PasswordField({
               <li
                 key={r.label}
                 style={{
+                  // 8.02:1 on the login card; the brand green is 2.7:1
+                  // there and would fail the moment a rule went green.
                   color: r.met
-                    ? "var(--accent-green, #3A7055)"
-                    : touched
-                      ? "var(--mid-gray, #8A9099)"
-                      : "var(--mid-gray, #8A9099)",
+                    ? "var(--accent-green-on-dark, #7FC9A2)"
+                    : "var(--mid-gray, #b0a99e)",
                   display: "flex",
                   alignItems: "center",
                   gap: 5,
