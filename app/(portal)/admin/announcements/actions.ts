@@ -314,3 +314,70 @@ export async function cancelScheduledAnnouncement(
   revalidatePath("/admin/announcements");
   return { ok: true, message: "Scheduled announcement cancelled." };
 }
+
+/*
+ * Badge segments (Matt, 2026-08-19). Two things the composer needs that the
+ * badge chips alone can't answer: how many people each badge actually
+ * reaches, and a way to run the sync now rather than waiting for tonight's
+ * cron after marking someone or shipping a change.
+ */
+
+export interface BadgeSegment {
+  key: string;
+  label: string;
+  group: string;
+  holders: number;
+}
+
+export async function badgeSegments(): Promise<BadgeSegment[]> {
+  const { selectableBadges } = await import("@/lib/badges");
+  const base = selectableBadges();
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return base.map((b) => ({ ...b, holders: 0 }));
+  }
+  const auth = await requireAdmin("announcements");
+  if (!auth.ok) return [];
+  const { badgeHolderCounts } = await import("@/lib/badge-sync");
+  const counts = await badgeHolderCounts();
+  return base.map((b) => ({ ...b, holders: counts[b.key] ?? 0 }));
+}
+
+/** Re-evaluate every member's badges now, then push what's owed to GHL. */
+export async function runBadgeSync(): Promise<{
+  ok: boolean;
+  message: string;
+}> {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: true, message: "Preview mode — nothing synced." };
+  }
+  const auth = await requireAdmin("announcements");
+  if (!auth.ok) return { ok: false, message: auth.message ?? "Not allowed." };
+
+  const { syncMemberBadges } = await import("@/lib/badge-sync");
+  const result = await syncMemberBadges();
+  if (result.error) {
+    return {
+      ok: false,
+      message: /member_badges/.test(result.error)
+        ? "The badge table isn't there yet — run migration 0091."
+        : `Sync failed: ${result.error}`,
+    };
+  }
+
+  const { pushBadgeTags } = await import("@/lib/badge-ghl");
+  const tags = await pushBadgeTags();
+  revalidatePath("/admin/announcements");
+
+  const tagNote = tags.error
+    ? ` GHL tags skipped — ${tags.error}.`
+    : tags.tagged > 0
+      ? ` Tagged ${tags.contacts} contact${tags.contacts === 1 ? "" : "s"} in GHL.`
+      : "";
+  return {
+    ok: true,
+    message:
+      `Checked ${result.scanned} member${result.scanned === 1 ? "" : "s"}, ` +
+      `${result.awarded} badge${result.awarded === 1 ? "" : "s"} newly earned.` +
+      tagNote,
+  };
+}

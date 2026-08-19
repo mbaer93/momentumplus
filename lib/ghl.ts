@@ -48,6 +48,97 @@ export interface GhlContact {
   tags: string[];
 }
 
+/**
+ * The GHL contact tag for a badge key.
+ *
+ * Built from the KEY, never the label. Labels are product copy Matt rewrites
+ * ("In the Room" could become anything next month); a tag that follows the
+ * copy would orphan every GHL segment, workflow, and offer built on the old
+ * name the moment a word changed. The key is the thing we promised not to
+ * rename, so it is what the CRM sees.
+ *
+ *   attendance:gold     → momentum-attendance-gold
+ *   milestone:founding  → momentum-milestone-founding
+ *   level:committed     → momentum-level-committed
+ */
+export function badgeTag(badgeKey: string): string {
+  return `momentum-${badgeKey.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+}
+
+/**
+ * Find-or-create a GHL contact by email, returning its id.
+ *
+ * Members created by hand (admin grants, invites, comps) have no
+ * ghl_contact_id on their membership, and there is no point tagging a
+ * contact that does not exist yet.
+ */
+export async function upsertGhlContactId(
+  email: string,
+  opts?: { phone?: string | null; name?: string | null },
+): Promise<string | null> {
+  const { getGhlCreds } = await import("./service-config");
+  const creds = await getGhlCreds();
+  if (!creds.apiKey || !creds.locationId) return null;
+  try {
+    const res = await fetch(`${GHL_API_BASE}/contacts/upsert`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${creds.apiKey}`,
+        Version: "2021-07-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        locationId: creds.locationId,
+        email,
+        ...(opts?.phone ? { phone: opts.phone } : {}),
+        ...(opts?.name ? { name: opts.name } : {}),
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { contact?: { id?: string } };
+    return json.contact?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Add tags to a GHL contact. ADDITIVE — GHL's tag endpoint appends, so this
+ * cannot remove a tag someone set by hand in the CRM, and re-sending a tag
+ * the contact already has is a no-op.
+ */
+export async function addGhlTags(
+  contactId: string,
+  tags: string[],
+): Promise<{ ok: boolean; error?: string }> {
+  const clean = [...new Set(tags.filter(Boolean))];
+  if (clean.length === 0) return { ok: true };
+  const { getGhlCreds } = await import("./service-config");
+  const creds = await getGhlCreds();
+  if (!creds.apiKey) return { ok: false, error: "GHL not configured" };
+  try {
+    const res = await fetch(`${GHL_API_BASE}/contacts/${contactId}/tags`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${creds.apiKey}`,
+        Version: "2021-07-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tags: clean }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      return { ok: false, error: `GHL ${res.status}: ${await res.text()}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export async function getGhlContact(
   contactId: string,
 ): Promise<GhlContact | null> {

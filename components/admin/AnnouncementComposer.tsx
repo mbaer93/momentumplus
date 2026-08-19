@@ -5,9 +5,12 @@ import type { Tier } from "@/lib/types";
 import { tierLabel } from "@/lib/access";
 import { selectableBadges } from "@/lib/badges";
 import {
+  badgeSegments,
   previewAnnouncementAudience,
+  runBadgeSync,
   scheduleAnnouncement,
   sendAnnouncement,
+  type BadgeSegment,
 } from "@/app/(portal)/admin/announcements/actions";
 
 // The current member levels only, labeled from the same registry as
@@ -42,6 +45,11 @@ export function AnnouncementComposer() {
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [badges, setBadges] = useState<string[]>([]);
   const [showBadges, setShowBadges] = useState(false);
+  // Holder counts, loaded only when the picker is opened — a badge with two
+  // holders is a different decision from one with two hundred, and picking
+  // blind is how an "offer" reaches nobody.
+  const [segments, setSegments] = useState<BadgeSegment[] | null>(null);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [channels, setChannels] = useState<
     ("email" | "in_app" | "community" | "sms")[]
   >([]);
@@ -74,6 +82,15 @@ export function AnnouncementComposer() {
     setTiers((prev) =>
       prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t],
     );
+  }
+  function openBadges() {
+    const next = !showBadges;
+    setShowBadges(next);
+    if (next && segments === null) {
+      startTransition(async () => {
+        setSegments(await badgeSegments());
+      });
+    }
   }
   function toggleBadge(key: string) {
     disarm();
@@ -198,13 +215,32 @@ export function AnnouncementComposer() {
             {badges.length} badge{badges.length === 1 ? "" : "s"} selected
           </div>
         )}
-        <button
-          type="button"
-          className="btn-mini"
-          onClick={() => setShowBadges((v) => !v)}
-        >
-          {showBadges ? "Hide badges" : "Choose badges"}
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" className="btn-mini" onClick={openBadges}>
+            {showBadges ? "Hide badges" : "Choose badges"}
+          </button>
+          {showBadges && (
+            <button
+              type="button"
+              className="btn-mini"
+              disabled={pending}
+              title="Re-check everyone's badges now and push any new ones to GHL as contact tags. Otherwise this happens overnight."
+              onClick={() => {
+                setSyncMsg(null);
+                startTransition(async () => {
+                  const res = await runBadgeSync();
+                  setSyncMsg(res.message);
+                  setSegments(await badgeSegments());
+                });
+              }}
+            >
+              {pending ? "Syncing…" : "Sync badges now"}
+            </button>
+          )}
+        </div>
+        {syncMsg && (
+          <div style={{ fontSize: 12, marginTop: 8 }}>{syncMsg}</div>
+        )}
         {showBadges && (
           <div style={{ marginTop: 10 }}>
             {BADGE_GROUPS.map((g) => (
@@ -221,16 +257,24 @@ export function AnnouncementComposer() {
                   {g.group}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {g.items.map((b) => (
-                    <button
-                      type="button"
-                      key={b.key}
-                      className={`tier-chip${badges.includes(b.key) ? " selected" : ""}`}
-                      onClick={() => toggleBadge(b.key)}
-                    >
-                      {b.label}
-                    </button>
-                  ))}
+                  {g.items.map((b) => {
+                    const holders = segments?.find(
+                      (s) => s.key === b.key,
+                    )?.holders;
+                    return (
+                      <button
+                        type="button"
+                        key={b.key}
+                        className={`tier-chip${badges.includes(b.key) ? " selected" : ""}`}
+                        onClick={() => toggleBadge(b.key)}
+                      >
+                        {b.label}
+                        {holders !== undefined && (
+                          <span style={{ opacity: 0.7 }}> · {holders}</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}

@@ -160,6 +160,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "lesson_progress", select: "profile_id, lesson_id" },
   // lib/badge-sync.ts
   { table: "member_badges", select: "badge_key" },
+  // lib/badge-ghl.ts
+  { table: "member_badges", select: "id, profile_id, badge_key" },
   // lib/badge-sync.ts
   { table: "member_badges", select: "profile_id" },
   // lib/badge-queries.ts
