@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 // path of every build and every deploy.
 import "./fonts.css";
 import "./globals.css";
+import { ClientErrorWatch } from "@/components/ClientErrorWatch";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
 
@@ -72,7 +73,13 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {/* Reports crashes React's boundaries never see — anything thrown
+            from an event handler, a server action, or an async callback.
+            Renders nothing; see the component for why it exists. */}
+        <ClientErrorWatch />
+        {children}
+      </body>
     </html>
   );
 }
