@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   BADGE_TRACKS,
+  foundingCohort,
   PAID_TIERS,
   wasBought,
   OVERALL_LEVELS,
@@ -315,4 +316,122 @@ test("granted tiers never count, whatever the source says", () => {
     assert.ok(!wasBought(tier, "stripe"), `${tier} must not read as bought`);
     assert.ok(!wasBought(tier, "ghl"), `${tier} must not read as bought`);
   }
+});
+
+/*
+ * The founding cohort: first 100, or October 1 2027, whichever comes first
+ * (Matt, 2026-08-19).
+ *
+ * The cap makes this the only badge that cannot be decided from one
+ * member's own rows — whether you are the hundredth or the hundred-and-
+ * first depends on people you have never met. It is also permanent once
+ * awarded, so an over-award cannot be taken back.
+ */
+
+const at = (iso: string, id: string) => ({ profileId: id, paidAt: iso });
+
+test("everyone inside the window qualifies while there is room", () => {
+  const cohort = foundingCohort([
+    at("2026-10-14T00:00:00Z", "a"),
+    at("2027-05-01T00:00:00Z", "b"),
+    at("2027-10-01T23:59:59Z", "c"),
+  ]);
+  assert.deepEqual([...cohort].sort(), ["a", "b", "c"]);
+});
+
+test("the window is closed at both ends", () => {
+  const cohort = foundingCohort([
+    at("2026-10-13T23:59:59Z", "early"), // the day before go-live
+    at("2027-10-02T00:00:00Z", "late"), // the day after it closes
+    at("2026-10-14T00:00:00Z", "first"),
+  ]);
+  assert.deepEqual([...cohort], ["first"]);
+});
+
+test("the cap takes the EARLIEST hundred, not the first hundred seen", () => {
+  // Rows arrive in whatever order the database returns them; the cohort is
+  // the people who paid first, not the people who were read first.
+  const late = Array.from({ length: 100 }, (_, i) =>
+    at("2027-01-01T00:00:00Z", `late-${i}`),
+  );
+  const early = at("2026-10-14T00:00:00Z", "early-bird");
+  const cohort = foundingCohort([...late, early], { cap: 100 });
+  assert.ok(cohort.has("early-bird"));
+  assert.equal(cohort.size, 100);
+});
+
+test("the hundred-and-first misses out", () => {
+  const many = Array.from({ length: 101 }, (_, i) =>
+    // Ascending by minute, so the order is unambiguous.
+    at(new Date(Date.parse("2026-10-14T00:00:00Z") + i * 60_000).toISOString(), `m${i}`),
+  );
+  const cohort = foundingCohort(many, { cap: 100 });
+  assert.equal(cohort.size, 100);
+  assert.ok(cohort.has("m0"));
+  assert.ok(!cohort.has("m100"));
+});
+
+test("a member is ranked by their FIRST payment, and counted once", () => {
+  // Renewals must not push someone down the order, and must not consume two
+  // of the hundred slots.
+  const cohort = foundingCohort(
+    [
+      at("2026-10-14T00:00:00Z", "renewer"),
+      at("2027-01-01T00:00:00Z", "renewer"),
+      at("2026-10-15T00:00:00Z", "other"),
+    ],
+    { cap: 2 },
+  );
+  assert.deepEqual([...cohort].sort(), ["other", "renewer"]);
+});
+
+test("a tie breaks the same way every run", () => {
+  /*
+   * Two people paying in the same second is not hypothetical at launch. If
+   * the tiebreak were the database's row order, the hundredth member would
+   * be whoever was returned first tonight — and could differ tomorrow, on
+   * a badge that is permanent once awarded.
+   */
+  const same = "2026-10-14T09:00:00Z";
+  const a = foundingCohort([at(same, "zzz"), at(same, "aaa")], { cap: 1 });
+  const b = foundingCohort([at(same, "aaa"), at(same, "zzz")], { cap: 1 });
+  assert.deepEqual([...a], [...b]);
+  assert.deepEqual([...a], ["aaa"]);
+});
+
+test("junk rows cannot take a slot", () => {
+  const cohort = foundingCohort(
+    [
+      { profileId: "", paidAt: "2026-10-14T00:00:00Z" },
+      { profileId: "real", paidAt: "" },
+      at("2026-10-14T00:00:00Z", "genuine"),
+    ],
+    { cap: 100 },
+  );
+  assert.deepEqual([...cohort], ["genuine"]);
+});
+
+test("an empty population is an empty cohort, not everyone", () => {
+  assert.equal(foundingCohort([]).size, 0);
+});
+
+test("the same instant qualifies however it is spelled", () => {
+  /*
+   * Caught by the test above before this rule ever shipped. These are all
+   * go-live exactly, and string comparison ranks two of them OUTSIDE the
+   * window — "." sorts under "Z", so "…T00:00:00.000Z" reads as earlier
+   * than "…T00:00:00Z". Postgres returns the offset form, so the member who
+   * paid at the stroke of launch is precisely who would have lost the badge.
+   */
+  for (const spelling of [
+    "2026-10-14T00:00:00Z",
+    "2026-10-14T00:00:00.000Z",
+    "2026-10-14T00:00:00+00:00",
+    "2026-10-13T20:00:00-04:00", // the same instant, Eastern
+  ]) {
+    const cohort = foundingCohort([at(spelling, "paid-at-launch")]);
+    assert.equal(cohort.size, 1, `${spelling} should qualify`);
+  }
+  // And the instant before go-live still does not, in any spelling.
+  assert.equal(foundingCohort([at("2026-10-13T23:59:59.999Z", "early")]).size, 0);
 });
