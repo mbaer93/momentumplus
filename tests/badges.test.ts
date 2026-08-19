@@ -261,3 +261,19 @@ test("every selectable badge has a label that isn't its key", () => {
     assert.ok(badgeKeyLabel(b.key).startsWith(b.label));
   }
 });
+
+test("a measured community count of zero SHOWS the track", () => {
+  /*
+   * The mirror of the null case, and the whole point of migration 0094:
+   * null means "we cannot count this" and hides the track, 0 means "you
+   * have not posted yet" and shows what the first badge would take. Collapse
+   * the two and the track either lies or vanishes.
+   */
+  const badges = badgesFrom({ ...base, community: 0 });
+  const track = badges.tracks.find((t) => t.key === "community");
+  assert.ok(track, "a counted-but-quiet member should see the track");
+  assert.equal(track?.count, 0);
+  assert.equal(track?.nextAt, BADGE_TRACKS.find((t) => t.key === "community")?.thresholds[0]);
+  // Still unearned, so it awards no key.
+  assert.ok(!earnedBadgeKeys({ ...base, community: 0 }).some((k) => k.startsWith("community:")));
+});

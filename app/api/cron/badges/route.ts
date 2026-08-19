@@ -28,6 +28,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
 
+  /*
+   * Community counts FIRST — the badge award below reads them, so pulling
+   * after would award every member last night's conversation.
+   */
+  const { syncCommunityCounts } = await import("@/lib/community-counts");
+  const community = await syncCommunityCounts();
+
   const result = await syncMemberBadges();
 
   /*
@@ -44,6 +51,12 @@ export async function GET(req: NextRequest) {
     result.error
       ? `failed: ${result.error}`
       : `${result.scanned} members, ${result.awarded} newly earned` +
+          (community.error
+            ? ` · community skipped (${community.error})`
+            : ` · ${community.messages} messages from ${community.members}` +
+              (community.truncated.length
+                ? ` (capped: ${community.truncated.join(", ")})`
+                : "")) +
           (tags.error
             ? ` · tags skipped (${tags.error})`
             : ` · ${tags.tagged} tags to ${tags.contacts} contacts` +
@@ -56,6 +69,7 @@ export async function GET(req: NextRequest) {
       scanned: result.scanned,
       awarded: result.awarded,
       newByKey: result.newByKey,
+      community,
       ghlTags: tags,
       ...(result.error ? { error: result.error } : {}),
     },

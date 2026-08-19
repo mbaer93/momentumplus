@@ -72,6 +72,10 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "app_settings", select: "key" },
   // app/api/cron/monthly-report/route.ts
   { table: "app_settings", select: "value" },
+  // lib/badge-queries.ts
+  { table: "community_message_counts", select: "profile_id" },
+  // lib/badge-queries.ts
+  { table: "community_message_counts", select: "profile_id, messages" },
   // lib/topics.ts
   { table: "content_topics", select: "id, name, slug, description, sort" },
   // app/(portal)/admin/education/actions.ts

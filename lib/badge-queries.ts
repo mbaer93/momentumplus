@@ -118,6 +118,39 @@ export async function badgeCountsForMany(
         .not("completed_at", "is", null),
     ]);
 
+  /*
+   * Community messages (0094). Stored by the Stream pull, not counted here.
+   *
+   * The distinction that matters is measured-but-zero versus not-measured:
+   * null hides the track entirely, 0 shows it as "1 more for Bronze". The
+   * table having ANY rows is what says the pull has run — a member with no
+   * row is then genuinely someone who has not posted, rather than someone
+   * we have not counted yet.
+   */
+  const community = await admin
+    .from("community_message_counts")
+    .select("profile_id, messages")
+    .in("profile_id", ids);
+  if (!community.error) {
+    const counted = new Map(
+      (community.data ?? []).map((r) => [String(r.profile_id), Number(r.messages) || 0]),
+    );
+    let everCounted = counted.size > 0;
+    if (!everCounted) {
+      // Nobody in this batch has posted. Has ANYONE? One cheap head count
+      // separates "quiet members" from "the pull has never run".
+      const { count } = await admin
+        .from("community_message_counts")
+        .select("profile_id", { count: "exact", head: true });
+      everCounted = (count ?? 0) > 0;
+    }
+    if (everCounted) {
+      for (const [id, target] of out) {
+        target.community = counted.get(id) ?? 0;
+      }
+    }
+  }
+
   for (const row of attendance.data ?? []) bump(String(row.profile_id), "attendance");
   for (const row of notes.data ?? []) {
     // An empty note row is created by opening the editor — it is not a note.
