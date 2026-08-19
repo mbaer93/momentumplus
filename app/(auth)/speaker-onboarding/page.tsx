@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignedInAs } from "@/components/auth/SignedInAs";
 import { getPendingSpeakerInvite } from "./actions";
 import { SpeakerOnboardingForm } from "./SpeakerOnboardingForm";
 
@@ -43,6 +44,8 @@ export default async function SpeakerOnboardingPage() {
           </Link>
         </div>
       )}
+      {/* The only exit from this page — it has no topbar. */}
+      <SignedInAs />
     </div>
   );
 }
