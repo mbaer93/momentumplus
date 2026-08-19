@@ -157,6 +157,13 @@
 .login-field input:focus {
   border-color: var(--gold);
 }
+/* The auth cards are navy: the light-surface placeholder colour below would
+   read 2.34:1 here. Dimmed white instead — 6.6:1 over this surface, and the
+   same "quieter than the value you type" role. */
+.login-field input::placeholder,
+.login-field textarea::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
 .login-badge {
   display: inline-flex;
   align-items: center;
@@ -445,6 +452,18 @@
 .topbar-search-link { display: none; }
 
 .topbar-search input::placeholder {
+  color: var(--ink-secondary);
+}
+
+/* Placeholder text is text: 1.4.3 applies to it like anything else, and the
+   browser default (Chrome paints #9ca3af) measures 2.54:1 on white. Found by
+   the contrast audit once its pseudo-state pass started running at all —
+   every ::placeholder rule had been skipped since CSS nesting shipped (#199).
+   --ink-secondary is the same warm-gray role at AA strength, 5.8:1 on white.
+   Surfaces with their own placeholder colour — the navy topbar search above,
+   the chat composer — are more specific and keep theirs. */
+input::placeholder,
+textarea::placeholder {
   color: var(--ink-secondary);
 }
 .topbar-icon-btn {
@@ -3958,12 +3977,18 @@ a.course-card:hover {
 .dm-picker-empty { padding: 14px; font-size: 13px; color: var(--ink-secondary); }
 
 /* ---- Certificate: signature, seal, and full-page print ---- */
+/* Her actual signature, not a script font (Matt, 2026-08-14). The asset is
+   black strokes on transparency, and this certificate prints on NAVY —
+   invert paints them cream without needing a second file, and alpha is
+   untouched by invert() so the antialiased edges stay soft. */
 .certificate-signature {
-  font-family: "Snell Roundhand", "Segoe Script", "Brush Script MT", cursive;
-  font-size: 32px;
-  color: #f8f6f1;
-  line-height: 1;
-  margin-bottom: 6px;
+  display: block;
+  height: 54px;
+  width: auto;
+  max-width: 300px;
+  object-fit: contain;
+  margin: 0 auto 6px;
+  filter: invert(1);
 }
 .certificate-seal {
   display: flex;

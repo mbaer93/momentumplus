@@ -39,6 +39,10 @@ export interface ProvisionInput {
       email. Used by the TSLS Companion bridge, where TSLS is the single
       inviter and members cross over via SSO — so nobody gets two emails. */
   quiet?: boolean;
+  /** Mark this account as a TEST account: full tier access, hidden from
+      every member-facing list (migration 0089). Set-only — see the upsert
+      below. */
+  tester?: boolean;
   /** Gift start (ISO). In the future → the account is created now but the
       gift itself waits in scheduled_gifts until the gift-activate cron
       applies it on that date (TSLS sends the first of the event month —
@@ -642,20 +646,48 @@ export async function provisionMember(
   }
 
   // Signup trigger races the invite; upsert keeps the name.
-  await admin.from("profiles").upsert(
-    {
-      id: profileId,
-      email,
-      ...(input.name?.trim() ? { full_name: input.name.trim() } : {}),
-    },
-    { onConflict: "id" },
-  );
+  const profileRow: Record<string, unknown> = {
+    id: profileId,
+    email,
+    ...(input.name?.trim() ? { full_name: input.name.trim() } : {}),
+  };
+  /*
+   * Only ever SET the flag, never clear it. An un-flagged provisioning run
+   * for someone already marked (a re-sync, a second grant) must not quietly
+   * turn a test account into a visible member — unmarking is a deliberate
+   * admin action, not a side effect of a webhook.
+   */
+  if (input.tester) {
+    profileRow.tester = true;
+    profileRow.tester_since = new Date().toISOString();
+  }
+  const { error: profileError } = await admin
+    .from("profiles")
+    .upsert(profileRow, { onConflict: "id" });
+  // Pre-migration-0089: retry without the tester columns rather than lose
+  // the name and email this upsert also carries.
+  if (profileError && /tester/i.test(profileError.message)) {
+    delete profileRow.tester;
+    delete profileRow.tester_since;
+    await admin.from("profiles").upsert(profileRow, { onConflict: "id" });
+  }
 
   // Gift with a future start (ticket bought before the event): the account
   // now exists, but the free months must not start until the month of the
   // event (Matt, 2026-07-30) — park the gift in scheduled_gifts for the
   // gift-activate cron and stop here.
-  const startAt = parseGiftStart(input.startAt);
+  /*
+   * A TESTER's gift starts NOW, whatever start date came with it.
+   *
+   * TSLS sends startAt = the first of the event month for every attendee
+   * gift, so a tester provisioned in August would get an account with no
+   * active membership until October 1 — i.e. the paywall, which is the one
+   * thing they cannot test through. Ignoring the date here rather than
+   * asking the sender to special-case it keeps the rule in one place: any
+   * caller that flags someone a tester gets a usable account, and there is
+   * no second thing to remember (Matt, 2026-08-14).
+   */
+  const startAt = input.tester ? null : parseGiftStart(input.startAt);
   if (isGiftTier(input.tier) && (input.months ?? 0) > 0 && isFutureStart(startAt)) {
     const scheduled = await scheduleGift({
       profileId,

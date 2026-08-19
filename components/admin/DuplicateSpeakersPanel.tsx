@@ -52,11 +52,13 @@ export function DuplicateSpeakersPanel({ groups }: { groups: DuplicateGroup[] })
         Possible duplicate speakers
       </h3>
       <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", marginBottom: 12 }}>
-        These rows resolve to the same person once titles, credentials and
-        punctuation are ignored — usually a TSLS pull that couldn&apos;t match an
-        existing listing. Keep the row with the real profile on it; the other
-        one&apos;s details fill any blanks and its sessions move across before it
-        is removed.
+        These rows look like one person: the same name once titles,
+        credentials and punctuation are ignored, or the same account or
+        contact email. Usually a TSLS pull that couldn&apos;t match an existing
+        listing, or a speaker who completed setup while already listed under a
+        different form of their name. Keep the row with the real profile on
+        it; the other one&apos;s details fill any blanks and its sessions move
+        across before it is removed.
       </p>
 
       {remaining.map((group) => (

@@ -123,7 +123,14 @@ export default async function AdminSpeakersPage(
     // the admin can tell which row is the real one before merging.
     const { findLikelyDuplicates } = await import("@/lib/tsls-speakers");
     const dupeGroups = findLikelyDuplicates(
-      all.map((s) => ({ id: String(s.id), name: String(s.name) })),
+      all.map((s) => ({
+        id: String(s.id),
+        name: String(s.name),
+        // A shared account or contact email is the signal that caught the
+        // pair name matching missed — see findLikelyDuplicates.
+        profileId: s.profile_id ?? null,
+        contactEmail: s.contact_email ?? null,
+      })),
     );
     if (dupeGroups.length > 0) {
       const dupeIds = dupeGroups.flatMap((g) => g.rows.map((r) => r.id));
@@ -299,12 +306,46 @@ export default async function AdminSpeakersPage(
         expiresAt: s.expires_at ?? null,
       }));
 
-    pendingInvites = (invites ?? []).map((i) => ({
-      id: i.id as string,
-      email: i.email as string,
-      displayName: (i.display_name as string) ?? "",
-      createdAt: i.created_at as string,
-    }));
+    /*
+     * An invite row stays open until the FORM is submitted, so signing in
+     * does not clear it — correct, but indistinguishable from a stale row
+     * left behind when setup completed by some other route (an existing
+     * speaker row, or a listing claimed by email). Cross-check each pending
+     * email against the speakers we already loaded: someone with a live
+     * speaker page has finished, whatever the invite row says (Matt,
+     * 2026-08-15).
+     */
+    const speakerEmails = new Set(
+      all
+        .filter((s) => isActive(s))
+        .map((s) => (s.contact_email ?? "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const speakerProfileEmails = new Set(
+      (
+        await admin
+          .from("profiles")
+          .select("email")
+          .in(
+            "id",
+            all
+              .filter((s) => isActive(s) && s.profile_id)
+              .map((s) => s.profile_id as string),
+          )
+      ).data?.map((p) => String(p.email ?? "").trim().toLowerCase()) ?? [],
+    );
+
+    pendingInvites = (invites ?? []).map((i) => {
+      const email = String(i.email ?? "").trim().toLowerCase();
+      return {
+        id: i.id as string,
+        email: i.email as string,
+        displayName: (i.display_name as string) ?? "",
+        createdAt: i.created_at as string,
+        alreadySetUp:
+          speakerEmails.has(email) || speakerProfileEmails.has(email),
+      };
+    });
 
     const access = await getAdminAccess();
     isSuper = access?.role === "super";

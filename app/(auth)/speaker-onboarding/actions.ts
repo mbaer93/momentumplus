@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { emailPattern } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -28,6 +29,59 @@ export interface SpeakerOnboardingInput {
   businessDescription: string;
   businessUrl: string;
   repPhone: string;
+}
+
+interface OwnedSpeakerRow {
+  id: string;
+  resourceId: string | null;
+  /** True when the row is already wired to this account, false when it is an
+      unclaimed listing matched only by email. Authorization reads this. */
+  linkedToProfile: boolean;
+}
+
+/**
+ * The speaker row this account already owns, by profile id first and then by
+ * an UNCLAIMED listing carrying the same contact email.
+ *
+ * `order(...).limit(1)` rather than `maybeSingle()` on the email lookup:
+ * maybeSingle treats two matches as an error and returns nothing, which here
+ * would mean "no listing found" and mint a third row for a person who already
+ * had two. Oldest first, so repeated runs converge on the same row instead of
+ * ping-ponging between them.
+ */
+async function findOwnSpeaker(
+  admin: ReturnType<typeof createServiceClient>,
+  user: { id: string; email?: string | null },
+): Promise<OwnedSpeakerRow | null> {
+  const { data: own } = await admin
+    .from("speakers")
+    .select("id, resource_id")
+    .eq("profile_id", user.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (own) {
+    return {
+      id: own.id as string,
+      resourceId: (own.resource_id as string | null) ?? null,
+      linkedToProfile: true,
+    };
+  }
+  if (!user.email) return null;
+  const { data: byEmail } = await admin
+    .from("speakers")
+    .select("id, resource_id")
+    .ilike("contact_email", emailPattern(user.email))
+    .is("profile_id", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!byEmail) return null;
+  return {
+    id: byEmail.id as string,
+    resourceId: (byEmail.resource_id as string | null) ?? null,
+    linkedToProfile: false,
+  };
 }
 
 export interface SpeakerOnboardingResult {
@@ -92,16 +146,55 @@ export async function completeSpeakerOnboarding(
    * Without this they would be bounced between a Studio that refuses them
    * and a form that says they were never invited.
    */
-  let existingSpeakerId: string | null = null;
-  if (!invite) {
-    const { data: own } = await admin
-      .from("speakers")
-      .select("id")
-      .eq("profile_id", user.id)
-      .maybeSingle();
-    existingSpeakerId = (own?.id as string) ?? null;
+  /*
+   * Which speaker row this person already owns — resolved ONCE, before
+   * anything is written, because both the authorization check below and the
+   * business-resource write further down need the answer.
+   *
+   * Matching on profile_id alone was not enough. A listing pulled from TSLS
+   * has no profile_id until someone links it, and the plain "invite a
+   * speaker" form (as opposed to the per-listing invite button) never links
+   * it. So Sierra onboarded and got a brand-new "Sierra C." row alongside the
+   * "Sierra Collins" listing she already had — two records, one person, and
+   * the name-based duplicate finder cannot spot that pair because the names
+   * normalise differently (Matt, 2026-08-14).
+   *
+   * Same profile-id-OR-email rule the invite lookup already uses, for the
+   * same reason: two readers keyed differently is how people end up
+   * duplicated or locked out. Unclaimed listings only — a row already wired
+   * to a DIFFERENT account is somebody else's, and taking it over would be
+   * worse than a duplicate.
+   */
+  const ownedSpeaker = await findOwnSpeaker(admin, user);
+  const existingSpeakerId = ownedSpeaker?.id ?? null;
+  /*
+   * Three ways to be entitled to this form:
+   *
+   * 1. an open invite;
+   * 2. a speaker row already linked to THIS account (the Studio sends an
+   *    existing speaker here to finish a profile that predates the
+   *    completeness rule);
+   * 3. an UNCLAIMED listing carrying this account's verified email address
+   *    (Matt, 2026-08-14).
+   *
+   * The third is a deliberate widening. It means a speaker whose invite went
+   * astray — bounced, spam-filtered, sent to the wrong address, completed by
+   * a since-deleted account — can still get in, instead of waiting on an
+   * admin to notice. What it does NOT do is let anyone claim a listing that
+   * belongs to someone else: findOwnSpeaker only matches rows with a null
+   * profile_id, and the email comes from the Supabase session, so it is one
+   * this person has actually proven they control.
+   *
+   * Logged, because this path grants speaker access without an admin
+   * involved and an unexplained speaker is worse than a noisy log. Ids only
+   * — an email address is personal data and this is a log line.
+   */
+  if (!invite && ownedSpeaker && !ownedSpeaker.linkedToProfile) {
+    console.info(
+      `[speaker-onboarding] profile ${user.id} claimed unclaimed listing ${ownedSpeaker.id} by verified email, with no open invite`,
+    );
   }
-  if (!invite && !existingSpeakerId) {
+  if (!invite && !ownedSpeaker) {
     return {
       ok: false,
       message:
@@ -120,18 +213,12 @@ export async function completeSpeakerOnboarding(
   const warnings: string[] = [];
 
   // 1) Their business as a member resource (their single resource page).
-  //    An existing speaker sent here to finish an incomplete profile already
-  //    has one — update it rather than leaving a second, orphaned resource
-  //    behind every time they save.
-  let resourceId: string | null = null;
-  if (existingSpeakerId) {
-    const { data: own } = await admin
-      .from("speakers")
-      .select("resource_id")
-      .eq("id", existingSpeakerId)
-      .maybeSingle();
-    resourceId = (own?.resource_id as string) ?? null;
-  }
+  //    Whichever row they already own — linked account or claimed listing —
+  //    its resource is UPDATED rather than replaced. Reading this only for
+  //    the account-linked case used to strand the old resource: a claimed
+  //    listing's business page stayed published with nothing pointing at it,
+  //    and the speaker got a second one.
+  let resourceId: string | null = ownedSpeaker?.resourceId ?? null;
   if (resourceId) {
     const { error: updateError } = await admin
       .from("resources")
@@ -169,13 +256,8 @@ export async function completeSpeakerOnboarding(
     }
   }
 
-  // 2) The speaker directory page (reuses an existing record if an admin
-  //    already created one wired to this account).
-  const { data: existingSpeaker } = await admin
-    .from("speakers")
-    .select("id")
-    .eq("profile_id", user.id)
-    .maybeSingle();
+  // 2) The speaker directory page — writing into the row resolved above
+  //    (see findOwnSpeaker) rather than creating a second record.
   const speakerRow = {
     profile_id: user.id,
     name: displayName,
@@ -187,8 +269,8 @@ export async function completeSpeakerOnboarding(
     resource_id: resourceId,
   };
   let speakerId: string;
-  if (existingSpeaker) {
-    speakerId = existingSpeaker.id as string;
+  if (existingSpeakerId) {
+    speakerId = existingSpeakerId;
     const { error: updateError } = await admin
       .from("speakers")
       .update(speakerRow)
@@ -263,13 +345,49 @@ export async function completeSpeakerOnboarding(
     };
   }
 
-  // 5) Close the invite, when this was an invite rather than an existing
-  //    speaker finishing a profile the Studio turned them away for.
-  if (invite) {
-    await admin
-      .from("speaker_invites")
-      .update({ completed_at: new Date().toISOString(), speaker_id: speakerId })
-      .eq("id", invite.id);
+  /*
+   * 5) Close EVERY open invite for this person, not just the one that
+   *    authorized them.
+   *
+   *    Closing only `invite` left rows open whenever setup was authorized by
+   *    something else — an existing speaker row, or (since #229) an
+   *    unclaimed listing matching their verified email. It also missed the
+   *    case of an invite whose email differs from the account they signed in
+   *    with, and any second invite an admin re-sent while they were mid-form.
+   *
+   *    The visible symptom is Admin → Speakers listing someone under
+   *    "Waiting on" who finished their setup days ago (Matt, 2026-08-15),
+   *    which makes the one screen tracking speaker onboarding untrustworthy
+   *    — you cannot tell who genuinely hasn't started.
+   *
+   *    Matched the same two ways every other invite reader matches: the
+   *    account id, and the email.
+   */
+  const closedAt = new Date().toISOString();
+  const closeInvite = (column: "invited_profile_id" | "email", value: string) =>
+    column === "email"
+      ? admin
+          .from("speaker_invites")
+          .update({ completed_at: closedAt, speaker_id: speakerId })
+          .is("completed_at", null)
+          .ilike("email", emailPattern(value))
+      : admin
+          .from("speaker_invites")
+          .update({ completed_at: closedAt, speaker_id: speakerId })
+          .is("completed_at", null)
+          .eq("invited_profile_id", value);
+
+  const closes = [closeInvite("invited_profile_id", user.id)];
+  if (user.email) closes.push(closeInvite("email", user.email));
+  const closeResults = await Promise.all(closes);
+  const closeError = closeResults.find((r) => r.error)?.error;
+  if (closeError) {
+    // Their access is already granted, so this must not fail the setup —
+    // but an admin chasing a completed speaker is exactly the confusion
+    // this step exists to prevent, so say so.
+    warnings.push(
+      `Your invite is still showing as outstanding to the Momentum+ team (${closeError.message}) — you're fully set up; they can clear it.`,
+    );
   }
   revalidatePath("/speaker");
 
@@ -313,14 +431,39 @@ export async function getPendingSpeakerInvite(): Promise<{
   }
 
   /*
-   * No invite, but an existing speaker the Studio turned away for an
-   * incomplete profile still needs this form — it is the only place that
-   * collects all of these fields in one pass. Their speaker row is the
-   * authorization; completeSpeakerOnboarding checks for it too.
+   * No invite. Two other people belong here, and this page has to recognise
+   * BOTH — the same rule completeSpeakerOnboarding applies, or the form
+   * refuses someone the action would have accepted (or the reverse, which is
+   * how the last dead end happened).
    */
+  const admin = createServiceClient();
+  const owned = await findOwnSpeaker(admin, user);
+  if (!owned) return { pending: false };
+
   const { getSpeakerForUser, speakerProfileGaps } = await import(
     "@/lib/speaker-tools"
   );
+  if (!owned.linkedToProfile) {
+    /*
+     * An unclaimed listing matching this account's verified email. Nothing is
+     * linked yet, so there is always something to do here — at minimum the
+     * business page and phone the listing has never carried. Seed the name
+     * from the listing so they aren't retyping what we already show publicly.
+     */
+    const { data: listing } = await admin
+      .from("speakers")
+      .select("name")
+      .eq("id", owned.id)
+      .maybeSingle();
+    return {
+      pending: true,
+      displayName: (listing?.name as string) ?? "",
+      needsPassword: false,
+    };
+  }
+
+  // An existing speaker the Studio turned away for an incomplete profile.
+  // This form is the only place that collects all of these fields in one pass.
   const speaker = await getSpeakerForUser(user.id);
   if (!speaker) return { pending: false };
   const gaps = await speakerProfileGaps(speaker, user.id);

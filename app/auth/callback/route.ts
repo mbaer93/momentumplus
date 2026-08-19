@@ -15,23 +15,42 @@ export async function GET(request: NextRequest) {
       ? redirectRaw
       : "/dashboard";
 
+  /*
+   * A recovery link that fails to exchange must land on the RESET form, not
+   * the sign-in form. The PKCE code verifier lives in the browser that
+   * REQUESTED the reset, so opening the email on a phone — or letting a
+   * corporate mail scanner fetch the link first — fails here through no
+   * fault of the member. Sending them to a password box then answers
+   * "Invalid login credentials", which reads as "your password is wrong"
+   * and starts the loop again (reported by a speaker, 2026-08-18).
+   */
+  const isRecovery =
+    redirectTo.includes("mode=reset") ||
+    searchParams.get("type") === "recovery";
+  const deadLink = (message: string) =>
+    NextResponse.redirect(
+      `${origin}${isRecovery ? "/reset" : "/login"}?error=${encodeURIComponent(message)}`,
+    );
+
   if (code && isSupabaseConfigured()) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       return NextResponse.redirect(`${origin}${redirectTo}`);
     }
-    return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent("Sign-in link is invalid or expired.")}`,
+    return deadLink(
+      isRecovery
+        ? "That reset link has already been used or was opened on a different device. Enter your email for a fresh one."
+        : "Sign-in link is invalid or expired.",
     );
   }
 
   // No code at all = a truncated or mangled link. Forwarding unauthenticated
   // used to bounce members through /login into the onboarding wizard —
   // say what actually happened instead.
-  return NextResponse.redirect(
-    `${origin}/login?error=${encodeURIComponent(
-      "That link didn't come through cleanly — sign in below, or use Forgot password for a fresh link.",
-    )}`,
+  return deadLink(
+    isRecovery
+      ? "That reset link didn't come through cleanly. Enter your email and we'll send a fresh one."
+      : "That link didn't come through cleanly — sign in below, or use Forgot password for a fresh link.",
   );
 }

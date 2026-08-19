@@ -7,6 +7,7 @@ import { isSupabaseConfigured } from "./supabase/config";
 import type { Membership, Tier } from "./types";
 import { requestCache } from "@/lib/request-cache";
 import { readViewAsCookie, viewAsStateFor } from "./view-as";
+import { testersLive } from "./testers";
 import { getAccessMatrix, findTier } from "./tiers";
 
 export interface CurrentMember {
@@ -33,6 +34,12 @@ export interface CurrentMember {
       everyone who is not a speaker, and for admins (who are exempt so a
       thin speaker page cannot lock them out of the admin panel). */
   speakerSetupComplete: boolean;
+  /** A test account: full tier access, hidden from every member-facing list. */
+  isTester: boolean;
+  /** Sees the app as it will be at launch — admins always, testers once the
+      rehearsal switch is on (lib/testers.ts). Lifts the LAUNCH gate only;
+      tier grants still apply, so a tester rehearses their own tier. */
+  seesLaunchedApp: boolean;
   accessExpiresAt: string | null;
 }
 
@@ -96,6 +103,8 @@ export const getCurrentMember = requestCache(
       membershipActive: true,
       profileComplete: true,
       speakerSetupComplete: true,
+      isTester: false,
+      seesLaunchedApp: tier === "admin",
       accessExpiresAt: null,
       viewingAs: null,
     };
@@ -106,16 +115,16 @@ export const getCurrentMember = requestCache(
   if (!user) return null;
 
   const [
-    { data: profile },
+    { data: profileRow },
     { data: memberships },
     { data: speakerRow },
     sponsorSeats,
   ] = await Promise.all([
     supabase
       .from("profiles")
-      // phone comes along for the speaker-setup gate below — it is one of the
-      // required fields, and this query already runs on every portal request.
-      .select("full_name, email, phone, admin_title, admin_role")
+      // `tester` rides along: it decides both what this member can reach
+      // before launch and whether anyone else can see them.
+      .select("full_name, email, admin_title, admin_role, tester")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -136,6 +145,23 @@ export const getCurrentMember = requestCache(
       .in("role", ["owner", "manager"]),
   ]);
 
+  /*
+   * `tester` arrives with migration 0089. Between the deploy and the
+   * migration this select fails as a whole, and a null profile here is not a
+   * cosmetic loss — it drops full_name (→ everyone bounced to /welcome),
+   * email, and admin_role (→ every admin demoted). Same pre-migration
+   * ladder the rest of the app uses.
+   */
+  const profile =
+    profileRow ??
+    (
+      await supabase
+        .from("profiles")
+        .select("full_name, email, admin_title, admin_role")
+        .eq("id", user.id)
+        .maybeSingle()
+    ).data;
+
   const name = profile?.full_name || user.email || "Member";
   const rows = (memberships ?? []) as Pick<
     Membership,
@@ -145,6 +171,11 @@ export const getCurrentMember = requestCache(
 
   const realTier: Tier = effective?.tier ?? "tsls_attendee";
   const realIsAdmin = effective?.tier === "admin";
+
+  const isTester = (profile as { tester?: boolean } | null)?.tester === true;
+  // Only asked when it can matter — the settings read is cached per request,
+  // but a non-tester's answer never depends on it.
+  const rehearsalOn = isTester ? await testersLive() : false;
 
   /*
    * Speaker setup gate (Matt, 2026-08-14: "how do we ensure they must
@@ -160,8 +191,13 @@ export const getCurrentMember = requestCache(
    * be locked out of the admin panel by their own speaker profile — losing
    * the ability to fix it is a worse failure than a thin speaker page.
    *
-   * One extra query, and only for a live speaker: the business resource. The
-   * speaker row and profile above already carry everything else.
+   * The completeness rule itself lives in ONE place (speakerSetupGaps) and
+   * runs against the service role. Computing it here against the signed-in
+   * user's client instead put this gate and the setup page on different
+   * readings of the same speaker: `resources` is only readable under RLS
+   * while it is active and within the member's access level, so an admin
+   * deactivating a speaker's business page made the portal say "incomplete"
+   * and setup say "nothing pending" — a closed loop with no way into either.
    */
   const liveSpeaker =
     speakerRow &&
@@ -178,39 +214,23 @@ export const getCurrentMember = requestCache(
       industries?: string[] | null;
       resource_id?: string | null;
     };
-    const { data: resource, error: resourceError } = s.resource_id
-      ? await supabase
-          .from("resources")
-          .select("title, description, url")
-          .eq("id", s.resource_id)
-          .maybeSingle()
-      : { data: null, error: null };
-    /*
-     * Fails OPEN, matching speakerProfileGaps. A transient error on this
-     * lookup would otherwise read as "no business on file" and lock the
-     * speaker out of the ENTIRE portal — a worse outcome than a thin page
-     * surviving until the next request. The gate is for incomplete
-     * profiles, not for databases having a moment.
-     */
-    if (!resourceError) {
-      const r = resource as {
-        title?: string | null;
-        description?: string | null;
-        url?: string | null;
-      } | null;
-      const { missingSpeakerFields } = await import("@/lib/speaker-profile");
-      speakerSetupComplete =
-        missingSpeakerFields({
-          name: s.name ?? null,
-          title: s.title ?? null,
-          bio: s.bio ?? null,
-          industries: s.industries ?? null,
-          businessName: r?.title ?? null,
-          businessDescription: r?.description ?? null,
-          businessUrl: r?.url ?? null,
-          phone: (profile as { phone?: string | null } | null)?.phone ?? null,
-        }).length === 0;
-    }
+    // Fails OPEN (see speakerSetupGaps): a lookup that errors returns no
+    // gaps rather than locking a speaker out of the whole portal on the
+    // strength of a query that did not run.
+    const { speakerSetupGaps } = await import("@/lib/speaker-tools");
+    speakerSetupComplete =
+      (
+        await speakerSetupGaps(
+          {
+            name: s.name ?? null,
+            title: s.title ?? null,
+            bio: s.bio ?? null,
+            industries: s.industries ?? null,
+            resourceId: s.resource_id ?? null,
+          },
+          user.id,
+        )
+      ).length === 0;
   }
 
   /*
@@ -264,6 +284,14 @@ export const getCurrentMember = requestCache(
         : null,
     membershipActive: effective !== null,
     speakerSetupComplete,
+    isTester,
+    /*
+     * View-as is a role preview, not a person preview: an admin previewing
+     * "Member" keeps their own launch visibility, because the point of the
+     * preview is to check the launch before it happens. Testers get it from
+     * the rehearsal switch.
+     */
+    seesLaunchedApp: realIsAdmin || (isTester && rehearsalOn),
     profileComplete: Boolean(profile?.full_name?.trim()),
     accessExpiresAt: effective?.access_expires_at ?? null,
     viewingAs,

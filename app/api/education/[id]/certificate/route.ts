@@ -154,7 +154,36 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     thickness: 0.75,
     color: gold,
   });
-  centerText("Sierra Collins", sigY + 26, serif, 16, navy);
+  /*
+   * Her actual signature, sitting on the rule (Matt, 2026-08-14). The PDF
+   * prints on cream, so the black strokes go in as they are — no inversion,
+   * unlike the on-screen certificate on navy.
+   *
+   * A missing or unreadable file must NOT fail the download: a certificate
+   * with a typeset name is a small disappointment, a 500 on the last step of
+   * a finished course is a support ticket. Falls back to the old text.
+   */
+  let signatureDrawn = false;
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const path = await import("node:path");
+    const bytes = await readFile(
+      path.join(process.cwd(), "public", "sierra-signature.png"),
+    );
+    const png = await doc.embedPng(bytes);
+    const sigWidth = 150;
+    const sigHeight = (png.height / png.width) * sigWidth;
+    page.drawImage(png, {
+      x: width / 2 - sigWidth / 2,
+      y: sigY + 24,
+      width: sigWidth,
+      height: sigHeight,
+    });
+    signatureDrawn = true;
+  } catch {
+    /* fall through to the typeset name */
+  }
+  if (!signatureDrawn) centerText("Sierra Collins", sigY + 26, serif, 16, navy);
   centerText("Momentum+ Education", sigY, sans, 9, ink);
 
   const bytes = await doc.save();

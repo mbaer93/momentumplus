@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { BadgeStrip } from "@/components/badges/BadgeStrip";
+import type { MemberBadges } from "@/lib/badges";
 import Link from "next/link";
 import type { PrefDefinition, PrefRow } from "@/lib/notifications";
 import { PushSetup } from "./PushSetup";
@@ -39,6 +41,8 @@ export interface ProfileActivityRow {
 }
 
 interface ProfileViewProps {
+  /** Engagement badges — null in preview mode and when signed out. */
+  badges: MemberBadges | null;
   member: {
     name: string;
     email: string;
@@ -57,6 +61,8 @@ interface ProfileViewProps {
     memberSince: string;
     /** Opt-in: share email/phone on the Member Directory. */
     shareContact: boolean;
+    /** Opt-OUT: hide engagement badges from other members (0090). */
+    hideBadges: boolean;
     /** Admin-only: title shown next to the Admin badge in community chat. */
     adminTitle: string;
   };
@@ -78,6 +84,7 @@ interface ProfileViewProps {
 type Tab = "activity" | "sessions" | "certificates" | "preferences";
 
 export function ProfileView({
+  badges,
   member,
   profile,
   stats,
@@ -98,6 +105,7 @@ export function ProfileView({
     industry: profile.industry,
     bio: profile.bio,
     share_contact: profile.shareContact,
+    hide_badges: profile.hideBadges,
     admin_title: profile.adminTitle,
   });
   const [pending, startTransition] = useTransition();
@@ -259,6 +267,12 @@ export function ProfileView({
               </button>
             ))}
           </div>
+
+          {tab === "activity" && badges && (
+            <div style={{ marginBottom: 18 }}>
+              <BadgeStrip badges={badges} />
+            </div>
+          )}
 
           {tab === "activity" && (
             <div className="card">
@@ -498,6 +512,22 @@ export function ProfileView({
                       members can see my email
                       {" "}and phone. Off by default; your name, title, and
                       company are always listed.
+                    </span>
+                  </label>
+                  <label className="admin-check-row">
+                    <input
+                      type="checkbox"
+                      className="pref-toggle"
+                      checked={form.hide_badges}
+                      onChange={(e) =>
+                        setForm({ ...form, hide_badges: e.target.checked })
+                      }
+                    />
+                    <ToggleState on={form.hide_badges} />
+                    <span>
+                      Hide my engagement level from other members — it stays
+                      on this page for you, but no longer appears next to my
+                      name in the Member Directory or the Community.
                     </span>
                   </label>
                   {member.isAdmin && (

@@ -1,5 +1,5 @@
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/make-baseline.mjs
--- Full schema baseline: every migration in order (0001_init.sql … 0088_testimonials_catchup.sql).
+-- Full schema baseline: every migration in order (0001_init.sql … 0090_badge_visibility.sql).
 -- Run ONCE against a FRESH Supabase project to mirror production's schema.
 -- Never run this against the production database.
 
@@ -5404,3 +5404,68 @@ begin
 
   raise notice '0088 verification passed.';
 end $mig$;
+
+-- ============================================================
+-- 0089_testers.sql
+-- ============================================================
+-- Testers: real accounts, real tiers, invisible to real members.
+--
+-- Matt, 2026-08-14: before the Oct 14 launch he needs several people inside
+-- the app behaving exactly as members will — full tier access, every email
+-- and notification, nothing simulated — without those accounts appearing in
+-- the directory, the chat roster, or any member-facing count.
+--
+-- A FLAG, not a tier. A tester tier would have to be granted access feature
+-- by feature and would drift from the real ones the moment the grid changed;
+-- the whole point is that a tester's experience is a real tier's experience.
+
+alter table profiles
+  add column if not exists tester boolean not null default false;
+
+-- Who marked them and when, so "why is this person hidden?" has an answer.
+alter table profiles
+  add column if not exists tester_since timestamptz;
+
+comment on column profiles.tester is
+  'Test account. Full tier access; hidden from every member-facing list. Admins see them flagged.';
+
+-- Every member-facing listing filters on this column, so it earns an index
+-- even though the row count is small.
+create index if not exists profiles_tester_idx on profiles (tester) where tester;
+
+/*
+ * Directory reads run through the service role (profiles RLS already denies
+ * member-to-member reads), so the hiding is enforced in lib/testers.ts —
+ * see visibleToMembers(). This column is the single source of truth both
+ * paths read.
+ */
+
+-- ============================================================
+-- 0090_badge_visibility.sql
+-- ============================================================
+-- Engagement badges: the member's own opt-out (Matt, 2026-08-18).
+--
+-- Badges appear on a member's profile, next to their name in the directory,
+-- and on their chat messages. Matt's rule: "Members should be able to select
+-- if they want to hide it."
+--
+-- Opt-OUT, not opt-in: a badge nobody can see by default gamifies nothing.
+-- The switch hides them from other members; a member always sees their own,
+-- because their own progress is the part that is useful to them.
+
+alter table profiles
+  add column if not exists hide_badges boolean not null default false;
+
+comment on column profiles.hide_badges is
+  'Member chose to hide their engagement badges from other members. Their own profile still shows them.';
+
+-- Only ever read as a filter over a set of members being rendered.
+create index if not exists profiles_hide_badges_idx
+  on profiles (hide_badges) where hide_badges;
+
+-- 0022 restricted profiles UPDATE to a column allowlist, so a new column is
+-- not member-updatable until it is granted — 0034 added share_contact
+-- without this and toggling it failed with "permission denied for table
+-- profiles" until 0049 fixed it. This is the member's OWN switch, so it has
+-- to be theirs to set. RLS still limits updates to their own row.
+grant update (hide_badges) on public.profiles to authenticated;

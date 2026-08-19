@@ -74,6 +74,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "content_topics", select: "id, name, slug, description, sort" },
   // app/(portal)/admin/education/actions.ts
   { table: "course_lessons", select: "documents" },
+  // lib/badge-queries.ts
+  { table: "course_lessons", select: "id, course_id" },
   // app/(portal)/admin/education/actions.ts
   { table: "course_lessons", select: "id, course_id, position" },
   // app/(portal)/admin/education/actions.ts
@@ -108,6 +110,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "enrollments", select: "id" },
   // lib/attendance.ts
   { table: "enrollments", select: "id, profile_id, profiles ( email, full_name )" },
+  // lib/badge-queries.ts
+  { table: "enrollments", select: "profile_id" },
   // app/(portal)/speaker/actions.ts
   { table: "enrollments", select: "profile_id, profiles ( email, full_name )" },
   // app/api/cron/reminders/route.ts
@@ -150,6 +154,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "lesson_progress", select: "lesson_id" },
   // app/(portal)/profile/page.tsx
   { table: "lesson_progress", select: "lesson_id, completed_at" },
+  // lib/badge-queries.ts
+  { table: "lesson_progress", select: "profile_id, lesson_id" },
   // app/(portal)/admin/control-center/actions.ts
   { table: "member_tiers", select: "slug" },
   // lib/revenue.ts
@@ -200,6 +206,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "memberships", select: "profile_id, tier" },
   // lib/revenue.ts
   { table: "memberships", select: "profile_id, tier, source" },
+  // lib/badge-queries.ts
+  { table: "memberships", select: "profile_id, tier, status, access_starts_at, created_at" },
   // lib/directory-queries.ts
   { table: "memberships", select: "profiles ( full_name )" },
   // app/(portal)/admin/members/actions.ts
@@ -236,6 +244,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "podcast_episode_progress", select: "completed, completed_at" },
   // lib/podcast.ts
   { table: "podcast_episode_progress", select: "episode_id, completed, notes" },
+  // lib/badge-queries.ts
+  { table: "podcast_episode_progress", select: "profile_id" },
   // lib/podcast.ts
   { table: "podcast_episodes", select: "*" },
   // app/(portal)/admin/podcast/actions.ts
@@ -255,7 +265,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // lib/auth-helpers.ts
   { table: "profiles", select: "admin_role, admin_perms" },
   // app/(portal)/dashboard/page.tsx
-  { table: "profiles", select: "created_at" },
+  { table: "profiles", select: "created_at, title, company" },
   // app/(portal)/admin/members/actions.ts
   { table: "profiles", select: "email" },
   // app/(portal)/admin/members/actions.ts
@@ -267,10 +277,12 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/(portal)/admin/sponsors/page.tsx
   { table: "profiles", select: "full_name, email" },
   // lib/current-member.ts
-  { table: "profiles", select: "full_name, email, phone, admin_title, admin_role" },
+  { table: "profiles", select: "full_name, email, admin_title, admin_role" },
+  // lib/current-member.ts
+  { table: "profiles", select: "full_name, email, admin_title, admin_role, tester" },
   // app/(portal)/profile/billing-actions.ts
   { table: "profiles", select: "full_name, email, stripe_customer_id" },
-  // app/(portal)/admin/members/actions.ts
+  // app/(portal)/admin/control-center/page.tsx
   { table: "profiles", select: "id" },
   // app/(portal)/admin/members/actions.ts
   { table: "profiles", select: "id, admin_role, memberships ( tier, status )" },
@@ -286,6 +298,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "profiles", select: "id, full_name, email" },
   // app/(portal)/admin/members/page.tsx
   { table: "profiles", select: "id, full_name, email, title, company, phone, admin_role, admin_perms, memberships!inner ( id, tier, status, access_expires_at, source, created_at )" },
+  // app/(portal)/admin/members/page.tsx
+  { table: "profiles", select: "id, full_name, email, title, company, phone, admin_role, admin_perms, tester, memberships!inner ( id, tier, status, access_expires_at, source, created_at )" },
   // app/api/community/members/route.ts
   { table: "profiles", select: "id, full_name, title, company" },
   // app/(portal)/members/page.tsx
@@ -297,7 +311,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/(portal)/profile/page.tsx
   { table: "profiles", select: "phone, company, title, industry, bio, admin_title, stripe_customer_id, created_at" },
   // app/(portal)/profile/page.tsx
-  { table: "profiles", select: "phone, company, title, industry, bio, share_contact, admin_title, stripe_customer_id, created_at" },
+  { table: "profiles", select: "phone, company, title, industry, bio, share_contact, hide_badges, admin_title, stripe_customer_id, created_at" },
   // app/api/stream/token/route.ts
   { table: "profiles", select: "stream_synced_key" },
   // app/(portal)/upgrade/page.tsx
@@ -318,7 +332,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "resources", select: "id, title, category, description, url, partner_name, min_access, active, image_url" },
   // lib/directory-queries.ts
   { table: "resources", select: "id, title, category, description, url, partner_name, min_access, image_url" },
-  // lib/current-member.ts
+  // lib/speaker-tools.ts
   { table: "resources", select: "title, description, url" },
   // app/(portal)/speaker/page.tsx
   { table: "resources", select: "title, description, url, image_url" },
@@ -344,6 +358,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "session_invitees", select: "session_id, profile_id" },
   // app/(portal)/library/[id]/page.tsx
   { table: "session_notes", select: "body" },
+  // lib/badge-queries.ts
+  { table: "session_notes", select: "profile_id, body" },
   // app/(portal)/profile/page.tsx
   { table: "session_notes", select: "session_id, body" },
   // lib/session-resources.ts
@@ -437,7 +453,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/api/bridge/profile/route.ts
   { table: "speakers", select: "id, links" },
   // app/(portal)/admin/speakers/actions.ts
-  { table: "speakers", select: "id, name" },
+  { table: "speakers", select: "id, name, profile_id" },
   // app/(portal)/admin/speakers/actions.ts
   { table: "speakers", select: "id, name, profile_id, contact_email" },
   // app/(portal)/admin/speakers/actions.ts
@@ -460,20 +476,22 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "speakers", select: "id, name, title, bio, industries, website, headshot_url, resource_id, expires_at, archived_at, speaker_month, tsls_main_speaker, payment_access, organization, featured_session_date, featured_session_time, advisor_agreement_waived" },
   // app/(portal)/admin/agreement/page.tsx
   { table: "speakers", select: "id, name, tsls_main_speaker, advisor_agreement_waived" },
+  // app/(auth)/speaker-onboarding/actions.ts
+  { table: "speakers", select: "id, resource_id" },
   // lib/agreement-doc-db.ts
   { table: "speakers", select: "id, tsls_main_speaker, advisor_agreement_waived" },
   // lib/revenue.ts
   { table: "speakers", select: "id, tsls_main_speaker, archived_at, expires_at" },
   // lib/revenue.ts
   { table: "speakers", select: "id, tsls_main_speaker, payment_access, archived_at, expires_at" },
+  // app/(auth)/speaker-onboarding/actions.ts
+  { table: "speakers", select: "name" },
   // app/(portal)/admin/speakers/actions.ts
   { table: "speakers", select: "profile_id" },
   // app/(portal)/members/page.tsx
   { table: "speakers", select: "profile_id, expires_at, archived_at" },
   // app/(portal)/admin/speakers/actions.ts
   { table: "speakers", select: "profile_id, resource_id" },
-  // app/(auth)/speaker-onboarding/actions.ts
-  { table: "speakers", select: "resource_id" },
   // app/(portal)/admin/analytics/page.tsx
   { table: "sponsor_event_counts", select: "*" },
   // lib/activity.ts

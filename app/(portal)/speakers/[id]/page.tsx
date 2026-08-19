@@ -21,8 +21,13 @@ export default async function SpeakerDetailPage(
   // preview audience (admins, speakers, sponsor managers — the same set the
   // next-season toggle serves) can still open their profile pages.
   if (!speaker && (member.isAdmin || member.isSpeaker || member.isSponsorManager)) {
+    // Test accounts stay out of this door for everyone but admins. Speakers
+    // and sponsor managers are real users, and a page they can open with a
+    // guessed id is not hidden (Matt, 2026-08-14).
     speaker =
-      (await listSpeakersForAdmin()).find((s) => s.id === params.id) ?? null;
+      (await listSpeakersForAdmin({ includeTesters: member.isAdmin })).find(
+        (s) => s.id === params.id,
+      ) ?? null;
   }
   if (!speaker) notFound();
 

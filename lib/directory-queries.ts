@@ -12,6 +12,7 @@ import {
 } from "@/lib/sponsor-lifecycle";
 import type { Tier } from "@/lib/types";
 import { safeImageSrc } from "@/lib/image-src";
+import { testerProfileIds } from "@/lib/testers";
 import {
   resources as placeholderResources,
   speakers as placeholderSpeakers,
@@ -69,10 +70,11 @@ interface SpeakerRow {
   created_at: string;
   expires_at?: string | null;
   archived_at?: string | null;
+  profile_id?: string | null;
 }
 
 const SPEAKER_COLUMNS =
-  "id, name, title, bio, industries, headshot_url, website, created_at, expires_at, archived_at";
+  "id, name, title, bio, industries, headshot_url, website, created_at, expires_at, archived_at, profile_id";
 // Pre-migration fallback (before 0028 adds the lifecycle columns).
 const SPEAKER_COLUMNS_LEGACY =
   "id, name, title, bio, industries, headshot_url, website, created_at";
@@ -128,11 +130,25 @@ export async function listSpeakers(): Promise<SpeakerProfile[]> {
     data = rows;
   }
 
+  /*
+   * Test accounts come out too (Matt, 2026-08-14).
+   *
+   * The tester flag lives on `profiles`, and this table doesn't join it, so
+   * hiding a tester from the member directory left their SPEAKER page in
+   * full view — which for a speaker tester is most of what members would
+   * have seen of them anyway. Read the (small) set of tester ids and filter
+   * here rather than embedding profiles: speakers↔profiles gaining a second
+   * relationship is exactly the ambiguity that took the app down on
+   * 2026-08-12, and this needs no join to answer.
+   */
+  const testerIds = await testerProfileIds();
+
   // Members only see LIVE speakers: not archived, not season-expired, and
   // not pre-season (new speakers stay hidden until October 1 of the year
   // they join). Filtered per-request, not in the cached query, so the
   // cache can't serve a stale list across a season boundary.
   return data
+    .filter((row) => !(row.profile_id && testerIds.has(row.profile_id)))
     .filter((row) =>
       speakerLive({
         archivedAt: row.archived_at ?? null,
@@ -177,11 +193,21 @@ export async function getSpeaker(id: string): Promise<SpeakerProfile | null> {
  * October 1) so sessions for the upcoming season can be assigned to them.
  * Archived/expired speakers stay out, same as the member list.
  */
-export async function listSpeakersForAdmin(): Promise<SpeakerProfile[]> {
+export async function listSpeakersForAdmin(
+  opts?: {
+    /** Include test accounts. True for admins (who must be able to see and
+        fix them); false for the speaker/sponsor preview audience, who are
+        real users and to whom a tester is meant to be invisible. */
+    includeTesters?: boolean;
+  },
+): Promise<SpeakerProfile[]> {
   if (!isSupabaseConfigured()) return placeholderSpeakers;
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return listSpeakers();
   const data = await cachedSpeakerRows();
+  const hidden =
+    opts?.includeTesters === false ? await testerProfileIds() : new Set<string>();
   return data
+    .filter((row) => !(row.profile_id && hidden.has(row.profile_id)))
     .filter((row) =>
       sponsorActive({
         archivedAt: row.archived_at ?? null,

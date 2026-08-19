@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // No reason to name the framework and its version to a scanner.
+  poweredByHeader: false,
   images: {
     // Uploaded assets (sponsor ads/logos, headshots, resource art) live in
     // Supabase Storage; video thumbnails come from Mux. next/image resizes
@@ -36,6 +38,14 @@ const nextConfig = {
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // camera/microphone stay open to `self` on purpose: the live room
+          // (components/sessions/LiveRoom.tsx) runs the Zoom Web SDK in this
+          // page, so a blanket camera=() would take the video sessions down.
+          // `self` still refuses both to any cross-origin frame we embed.
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(self), geolocation=(), interest-cohort=()",
+          },
         ],
       },
       {

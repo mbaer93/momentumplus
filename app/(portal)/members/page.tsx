@@ -3,6 +3,7 @@ import { requireMember } from "@/lib/current-member";
 import { requireFeature } from "@/lib/entitlements";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { tierLabel } from "@/lib/access";
+import { LevelChip } from "@/components/badges/LevelChip";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { Tier } from "@/lib/types";
@@ -19,6 +20,8 @@ export const metadata = { title: "Members | Momentum+" };
  */
 
 interface DirectoryRow {
+  /** Overall engagement level, or null when unearned or opted out. */
+  level: { key: string; label: string } | null;
   id: string;
   name: string;
   title: string;
@@ -39,6 +42,7 @@ const PREVIEW_ROWS: DirectoryRow[] = [
     tier: "Momentum+ Pro User",
     email: "sarah@example.com",
     phone: null,
+    level: { key: "committed", label: "Committed" },
   },
   {
     id: "p2",
@@ -49,6 +53,7 @@ const PREVIEW_ROWS: DirectoryRow[] = [
     tier: "Momentum+ Member",
     email: null,
     phone: null,
+    level: null,
   },
 ];
 
@@ -70,7 +75,7 @@ export default async function MembersPage(
   }
 ) {
   const searchParams = await props.searchParams;
-  await requireMember();
+  const member = await requireMember();
   await requireFeature("members");
   // Strip PostgREST filter syntax so the search string can ride in .or()
   // safely; it's a human name/company either way.
@@ -93,7 +98,7 @@ export default async function MembersPage(
      * 1,000-row cap, so the directory was wrong as well as slow.
      * memberships!inner keeps only active members; admin rows stay out.
      */
-    const buildQuery = () => {
+    const buildQuery = (hideTesters: boolean) => {
       let query = admin
         .from("profiles")
         .select(
@@ -103,6 +108,9 @@ export default async function MembersPage(
         .in("memberships.status", ["active", "past_due"])
         .neq("memberships.tier", "admin")
         .not("full_name", "is", null);
+      // Test accounts are real members in every other respect, so nothing
+      // else here excludes them. Admins see them (flagged in the row).
+      if (hideTesters) query = query.eq("tester", false);
       if (q) {
         query = query.or(
           `full_name.ilike.%${q}%,company.ilike.%${q}%,industry.ilike.%${q}%,title.ilike.%${q}%`,
@@ -127,7 +135,17 @@ export default async function MembersPage(
     let profiles: ProfileHit[] | null = null;
     let count: number | null = null;
     {
-      const res = await buildQuery();
+      let res = await buildQuery(!member.isAdmin);
+      /*
+       * `tester` arrives with migration 0089. Between deploy and migration
+       * the filtered query errors, and an errored directory renders as an
+       * EMPTY one — the whole membership apparently vanished. Fall back to
+       * the unfiltered read: a pre-launch window where a tester might show
+       * up beats a directory that looks like data loss.
+       */
+      if (res.error && /tester/i.test(res.error.message)) {
+        res = await buildQuery(false);
+      }
       profiles = res.data as ProfileHit[] | null;
       count = res.count;
     }
@@ -173,8 +191,24 @@ export default async function MembersPage(
           // Contact info is opt-in only — never leaks otherwise.
           email: shared ? (p.email ?? null) : null,
           phone: shared ? (p.phone ?? null) : null,
+          level: null as DirectoryRow["level"],
         };
       });
+    /*
+     * Badges for everyone on this page, in one batch. Per-member queries
+     * would be six round trips per row — 144 for a full page.
+     * badgesForOthers omits anyone who opted out, so a member who hid their
+     * level is simply absent from the map rather than present-and-empty.
+     */
+    const { badgesForOthers } = await import("@/lib/badge-queries");
+    const badges = await badgesForOthers(rows.map((r) => r.id));
+    rows = rows.map((r) => {
+      const b = badges.get(r.id);
+      return {
+        ...r,
+        level: b ? { key: b.level.key, label: b.level.label } : null,
+      };
+    });
     total = count ?? rows.length;
   }
 
@@ -264,7 +298,15 @@ export default async function MembersPage(
                 <div className="resource-type" style={{ color: "var(--gold-text)" }}>
                   {m.tier}
                 </div>
-                <div className="resource-title">{m.name}</div>
+                <div className="resource-title">
+                  {m.name}
+                  {m.level && (
+                    <>
+                      {" "}
+                      <LevelChip label={m.level.label} levelKey={m.level.key} size="xs" />
+                    </>
+                  )}
+                </div>
                 <div className="resource-desc">
                   {[m.title, m.company].filter(Boolean).join(" · ") ||
                     "Momentum+ Member"}

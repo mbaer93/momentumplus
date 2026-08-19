@@ -5,6 +5,7 @@ import {
 } from "@/components/profile/ProfileView";
 import { CalendarSmallIcon, CheckIcon } from "@/components/icons";
 import { requireMember } from "@/lib/current-member";
+import { badgesFrom } from "@/lib/badges";
 import { mergePrefs, PREF_DEFINITIONS, type PrefRow } from "@/lib/notifications";
 import { placeholderStats } from "@/lib/placeholder-data";
 import { listSessions } from "@/lib/sessions/queries";
@@ -34,6 +35,7 @@ async function loadAccount() {
       industry: string;
       bio: string;
       share_contact: boolean;
+      hide_badges: boolean;
       admin_title: string;
       created_at: string;
     },
@@ -49,7 +51,7 @@ async function loadAccount() {
     supabase
       .from("profiles")
       .select(
-        "phone, company, title, industry, bio, share_contact, admin_title, stripe_customer_id, created_at",
+        "phone, company, title, industry, bio, share_contact, hide_badges, admin_title, stripe_customer_id, created_at",
       )
       .eq("id", user.id)
       .maybeSingle(),
@@ -64,7 +66,9 @@ async function loadAccount() {
   ]);
   let p = profileRes.data;
   if (!p) {
-    // Pre-migration fallback: share_contact arrives with 0034.
+    // Pre-migration fallback: share_contact arrives with 0034, hide_badges
+    // with 0090. Selecting a column that doesn't exist fails the whole
+    // query, and this one carries the entire profile form.
     ({ data: p } = (await supabase
       .from("profiles")
       .select(
@@ -81,6 +85,7 @@ async function loadAccount() {
       industry: p.industry ?? "",
       bio: p.bio ?? "",
       share_contact: Boolean((p as { share_contact?: boolean }).share_contact),
+      hide_badges: Boolean((p as { hide_badges?: boolean }).hide_badges),
       admin_title: p.admin_title ?? "",
       created_at: p.created_at,
     };
@@ -130,6 +135,7 @@ export default async function ProfilePage() {
           industry: "Leadership Development",
           bio: "",
           share_contact: false,
+          hide_badges: false,
           admin_title: "",
           created_at: "2024-11-12T00:00:00.000Z",
         }
@@ -140,11 +146,38 @@ export default async function ProfilePage() {
           industry: "",
           bio: "",
           share_contact: false,
+          hide_badges: false,
           admin_title: "",
           created_at: new Date().toISOString(),
         });
   const { savedPrefs, hasStripeCustomer, membershipStatusLabel } =
     account;
+
+  /*
+   * Their own badges. A member always sees their own, hidden or not — the
+   * switch controls what OTHER members see, and hiding your own progress
+   * from yourself would make the toggle read as "turn the feature off".
+   */
+  const badges = preview
+    ? // Illustrative counts, same as the other preview fixtures on this page.
+      // Without them the strip renders nowhere a human or the contrast audit
+      // can see it, and an unseen component is an unchecked one.
+      badgesFrom({
+        attendance: 6,
+        notes: 3,
+        courses: 1,
+        podcast: 14,
+        community: null,
+        tenure: 9,
+        summitAttendee: true,
+        foundingMember: true,
+      })
+    : await (async () => {
+        const user = await getAuthUser();
+        if (!user) return null;
+        const { badgesForProfile } = await import("@/lib/badge-queries");
+        return badgesForProfile(user.id);
+      })();
 
   // Earned certificates: courses with every lesson complete (viewer-scoped
   // via RLS); completion date = the last lesson's completed_at.
@@ -272,6 +305,7 @@ export default async function ProfilePage() {
         membershipStatusLabel,
         isAdmin: member.isAdmin,
       }}
+      badges={badges}
       profile={{
         phone: profileRow.phone,
         company: profileRow.company,
@@ -279,6 +313,7 @@ export default async function ProfilePage() {
         industry: profileRow.industry,
         bio: profileRow.bio,
         shareContact: profileRow.share_contact,
+        hideBadges: profileRow.hide_badges,
         adminTitle: profileRow.admin_title,
         memberSince,
       }}
