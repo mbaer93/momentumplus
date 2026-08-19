@@ -4,6 +4,7 @@ import {
   cronCheck,
   diffReports,
   lateCrons,
+  CRON_EXPECTATIONS,
   type CronExpectations,
   type HealthCheck,
   type HealthReport,
@@ -44,21 +45,6 @@ const PROBE_TIMEOUT_MS = 8_000;
    trips. Still far inside the cycle's 120s ceiling, and every check runs
    concurrently, so this does not slow the others down. */
 const PAGE_DATA_TIMEOUT_MS = 45_000;
-
-/** Scheduled interval per cron, in minutes — keep in step with vercel.json. */
-const CRON_EXPECTATIONS: CronExpectations = {
-  attendance: 30,
-  "tsls-import": 30,
-  reconcile: 1440,
-  dunning: 1440,
-  reminders: 5,
-  summaries: 60,
-  "scheduled-posts": 5,
-  "monthly-report": 44640,
-  "gift-activate": 1440,
-  health: 360,
-  podcast: 360,
-};
 
 function dbReady(): boolean {
   return isSupabaseConfigured() && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);

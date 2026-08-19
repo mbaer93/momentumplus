@@ -21,6 +21,31 @@ export interface HealthReport {
 /** Cron name → scheduled interval in minutes (mirrors vercel.json). */
 export type CronExpectations = Record<string, number>;
 
+/**
+ * Scheduled interval per cron, in minutes — keep in step with vercel.json.
+ *
+ * Lives here, beside lateCrons, so a test can hold it against vercel.json.
+ * It drifted once already: the badges job (0091–0094) shipped without an
+ * entry, which meant Connections would have reported "all jobs on schedule"
+ * however long it stayed dead. A cron nobody is watching is a cron that has
+ * already failed.
+ */
+export const CRON_EXPECTATIONS: CronExpectations = {
+  attendance: 30,
+  "tsls-import": 30,
+  reconcile: 1440,
+  dunning: 1440,
+  reminders: 5,
+  summaries: 60,
+  "scheduled-posts": 5,
+  "monthly-report": 44640,
+  "gift-activate": 1440,
+  health: 360,
+  podcast: 360,
+  badges: 1440,
+};
+
+
 export function ageLabel(ms: number): string {
   const minutes = Math.round(ms / 60_000);
   if (minutes < 120) return `${minutes} min`;
