@@ -1,3 +1,4 @@
+import { allRows } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { requestCache } from "@/lib/request-cache";
@@ -92,30 +93,68 @@ export async function badgeCountsForMany(
     if (row) row[key] += 1;
   };
 
+  /*
+   * Every one of these is PAGED. They are counts across a batch of members,
+   * and a plain select stops at PostgREST's ceiling in silence — a member
+   * whose rows fell past the cut is simply undercounted, which shows up as
+   * a badge that never arrives rather than as an error anyone can see.
+   * (Append-only badges mean the damage is a delay, not a withdrawal, but a
+   * count that quietly disagrees with the member's own history is still the
+   * kind of thing nobody would think to look for.)
+   */
   const [attendance, notes, podcast, memberships, courseRows] =
     await Promise.all([
-      admin
-        .from("enrollments")
-        .select("profile_id")
-        .in("profile_id", ids)
-        .eq("attended", true),
-      admin.from("session_notes").select("profile_id, body").in("profile_id", ids),
-      admin
-        .from("podcast_episode_progress")
-        .select("profile_id")
-        .in("profile_id", ids)
-        .eq("completed", true),
-      admin
-        .from("memberships")
-        .select("profile_id, tier, status, access_starts_at, created_at")
-        .in("profile_id", ids),
+      allRows<{ profile_id: string }>((from, to) =>
+        admin
+          .from("enrollments")
+          .select("profile_id")
+          .in("profile_id", ids)
+          .eq("attended", true)
+          .order("profile_id")
+          .range(from, to),
+      ),
+      allRows<{ profile_id: string; body: string | null }>((from, to) =>
+        admin
+          .from("session_notes")
+          .select("profile_id, body")
+          .in("profile_id", ids)
+          .order("profile_id")
+          .range(from, to),
+      ),
+      allRows<{ profile_id: string }>((from, to) =>
+        admin
+          .from("podcast_episode_progress")
+          .select("profile_id")
+          .in("profile_id", ids)
+          .eq("completed", true)
+          .order("profile_id")
+          .range(from, to),
+      ),
+      allRows<{
+        profile_id: string;
+        tier: string;
+        status: string;
+        access_starts_at: string | null;
+        created_at: string | null;
+      }>((from, to) =>
+        admin
+          .from("memberships")
+          .select("profile_id, tier, status, access_starts_at, created_at")
+          .in("profile_id", ids)
+          .order("profile_id")
+          .range(from, to),
+      ),
       // Course completion needs the lesson→course map, so it is counted
       // separately below.
-      admin
-        .from("lesson_progress")
-        .select("profile_id, lesson_id")
-        .in("profile_id", ids)
-        .not("completed_at", "is", null),
+      allRows<{ profile_id: string; lesson_id: string }>((from, to) =>
+        admin
+          .from("lesson_progress")
+          .select("profile_id, lesson_id")
+          .in("profile_id", ids)
+          .not("completed_at", "is", null)
+          .order("profile_id")
+          .range(from, to),
+      ),
     ]);
 
   /*
@@ -151,18 +190,18 @@ export async function badgeCountsForMany(
     }
   }
 
-  for (const row of attendance.data ?? []) bump(String(row.profile_id), "attendance");
-  for (const row of notes.data ?? []) {
+  for (const row of attendance.rows) bump(String(row.profile_id), "attendance");
+  for (const row of notes.rows) {
     // An empty note row is created by opening the editor — it is not a note.
     if (String(row.body ?? "").trim()) bump(String(row.profile_id), "notes");
   }
-  for (const row of podcast.data ?? []) bump(String(row.profile_id), "podcast");
+  for (const row of podcast.rows) bump(String(row.profile_id), "podcast");
 
   // Tenure, summit, founding — all from the membership rows.
   const now = Date.now();
   const earliest = new Map<string, string>();
   const earliestPaid = new Map<string, string>();
-  for (const row of memberships.data ?? []) {
+  for (const row of memberships.rows) {
     const id = String(row.profile_id);
     const target = out.get(id);
     if (!target) continue;
@@ -215,18 +254,24 @@ export async function badgeCountsForMany(
 
   // Courses: a course counts once every one of its lessons is complete.
   const completedLessons = new Map<string, Set<string>>();
-  for (const row of courseRows.data ?? []) {
+  for (const row of courseRows.rows) {
     const id = String(row.profile_id);
     const set = completedLessons.get(id) ?? new Set<string>();
     set.add(String(row.lesson_id));
     completedLessons.set(id, set);
   }
   if (completedLessons.size > 0) {
-    const { data: lessons } = await admin
-      .from("course_lessons")
-      .select("id, course_id");
+    // Paged: the whole lesson→course map, which grows with the library.
+    const { rows: lessons } = await allRows<{ id: string; course_id: string }>(
+      (from, to) =>
+        admin
+          .from("course_lessons")
+          .select("id, course_id")
+          .order("id")
+          .range(from, to),
+    );
     const byCourse = new Map<string, string[]>();
-    for (const row of lessons ?? []) {
+    for (const row of lessons) {
       const courseId = String(row.course_id);
       byCourse.set(courseId, [...(byCourse.get(courseId) ?? []), String(row.id)]);
     }
@@ -292,12 +337,23 @@ export async function everEarnedBadges(
   ) {
     return out;
   }
-  const { data, error } = await createServiceClient()
-    .from("member_badges")
-    .select("profile_id, badge_key")
-    .in("profile_id", profileIds);
+  // Paged: a chat roster or a directory page carries dozens of members, and
+  // each can hold a couple of dozen badges — the ceiling is closer than it
+  // looks, and a truncated ledger silently un-earns someone's badge.
+  const admin = createServiceClient();
+  const { rows, error } = await allRows<{
+    profile_id: string;
+    badge_key: string;
+  }>((from, to) =>
+    admin
+      .from("member_badges")
+      .select("profile_id, badge_key")
+      .in("profile_id", profileIds)
+      .order("profile_id")
+      .range(from, to),
+  );
   if (error) return out;
-  for (const row of data ?? []) {
+  for (const row of rows) {
     const id = String(row.profile_id);
     const set = out.get(id) ?? new Set<string>();
     set.add(String(row.badge_key));
