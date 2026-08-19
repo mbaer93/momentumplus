@@ -1,6 +1,11 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./config";
+import {
+  SUPABASE_ANON_KEY,
+  SUPABASE_URL,
+  isSupabaseConfigured,
+  suppressInsecureUserWarning,
+} from "./config";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -102,6 +107,10 @@ export async function updateSession(request: NextRequest) {
       },
     },
   });
+
+  // Middleware runs on every matched request, so this client is the loudest
+  // source of the auth-js warning. See suppressInsecureUserWarning().
+  suppressInsecureUserWarning(supabase.auth);
 
   const {
     data: { user },
