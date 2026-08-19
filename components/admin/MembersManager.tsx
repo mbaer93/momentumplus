@@ -231,6 +231,21 @@ export function MembersManager({
             className="admin-form-actions"
             style={{ marginTop: 8, alignItems: "center" }}
           >
+            {/* Opening it yourself REPLACES your session with theirs, and
+                the portal then traps you in their setup flow (Matt,
+                2026-08-19). Send it — never open it. */}
+            <div
+              style={{
+                flexBasis: "100%",
+                fontSize: 11.5,
+                color: "#9B3C3C",
+                fontWeight: 600,
+                marginBottom: 4,
+              }}
+            >
+              Send this to them — don&apos;t open it yourself. Opening it logs
+              you in AS them and out of your own account.
+            </div>
             <code style={{ fontSize: 11, wordBreak: "break-all", flex: 1 }}>
               {loginLink}
             </code>

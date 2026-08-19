@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { WelcomeForm } from "./WelcomeForm";
+import { SignedInAs } from "@/components/auth/SignedInAs";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -92,6 +93,9 @@ export default async function WelcomePage(
           startAtProfile={startAtProfile}
         />
       </Suspense>
+      {/* No topbar here either — someone who landed on the wrong account
+          (a shared computer, a forwarded link) needs a way back out. */}
+      <SignedInAs />
     </div>
   );
 }

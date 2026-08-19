@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignedInAs } from "@/components/auth/SignedInAs";
 import { getPendingSponsorInvite } from "./actions";
 import { SponsorOnboardingForm } from "./SponsorOnboardingForm";
 import { RAIL_TIERS, normalizeSponsorTier, sponsorTierLabel } from "@/lib/sponsor-tiers";
@@ -47,6 +48,8 @@ export default async function SponsorOnboardingPage() {
           </Link>
         </div>
       )}
+      {/* The only exit from this page — it has no topbar. */}
+      <SignedInAs />
     </div>
   );
 }
