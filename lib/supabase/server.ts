@@ -1,7 +1,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { requestCache } from "@/lib/request-cache";
-import { isSupabaseConfigured, SUPABASE_ANON_KEY, SUPABASE_URL } from "./config";
+import {
+  isSupabaseConfigured,
+  suppressInsecureUserWarning,
+  SUPABASE_ANON_KEY,
+  SUPABASE_URL,
+} from "./config";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -67,7 +72,7 @@ export const getAuthUser = requestCache(async () => {
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const client = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -84,4 +89,7 @@ export async function createClient() {
       },
     },
   });
+
+  suppressInsecureUserWarning(client.auth);
+  return client;
 }
