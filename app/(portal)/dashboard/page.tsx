@@ -109,7 +109,6 @@ export default async function DashboardPage() {
   let profileFilled = false;
   let wroteNote = false;
   let heardEpisode = false;
-  let finishedCourse = false;
   // A deal aimed at this member's badges or tier, if there is one (0093).
   let offer: MemberOffer | null = null;
 
@@ -177,7 +176,6 @@ export default async function DashboardPage() {
       );
       wroteNote = (guideCounts?.notes ?? 0) > 0;
       heardEpisode = (guideCounts?.podcast ?? 0) > 0;
-      finishedCourse = (guideCounts?.courses ?? 0) > 0;
       if (p?.created_at) {
         memberSinceDays = Math.max(
           1,
@@ -305,7 +303,6 @@ export default async function DashboardPage() {
         attended={stats.sessionsAttended > 0}
         wroteNote={wroteNote}
         heardEpisode={heardEpisode}
-        finishedCourse={finishedCourse}
       />
 
       {/* Next Up Banner */}

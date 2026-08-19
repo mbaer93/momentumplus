@@ -87,7 +87,7 @@ handles on-site checkout.
 ## Content
 
 - [ ] **Ops** — Speakers, sessions, resources, sponsors (with real logo files), courses
-- [ ] **Ops** — Badge names, descriptions, and the twelve guide steps — currently Claude's draft copy in `lib/badges.ts` and `lib/guide-steps.ts`
+- [x] **Ops** — Badge and guide copy reviewed by Matt (2026-08-19). Thresholds and level names confirmed as-is
 - [ ] **Ops** — Privacy policy, Terms, cookie notice (needs approved copy)
 
 ## Engagement (badges, tags, offers)
@@ -98,7 +98,7 @@ handles on-site checkout.
 
 ## QA
 
-- [x] **Code** — 410 unit tests; 31 Playwright specs
+- [x] **Code** — 414 unit tests; 31 Playwright specs
 - [x] **Code** — Every mutating API route has at least one test (all 18 audited)
 - [x] **Code** — Contrast (WCAG AA) and Playwright gates on every PR
 - [ ] **Ops** — Re-test the webhook flows against live Supabase + GHL; the e2e suite runs in preview mode and cannot exercise real auth or real writes

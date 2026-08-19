@@ -20,8 +20,8 @@ import {
  * disappeared, which left the things members actually pay for — the
  * podcast, the courses, the directory — undiscovered.
  *
- * Now twelve steps in three groups. A FINISHED GROUP COLLAPSES to one line:
- * twelve struck-through rows is a wall, and a wall is skipped. The current
+ * Eleven steps in three groups. A FINISHED GROUP COLLAPSES to one line:
+ * eleven struck-through rows is a wall, and a wall is skipped. The current
  * step is expanded with its description and a button; everything else is a
  * title and a check.
  *
