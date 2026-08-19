@@ -30,7 +30,11 @@ interface AdminCard {
   icon: typeof SessionsIcon;
   title: string;
   desc: string;
-  area: AdminArea;
+  /* The product area this card belongs to, gated by per-admin permissions.
+     Omitted for a card that is about the VIEWER rather than an area of the
+     product — their own account security, which no permission should be
+     able to hide from them. */
+  area?: AdminArea;
   superOnly?: boolean;
 }
 
@@ -189,6 +193,15 @@ const GROUPS: { heading: string; sub: string; cards: AdminCard[] }[] = [
         area: "members",
         superOnly: true,
       },
+      {
+        href: "/admin/security",
+        icon: ShieldIcon,
+        title: "Your Security",
+        desc: "Two-factor authentication for your own admin account.",
+        // Every admin, not just the Super Admin: a standard admin reaches
+        // member contact details too, and the page only ever acts on the
+        // account already signed in.
+      },
     ],
   },
   {
@@ -239,7 +252,7 @@ export default async function AdminPage() {
     ...g,
     cards: g.cards.filter(
       (c) =>
-        canAccessArea(access, c.area) &&
+        (c.area === undefined || canAccessArea(access, c.area)) &&
         (!c.superOnly || access?.role === "super"),
     ),
   })).filter((g) => g.cards.length > 0);

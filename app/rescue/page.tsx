@@ -36,6 +36,19 @@ export default async function RescuePage() {
     .maybeSingle();
   if (profile?.admin_role !== "super") notFound();
 
+  /*
+   * The second factor applies here too (2026-08-19). This console is
+   * Super-Admin-only and outside the portal layout by design — which is
+   * exactly what would make it the way around MFA if it were exempt. A
+   * fence with a gap beside it is a decoration.
+   *
+   * Break-glass for a genuinely lost authenticator is deleting the factor
+   * row in Supabase directly. That needs database access, which is a
+   * strictly higher bar than knowing the password — which is the point.
+   */
+  const { mfaStatus } = await import("@/lib/mfa");
+  if ((await mfaStatus()).mustVerify) redirect("/verify?redirect=/rescue");
+
   const reports = await loadErrorReports();
 
   return (

@@ -83,6 +83,10 @@ handles on-site checkout.
 - [x] **Code** — Email/password, magic link, reset, and invite flows
 - [x] **Code** — Recovery failures land on `/reset` with the reason, not a dead login page
 - [x] **Code** — Every forced-setup page carries "Signed in as … Not you? Log out"
+- [x] **Code** — Emailed links work in all three shapes (`token_hash`, PKCE `code`, implicit fragment)
+- [x] **Code** — Two-factor available on admin accounts (Admin → Your Security), enforced on pages, server actions, and /rescue
+- [ ] **Ops** — **Enrol the Super Admin in two-factor** and store the secret in 1Password. Until this is done the account that can read every member's contact details is protected by a password alone
+- [ ] **Ops** — Confirm the Resend plan covers launch-day volume; the free tier stops at 100 emails/day regardless of the Supabase limit
 
 ## Content
 
@@ -98,7 +102,7 @@ handles on-site checkout.
 
 ## QA
 
-- [x] **Code** — 423 unit tests; 31 Playwright specs
+- [x] **Code** — 444 unit tests; 31 Playwright specs
 - [x] **Code** — Every mutating API route has at least one test (all 18 audited)
 - [x] **Code** — Contrast (WCAG AA) and Playwright gates on every PR
 - [ ] **Ops** — Re-test the webhook flows against live Supabase + GHL; the e2e suite runs in preview mode and cannot exercise real auth or real writes
