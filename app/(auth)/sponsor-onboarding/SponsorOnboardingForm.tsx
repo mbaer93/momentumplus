@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { completeSponsorOnboarding } from "./actions";
 import { uploadOwnSponsorImage } from "@/app/(portal)/sponsor/actions";
-import { PASSWORD_HINT, checkPassword } from "@/lib/password";
+import { checkPassword } from "@/lib/password";
+import { PasswordField } from "@/components/PasswordField";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -326,32 +327,25 @@ export function SponsorOnboardingForm({
 
         {needsPassword && (
           <>
-            <div className="login-field">
-              <label htmlFor="sp-password">Choose a password</label>
-              <input
-                id="sp-password"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <p style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 4 }}>
-                {PASSWORD_HINT} Your username is your email address.
-              </p>
-            </div>
-            <div className="login-field">
-              <label htmlFor="sp-confirm">Confirm password</label>
-              <input
-                id="sp-confirm"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-            </div>
+            <PasswordField
+              id="sp-password"
+              label="Choose a password"
+              value={password}
+              onChange={setPassword}
+              required
+            />
+            <p style={{ fontSize: 12, color: "var(--mid-gray)", margin: "-4px 0 0" }}>
+              Your username is your email address.
+            </p>
+            <PasswordField
+              id="sp-confirm"
+              label="Confirm password"
+              value={confirm}
+              onChange={setConfirm}
+              showRules={false}
+              mustMatch={password}
+              required
+            />
           </>
         )}
 

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { completeSpeakerOnboarding } from "./actions";
-import { PASSWORD_HINT, checkPassword } from "@/lib/password";
+import { checkPassword } from "@/lib/password";
+import { PasswordField } from "@/components/PasswordField";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -172,6 +173,15 @@ export function SpeakerOnboardingForm({
         with members as a resource), and your own details. You&apos;ll get
         full speaker access, plus the Speaker Studio to manage your sessions.
       </p>
+      {/* Rob, via Matt, 2026-08-19: "it does not have indicators for
+          required fields until you press the save button." Every field here
+          is required, so one sentence up front beats an asterisk on each
+          label — the asterisks would carry no information, since none of
+          them distinguishes anything from anything. */}
+      <p style={{ fontSize: 12.5, color: "var(--mid-gray)", marginTop: -6 }}>
+        Everything below is required — it all appears on your speaker page,
+        and you can edit any of it later in your Studio.
+      </p>
       {error && <div className="login-error">{error}</div>}
       <form onSubmit={submit}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -283,32 +293,25 @@ export function SpeakerOnboardingForm({
 
         {needsPassword && (
           <>
-            <div className="login-field">
-              <label htmlFor="sk-password">Choose a password</label>
-              <input
-                id="sk-password"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <p style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 4 }}>
-                {PASSWORD_HINT} Your username is your email address.
-              </p>
-            </div>
-            <div className="login-field">
-              <label htmlFor="sk-confirm">Confirm password</label>
-              <input
-                id="sk-confirm"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-            </div>
+            <PasswordField
+              id="sk-password"
+              label="Choose a password"
+              value={password}
+              onChange={setPassword}
+              required
+            />
+            <p style={{ fontSize: 12, color: "var(--mid-gray)", margin: "-4px 0 0" }}>
+              Your username is your email address.
+            </p>
+            <PasswordField
+              id="sk-confirm"
+              label="Confirm password"
+              value={confirm}
+              onChange={setConfirm}
+              showRules={false}
+              mustMatch={password}
+              required
+            />
           </>
         )}
 
