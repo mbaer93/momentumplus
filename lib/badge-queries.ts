@@ -29,8 +29,33 @@ const EMPTY: BadgeCounts = {
   foundingMember: false,
 };
 
-/** Momentum+ opened to members on this date — see BADGE_MILESTONES.founding. */
-const FOUNDING_CUTOFF = "2026-10-14T23:59:59Z";
+/*
+ * Founding Member: bought a subscription in the launch window (Matt,
+ * 2026-08-19).
+ *
+ * The first cut of this said "any membership starting on or before go-live",
+ * which on day one would have decorated essentially every account in the
+ * database — imported summit attendees, gift tiers, comped speakers and
+ * sponsors, and the test accounts — with a badge reading "Here from the
+ * beginning". A badge everyone has says nothing.
+ *
+ * So it is scoped to money and to a window: the member's earliest PAID
+ * subscription has to start between go-live and the end of 2026. It marks
+ * the people who paid for an unproven product in its first months, which is
+ * the thing worth remembering them for.
+ */
+const FOUNDING_WINDOW_START = "2026-10-14T00:00:00Z";
+const FOUNDING_WINDOW_END = "2026-12-31T23:59:59Z";
+
+/*
+ * The only tiers anyone can actually buy (lib/pricing.ts sells exactly
+ * these four). Everything else is granted: gift and vip are free Basic
+ * access, tsls_* rides a summit ticket, speaker/sponsor/admin are comped,
+ * and basic/pro are admin-assigned levels rather than products. Comped
+ * accounts do not earn this — being on the team is not the same as backing
+ * the thing.
+ */
+const PAID_TIERS = ["sub_monthly", "sub_3mo", "sub_6mo", "sub_annual"];
 
 /** Tiers that mean "came to the summit". */
 const SUMMIT_TIERS = ["tsls_attendee", "tsls_vip"];
@@ -103,6 +128,7 @@ export async function badgeCountsForMany(
   // Tenure, summit, founding — all from the membership rows.
   const now = Date.now();
   const earliest = new Map<string, string>();
+  const earliestPaid = new Map<string, string>();
   for (const row of memberships.data ?? []) {
     const id = String(row.profile_id);
     const target = out.get(id);
@@ -112,6 +138,10 @@ export async function badgeCountsForMany(
     if (joined) {
       const prev = earliest.get(id);
       if (!prev || joined < prev) earliest.set(id, joined);
+      if (PAID_TIERS.includes(String(row.tier))) {
+        const prevPaid = earliestPaid.get(id);
+        if (!prevPaid || joined < prevPaid) earliestPaid.set(id, joined);
+      }
     }
   }
   for (const [id, joined] of earliest) {
@@ -124,7 +154,30 @@ export async function badgeCountsForMany(
      * moment they give us money would be perverse.
      */
     target.tenure = monthsBetween(joined, now);
-    target.foundingMember = joined <= FOUNDING_CUTOFF;
+  }
+  for (const [id, paidJoined] of earliestPaid) {
+    const target = out.get(id);
+    if (!target) continue;
+    // A free tier that later converts still counts: what is measured is when
+    // they first PAID, not when they first appeared.
+    target.foundingMember =
+      paidJoined >= FOUNDING_WINDOW_START && paidJoined <= FOUNDING_WINDOW_END;
+  }
+
+  /*
+   * Test accounts never earn it. They are hidden from members anyway, but a
+   * tester marked at a paid tier would otherwise be counted among the people
+   * who actually bought something — and the number of founding members is
+   * exactly the kind of thing that ends up in copy.
+   */
+  const { data: testers } = await admin
+    .from("profiles")
+    .select("id")
+    .in("id", ids)
+    .eq("tester", true);
+  for (const row of testers ?? []) {
+    const target = out.get(String(row.id));
+    if (target) target.foundingMember = false;
   }
 
   // Courses: a course counts once every one of its lessons is complete.
