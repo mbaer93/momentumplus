@@ -74,3 +74,19 @@ test("every run records which season it wrote into, and who decided", () => {
   assert.match(heartbeat, /\$\{eventYear\} season/);
   assert.match(heartbeat, /per TSLS_EVENT_YEAR/);
 });
+
+test("skipped registration types reach the heartbeat, not just the JSON", () => {
+  /*
+   * A type missing from TSLS_TYPE_MAP is skipped: not an import, not an
+   * error, and the row is left unprocessed for a later run. So a map that
+   * misses the type everybody registers under reports "imported=0 errors=0"
+   * — indistinguishable from a quiet week, on the one screen anyone looks
+   * at. The map is hand-written and matched exactly after lowercasing, so a
+   * discount label like "General Admission - Student" with no key is the
+   * likely way it happens (Matt, 2026-08-19).
+   */
+  const route = readFileSync("app/api/import/tsls/route.ts", "utf8");
+  const heartbeat = route.slice(route.indexOf('recordCronRun(\n    "tsls-import"'));
+  assert.match(heartbeat, /skippedUnmappedTypes/);
+  assert.match(heartbeat, /TSLS_TYPE_MAP/, "name the fix, not just the symptom");
+});

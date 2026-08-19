@@ -242,6 +242,21 @@ export async function GET(req: NextRequest) {
     // and whether TSLS or the fallback decided that.
     `${eventYear} season (${season.source === "tsls" ? "per TSLS" : "per TSLS_EVENT_YEAR"}) · ` +
       `imported=${summary.imported} errors=${summary.errors.length}` +
+      /*
+       * Unmapped types belong here and not only in the JSON response
+       * (2026-08-19). A registration type missing from TSLS_TYPE_MAP is
+       * skipped, counts as neither an import nor an error, and leaves the
+       * row unprocessed for a later run — so a map that misses the one type
+       * everybody registers under reports "imported=0 errors=0", which is
+       * indistinguishable from a quiet week. The map is hand-written and
+       * matched exactly after lowercasing, so a discount label like
+       * "General Admission - Student" missing a key is the likely way this
+       * goes wrong. Name the types so the fix is obvious.
+       */
+      (summary.skippedUnmappedTypes.length > 0
+        ? ` · SKIPPED unmapped types: ${summary.skippedUnmappedTypes.join(", ")}` +
+          ` — add them to TSLS_TYPE_MAP and they import on the next run`
+        : "") +
       (summary.createdWithoutEmail > 0
         ? ` · ${summary.createdWithoutEmail} created WITHOUT an invite email (email throttled) — re-send from Admin → Members`
         : ""),
