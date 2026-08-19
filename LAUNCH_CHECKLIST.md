@@ -93,12 +93,12 @@ handles on-site checkout.
 ## Engagement (badges, tags, offers)
 
 - [x] **Code** — Badge ledger (append-only), nightly sync, GHL contact tags, badge-targeted announcements, in-app offers
-- [ ] **Ops** — Decide the Founding Member window end (currently Dec 31, 2026)
+- [x] **Ops** — Founding Member closes at 100 members or October 1, 2027, whichever comes first (Matt, 2026-08-19)
 - [ ] **Ops** — Build the first GHL segment on a `momentum-*` tag and confirm it populates
 
 ## QA
 
-- [x] **Code** — 414 unit tests; 31 Playwright specs
+- [x] **Code** — 423 unit tests; 31 Playwright specs
 - [x] **Code** — Every mutating API route has at least one test (all 18 audited)
 - [x] **Code** — Contrast (WCAG AA) and Playwright gates on every PR
 - [ ] **Ops** — Re-test the webhook flows against live Supabase + GHL; the e2e suite runs in preview mode and cannot exercise real auth or real writes

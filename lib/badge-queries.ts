@@ -4,8 +4,10 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { requestCache } from "@/lib/request-cache";
 import {
   badgesFrom,
+  foundingCohort,
   wasBought,
   type BadgeCounts,
+  type FoundingCandidate,
   type MemberBadges,
 } from "@/lib/badges";
 
@@ -50,8 +52,6 @@ const EMPTY: BadgeCounts = {
  * the people who paid for an unproven product in its first months, which is
  * the thing worth remembering them for.
  */
-const FOUNDING_WINDOW_START = "2026-10-14T00:00:00Z";
-const FOUNDING_WINDOW_END = "2026-12-31T23:59:59Z";
 
 /** Tiers that mean "came to the summit". */
 const SUMMIT_TIERS = ["tsls_attendee", "tsls_vip"];
@@ -71,6 +71,62 @@ function monthsBetween(fromIso: string, now: number): number {
  * page: a directory that 500s because the podcast table hiccuped is a far
  * worse outcome than a member's "Tuned In" badge going missing for an hour.
  */
+/**
+ * The founding cohort, resolved once per request.
+ *
+ * Every other badge count is answerable from one member's own rows. This
+ * one is not: whether someone is inside the first hundred depends on
+ * everybody else, so it needs the whole population — and it is therefore
+ * cached per request rather than recomputed for every batch of 200 members
+ * the directory renders.
+ *
+ * Fails CLOSED to an empty set. A read error must not hand the badge to
+ * everyone; a missing badge is recoverable on the next run, an
+ * over-awarded one is not (the ledger is append-only, so a wrongly awarded
+ * Founding Member is permanent).
+ */
+export const foundingMemberIds = requestCache(async (): Promise<Set<string>> => {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return new Set();
+  }
+  const admin = createServiceClient();
+  const { rows, error } = await allRows<{
+    profile_id: string;
+    tier: string;
+    source: string | null;
+    access_starts_at: string | null;
+    created_at: string | null;
+  }>((from, to) =>
+    admin
+      .from("memberships")
+      .select("profile_id, tier, source, access_starts_at, created_at")
+      .order("profile_id")
+      .range(from, to),
+  );
+  if (error) return new Set();
+
+  /*
+   * Test accounts cannot take a slot. There are only a hundred, and a
+   * tester holding one means a real member who paid does not — the kind of
+   * thing nobody would find until someone counted.
+   */
+  const { data: testers } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("tester", true);
+  const excluded = new Set((testers ?? []).map((t) => String(t.id)));
+
+  const candidates: FoundingCandidate[] = [];
+  for (const row of rows) {
+    const id = String(row.profile_id);
+    if (excluded.has(id)) continue;
+    if (!wasBought(String(row.tier), row.source ?? null)) continue;
+    const paidAt = (row.access_starts_at ?? row.created_at) as string | null;
+    if (paidAt) candidates.push({ profileId: id, paidAt });
+  }
+  return foundingCohort(candidates);
+});
+
 export async function badgeCountsForMany(
   profileIds: string[],
 ): Promise<Map<string, BadgeCounts>> {
@@ -223,13 +279,16 @@ export async function badgeCountsForMany(
      */
     target.tenure = monthsBetween(joined, now);
   }
-  for (const [id, paidJoined] of earliestPaid) {
+  /*
+   * Founding Member is decided by the cohort, not by this member's dates —
+   * the cap means the window closing early is a thing that happens to
+   * everyone at once. earliestPaid is still computed above because it is
+   * what the cohort ranks on.
+   */
+  const founding = await foundingMemberIds();
+  for (const id of earliestPaid.keys()) {
     const target = out.get(id);
-    if (!target) continue;
-    // A free tier that later converts still counts: what is measured is when
-    // they first PAID, not when they first appeared.
-    target.foundingMember =
-      paidJoined >= FOUNDING_WINDOW_START && paidJoined <= FOUNDING_WINDOW_END;
+    if (target) target.foundingMember = founding.has(id);
   }
 
   /*

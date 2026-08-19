@@ -111,6 +111,82 @@ export function wasBought(tier: string, source: string | null): boolean {
   return LEVEL_TIERS.includes(tier) && PAYMENT_SOURCES.includes(source ?? "");
 }
 
+/*
+ * Founding Member is a CAPPED COHORT, not just a date window (Matt,
+ * 2026-08-19): the first 100 people to buy, or everyone who buys before
+ * October 1 2027 — whichever comes first.
+ *
+ * The cap is what makes this different in kind from every other badge. The
+ * others are decidable from one member's own rows; this one cannot be
+ * answered without looking at everybody, because whether you are the
+ * hundredth or the hundred-and-first depends on people you have never met.
+ * So the ranking lives here, pure and ordered, rather than as a comparison
+ * scattered through the queries.
+ */
+export const FOUNDING_WINDOW_START = "2026-10-14T00:00:00Z";
+/** Inclusive of October 1 2027 — the season clock this project counts by. */
+export const FOUNDING_WINDOW_END = "2027-10-01T23:59:59Z";
+export const FOUNDING_CAP = 100;
+
+export interface FoundingCandidate {
+  profileId: string;
+  /** When they FIRST paid — the thing being ranked. */
+  paidAt: string;
+}
+
+/**
+ * The founding cohort: the first `cap` qualifying members by when they
+ * first paid.
+ *
+ * Ordering is by paidAt, then profileId. The tiebreak is not decoration —
+ * two people who bought in the same second must rank in an order that does
+ * not change between runs, or the hundredth member is whoever the database
+ * happened to return first tonight.
+ *
+ * A member who later cancels KEEPS their slot. They were one of the first
+ * hundred; that is a fact about the past, and freeing the slot would hand
+ * someone else a badge for a place they did not take.
+ */
+export function foundingCohort(
+  candidates: FoundingCandidate[],
+  opts?: { cap?: number; start?: string; end?: string },
+): Set<string> {
+  const cap = opts?.cap ?? FOUNDING_CAP;
+  const start = opts?.start ?? FOUNDING_WINDOW_START;
+  const end = opts?.end ?? FOUNDING_WINDOW_END;
+
+  /*
+   * Compared as TIME, never as strings. The same instant has several ISO
+   * spellings — "…T00:00:00Z", "…T00:00:00.000Z", "…T00:00:00+00:00" — and
+   * string order puts the millisecond form BEFORE the bare one ("." sorts
+   * under "Z"), so a member who paid exactly at go-live would have been
+   * ranked outside the window. Postgres returns the offset form, so this
+   * was not hypothetical.
+   */
+  const startMs = Date.parse(start);
+  const endMs = Date.parse(end);
+
+  // One entry per member, at their earliest qualifying payment.
+  const earliest = new Map<string, number>();
+  for (const c of candidates) {
+    if (!c.profileId || !c.paidAt) continue;
+    const paidMs = Date.parse(c.paidAt);
+    if (!Number.isFinite(paidMs)) continue;
+    if (paidMs < startMs || paidMs > endMs) continue;
+    const prev = earliest.get(c.profileId);
+    if (prev === undefined || paidMs < prev) earliest.set(c.profileId, paidMs);
+  }
+
+  return new Set(
+    [...earliest.entries()]
+      .sort(([aId, aAt], [bId, bAt]) =>
+        aAt === bAt ? aId.localeCompare(bId) : aAt - bAt,
+      )
+      .slice(0, cap)
+      .map(([id]) => id),
+  );
+}
+
 export type MilestoneKey = "summit" | "founding" | "certified";
 
 export interface MilestoneDef {
