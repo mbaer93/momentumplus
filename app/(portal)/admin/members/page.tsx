@@ -444,7 +444,14 @@ export default async function AdminMembersPage(
         viewerIsSuper={access?.role === "super"}
       />
 
-      {access?.role === "super" && <OrphanAccounts orphans={orphans} />}
+      {/* Any admin who can manage members can unstick one; only a Super
+          Admin can delete a login. Gating the whole panel on Super meant a
+          members-admin could not even SEE the person they were asked to
+          help (Matt, 2026-08-19). */}
+      <OrphanAccounts
+        orphans={orphans}
+        canDelete={access?.role === "super"}
+      />
 
       {isSupabaseConfigured() && totalCount > PAGE_SIZE && (
         <div
