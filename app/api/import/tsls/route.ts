@@ -10,6 +10,7 @@ import {
   getSheetsAccessToken,
   isSheetsConfigured,
   parseRegistrationSheet,
+  sheetWritebackEnabled,
   readSheetRange,
   writeSheetCell,
 } from "@/lib/sheets";
@@ -21,9 +22,14 @@ import {
  *     → invite the member (Supabase magic-link invite) / find existing profile
  *     → insert membership (source tsls_import)
  *     → record in import_log (idempotent by email + event year)
- *     → mark the sheet row processed.
  * Unmapped registration types are skipped and reported — tier rules are
  * configured, never guessed.
+ *
+ * The sheet is READ ONLY unless TSLS_SHEET_WRITEBACK=1. It is a live
+ * source of truth with automations hanging off it, and the "processed"
+ * stamp was only ever a fast-skip hint — import_log is what actually
+ * prevents a second grant, and it is consulted for every row regardless.
+ * See lib/sheets.ts.
  */
 // Long-running under load — allow the full function window (Vercel Pro).
 export const maxDuration = 300;
@@ -242,6 +248,9 @@ export async function GET(req: NextRequest) {
     // and whether TSLS or the fallback decided that.
     `${eventYear} season (${season.source === "tsls" ? "per TSLS" : "per TSLS_EVENT_YEAR"}) · ` +
       `imported=${summary.imported} errors=${summary.errors.length}` +
+      // Stated on every run, because "did that thing touch my sheet?" should
+      // be answerable from the heartbeat rather than from the source.
+      (sheetWritebackEnabled() ? "" : " · sheet read-only, not modified") +
       /*
        * Unmapped types belong here and not only in the JSON response
        * (2026-08-19). A registration type missing from TSLS_TYPE_MAP is
@@ -275,6 +284,13 @@ async function markProcessed(
   processedCol: number,
   rowNumber: number,
 ): Promise<void> {
+  // Off by default. The stamp is a fast-skip hint, never the record —
+  // import_log is checked for every row either way — and the registration
+  // sheet has live automations hanging off it (Matt, 2026-08-19). Returning
+  // here means no write is even attempted, and the token minted for this run
+  // carries the readonly scope.
+  if (!sheetWritebackEnabled()) return;
+
   const cell = `${columnLetter(processedCol)}${rowNumber}`;
   const a1 = sheetPrefix ? `${sheetPrefix}!${cell}` : cell;
   try {

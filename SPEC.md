@@ -15,7 +15,7 @@ External links: TSLS Summit site, Sierra Learnership Collaborative site.
 ## 2. Access tiers
 | Tier | Source | Duration |
 |---|---|---|
-| tsls_attendee | Summit registration import | N months (per registration type) |
+| tsls_attendee | Summit General Admission | 1 month |
 | tsls_vip | VIP Summit registration | 3 months |
 | sub_3mo / sub_6mo | GHL one-time purchase | 3 / 6 months |
 | sub_monthly / sub_annual | GHL recurring | rolling / 12 months |
@@ -29,7 +29,10 @@ $158/mo, save $240 ("For leaders serious about sustained growth and accountabili
 · 12-Month $1,668 = $139/mo, save $708 — flag as **Best Value** in UI ("The full
 leadership ecosystem experience"; aligns with annual TSLS cycle). Show per-month
 equivalents and savings exactly as listed. VIP Summit registration embeds 3 months
-($534 value) — reference this on the VIP-sourced welcome screen.
+($534 value) — reference this on the VIP-sourced welcome screen. Summit General
+Admission embeds 1 month ($198 value). Both are the free access a ticket buys,
+and both start when the reveal is pressed at the event — not when the ticket was
+purchased (Matt, 2026-08-19).
 
 Gating levels used by content: `all_members`, `vip_plus` (vip, annual, speaker, admin),
 `admin_only`. Sessions/resources/videos each carry a `min_access` field.
