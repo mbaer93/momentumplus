@@ -353,6 +353,10 @@ export async function runBadgeSync(): Promise<{
   const auth = await requireAdmin("announcements");
   if (!auth.ok) return { ok: false, message: auth.message ?? "Not allowed." };
 
+  // Community counts first — the award step reads them (0094).
+  const { syncCommunityCounts } = await import("@/lib/community-counts");
+  const community = await syncCommunityCounts();
+
   const { syncMemberBadges } = await import("@/lib/badge-sync");
   const result = await syncMemberBadges();
   if (result.error) {
@@ -368,6 +372,9 @@ export async function runBadgeSync(): Promise<{
   const tags = await pushBadgeTags();
   revalidatePath("/admin/announcements");
 
+  const communityNote = community.error
+    ? ` Community messages skipped — ${community.error}.`
+    : ` Counted ${community.messages} community message${community.messages === 1 ? "" : "s"}.`;
   const tagNote = tags.error
     ? ` GHL tags skipped — ${tags.error}.`
     : tags.tagged > 0
@@ -378,6 +385,7 @@ export async function runBadgeSync(): Promise<{
     message:
       `Checked ${result.scanned} member${result.scanned === 1 ? "" : "s"}, ` +
       `${result.awarded} badge${result.awarded === 1 ? "" : "s"} newly earned.` +
+      communityNote +
       tagNote,
   };
 }
