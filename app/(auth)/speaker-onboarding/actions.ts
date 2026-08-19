@@ -2,6 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { emailPattern } from "@/lib/db-utils";
+import { hasPassword } from "@/lib/has-password";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -426,7 +427,13 @@ export async function getPendingSpeakerInvite(): Promise<{
     return {
       pending: true,
       displayName: (invite.display_name as string) ?? "",
-      needsPassword: Boolean(invite.account_created),
+      /*
+       * account_created says WE made the account; it does not say they
+       * still lack a password. Rob set one through a recovery link and was
+       * asked for another on the next screen (2026-08-19).
+       */
+      needsPassword:
+        Boolean(invite.account_created) && !(await hasPassword(user.id)),
     };
   }
 

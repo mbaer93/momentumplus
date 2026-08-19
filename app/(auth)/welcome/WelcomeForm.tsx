@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfile } from "@/app/(portal)/profile/actions";
-import { PASSWORD_HINT, checkPassword } from "@/lib/password";
+import { checkPassword } from "@/lib/password";
+import { PasswordField } from "@/components/PasswordField";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -242,33 +243,22 @@ export function WelcomeForm({
       </p>
       {error && <div className="login-error">{error}</div>}
       <form onSubmit={savePassword}>
-        <div className="login-field">
-          <label htmlFor="password">Choose a password</label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Choose a strong password"
-          />
-          <p style={{ fontSize: 12, color: "var(--mid-gray)", marginTop: 4 }}>
-            {PASSWORD_HINT}
-          </p>
-        </div>
-        <div className="login-field">
-          <label htmlFor="confirm">Confirm password</label>
-          <input
-            id="confirm"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-        </div>
+        <PasswordField
+          id="password"
+          label="Choose a password"
+          value={password}
+          onChange={setPassword}
+          required
+        />
+        <PasswordField
+          id="confirm"
+          label="Confirm password"
+          value={confirm}
+          onChange={setConfirm}
+          showRules={false}
+          mustMatch={password}
+          required
+        />
         <button type="submit" className="login-btn" disabled={loading}>
           {loading ? "Saving…" : mode === "reset" ? "Save new password" : "Continue"}
         </button>

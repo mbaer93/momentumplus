@@ -5547,3 +5547,18 @@ input[type="checkbox"].pref-toggle:checked::after {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* Visible to screen readers only. Used by the password field's live
+   progress announcement, which would be noise on screen but is the only
+   way a non-sighted member learns the checklist is filling in. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

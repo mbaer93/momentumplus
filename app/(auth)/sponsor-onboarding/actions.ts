@@ -1,5 +1,6 @@
 "use server";
 
+import { hasPassword } from "@/lib/has-password";
 import { revalidatePath, updateTag } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -277,7 +278,10 @@ export async function getPendingSponsorInvite(): Promise<{
     pending: true,
     tier: invite.tier as string,
     businessName: (invite.business_name as string) ?? "",
-    needsPassword: Boolean(invite.account_created),
+    // Same correction as speaker onboarding: "we created the account" is
+    // not "they have no password" (2026-08-19).
+    needsPassword:
+      Boolean(invite.account_created) && !(await hasPassword(user.id)),
     ticketAllotment: counts[normalizeSponsorTier(invite.tier as string)] ?? 0,
     tagline: (invite.tagline as string) ?? "",
     description: (invite.description as string) ?? "",
