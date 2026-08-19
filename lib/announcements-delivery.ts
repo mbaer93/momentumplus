@@ -36,6 +36,7 @@ interface AnnouncementRow {
   title: string;
   body: string | null;
   audience_tiers: string[];
+  audience_badges?: string[] | null;
   channels: string[];
   community_posted_at: string | null;
 }
@@ -45,11 +46,27 @@ export async function deliverAnnouncement(
   announcementId: string,
 ): Promise<DeliveryResult> {
   const admin = createServiceClient();
-  const { data: annData, error: annError } = await admin
+  let { data: annData, error: annError } = await admin
     .from("announcements")
-    .select("id, title, body, audience_tiers, channels, community_posted_at")
+    .select(
+      "id, title, body, audience_tiers, audience_badges, channels, community_posted_at",
+    )
     .eq("id", announcementId)
     .maybeSingle();
+  /*
+   * Pre-migration ladder (0091): selecting a column the database does not
+   * have fails the WHOLE query, which would take down delivery of every
+   * ordinary announcement on an app deployed ahead of the migration. Fall
+   * back to the columns that have always existed — nothing can be targeting
+   * badges yet if the column is not there.
+   */
+  if (annError && /audience_badges/.test(annError.message)) {
+    ({ data: annData, error: annError } = await admin
+      .from("announcements")
+      .select("id, title, body, audience_tiers, channels, community_posted_at")
+      .eq("id", announcementId)
+      .maybeSingle());
+  }
   if (annError || !annData) {
     return {
       ok: false,
@@ -63,6 +80,18 @@ export async function deliverAnnouncement(
   const body = (ann.body ?? "").trim();
   const channels = ann.channels ?? [];
   const audienceTiers = ann.audience_tiers ?? [];
+  const audienceBadges = ann.audience_badges ?? [];
+  /*
+   * Badge holders are unioned with the tier audience (Matt, 2026-08-19:
+   * offers aimed at badge holders). Resolved to profile ids here, then
+   * filtered against LIVE memberships below — a badge is permanent, access
+   * is not, and someone whose membership lapsed must not keep receiving
+   * member mail because of something they earned last year.
+   */
+  const badgeHolders =
+    audienceBadges.length > 0
+      ? await (await import("@/lib/badge-sync")).profilesWithBadges(audienceBadges)
+      : null;
 
   // Community post: into the #announcements chat channel as the team user.
   // Journaled on the announcement row (community_posted_at, migration 0038)
@@ -90,7 +119,7 @@ export async function deliverAnnouncement(
       }
     }
   }
-  if (audienceTiers.length === 0) {
+  if (audienceTiers.length === 0 && !badgeHolders?.size) {
     return {
       ok: !communityNote.includes("failed"),
       complete: true,
@@ -99,23 +128,27 @@ export async function deliverAnnouncement(
     };
   }
 
-  // Audience: members holding a usable membership in the selected tiers.
+  // Audience: members holding a usable membership in the selected tiers,
+  // plus holders of the selected badges who still have usable access.
   // Paged — a plain select silently stops at 1000 members.
   const { rows: memberships } = await allRows<{
     profile_id: string;
+    tier: string;
     ghl_contact_id: string | null;
     profiles: { email: string; full_name: string; phone: string | null } | null;
   }>((from, to) =>
     admin
       .from("memberships")
-      .select("profile_id, ghl_contact_id, profiles ( email, full_name, phone )")
-      .in("tier", audienceTiers)
+      .select(
+        "profile_id, tier, ghl_contact_id, profiles ( email, full_name, phone )",
+      )
       .in("status", ["active", "past_due"])
       .order("profile_id")
       .range(from, to) as unknown as PromiseLike<{
       data:
         | {
             profile_id: string;
+            tier: string;
             ghl_contact_id: string | null;
             profiles: {
               email: string;
@@ -128,6 +161,7 @@ export async function deliverAnnouncement(
     }>,
   );
 
+  const tierSet = new Set<string>(audienceTiers);
   const seen = new Set<string>();
   const audience: {
     profileId: string;
@@ -137,6 +171,7 @@ export async function deliverAnnouncement(
     phone: string | null;
   }[] = [];
   for (const m of memberships) {
+    if (!tierSet.has(m.tier) && !badgeHolders?.has(m.profile_id)) continue;
     if (seen.has(m.profile_id)) continue;
     seen.add(m.profile_id);
     if (!m.profiles) continue;

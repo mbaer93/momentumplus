@@ -1,0 +1,49 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { bearerAuthorized } from "@/lib/db-utils";
+import { recordCronRun } from "@/lib/cron-health";
+import { syncMemberBadges } from "@/lib/badge-sync";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+
+/*
+ * Nightly badge sync (migration 0091).
+ *
+ * Re-evaluates every member with a membership and writes down anything
+ * newly earned. Append-only and idempotent, so a re-fire is harmless and a
+ * run that dies partway is simply finished by the next one.
+ *
+ * Nightly rather than on-write: a badge is not time-critical (nobody needs
+ * "In the Room · Bronze" the second a session ends), and hanging a fan-out
+ * off every attendance mark, note save, and lesson completion would put a
+ * write amplification on the hottest paths in the app for a decoration.
+ * Anything that DOES need to be immediate — an offer gate at checkout —
+ * should read the live counts, not wait for this.
+ */
+export const maxDuration = 300;
+
+export async function GET(req: NextRequest) {
+  if (!bearerAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  }
+
+  const result = await syncMemberBadges();
+  await recordCronRun(
+    "badges",
+    result.error
+      ? `failed: ${result.error}`
+      : `${result.scanned} members, ${result.awarded} newly earned`,
+  );
+
+  return NextResponse.json(
+    {
+      ok: !result.error,
+      scanned: result.scanned,
+      awarded: result.awarded,
+      newByKey: result.newByKey,
+      ...(result.error ? { error: result.error } : {}),
+    },
+    { status: result.error ? 500 : 200 },
+  );
+}

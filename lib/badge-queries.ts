@@ -241,13 +241,49 @@ export async function hiddenBadgeProfiles(
   return new Set((data ?? []).map((r) => String(r.id)));
 }
 
+/**
+ * Badge keys these members have EVER earned, from the ledger (0091).
+ *
+ * Fails soft to an empty map: the ledger only ever raises what the live
+ * counts already say, so losing it degrades to today's behaviour rather
+ * than to a wrong answer. Pre-migration that is also the only answer.
+ */
+export async function everEarnedBadges(
+  profileIds: string[],
+): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>();
+  if (
+    profileIds.length === 0 ||
+    !isSupabaseConfigured() ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return out;
+  }
+  const { data, error } = await createServiceClient()
+    .from("member_badges")
+    .select("profile_id, badge_key")
+    .in("profile_id", profileIds);
+  if (error) return out;
+  for (const row of data ?? []) {
+    const id = String(row.profile_id);
+    const set = out.get(id) ?? new Set<string>();
+    set.add(String(row.badge_key));
+    out.set(id, set);
+  }
+  return out;
+}
+
 /** Badges for one member — their own profile page. */
 export const badgesForProfile = requestCache(
   async (profileId: string): Promise<MemberBadges> => {
-    const counts = await badgeCountsForMany([profileId]);
-    const hidden = await hiddenBadgeProfiles([profileId]);
+    const [counts, hidden, ever] = await Promise.all([
+      badgeCountsForMany([profileId]),
+      hiddenBadgeProfiles([profileId]),
+      everEarnedBadges([profileId]),
+    ]);
     return badgesFrom(counts.get(profileId) ?? EMPTY, {
       hidden: hidden.has(profileId),
+      everEarned: ever.get(profileId),
     });
   },
 );
@@ -262,14 +298,15 @@ export const badgesForProfile = requestCache(
 export async function badgesForOthers(
   profileIds: string[],
 ): Promise<Map<string, MemberBadges>> {
-  const [counts, hidden] = await Promise.all([
+  const [counts, hidden, ever] = await Promise.all([
     badgeCountsForMany(profileIds),
     hiddenBadgeProfiles(profileIds),
+    everEarnedBadges(profileIds),
   ]);
   const out = new Map<string, MemberBadges>();
   for (const [id, c] of counts) {
     if (hidden.has(id)) continue;
-    out.set(id, badgesFrom(c));
+    out.set(id, badgesFrom(c, { everEarned: ever.get(id) }));
   }
   return out;
 }

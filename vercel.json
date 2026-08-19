@@ -43,6 +43,10 @@
     {
       "path": "/api/cron/podcast",
       "schedule": "45 */6 * * *"
+    },
+    {
+      "path": "/api/cron/badges",
+      "schedule": "20 6 * * *"
     }
   ]
 }
