@@ -160,13 +160,18 @@ export async function updateProfile(input: {
   // Two-way sync (Matt, 2026-07-29): profile edits here mirror to TSLS
   // for every kind of user. Best-effort — never blocks the save.
   if (user.email) {
-    const { pushPersonToTsls } = await import("@/lib/tsls-bridge");
-    await pushPersonToTsls({
-      email: user.email,
-      name: input.full_name.trim() || null,
-      title: input.title.trim() || null,
-      bio: input.bio.trim() || null,
-    });
+    const { pushPersonToTsls, mirrorToTslsAfterResponse } = await import(
+      "@/lib/tsls-bridge"
+    );
+    const email = user.email;
+    mirrorToTslsAfterResponse(`profile ${email}`, () =>
+      pushPersonToTsls({
+        email,
+        name: input.full_name.trim() || null,
+        title: input.title.trim() || null,
+        bio: input.bio.trim() || null,
+      }),
+    );
   }
   return { ok: true, message: "Profile saved" };
 }

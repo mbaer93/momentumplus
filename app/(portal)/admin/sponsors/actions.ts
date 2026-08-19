@@ -465,14 +465,18 @@ export async function updateSponsor(
   // page. TSLS stores tier labels, so send the label.
   {
     const { sponsorTierLabel } = await import("@/lib/sponsor-tiers");
-    const { pushSponsorToTsls } = await import("@/lib/tsls-bridge");
-    await pushSponsorToTsls({
-      name: row.name,
-      tier: sponsorTierLabel(row.tier),
-      tagline: row.tagline,
-      description: row.description,
-      website: row.website,
-    });
+    const { pushSponsorToTsls, mirrorToTslsAfterResponse } = await import(
+      "@/lib/tsls-bridge"
+    );
+    mirrorToTslsAfterResponse(`sponsor ${row.name}`, () =>
+      pushSponsorToTsls({
+        name: row.name,
+        tier: sponsorTierLabel(row.tier),
+        tagline: row.tagline,
+        description: row.description,
+        website: row.website,
+      }),
+    );
   }
   return { ok: true, message: "Sponsor saved." };
 }
