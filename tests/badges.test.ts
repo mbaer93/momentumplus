@@ -3,7 +3,13 @@ import assert from "node:assert/strict";
 import {
   BADGE_TRACKS,
   OVERALL_LEVELS,
+  badgeKeyLabel,
   badgesFrom,
+  earnedBadgeKeys,
+  levelBadgeKey,
+  milestoneBadgeKey,
+  selectableBadges,
+  trackBadgeKey,
   earnedTracks,
   levelForPoints,
   nextThreshold,
@@ -160,4 +166,98 @@ test("units read correctly at one", () => {
   // would be a worse bug than the one being fixed.
   assert.equal(unitLabel("sessions with notes", 1), "session with notes");
   assert.equal(unitLabel("episodes", 0), "episodes");
+});
+
+/*
+ * Badge KEYS (migration 0091). These strings are written to the database,
+ * pushed to GHL as contact tags, and stored in the audience of announcements
+ * that have already been sent — so a change to one silently re-targets past
+ * and future sends. Treated as an interface, not a label.
+ */
+
+test("badge keys are stable and namespaced", () => {
+  assert.equal(trackBadgeKey("attendance", "gold"), "attendance:gold");
+  assert.equal(milestoneBadgeKey("founding"), "milestone:founding");
+  assert.equal(levelBadgeKey("committed"), "level:committed");
+});
+
+test("earning a tier also earns the tiers below it", () => {
+  // "Everyone who has reached In the Room, any tier" has to be one
+  // `badge_key in (...)`, not a tier comparison at every call site.
+  const keys = earnedBadgeKeys({ ...base, attendance: 10 });
+  assert.ok(keys.includes("attendance:bronze"));
+  assert.ok(keys.includes("attendance:silver"));
+  assert.ok(keys.includes("attendance:gold"));
+});
+
+test("an unearned track produces no keys at all", () => {
+  const keys = earnedBadgeKeys({ ...base, attendance: 0 });
+  assert.ok(!keys.some((k) => k.startsWith("attendance:")));
+});
+
+test("a null count never earns a key", () => {
+  // Community is unmeasured until Stream is wired. Awarding its bottom tier
+  // to everyone would put a badge on people who have never posted.
+  const keys = earnedBadgeKeys({ ...base, community: null });
+  assert.ok(!keys.some((k) => k.startsWith("community:")));
+});
+
+test("milestones map to their own namespace", () => {
+  const keys = earnedBadgeKeys({
+    ...base,
+    summitAttendee: true,
+    foundingMember: true,
+    courses: 1,
+  });
+  assert.ok(keys.includes("milestone:summit"));
+  assert.ok(keys.includes("milestone:founding"));
+  assert.ok(keys.includes("milestone:certified"));
+});
+
+test("levels below the one reached are earned too, but never 'start'", () => {
+  // Gold attendance + gold podcast = 6 points, which clears Engaged (3) but
+  // not Committed (7).
+  const keys = earnedBadgeKeys({ ...base, attendance: 10, podcast: 30 });
+  assert.ok(keys.includes("level:engaged"));
+  assert.ok(!keys.includes("level:committed"));
+  // "Getting Started" is the absence of a badge, not a badge.
+  assert.ok(!keys.includes("level:start"));
+});
+
+test("the ledger raises a badge but never lowers one", () => {
+  /*
+   * Matt's rule: earned is earned. Archive the sessions behind someone's
+   * Gold and their live count collapses — the badge they were shown, and may
+   * have been given a deal for, must survive our own content edit.
+   */
+  const collapsed: BadgeCounts = { ...base, attendance: 0 };
+  const ever = new Set(["attendance:bronze", "attendance:silver", "attendance:gold"]);
+  const held = badgesFrom(collapsed, { everEarned: ever });
+  assert.equal(held.tracks.find((t) => t.key === "attendance")?.tier, "gold");
+
+  // And it cannot pull a real Gold down to a stale Bronze.
+  const live = badgesFrom(
+    { ...base, attendance: 10 },
+    { everEarned: new Set(["attendance:bronze"]) },
+  );
+  assert.equal(live.tracks.find((t) => t.key === "attendance")?.tier, "gold");
+});
+
+test("a milestone in the ledger survives losing its underlying count", () => {
+  const held = badgesFrom(base, {
+    everEarned: new Set(["milestone:founding"]),
+  });
+  assert.ok(held.milestones.some((m) => m.key === "founding"));
+});
+
+test("every selectable badge has a label that isn't its key", () => {
+  // The picker and the GHL tag names both read from this; a key leaking
+  // through as a label is how "attendance:gold" ends up in an email.
+  for (const b of selectableBadges()) {
+    assert.notEqual(b.label, b.key);
+    assert.ok(b.label.length > 0);
+    // badgeKeyLabel qualifies levels ("Engaged (level)") because it is read
+    // out of context, in an audience list; the picker shows them grouped.
+    assert.ok(badgeKeyLabel(b.key).startsWith(b.label));
+  }
 });

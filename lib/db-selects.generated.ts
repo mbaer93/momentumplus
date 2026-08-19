@@ -57,6 +57,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // app/(portal)/admin/announcements/actions.ts
   { table: "announcements", select: "id" },
   // lib/announcements-delivery.ts
+  { table: "announcements", select: "id, title, body, audience_tiers, audience_badges, channels, community_posted_at" },
+  // lib/announcements-delivery.ts
   { table: "announcements", select: "id, title, body, audience_tiers, channels, community_posted_at" },
   // app/(portal)/admin/announcements/page.tsx
   { table: "announcements", select: "id, title, send_at, audience_tiers, channels" },
@@ -156,6 +158,12 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "lesson_progress", select: "lesson_id, completed_at" },
   // lib/badge-queries.ts
   { table: "lesson_progress", select: "profile_id, lesson_id" },
+  // lib/badge-sync.ts
+  { table: "member_badges", select: "badge_key" },
+  // lib/badge-sync.ts
+  { table: "member_badges", select: "profile_id" },
+  // lib/badge-queries.ts
+  { table: "member_badges", select: "profile_id, badge_key" },
   // app/(portal)/admin/control-center/actions.ts
   { table: "member_tiers", select: "slug" },
   // lib/revenue.ts
@@ -198,14 +206,14 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "memberships", select: "profile_id" },
   // app/(portal)/admin/errors/actions.ts
   { table: "memberships", select: "profile_id, ghl_contact_id" },
-  // lib/announcements-delivery.ts
-  { table: "memberships", select: "profile_id, ghl_contact_id, profiles ( email, full_name, phone )" },
-  // app/(portal)/admin/announcements/actions.ts
-  { table: "memberships", select: "profile_id, profiles ( phone )" },
   // lib/sponsor-team.ts
   { table: "memberships", select: "profile_id, status, access_expires_at" },
   // lib/engagement-notify.ts
   { table: "memberships", select: "profile_id, tier" },
+  // lib/announcements-delivery.ts
+  { table: "memberships", select: "profile_id, tier, ghl_contact_id, profiles ( email, full_name, phone )" },
+  // app/(portal)/admin/announcements/actions.ts
+  { table: "memberships", select: "profile_id, tier, profiles ( phone )" },
   // lib/revenue.ts
   { table: "memberships", select: "profile_id, tier, source" },
   // lib/badge-queries.ts

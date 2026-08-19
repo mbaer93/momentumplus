@@ -220,6 +220,119 @@ export const OVERALL_LEVELS: OverallLevel[] = [
   { key: "all_in", label: "All In", from: 15 },
 ];
 
+/*
+ * Stable keys for the badge ledger (migration 0091). These strings end up in
+ * a database column, in GHL contact tags, and in the audience of an
+ * announcement that has already been sent — so they are an interface, not a
+ * label. Rename `label` freely; never rename a key.
+ *
+ *   attendance:gold      a track at a tier
+ *   milestone:founding   a one-off
+ *   level:committed      an overall level reached
+ */
+export function trackBadgeKey(track: BadgeTrackKey, tier: BadgeTier): string {
+  return `${track}:${tier}`;
+}
+
+export function milestoneBadgeKey(key: MilestoneKey): string {
+  return `milestone:${key}`;
+}
+
+export function levelBadgeKey(levelKey: string): string {
+  return `level:${levelKey}`;
+}
+
+const TIER_ORDER: BadgeTier[] = ["bronze", "silver", "gold"];
+
+/**
+ * Every badge key a set of counts earns — including the LOWER tiers of each
+ * track.
+ *
+ * Someone at Gold holds Bronze and Silver too, and writing all three down is
+ * what makes "everyone who has reached In the Room, any tier" a single
+ * `badge_key in (...)` rather than a tier comparison at every call site.
+ */
+export function earnedBadgeKeys(counts: BadgeCounts): string[] {
+  const keys: string[] = [];
+  for (const def of BADGE_TRACKS) {
+    const count = counts[def.key];
+    if (count === null || count === undefined) continue;
+    const tier = tierFor(count, def.thresholds);
+    if (!tier) continue;
+    for (const t of TIER_ORDER) {
+      keys.push(trackBadgeKey(def.key, t));
+      if (t === tier) break;
+    }
+  }
+  if (counts.summitAttendee) keys.push(milestoneBadgeKey("summit"));
+  if (counts.foundingMember) keys.push(milestoneBadgeKey("founding"));
+  if (counts.courses > 0) keys.push(milestoneBadgeKey("certified"));
+
+  // The level reached, and every level below it — same reasoning as tiers.
+  const points = pointsFor(counts);
+  for (const level of OVERALL_LEVELS) {
+    if (level.key === "start") continue; // Everyone is "Getting Started".
+    if (points >= level.from) keys.push(levelBadgeKey(level.key));
+  }
+  return keys;
+}
+
+/** Human label for a badge key — admin UI, GHL tag names, audience lists. */
+export function badgeKeyLabel(key: string): string {
+  const [head, rest] = key.split(":");
+  if (head === "milestone") {
+    return BADGE_MILESTONES.find((m) => m.key === rest)?.label ?? rest;
+  }
+  if (head === "level") {
+    return `${OVERALL_LEVELS.find((l) => l.key === rest)?.label ?? rest} (level)`;
+  }
+  const track = BADGE_TRACKS.find((t) => t.key === head);
+  if (!track) return key;
+  return `${track.label} — ${rest.charAt(0).toUpperCase()}${rest.slice(1)}`;
+}
+
+/**
+ * Every badge that can be targeted, grouped for a picker. Order is the order
+ * an admin reads them in: milestones (who they are), levels (how engaged),
+ * then each track by tier.
+ */
+export function selectableBadges(): {
+  key: string;
+  label: string;
+  group: string;
+}[] {
+  const out: { key: string; label: string; group: string }[] = [];
+  for (const m of BADGE_MILESTONES) {
+    out.push({ key: milestoneBadgeKey(m.key), label: m.label, group: "Milestones" });
+  }
+  for (const l of OVERALL_LEVELS) {
+    if (l.key === "start") continue;
+    out.push({ key: levelBadgeKey(l.key), label: l.label, group: "Engagement level" });
+  }
+  for (const t of BADGE_TRACKS) {
+    for (const tier of TIER_ORDER) {
+      out.push({
+        key: trackBadgeKey(t.key, tier),
+        label: `${t.label} — ${tier.charAt(0).toUpperCase()}${tier.slice(1)}`,
+        group: t.label,
+      });
+    }
+  }
+  return out;
+}
+
+/** Track points behind the overall level. */
+export function pointsFor(counts: BadgeCounts): number {
+  let points = 0;
+  for (const def of BADGE_TRACKS) {
+    const count = counts[def.key];
+    if (count === null || count === undefined) continue;
+    const tier = tierFor(count, def.thresholds);
+    if (tier) points += TIER_POINTS[tier];
+  }
+  return points;
+}
+
 export function levelForPoints(points: number): OverallLevel {
   // Highest band whose floor we've reached. Reversed so the first match wins.
   return (
@@ -239,15 +352,37 @@ export function levelForPoints(points: number): OverallLevel {
  */
 export function badgesFrom(
   counts: BadgeCounts,
-  opts?: { hidden?: boolean },
+  opts?: { hidden?: boolean; everEarned?: Set<string> },
 ): MemberBadges {
   const tracks: EarnedTrack[] = [];
   let points = 0;
+  /*
+   * The ledger (migration 0091) overrides live counts UPWARD, never
+   * downward. Matt's rule is "earned is earned": archive a course, unpublish
+   * a session, and the count behind someone's badge drops — but the badge
+   * they were shown, told about, and possibly given a deal for does not
+   * disappear because of a change on our side. A member who genuinely loses
+   * nothing sees no difference; this only ever matters when our own data
+   * moves under them.
+   */
+  const ever = opts?.everEarned;
+  const heldTier = (track: BadgeTrackKey): BadgeTier | null => {
+    if (!ever) return null;
+    for (const t of [...TIER_ORDER].reverse()) {
+      if (ever.has(trackBadgeKey(track, t))) return t;
+    }
+    return null;
+  };
 
   for (const def of BADGE_TRACKS) {
     const count = counts[def.key];
     if (count === null || count === undefined) continue;
-    const tier = tierFor(count, def.thresholds);
+    const live = tierFor(count, def.thresholds);
+    const held = heldTier(def.key);
+    const tier =
+      held && (!live || TIER_ORDER.indexOf(held) > TIER_ORDER.indexOf(live))
+        ? held
+        : live;
     if (tier) points += TIER_POINTS[tier];
     tracks.push({
       key: def.key,
@@ -260,11 +395,13 @@ export function badgesFrom(
   }
 
   const milestones = BADGE_MILESTONES.filter((m) =>
-    m.key === "summit"
-      ? counts.summitAttendee
-      : m.key === "founding"
-        ? counts.foundingMember
-        : counts.courses > 0,
+    ever?.has(milestoneBadgeKey(m.key))
+      ? true
+      : m.key === "summit"
+        ? counts.summitAttendee
+        : m.key === "founding"
+          ? counts.foundingMember
+          : counts.courses > 0,
   );
 
   return {

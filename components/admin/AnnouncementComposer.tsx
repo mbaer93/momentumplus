@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { Tier } from "@/lib/types";
 import { tierLabel } from "@/lib/access";
+import { selectableBadges } from "@/lib/badges";
 import {
   previewAnnouncementAudience,
   scheduleAnnouncement,
@@ -15,12 +16,32 @@ const TIER_OPTIONS: { value: Tier; label: string }[] = (
   ["basic", "pro", "vip", "gift", "sponsor", "speaker"] as Tier[]
 ).map((value) => ({ value, label: tierLabel(value) }));
 
+/*
+ * Badge targeting (Matt, 2026-08-19): "I want to also be able to select
+ * badge tiers when sending messages inside the system through the
+ * announcements portal." Grouped exactly as lib/badges.ts orders them, and
+ * unioned with the tiers rather than intersected — "everyone on annual OR
+ * anyone who is a Founding Member" is the shape an offer actually takes.
+ */
+const BADGE_GROUPS: { group: string; items: { key: string; label: string }[] }[] =
+  selectableBadges().reduce(
+    (acc, b) => {
+      const found = acc.find((g) => g.group === b.group);
+      if (found) found.items.push({ key: b.key, label: b.label });
+      else acc.push({ group: b.group, items: [{ key: b.key, label: b.label }] });
+      return acc;
+    },
+    [] as { group: string; items: { key: string; label: string }[] }[],
+  );
+
 export function AnnouncementComposer() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   // Nothing pre-selected — the admin chooses the audience and channels
   // deliberately every time.
   const [tiers, setTiers] = useState<Tier[]>([]);
+  const [badges, setBadges] = useState<string[]>([]);
+  const [showBadges, setShowBadges] = useState(false);
   const [channels, setChannels] = useState<
     ("email" | "in_app" | "community" | "sms")[]
   >([]);
@@ -54,6 +75,12 @@ export function AnnouncementComposer() {
       prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t],
     );
   }
+  function toggleBadge(key: string) {
+    disarm();
+    setBadges((prev) =>
+      prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key],
+    );
+  }
   function toggleChannel(c: "email" | "in_app" | "community" | "sms") {
     disarm();
     setChannels((prev) =>
@@ -69,7 +96,10 @@ export function AnnouncementComposer() {
     // mis-click must never email every member.
     if (confirmCount === null) {
       startTransition(async () => {
-        const { count, smsCount } = await previewAnnouncementAudience(tiers);
+        const { count, smsCount } = await previewAnnouncementAudience(
+          tiers,
+          badges,
+        );
         setConfirmCount(count);
         setConfirmSmsCount(smsCount);
       });
@@ -80,11 +110,11 @@ export function AnnouncementComposer() {
       const res =
         timing === "schedule"
           ? await scheduleAnnouncement(
-              { title, body, audienceTiers: tiers, channels },
+              { title, body, audienceTiers: tiers, audienceBadges: badges, channels },
               new Date(sendAt).toISOString(),
             )
           : await sendAnnouncement(
-              { title, body, audienceTiers: tiers, channels },
+              { title, body, audienceTiers: tiers, audienceBadges: badges, channels },
               resumeId,
             );
       setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "Sent." : "Error") });
@@ -147,6 +177,65 @@ export function AnnouncementComposer() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="admin-field">
+        <label>Audience badges (optional)</label>
+        <p
+          style={{
+            fontSize: 12,
+            color: "var(--ink-secondary)",
+            margin: "0 0 8px",
+          }}
+        >
+          Anyone holding a selected badge is added to the audience, on top of
+          the tiers above — not narrowed down to it. Members still need active
+          access to be messaged, and badges are written down nightly, so
+          someone who earned one today joins tomorrow.
+        </p>
+        {badges.length > 0 && (
+          <div style={{ fontSize: 12, marginBottom: 8 }}>
+            {badges.length} badge{badges.length === 1 ? "" : "s"} selected
+          </div>
+        )}
+        <button
+          type="button"
+          className="btn-mini"
+          onClick={() => setShowBadges((v) => !v)}
+        >
+          {showBadges ? "Hide badges" : "Choose badges"}
+        </button>
+        {showBadges && (
+          <div style={{ marginTop: 10 }}>
+            {BADGE_GROUPS.map((g) => (
+              <div key={g.group} style={{ marginBottom: 10 }}>
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    color: "var(--ink-secondary)",
+                    marginBottom: 6,
+                  }}
+                >
+                  {g.group}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {g.items.map((b) => (
+                    <button
+                      type="button"
+                      key={b.key}
+                      className={`tier-chip${badges.includes(b.key) ? " selected" : ""}`}
+                      onClick={() => toggleBadge(b.key)}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="admin-field">
@@ -245,7 +334,9 @@ export function AnnouncementComposer() {
           disabled={
             pending ||
             channels.length === 0 ||
-            (tiers.length === 0 && !channels.includes("community")) ||
+            (tiers.length === 0 &&
+              badges.length === 0 &&
+              !channels.includes("community")) ||
             (timing === "schedule" && !sendAt)
           }
         >
