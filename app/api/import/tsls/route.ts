@@ -4,6 +4,7 @@ import { recordCronRun } from "@/lib/cron-health";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { addMonths, mapTslsRegistration } from "@/lib/membership";
+import { missingEventYearMessage, resolveEventYear } from "@/lib/tsls-event-year";
 import {
   columnLetter,
   getSheetsAccessToken,
@@ -43,14 +44,27 @@ export async function GET(req: NextRequest) {
 
   const range = process.env.TSLS_SHEET_RANGE ?? "Sheet1!A1:Z";
   const sheetPrefix = range.includes("!") ? range.split("!")[0] : "";
-  // Fail loudly rather than guessing the year from the clock: import_log
-  // idempotency is keyed on event_year, so a January run silently defaulting
-  // to the NEW year would re-import (and re-grant) everyone from October.
-  const eventYear = Number(process.env.TSLS_EVENT_YEAR);
-  if (!Number.isInteger(eventYear) || eventYear < 2020) {
+  /*
+   * Which season to import into. Asked for, not remembered — TSLS publishes
+   * its event year and flips it when registration opens, so a new season
+   * needs no annual edit here. Falls back to TSLS_EVENT_YEAR when the bridge
+   * is down, and refuses outright rather than guessing from the clock: a
+   * January run inferring the new year would re-import — and re-grant —
+   * everyone from the October before. See lib/tsls-event-year.ts.
+   */
+  const season = await resolveEventYear();
+  if (season.year === null) {
     return NextResponse.json(
-      { error: "TSLS_EVENT_YEAR is not set — set it (e.g. 2026) before the import can run." },
+      { error: missingEventYearMessage(season.note) },
       { status: 503 },
+    );
+  }
+  const eventYear = season.year;
+  if (season.source === "env") {
+    // Visible in the function logs, because running on the fallback is fine
+    // for an afternoon and a problem for a season.
+    console.warn(
+      `[tsls-import] using TSLS_EVENT_YEAR=${eventYear} — ${season.note ?? "bridge unavailable"}`,
     );
   }
 
@@ -222,12 +236,22 @@ export async function GET(req: NextRequest) {
   // Scheduled-jobs probe reads these to spot a silently dead import.
   await recordCronRun(
     "tsls-import",
-    `imported=${summary.imported} errors=${summary.errors.length}` +
+    // The season is named on every run. A stale year skips returning
+    // attendees and nothing else, which is invisible in the counts — so the
+    // heartbeat on Admin → Connections has to say which one it wrote into,
+    // and whether TSLS or the fallback decided that.
+    `${eventYear} season (${season.source === "tsls" ? "per TSLS" : "per TSLS_EVENT_YEAR"}) · ` +
+      `imported=${summary.imported} errors=${summary.errors.length}` +
       (summary.createdWithoutEmail > 0
         ? ` · ${summary.createdWithoutEmail} created WITHOUT an invite email (email throttled) — re-send from Admin → Members`
         : ""),
   );
-  return NextResponse.json({ ok: true, eventYear, ...summary });
+  return NextResponse.json({
+    ok: true,
+    eventYear,
+    eventYearSource: season.source,
+    ...summary,
+  });
 }
 
 async function markProcessed(
