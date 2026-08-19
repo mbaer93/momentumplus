@@ -7,6 +7,45 @@
  * the next edit.
  */
 
+import { after } from "next/server";
+
+/**
+ * Mirror to TSLS AFTER the response is flushed, instead of making the member
+ * wait for it (2026-08-19).
+ *
+ * Every save path here awaited the bridge and then threw the result away.
+ * The push carries an 8-second timeout, so a slow or unreachable TSLS added
+ * up to 8 seconds to a Save button that had already finished its real work —
+ * on a corporate network behind a proxy, the whole of it. The save was never
+ * at risk; the wait was pure.
+ *
+ * after() rather than a floating promise: on serverless a promise nobody
+ * awaits can be killed the moment the response returns, which would make the
+ * sync LESS reliable than blocking. after() hands the platform the work and
+ * keeps the function alive for it.
+ *
+ * Failures are logged rather than swallowed. They were invisible before —
+ * these four callers discarded the result — so a bridge that had been down
+ * for a week looked identical to one that was fine.
+ */
+export function mirrorToTslsAfterResponse(
+  label: string,
+  run: () => Promise<{ ok: boolean; message?: string }>,
+): void {
+  after(async () => {
+    try {
+      const res = await run();
+      if (!res.ok) {
+        console.warn(`[tsls-bridge] ${label} not mirrored: ${res.message ?? "failed"}`);
+      }
+    } catch (e) {
+      console.warn(
+        `[tsls-bridge] ${label} threw: ${e instanceof Error ? e.message : "unknown"}`,
+      );
+    }
+  });
+}
+
 function tslsUrl(path: string): string | null {
   // Fail closed when unset (matches app/go/tsls/route.ts): a hardcoded
   // fallback would silently POST member data at a domain we may not own

@@ -160,13 +160,18 @@ export async function updateSponsorPage(
     .eq("id", sponsorId)
     .maybeSingle();
   if (s?.name) {
-    const { pushSponsorToTsls } = await import("@/lib/tsls-bridge");
-    await pushSponsorToTsls({
-      name: String(s.name),
-      tagline: input.tagline.trim() || null,
-      description: input.description.trim() || null,
-      website: website || null,
-    });
+    const { pushSponsorToTsls, mirrorToTslsAfterResponse } = await import(
+      "@/lib/tsls-bridge"
+    );
+    const name = String(s.name);
+    mirrorToTslsAfterResponse(`sponsor ${name}`, () =>
+      pushSponsorToTsls({
+        name,
+        tagline: input.tagline.trim() || null,
+        description: input.description.trim() || null,
+        website: website || null,
+      }),
+    );
   }
   return { ok: true, message: "Page updated." };
 }
