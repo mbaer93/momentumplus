@@ -86,7 +86,7 @@ handles on-site checkout.
 - [x] **Code** — Emailed links work in all three shapes (`token_hash`, PKCE `code`, implicit fragment)
 - [x] **Code** — Two-factor available on admin accounts (Admin → Your Security), enforced on pages, server actions, and /rescue
 - [ ] **Ops** — **Enrol the Super Admin in two-factor** and store the secret in 1Password. Until this is done the account that can read every member's contact details is protected by a password alone
-- [ ] **Ops** — Confirm the Resend plan covers launch-day volume; the free tier stops at 100 emails/day regardless of the Supabase limit
+- [x] **Ops** — Resend plan covers launch-day volume. Confirmed 2026-08-19: **Pro**, 50,000 transactional/month, **no daily cap**, 82 used. Resend carries auth mail only — invites, password resets, sign-in links — so a full invite run to every member is a rounding error against that quota. Member announcements go through GHL and never touch it. (This line previously warned about a 100/day free-tier ceiling that never applied.)
 
 ## Content
 
