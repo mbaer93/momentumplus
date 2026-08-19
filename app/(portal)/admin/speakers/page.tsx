@@ -17,6 +17,8 @@ import { AGREEMENT_VERSION } from "@/lib/advisor-agreement";
 import { intakeStatusBySpeaker } from "@/lib/advisor-intake-db";
 import { tslsIntakeStatusBySpeaker } from "@/lib/tsls-intake-db";
 import { getAdminAccess } from "@/lib/auth-helpers";
+import { fetchAuthActivity } from "@/lib/auth-activity";
+import { emailPattern } from "@/lib/db-utils";
 import { speakers as placeholderSpeakers } from "@/lib/directory-data";
 import {
   formatCents,
@@ -344,8 +346,33 @@ export default async function AdminSpeakersPage(
       ).data?.map((p) => String(p.email ?? "").trim().toLowerCase()) ?? [],
     );
 
+    /*
+     * Does the invited speaker have an account, and have they ever signed
+     * in? (Matt, 2026-08-19: the Activity log showed speakers signing in
+     * while this list still read "Waiting on" — leaving "opened it and got
+     * stuck" indistinguishable from "never touched it", which are opposite
+     * problems with opposite fixes.)
+     */
+    const inviteProfileIds = new Map<string, string>();
+    await Promise.all(
+      (invites ?? []).map(async (i) => {
+        const { data } = await admin
+          .from("profiles")
+          .select("id")
+          .ilike("email", emailPattern(String(i.email ?? "")))
+          .limit(1);
+        const id = data?.[0]?.id as string | undefined;
+        if (id) inviteProfileIds.set(i.id as string, id);
+      }),
+    );
+    const inviteActivity = await fetchAuthActivity([
+      ...new Set(inviteProfileIds.values()),
+    ]);
+
     pendingInvites = (invites ?? []).map((i) => {
       const email = String(i.email ?? "").trim().toLowerCase();
+      const profileId = inviteProfileIds.get(i.id as string);
+      const activity = profileId ? inviteActivity.get(profileId) : undefined;
       return {
         id: i.id as string,
         email: i.email as string,
@@ -353,6 +380,8 @@ export default async function AdminSpeakersPage(
         createdAt: i.created_at as string,
         alreadySetUp:
           speakerEmails.has(email) || speakerProfileEmails.has(email),
+        hasAccount: Boolean(profileId),
+        lastSignInAt: activity?.lastSignInAt ?? null,
       };
     });
 

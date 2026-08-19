@@ -29,6 +29,33 @@ export interface PendingSpeakerInvite {
       cleared, but it must not read as "hasn't started" (Matt, 2026-08-15:
       speakers who had finished were still listed as waiting). */
   alreadySetUp: boolean;
+  /** They have a login (they clicked the invite and set a password, or an
+      account already existed for the email). */
+  hasAccount: boolean;
+  /** Last time they actually signed in, if ever. */
+  lastSignInAt: string | null;
+}
+
+/*
+ * "Waiting on" covers two opposite situations and the fix differs: someone
+ * who never opened the invite needs it re-sent, someone who signed in and
+ * stalled needs help finishing the form — re-inviting them does nothing
+ * (Matt, 2026-08-19).
+ */
+function inviteState(i: PendingSpeakerInvite): {
+  text: string;
+  color: string;
+} {
+  if (i.lastSignInAt) {
+    return {
+      text: `signed in ${dateLabel(i.lastSignInAt)} · stalled partway through setup`,
+      color: "var(--gold)",
+    };
+  }
+  if (i.hasAccount) {
+    return { text: "account created, never signed in", color: "var(--gold)" };
+  }
+  return { text: "hasn't opened the invite yet", color: "var(--ink-secondary)" };
 }
 
 function dateLabel(iso: string): string {
@@ -174,9 +201,15 @@ export function SpeakerLifecyclePanel({
                   {i.email}
                   {i.displayName ? ` (${i.displayName})` : ""} — invited{" "}
                   {dateLabel(i.createdAt)}
-                  {i.alreadySetUp && (
+                  {i.alreadySetUp ? (
                     <span style={{ color: "var(--accent-green)", marginLeft: 6 }}>
                       · setup already finished, this row is stale
+                    </span>
+                  ) : (
+                    <span
+                      style={{ color: inviteState(i).color, marginLeft: 6 }}
+                    >
+                      · {inviteState(i).text}
                     </span>
                   )}
                 </span>

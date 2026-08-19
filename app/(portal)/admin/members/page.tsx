@@ -15,6 +15,7 @@ import { listSponsors } from "@/lib/directory-queries";
 import { effectiveMembership } from "@/lib/membership";
 import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
+import { fetchAuthActivity } from "@/lib/auth-activity";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { redirect } from "next/navigation";
@@ -95,69 +96,6 @@ function shortDate(iso: string | null | undefined): string | null {
     day: "numeric",
     year: "numeric",
   });
-}
-
-interface AuthActivity {
-  invitedAt: string | null;
-  confirmedAt: string | null;
-  lastSignInAt: string | null;
-  createdAt: string | null;
-}
-
-/**
- * Pull invite/login timestamps from the Supabase auth layer, keyed by user
- * id (= profile id). This is what tells us whether an "active" membership
- * belongs to someone who has actually signed in.
- */
-async function fetchAuthActivity(
-  profileIds: string[],
-): Promise<Map<string, AuthActivity>> {
-  const admin = createServiceClient();
-  const byId = new Map<string, AuthActivity>();
-  if (profileIds.length === 0) return byId;
-
-  // One RPC scoped to exactly the displayed profiles (migration 0024) —
-  // this page used to walk the ENTIRE auth user list, up to 20 sequential
-  // Auth-admin API calls per view.
-  const { data: rpcRows, error: rpcError } = await admin.rpc("auth_activity", {
-    ids: profileIds,
-  });
-  if (!rpcError && rpcRows) {
-    for (const u of rpcRows as {
-      id: string;
-      invited_at: string | null;
-      confirmed_at: string | null;
-      last_sign_in_at: string | null;
-      created_at: string | null;
-    }[]) {
-      byId.set(u.id, {
-        invitedAt: u.invited_at ?? null,
-        confirmedAt: u.confirmed_at ?? null,
-        lastSignInAt: u.last_sign_in_at ?? null,
-        createdAt: u.created_at ?? null,
-      });
-    }
-    return byId;
-  }
-
-  // Fallback until the migration is applied: page the auth list.
-  for (let page = 1; page <= 20; page++) {
-    const { data, error } = await admin.auth.admin.listUsers({
-      page,
-      perPage: 1000,
-    });
-    if (error || !data?.users?.length) break;
-    for (const u of data.users) {
-      byId.set(u.id, {
-        invitedAt: u.invited_at ?? null,
-        confirmedAt: u.email_confirmed_at ?? u.confirmed_at ?? null,
-        lastSignInAt: u.last_sign_in_at ?? null,
-        createdAt: u.created_at ?? null,
-      });
-    }
-    if (data.users.length < 1000) break;
-  }
-  return byId;
 }
 
 const PAGE_SIZE = 50;
