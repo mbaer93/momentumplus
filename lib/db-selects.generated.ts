@@ -180,6 +180,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "memberships", select: "id, dunning_notices ( membership_id )" },
   // app/api/cron/reconcile/route.ts
   { table: "memberships", select: "id, ghl_contact_id" },
+  // app/(portal)/admin/speakers/actions.ts
+  { table: "memberships", select: "id, profile_id, access_expires_at, status" },
   // app/api/cron/dunning/route.ts
   { table: "memberships", select: "id, profile_id, ghl_contact_id, profiles ( email, full_name ), dunning_notices ( step, sent_at )" },
   // app/(portal)/profile/billing-actions.ts
@@ -490,6 +492,8 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "speakers", select: "profile_id" },
   // app/(portal)/members/page.tsx
   { table: "speakers", select: "profile_id, expires_at, archived_at" },
+  // app/(portal)/admin/speakers/actions.ts
+  { table: "speakers", select: "profile_id, name, expires_at, archived_at" },
   // app/(portal)/admin/speakers/actions.ts
   { table: "speakers", select: "profile_id, resource_id" },
   // app/(portal)/admin/analytics/page.tsx
