@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export function ResetForm() {
   const configured = isSupabaseConfigured();
+  /*
+   * A dead recovery link sends the member HERE with an explanation, rather
+   * than to a password box that answers "invalid login credentials" — which
+   * reads as "your password is wrong" when the truth is "that link was
+   * already spent" (a speaker reported exactly this loop, 2026-08-18).
+   */
+  const linkError = useSearchParams().get("error");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(linkError);
   const [sent, setSent] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {

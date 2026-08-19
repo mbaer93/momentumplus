@@ -99,6 +99,15 @@ export default async function DashboardPage() {
   // Getting-started tour signals (server truth; visit-steps live client-side).
   let hasEnrollment = false;
   let prefsSaved = false;
+  /*
+   * The rest of the guide's server-checked steps. All default false, so a
+   * missing table or a failed read shows the step as "not done yet" rather
+   * than breaking the dashboard — a guide is a nudge, not a gate.
+   */
+  let profileFilled = false;
+  let wroteNote = false;
+  let heardEpisode = false;
+  let finishedCourse = false;
 
   if (preview) {
     nextUp = { ...placeholderNextSession, allowCalendar: true };
@@ -127,10 +136,15 @@ export default async function DashboardPage() {
     const user = await getAuthUser();
     let newMessages = 0;
     if (user) {
-      const [{ data: p }, unread, { count: prefsCount }] = await Promise.all([
+      const [
+        { data: p },
+        unread,
+        { count: prefsCount },
+        guideCounts,
+      ] = await Promise.all([
         supabase
           .from("profiles")
-          .select("created_at")
+          .select("created_at, title, company")
           .eq("id", user.id)
           .maybeSingle(),
         // Real unread count from Stream — cached ~2 min per member (above).
@@ -139,9 +153,26 @@ export default async function DashboardPage() {
           .from("notification_prefs")
           .select("key", { count: "exact", head: true })
           .eq("profile_id", user.id),
+        /*
+         * The same counting the badges use, rather than a second, weaker
+         * definition living here. It matters for the course step: a
+         * completed LESSON is not a finished course, and a step that says
+         * "finish a course" must not tick when someone watched one video.
+         */
+        (async () => {
+          const { badgeCountsForMany } = await import("@/lib/badge-queries");
+          return (await badgeCountsForMany([user.id])).get(user.id) ?? null;
+        })(),
       ]);
       newMessages = unread;
       prefsSaved = (prefsCount ?? 0) > 0;
+      profileFilled = Boolean(
+        (p as { title?: string | null; company?: string | null } | null)?.title &&
+          (p as { company?: string | null } | null)?.company,
+      );
+      wroteNote = (guideCounts?.notes ?? 0) > 0;
+      heardEpisode = (guideCounts?.podcast ?? 0) > 0;
+      finishedCourse = (guideCounts?.courses ?? 0) > 0;
       if (p?.created_at) {
         memberSinceDays = Math.max(
           1,
@@ -258,7 +289,15 @@ export default async function DashboardPage() {
 
       {/* First-steps guided tour — walks a new member through the portal;
           disappears once every step is done (or they skip it). */}
-      <GettingStarted enrolled={hasEnrollment} prefsSaved={prefsSaved} />
+      <GettingStarted
+        enrolled={hasEnrollment}
+        prefsSaved={prefsSaved}
+        profileFilled={profileFilled}
+        attended={stats.sessionsAttended > 0}
+        wroteNote={wroteNote}
+        heardEpisode={heardEpisode}
+        finishedCourse={finishedCourse}
+      />
 
       {/* Next Up Banner */}
       {nextUp ? (

@@ -112,10 +112,21 @@ export async function POST(request: NextRequest) {
         verifiedType === "recovery" ? "/welcome?mode=reset" : redirectTo;
       return NextResponse.redirect(`${origin}${finalRedirect}`, 303);
     }
+    /*
+     * Same reasoning as /auth/callback: a spent RECOVERY link belongs on the
+     * reset form, not the sign-in form. One-time links are routinely
+     * consumed by corporate mail scanners before the member ever clicks.
+     */
+    const wantedRecovery =
+      givenType === "recovery" || redirectTo.includes("mode=reset");
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(
-        "That link has expired. Enter your email below and choose “Email me a sign-in link” to get a fresh one.",
-      )}`,
+      wantedRecovery
+        ? `${origin}/reset?error=${encodeURIComponent(
+            "That reset link has expired or was already used. Enter your email and we'll send a fresh one.",
+          )}`
+        : `${origin}/login?error=${encodeURIComponent(
+            "That link has expired. Enter your email below and choose “Email me a sign-in link” to get a fresh one.",
+          )}`,
       303,
     );
   }

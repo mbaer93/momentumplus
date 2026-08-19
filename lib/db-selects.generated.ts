@@ -265,7 +265,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // lib/auth-helpers.ts
   { table: "profiles", select: "admin_role, admin_perms" },
   // app/(portal)/dashboard/page.tsx
-  { table: "profiles", select: "created_at" },
+  { table: "profiles", select: "created_at, title, company" },
   // app/(portal)/admin/members/actions.ts
   { table: "profiles", select: "email" },
   // app/(portal)/admin/members/actions.ts

@@ -2,59 +2,33 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  GUIDE_GROUPS,
+  GUIDE_STEPS,
+  currentStep,
+  groupProgress,
+  stepDone,
+  type GuideFacts,
+  type GuideStepDef,
+} from "@/lib/guide-steps";
 
 /*
- * First-steps guided tour (Matt, 2026-07-20): a new member lands on a
- * dashboard of zeros with no obvious first move. This card walks them
- * through the portal one step at a time — the current step is expanded
- * with a description and a "Take me there" button; finished steps get a
- * check. Enrollment and notification prefs are verified server-side;
- * visit-style steps mark complete when the member takes the trip (stored
- * per device). Fully dismissable, and gone for good once completed.
+ * The Momentum+ guide (Matt, 2026-07-20; expanded 2026-08-18).
+ *
+ * Was a four-step first-run tour: find the sessions, say hello, look at the
+ * library, set your prefs. It covered "find your way around" and then
+ * disappeared, which left the things members actually pay for — the
+ * podcast, the courses, the directory — undiscovered.
+ *
+ * Now twelve steps in three groups. A FINISHED GROUP COLLAPSES to one line:
+ * twelve struck-through rows is a wall, and a wall is skipped. The current
+ * step is expanded with its description and a button; everything else is a
+ * title and a check.
+ *
+ * Steps and copy live in lib/guide-steps.ts. Progress is server truth where
+ * the server knows (enrolled, attended, wrote a note, finished a course)
+ * plus per-device visits for the rest.
  */
-
-interface StepDef {
-  key: string;
-  title: string;
-  description: string;
-  href: string;
-  cta: string;
-}
-
-const STEPS: StepDef[] = [
-  {
-    key: "enroll",
-    title: "Enroll in your first session",
-    description:
-      "Live sessions are the heart of Momentum+. Pick one that fits your calendar — you'll get a reminder before it starts, and the room opens right here in the portal.",
-    href: "/sessions",
-    cta: "Browse sessions",
-  },
-  {
-    key: "community",
-    title: "Say hello in the Community",
-    description:
-      "Introduce yourself in #general — who you are, what you do, and what you're working on. This community is the room you'll grow in all year.",
-    href: "/community",
-    cta: "Open the Community",
-  },
-  {
-    key: "library",
-    title: "Explore the Session Library",
-    description:
-      "Every session is recorded and lands here with AI takeaways and space for your private notes — miss a live session and nothing is lost.",
-    href: "/library",
-    cta: "Browse the Library",
-  },
-  {
-    key: "prefs",
-    title: "Choose how we keep you posted",
-    description:
-      "Set your notification preferences — session reminders, new recordings, community replies. Email and in-app are on by default; text messages only if you opt in.",
-    href: "/profile",
-    cta: "Set my preferences",
-  },
-];
 
 const DONE_KEY = "mp_tour_done";
 const DISMISS_KEY = "mp_tour_dismissed";
@@ -101,47 +75,36 @@ function CheckMark({ done }: { done: boolean }) {
   );
 }
 
-export function GettingStarted({
-  enrolled,
-  prefsSaved,
-}: {
-  /** Server truth: the member has at least one enrollment (ever). */
-  enrolled: boolean;
-  /** Server truth: the member has saved notification preferences. */
-  prefsSaved: boolean;
-}) {
+export function GettingStarted(facts: GuideFacts) {
   const router = useRouter();
   // localStorage is per-device and only readable client-side — render
   // nothing until mounted so the server and client HTML agree.
   const [ready, setReady] = useState(false);
-  const [localDone, setLocalDone] = useState<Set<string>>(new Set());
+  const [visited, setVisited] = useState<Set<string>>(new Set());
   const [dismissed, setDismissed] = useState(false);
+  /** Groups the member opened by hand after finishing them. */
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    setLocalDone(loadLocal());
+    setVisited(loadLocal());
     setDismissed(window.localStorage.getItem(DISMISS_KEY) === "1");
     setReady(true);
   }, []);
 
-  const isDone = (key: string) =>
-    key === "enroll"
-      ? enrolled || localDone.has(key)
-      : key === "prefs"
-        ? prefsSaved || localDone.has(key)
-        : localDone.has(key);
-
-  const doneCount = STEPS.filter((s) => isDone(s.key)).length;
-  const current = STEPS.find((s) => !isDone(s.key)) ?? null;
+  const current = currentStep(facts, visited);
+  const doneCount = GUIDE_STEPS.filter((s) =>
+    stepDone(s, facts, visited),
+  ).length;
 
   if (!ready || dismissed || !current) return null;
 
-  const go = (step: StepDef) => {
-    // Visiting counts as taking the step — enrollment and prefs flip to
-    // server truth on the next dashboard load anyway.
-    const next = new Set(localDone);
+  const go = (step: GuideStepDef) => {
+    // Visiting counts as taking the step. The verified ones flip to server
+    // truth on the next dashboard load anyway.
+    const next = new Set(visited);
     next.add(step.key);
     window.localStorage.setItem(DONE_KEY, JSON.stringify([...next]));
-    setLocalDone(next);
+    setVisited(next);
     router.push(step.href);
   };
 
@@ -158,11 +121,11 @@ export function GettingStarted({
         }}
       >
         <h3 style={{ fontSize: 15 }}>
-          Getting started{" "}
+          Making the most of Momentum+{" "}
           <span
             style={{ fontSize: 12, color: "var(--ink-secondary)", fontWeight: 400 }}
           >
-            {doneCount} of {STEPS.length} done
+            {doneCount} of {GUIDE_STEPS.length} done
           </span>
         </h3>
         <button
@@ -181,61 +144,103 @@ export function GettingStarted({
             padding: 0,
           }}
         >
-          Skip the tour
+          Hide this
         </button>
       </div>
-      {STEPS.map((step) => {
-        const done = isDone(step.key);
-        const active = current.key === step.key;
+
+      {GUIDE_GROUPS.map((group) => {
+        const { done, total } = groupProgress(group.key, facts, visited);
+        const complete = done === total;
+        const open = !complete || expanded.has(group.key);
         return (
-          <div
-            key={step.key}
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "flex-start",
-              padding: "8px 0",
-              borderTop: "1px solid var(--warm-gray, #E8E4DC)",
-              // 0.55 put the step label at 3.66:1; 0.75 keeps the "later" look
-              // while clearing AA.
-              opacity: done || active ? 1 : 0.75,
-            }}
-          >
-            <CheckMark done={done} />
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div
-                style={{
-                  fontSize: 13.5,
-                  fontWeight: active ? 600 : 500,
-                  textDecoration: done ? "line-through" : "none",
-                  color: done ? "var(--ink-secondary)" : "inherit",
-                }}
-              >
-                {step.title}
-              </div>
-              {active && (
-                <>
-                  <p
+          <div key={group.key} style={{ marginBottom: 10 }}>
+            <button
+              type="button"
+              onClick={() =>
+                setExpanded((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(group.key)) next.delete(group.key);
+                  else next.add(group.key);
+                  return next;
+                })
+              }
+              // A finished group is a summary line you can open; an
+              // unfinished one is a heading, and its steps are the point.
+              disabled={!complete}
+              style={{
+                background: "none",
+                border: "none",
+                padding: "4px 0",
+                width: "100%",
+                textAlign: "left",
+                cursor: complete ? "pointer" : "default",
+                fontSize: 12,
+                letterSpacing: 0.4,
+                textTransform: "uppercase",
+                fontWeight: 600,
+                color: complete ? "var(--gold-text)" : "var(--ink-secondary)",
+              }}
+            >
+              {group.label} — {done} of {total}
+              {complete ? (open ? " · hide" : " · show") : ""}
+            </button>
+
+            {open &&
+              GUIDE_STEPS.filter((s) => s.group === group.key).map((step) => {
+                const isDone = stepDone(step, facts, visited);
+                const active = current.key === step.key;
+                return (
+                  <div
+                    key={step.key}
                     style={{
-                      fontSize: 12.5,
-                      color: "var(--ink-secondary)",
-                      margin: "4px 0 10px",
-                      lineHeight: 1.55,
-                      maxWidth: 560,
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "flex-start",
+                      padding: "8px 0",
+                      borderTop: "1px solid var(--warm-gray, #E8E4DC)",
+                      // 0.55 put the step label at 3.66:1; 0.75 keeps the
+                      // "later" look while clearing AA.
+                      opacity: isDone || active ? 1 : 0.75,
                     }}
                   >
-                    {step.description}
-                  </p>
-                  <button
-                    type="button"
-                    className="btn-sm-gold"
-                    onClick={() => go(step)}
-                  >
-                    {step.cta}
-                  </button>
-                </>
-              )}
-            </div>
+                    <CheckMark done={isDone} />
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: active ? 600 : 500,
+                          textDecoration: isDone ? "line-through" : "none",
+                          color: isDone ? "var(--ink-secondary)" : "inherit",
+                        }}
+                      >
+                        {step.title}
+                      </div>
+                      {active && (
+                        <>
+                          <p
+                            style={{
+                              fontSize: 12.5,
+                              color: "var(--ink-secondary)",
+                              margin: "4px 0 10px",
+                              lineHeight: 1.55,
+                              maxWidth: 560,
+                            }}
+                          >
+                            {step.description}
+                          </p>
+                          <button
+                            type="button"
+                            className="btn-sm-gold"
+                            onClick={() => go(step)}
+                          >
+                            {step.cta}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         );
       })}
