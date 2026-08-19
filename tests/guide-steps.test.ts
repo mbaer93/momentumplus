@@ -24,7 +24,6 @@ const nothing: GuideFacts = {
   attended: false,
   wroteNote: false,
   heardEpisode: false,
-  finishedCourse: false,
 };
 
 test("every step belongs to a real group", () => {

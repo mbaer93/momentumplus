@@ -129,8 +129,14 @@ export const BADGE_MILESTONES: MilestoneDef[] = [
   },
   {
     key: "founding",
+    /*
+     * "Here from the beginning" described the FIRST rule — anyone present at
+     * launch. The rule now requires a paid subscription started in the launch
+     * window, so the old line credited people the badge no longer goes to and
+     * undersold the ones it does (Matt, 2026-08-19).
+     */
     label: "Founding Member",
-    description: "Here from the beginning.",
+    description: "Backed Momentum+ from the start.",
   },
   {
     key: "certified",

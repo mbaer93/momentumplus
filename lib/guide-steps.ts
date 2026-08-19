@@ -42,7 +42,6 @@ export interface GuideFacts {
   attended: boolean;
   wroteNote: boolean;
   heardEpisode: boolean;
-  finishedCourse: boolean;
 }
 
 export interface GuideStepDef {
@@ -152,16 +151,14 @@ export const GUIDE_STEPS: GuideStepDef[] = [
     cta: "Open Branching Out",
     verifiedBy: (f) => f.heardEpisode,
   },
-  {
-    key: "course",
-    group: "deeper",
-    title: "Finish a course and earn the certificate",
-    description:
-      "Self-paced tracks with a certificate at the end, and educational hours on it.",
-    href: "/education",
-    cta: "Browse courses",
-    verifiedBy: (f) => f.finishedCourse,
-  },
+  /*
+   * "Finish a course and earn the certificate" lived here (Matt, 2026-08-19:
+   * remove it). Education is hidden for now, so the step pointed members at
+   * a section they cannot reach — a checklist item nobody can tick reads as
+   * broken, not aspirational. Bring it back when Education is unhidden: it
+   * belongs in the "deeper" group, links to /education, and is verified by a
+   * FINISHED course (every lesson complete), not a started one.
+   */
   {
     key: "members",
     group: "deeper",
