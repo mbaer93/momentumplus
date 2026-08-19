@@ -68,6 +68,28 @@ export async function requireRealAdmin(area?: AdminArea): Promise<
     return { ok: false, status: 403, message: "Admin access required." };
   }
 
+  /*
+   * The second factor, checked HERE and not only in the admin layout
+   * (2026-08-19). The layout gates pages; every server action and API route
+   * re-checks independently, and a gate that only covers what you can SEE
+   * leaves everything you can DO — issuing a sign-in link, deleting an
+   * account, reading member contact details — reachable from a tab that was
+   * open before the factor was enrolled.
+   *
+   * mustVerify is true only when a VERIFIED factor exists and this session
+   * has not passed it, so enrolment itself still works: mid-enrolment the
+   * factor is unverified, and confirming it raises the session to aal2 in
+   * the same call.
+   */
+  const { mfaStatus } = await import("@/lib/mfa");
+  if ((await mfaStatus()).mustVerify) {
+    return {
+      ok: false,
+      status: 401,
+      message: "Enter your two-factor code to continue.",
+    };
+  }
+
   const access: AdminAccess = {
     role: profile?.admin_role === "super" ? "super" : "standard",
     perms: (profile?.admin_perms as Record<string, boolean> | null) ?? {},
