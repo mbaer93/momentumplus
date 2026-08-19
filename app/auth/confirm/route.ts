@@ -11,9 +11,20 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * TWO-STEP on purpose (Matt, 2026-07-30: "the first login link is
  * invalid"): corporate mail scanners (Outlook SafeLinks and friends) GET
  * every link in an email before the member ever clicks — and these tokens
- * are one-time, so a scanner's fetch could consume the invite and make the
- * human's real click fail. GET now renders a tiny auto-continue page and
- * only the POST verifies; scanners don't submit forms.
+ * are one-time, so a scanner's fetch would consume the invite and make the
+ * human's real click fail. GET renders a page with a button; only the POST
+ * verifies.
+ *
+ * THE PAGE MUST NOT AUTO-SUBMIT. An auto-submit script was added on
+ * 2026-08-05 inside an unrelated PR and quietly undid this whole
+ * protection: Microsoft Defender Safe Links and Proofpoint URL Defense
+ * open links in a headless browser that RUNS JAVASCRIPT, so the script
+ * submitted the form, consumed the one-time token, and left the member
+ * with "that link has expired or was already used" — on a link they had
+ * never opened. Reported by a speaker on a corporate mail system
+ * (2026-08-19) after both his invite and a freshly issued reset failed
+ * the same way. A real click is the only signal a scanner cannot fake,
+ * and one tap is the entire cost.
  */
 
 const TYPES = [
@@ -63,7 +74,7 @@ export async function GET(request: NextRequest) {
     <input type="hidden" name="redirect" value="${esc(redirect)}" />
     <button type="submit" style="background:#B8965A;color:#0B1622;font-weight:bold;font-size:15px;padding:12px 26px;border:none;border-radius:4px;cursor:pointer;">Continue to sign in</button>
   </form>
-  <script>document.forms[0].submit();</script>
+  <!-- Deliberately no auto-submit: see the note at the top of this file. -->
 </body>
 </html>`;
   return new NextResponse(html, {
