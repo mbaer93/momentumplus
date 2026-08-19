@@ -2,7 +2,12 @@ import { allRows } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { requestCache } from "@/lib/request-cache";
-import { badgesFrom, type BadgeCounts, type MemberBadges } from "@/lib/badges";
+import {
+  badgesFrom,
+  wasBought,
+  type BadgeCounts,
+  type MemberBadges,
+} from "@/lib/badges";
 
 /*
  * Counting for lib/badges.ts.
@@ -47,16 +52,6 @@ const EMPTY: BadgeCounts = {
  */
 const FOUNDING_WINDOW_START = "2026-10-14T00:00:00Z";
 const FOUNDING_WINDOW_END = "2026-12-31T23:59:59Z";
-
-/*
- * The only tiers anyone can actually buy (lib/pricing.ts sells exactly
- * these four). Everything else is granted: gift and vip are free Basic
- * access, tsls_* rides a summit ticket, speaker/sponsor/admin are comped,
- * and basic/pro are admin-assigned levels rather than products. Comped
- * accounts do not earn this — being on the team is not the same as backing
- * the thing.
- */
-const PAID_TIERS = ["sub_monthly", "sub_3mo", "sub_6mo", "sub_annual"];
 
 /** Tiers that mean "came to the summit". */
 const SUMMIT_TIERS = ["tsls_attendee", "tsls_vip"];
@@ -134,12 +129,13 @@ export async function badgeCountsForMany(
         profile_id: string;
         tier: string;
         status: string;
+        source: string | null;
         access_starts_at: string | null;
         created_at: string | null;
       }>((from, to) =>
         admin
           .from("memberships")
-          .select("profile_id, tier, status, access_starts_at, created_at")
+          .select("profile_id, tier, status, source, access_starts_at, created_at")
           .in("profile_id", ids)
           .order("profile_id")
           .range(from, to),
@@ -210,7 +206,7 @@ export async function badgeCountsForMany(
     if (joined) {
       const prev = earliest.get(id);
       if (!prev || joined < prev) earliest.set(id, joined);
-      if (PAID_TIERS.includes(String(row.tier))) {
+      if (wasBought(String(row.tier), row.source ?? null)) {
         const prevPaid = earliestPaid.get(id);
         if (!prevPaid || joined < prevPaid) earliestPaid.set(id, joined);
       }

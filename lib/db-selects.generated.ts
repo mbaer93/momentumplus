@@ -223,7 +223,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   // lib/revenue.ts
   { table: "memberships", select: "profile_id, tier, source" },
   // lib/badge-queries.ts
-  { table: "memberships", select: "profile_id, tier, status, access_starts_at, created_at" },
+  { table: "memberships", select: "profile_id, tier, status, source, access_starts_at, created_at" },
   // lib/directory-queries.ts
   { table: "memberships", select: "profiles ( full_name )" },
   // app/(portal)/admin/members/actions.ts
