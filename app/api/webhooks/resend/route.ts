@@ -1,11 +1,13 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   alertEmailFailures,
   journalEmailEvents,
-  type EmailEventRow,
-  type NormalizedEmailEvent,
 } from "@/lib/email-events";
+import {
+  resendEventRows,
+  verifySvixSignature,
+  type ResendPayload,
+} from "@/lib/resend-webhook";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /*
@@ -26,101 +28,42 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * "v1,<base64>" candidates.
  */
 
-const EVENT_MAP: Record<string, NormalizedEmailEvent> = {
-  "email.delivered": "delivered",
-  "email.opened": "open",
-  "email.clicked": "click",
-  "email.bounced": "bounce",
-  "email.complained": "spamreport",
-  "email.failed": "dropped",
-};
-
-const TOLERANCE_MS = 5 * 60 * 1000;
-
-function verifySvix(req: NextRequest, rawBody: string): boolean {
-  const secret = process.env.RESEND_WEBHOOK_SECRET;
-  if (!secret) return false;
-  const id = req.headers.get("svix-id");
-  const timestamp = req.headers.get("svix-timestamp");
-  const signatures = req.headers.get("svix-signature");
-  if (!id || !timestamp || !signatures) return false;
-  // Replay guard: reject stale timestamps.
-  const ts = Number(timestamp) * 1000;
-  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > TOLERANCE_MS) {
-    return false;
-  }
-  const key = Buffer.from(
-    secret.startsWith("whsec_") ? secret.slice(6) : secret,
-    "base64",
-  );
-  const expected = createHmac("sha256", key)
-    .update(`${id}.${timestamp}.${rawBody}`)
-    .digest();
-  return signatures.split(" ").some((candidate) => {
-    const [version, sig] = candidate.split(",");
-    if (version !== "v1" || !sig) return false;
-    try {
-      const got = Buffer.from(sig, "base64");
-      return got.length === expected.length && timingSafeEqual(got, expected);
-    } catch {
-      return false;
-    }
-  });
-}
-
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ ok: true, note: "no database" });
   }
   const rawBody = await req.text();
-  if (!verifySvix(req, rawBody)) {
+  if (
+    !verifySvixSignature(
+      {
+        id: req.headers.get("svix-id"),
+        timestamp: req.headers.get("svix-timestamp"),
+        signature: req.headers.get("svix-signature"),
+      },
+      rawBody,
+      process.env.RESEND_WEBHOOK_SECRET,
+    )
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let payload: {
-    type?: string;
-    created_at?: string;
-    data?: {
-      to?: string | string[];
-      subject?: string;
-      bounce?: { message?: string; subType?: string };
-      failed?: { reason?: string };
-    };
-  };
+  let payload: ResendPayload;
   try {
-    payload = JSON.parse(rawBody) as typeof payload;
+    payload = JSON.parse(rawBody) as ResendPayload;
   } catch {
     return NextResponse.json({ error: "Bad JSON" }, { status: 400 });
   }
 
-  const normalized = payload.type ? EVENT_MAP[payload.type] : undefined;
-  if (!normalized) {
+  const rows = resendEventRows(payload);
+  // An event type we do not track is Resend adding something, not a fault
+  // worth a retry — 200, and say what was ignored.
+  if (!rows) {
     return NextResponse.json({ ok: true, ignored: payload.type ?? "unknown" });
   }
-
-  const recipients = Array.isArray(payload.data?.to)
-    ? payload.data.to
-    : payload.data?.to
-      ? [payload.data.to]
-      : ["unknown"];
-  const reason =
-    payload.data?.bounce?.message ??
-    payload.data?.failed?.reason ??
-    payload.data?.bounce?.subType ??
-    "";
-  const occurredAt = payload.created_at
-    ? new Date(payload.created_at).toISOString()
-    : new Date().toISOString();
-
-  const rows: EmailEventRow[] = recipients.map((to) => ({
-    email: String(to).slice(0, 200),
-    event: normalized,
-    reason: reason ? String(reason).slice(0, 200) : null,
-    occurred_at: occurredAt,
-  }));
   await journalEmailEvents(rows);
 
   let emailed = 0;
+  const normalized = rows[0].event;
   if (normalized === "bounce" || normalized === "dropped" || normalized === "spamreport") {
     emailed = await alertEmailFailures(
       rows.map((r) => ({ email: r.email, event: r.event, reason: r.reason ?? "" })),

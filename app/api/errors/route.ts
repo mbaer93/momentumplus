@@ -1,9 +1,14 @@
-import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { sendEmailViaGhl } from "@/lib/notifications";
+import {
+  EMAIL_THROTTLE_MS,
+  anonymousBucket,
+  errorFingerprint,
+  throttleExpired,
+} from "@/lib/error-report-guards";
 
 /*
  * Error monitor: the error boundaries POST here when a member hits a crash
@@ -16,8 +21,6 @@ import { sendEmailViaGhl } from "@/lib/notifications";
  * we've already seen — they can never create rows, email Matt, or ring the
  * admin bell. Signed-in reports get the full pipeline.
  */
-
-const EMAIL_THROTTLE_MS = 6 * 60 * 60 * 1000;
 
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -33,10 +36,7 @@ export async function POST(req: NextRequest) {
   const message = String(body.message ?? "Unknown error").slice(0, 500);
   const path = String(body.path ?? "").slice(0, 300);
   const digest = String(body.digest ?? "").slice(0, 100);
-  const hash = createHash("sha256")
-    .update(`${message}|${path}`)
-    .digest("hex")
-    .slice(0, 32);
+  const hash = errorFingerprint(message, path);
 
   // Only an ACTIVE member may create rows or trigger alerts. A signed-in
   // but never-paid / lapsed account (or anonymous visitor) can't — that
@@ -75,14 +75,9 @@ export async function POST(req: NextRequest) {
      * attacker-controlled text), never email, never ring the bell. A bot
      * can only ever bump two counters.
      */
-    const publicPath = ["/join", "/tickets"].find(
-      (p) => path === p || path.startsWith(`${p}?`) || path.startsWith(`${p}/`),
-    );
-    if (publicPath) {
-      const anonHash = createHash("sha256")
-        .update(`anon|${publicPath}`)
-        .digest("hex")
-        .slice(0, 32);
+    const bucket = anonymousBucket(path);
+    if (bucket) {
+      const { hash: anonHash, path: publicPath } = bucket;
       const anonMessage = `Anonymous visitor crash on ${publicPath}: ${message}`.slice(0, 500);
       const { data: anonRow } = await admin
         .from("error_reports")
@@ -154,10 +149,9 @@ export async function POST(req: NextRequest) {
     /* best-effort */
   }
 
-  const lastEmailed = existing?.last_emailed_at
-    ? new Date(existing.last_emailed_at as string).getTime()
-    : 0;
-  if (Date.now() - lastEmailed < EMAIL_THROTTLE_MS) {
+  if (
+    !throttleExpired(existing?.last_emailed_at as string | null, Date.now())
+  ) {
     return NextResponse.json({ ok: true, throttled: true });
   }
 
@@ -172,10 +166,10 @@ export async function POST(req: NextRequest) {
     .order("last_emailed_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const globalLast = recent?.last_emailed_at
-    ? new Date(recent.last_emailed_at as string).getTime()
-    : 0;
-  const emailAllowed = Date.now() - globalLast >= EMAIL_THROTTLE_MS;
+  const emailAllowed = throttleExpired(
+    recent?.last_emailed_at as string | null,
+    Date.now(),
+  );
 
   // Email every Super Admin (today: Matt).
   const { data: supers } = await admin
