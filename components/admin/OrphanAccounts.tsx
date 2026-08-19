@@ -3,7 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BreakableEmail } from "@/components/BreakableEmail";
-import { deleteMember } from "@/app/(portal)/admin/members/actions";
+import {
+  deleteMember,
+  getLoginLink,
+  sendPasswordReset,
+} from "@/app/(portal)/admin/members/actions";
 
 /*
  * Accounts that exist (a login + profile) but hold NO membership row. The
@@ -18,12 +22,46 @@ export interface OrphanAccount {
   email: string;
 }
 
-export function OrphanAccounts({ orphans }: { orphans: OrphanAccount[] }) {
+export function OrphanAccounts({
+  orphans,
+  canDelete,
+}: {
+  orphans: OrphanAccount[];
+  /** Deleting a login is Super Admin only; the recovery actions are not. */
+  canDelete: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [link, setLink] = useState<string | null>(null);
 
   if (!orphans.length) return null;
+
+  /*
+   * These are the people most likely to need help, and until now the only
+   * button here was Delete (Matt, 2026-08-19: went looking for a speaker to
+   * send a sign-in link to, and he was not in the members table at all —
+   * the table inner-joins memberships, and his arrives only when he
+   * finishes his setup form).
+   *
+   * A sign-in link works whatever state their password is in, which is the
+   * usual reason someone is stuck.
+   */
+  const run = (
+    fn: () => Promise<{ ok: boolean; message?: string; loginLink?: string | null }>,
+  ) => {
+    setMsg(null);
+    setLink(null);
+    startTransition(async () => {
+      try {
+        const res = await fn();
+        setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "Done." : "Error") });
+        if (res.loginLink) setLink(res.loginLink);
+      } catch {
+        setMsg({ ok: false, text: "That didn't go through — try again." });
+      }
+    });
+  };
 
   return (
     <div className="admin-form" style={{ maxWidth: "none", marginTop: 18 }}>
@@ -31,14 +69,31 @@ export function OrphanAccounts({ orphans }: { orphans: OrphanAccount[] }) {
         Accounts without a membership
       </div>
       <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", margin: "0 0 10px" }}>
-        These logins have no membership (interrupted signup or a deleted
-        member re-created by a payment retry). They still reserve their email
-        — new signups with it are told an account exists. Grant them a
-        membership above, or delete the account to free the email.
+        These logins have no membership, so they do NOT appear in the table
+        above — most often a speaker or sponsor who signed in but hasn&apos;t
+        finished their setup form yet (their membership is created when they
+        submit it), sometimes an interrupted signup. They still reserve their
+        email, so new signups with it are told an account exists. Send a
+        sign-in link to get someone moving, grant them a membership above, or
+        delete the account to free the email.
       </p>
       {msg && (
         <div className={`admin-form-msg ${msg.ok ? "ok" : "err"}`} style={{ marginBottom: 10 }}>
           {msg.text}
+        </div>
+      )}
+      {link && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+          <code style={{ fontSize: 11, wordBreak: "break-all", flex: 1 }}>
+            {link}
+          </code>
+          <button
+            type="button"
+            className="btn-mini"
+            onClick={() => void navigator.clipboard.writeText(link)}
+          >
+            Copy
+          </button>
         </div>
       )}
       {orphans.map((o) => (
@@ -60,6 +115,24 @@ export function OrphanAccounts({ orphans }: { orphans: OrphanAccount[] }) {
               <BreakableEmail email={o.email} />
             </span>
           </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => run(() => getLoginLink(o.email))}
+          >
+            Get sign-in link
+          </button>
+          <button
+            type="button"
+            className="btn-mini"
+            disabled={pending}
+            onClick={() => run(() => sendPasswordReset(o.email))}
+          >
+            Send password reset
+          </button>
+          {canDelete && (
           <button
             type="button"
             className="btn-mini danger"
@@ -86,6 +159,8 @@ export function OrphanAccounts({ orphans }: { orphans: OrphanAccount[] }) {
           >
             Delete account
           </button>
+          )}
+          </div>
         </div>
       ))}
     </div>
