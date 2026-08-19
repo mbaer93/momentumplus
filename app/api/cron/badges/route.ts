@@ -29,11 +29,25 @@ export async function GET(req: NextRequest) {
   }
 
   const result = await syncMemberBadges();
+
+  /*
+   * Then push what is owed to GHL as contact tags (0092), so offers can be
+   * built against badges where campaigns already live. Runs even when the
+   * award step errored: the tag queue is journaled per row and may hold
+   * work from earlier runs that has nothing to do with tonight's counts.
+   */
+  const { pushBadgeTags } = await import("@/lib/badge-ghl");
+  const tags = await pushBadgeTags();
+
   await recordCronRun(
     "badges",
     result.error
       ? `failed: ${result.error}`
-      : `${result.scanned} members, ${result.awarded} newly earned`,
+      : `${result.scanned} members, ${result.awarded} newly earned` +
+          (tags.error
+            ? ` · tags skipped (${tags.error})`
+            : ` · ${tags.tagged} tags to ${tags.contacts} contacts` +
+              (tags.failed ? `, ${tags.failed} failed` : "")),
   );
 
   return NextResponse.json(
@@ -42,6 +56,7 @@ export async function GET(req: NextRequest) {
       scanned: result.scanned,
       awarded: result.awarded,
       newByKey: result.newByKey,
+      ghlTags: tags,
       ...(result.error ? { error: result.error } : {}),
     },
     { status: result.error ? 500 : 200 },

@@ -2,6 +2,8 @@ import { Greeting } from "@/components/portal/Greeting";
 import { AdSlot } from "@/components/sponsors/AdSlot";
 import { BodyAd } from "@/components/sponsors/BodyAd";
 import { GettingStarted } from "@/components/dashboard/GettingStarted";
+import { OfferBanner } from "@/components/dashboard/OfferBanner";
+import { offerForMember, type MemberOffer } from "@/lib/offers";
 import { TestimonialAsk } from "@/components/dashboard/TestimonialAsk";
 import { hasTestimonial } from "./testimonial-actions";
 import Link from "next/link";
@@ -108,6 +110,8 @@ export default async function DashboardPage() {
   let wroteNote = false;
   let heardEpisode = false;
   let finishedCourse = false;
+  // A deal aimed at this member's badges or tier, if there is one (0093).
+  let offer: MemberOffer | null = null;
 
   if (preview) {
     nextUp = { ...placeholderNextSession, allowCalendar: true };
@@ -165,6 +169,7 @@ export default async function DashboardPage() {
         })(),
       ]);
       newMessages = unread;
+      offer = await offerForMember(user.id);
       prefsSaved = (prefsCount ?? 0) > 0;
       profileFilled = Boolean(
         (p as { title?: string | null; company?: string | null } | null)?.title &&
@@ -252,6 +257,10 @@ export default async function DashboardPage() {
           the welcome banner because that's what "above the fold" means on
           the screen members land on. */}
       <AdSlot placement="dashboard_top" limit={2} />
+
+      {/* A deal aimed at what this member has earned. Who sees it is decided
+          by RLS on `offers` (0093), never here. */}
+      {offer && <OfferBanner offer={offer} />}
 
       {/* Welcome Banner */}
       <div className="welcome-banner">
