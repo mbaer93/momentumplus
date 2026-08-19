@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   ageLabel,
+  CRON_EXPECTATIONS,
   cronCheck,
   diffReports,
   lateCrons,
@@ -138,4 +139,39 @@ test("skipped (unconfigured) checks never alert in either direction", () => {
     report([{ name: "Zoom", ok: false }]),
   );
   assert.deepEqual(unskipped.failures.map((f) => f.name), ["Zoom"]);
+});
+
+/*
+ * The expectations table against the actual schedule.
+ *
+ * It drifted the first time it could: the badges cron shipped in vercel.json
+ * with no entry here, so Connections would have said "all jobs on schedule"
+ * for a job that had never run. The list is the only thing that notices a
+ * silently dead cron, so nothing may be in one file and not the other.
+ */
+test("every scheduled cron has a health expectation, and vice versa", async () => {
+  const { readFileSync } = await import("node:fs");
+  const vercel = JSON.parse(readFileSync("vercel.json", "utf8")) as {
+    crons: { path: string; schedule: string }[];
+  };
+
+  // /api/cron/<name> reports as <name>; the TSLS import is the one job that
+  // lives outside that prefix and stamps its own heartbeat name.
+  const SPECIAL: Record<string, string> = { "/api/import/tsls": "tsls-import" };
+  const scheduled = vercel.crons.map(
+    (c) => SPECIAL[c.path] ?? c.path.replace("/api/cron/", ""),
+  );
+
+  for (const name of scheduled) {
+    assert.ok(
+      name in CRON_EXPECTATIONS,
+      `${name} is scheduled in vercel.json but has no health expectation — it could die unnoticed`,
+    );
+  }
+  for (const name of Object.keys(CRON_EXPECTATIONS)) {
+    assert.ok(
+      scheduled.includes(name),
+      `${name} is expected by the health check but is not scheduled — it would page forever`,
+    );
+  }
 });
