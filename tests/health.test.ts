@@ -175,3 +175,45 @@ test("every scheduled cron has a health expectation, and vice versa", async () =
     );
   }
 });
+
+/*
+ * The RPC probe against the RPCs the app actually calls.
+ *
+ * Same failure mode as the cron table above, with a worse symptom. All three
+ * SECURITY DEFINER functions are on the sign-in and account-recovery path,
+ * and every caller degrades rather than fails — auth_activity and
+ * auth_user_id_by_email fall back to paging listUsers, and auth_has_password
+ * fails closed to "they have one", which silently restores the double
+ * password prompt Rob hit in August. A revoked grant or a rolled-back
+ * migration would show no symptom at all until a member reported one.
+ *
+ * So a fourth RPC added without a probe must fail here, not in production.
+ */
+test("every RPC the app calls is probed by the health check", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { execFileSync } = await import("node:child_process");
+
+  const called = new Set(
+    execFileSync(
+      "grep",
+      ["-rho", "--include=*.ts", "--include=*.tsx", '\\.rpc(\\s*"[a-z_]*"', "app", "lib"],
+      { encoding: "utf8" },
+    )
+      .split("\n")
+      .map((l) => l.match(/"([a-z_]+)"/)?.[1])
+      .filter((n): n is string => Boolean(n)),
+  );
+
+  const health = readFileSync("lib/health.ts", "utf8");
+  const probeBlock = health.slice(health.indexOf('guard("Database functions"'));
+  assert.ok(probeBlock.length > 0, "the Database functions check is gone");
+
+  for (const fn of called) {
+    assert.ok(
+      probeBlock.includes(`"${fn}"`),
+      `${fn}() is called by the app but not probed on Admin → Connections — ` +
+        `if it breaks, its callers degrade quietly and nobody finds out`,
+    );
+  }
+  assert.ok(called.size >= 3, `expected at least 3 RPCs, found ${called.size}`);
+});
