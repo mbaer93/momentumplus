@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { bridgeAuthorized } from "@/lib/bridge-auth";
+import {
+  bridgeAuthorized,
+  revealAuthorized,
+  revealKeyConfigured,
+} from "@/lib/bridge-auth";
 import { redactEmail } from "@/lib/db-utils";
 import { sendEmailViaGhl } from "@/lib/notifications";
 import {
@@ -25,10 +29,16 @@ import {
  * grant and sends each guest the first email Momentum+ has ever sent them.
  *
  *   POST /api/bridge/reveal
- *   Header: x-api-key: <MOMENTUM_PROVISION_KEY>   (same trust boundary as
- *           the other bridge routes)
+ *   Header: x-api-key: <MOMENTUM_REVEAL_KEY>   to activate for real
+ *           x-api-key: <either key>            for { "dryRun": true }
  *   Body:   {} — or { "dryRun": true } to see who WOULD be activated
  *   → 200 { ok, activated, emailed, remaining, failures }
+ *
+ * The dedicated secret is TSLS's security review (2026-08-19), and their
+ * framing was right: the provisioning key runs in a sync loop all day, while
+ * this one is used once, ever. Sharing them meant a single leaked env var
+ * could activate every grant and email every guest at the wrong moment —
+ * and you cannot un-send 77 emails or un-spoil a reveal.
  *
  * Three things this has to get right, because it runs once, live, in front
  * of a room:
@@ -58,15 +68,52 @@ const TIME_BUDGET_MS = 240_000;
 const BATCH = 200;
 
 export async function POST(req: NextRequest) {
-  if (!bridgeAuthorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const body = (await req.json().catch(() => ({}))) as { dryRun?: unknown };
+  const dryRun = body.dryRun === true;
+
+  /*
+   * Two doors, because the two actions carry completely different risk.
+   *
+   * A dry run writes nothing and takes either key — TSLS has to be able to
+   * verify its wiring and read the count without holding the once-ever
+   * secret, which is the whole reason the secrets are separate.
+   *
+   * A real activation takes MOMENTUM_REVEAL_KEY and nothing else. The
+   * provisioning key runs in a sync loop all day; this one is used once.
+   * Accepting the provisioning key here as a "fallback" would be the shared
+   * -key problem with extra steps, so there isn't one.
+   */
+  if (dryRun) {
+    if (!bridgeAuthorized(req) && !revealAuthorized(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  } else {
+    if (!revealKeyConfigured()) {
+      // Distinguished from a wrong key on purpose: at 9am on event day
+      // "you sent the wrong secret" and "nobody ever set this up" need
+      // different people doing different things.
+      return NextResponse.json(
+        {
+          error:
+            "MOMENTUM_REVEAL_KEY is not set on Momentum+. The reveal needs its own secret — set it in Vercel (Production) and give TSLS the same value.",
+        },
+        { status: 503 },
+      );
+    }
+    if (!revealAuthorized(req)) {
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized — a real activation needs MOMENTUM_REVEAL_KEY, not the provisioning key. Use dryRun to check wiring with either.",
+        },
+        { status: 401 },
+      );
+    }
   }
+
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
-
-  const body = (await req.json().catch(() => ({}))) as { dryRun?: unknown };
-  const dryRun = body.dryRun === true;
 
   const startedAt = Date.now();
   const admin = createServiceClient();

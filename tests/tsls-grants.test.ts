@@ -138,3 +138,64 @@ test("a member with no name still gets a sane greeting", () => {
   const html = activationEmailHtml({ name: "", tier: "tsls_attendee", months: 1 });
   assert.doesNotMatch(html, /Hi\s*,/);
 });
+
+/* --- The reveal's blast radius (TSLS security review, 2026-08-19) ------ */
+
+test("a real activation will not accept the provisioning key", () => {
+  /*
+   * The finding, in their framing: provisioning key + no scoping + no
+   * inbound ceiling + irreversible reveal is ONE compound risk, not four.
+   * The provisioning key lives in a sync loop that runs all day; the reveal
+   * key is used once, ever. Sharing them means a single leaked env var can
+   * activate every grant and email every guest at the wrong moment, and
+   * neither of those is recoverable.
+   *
+   * So there is deliberately no fallback to bridgeAuthorized on the real
+   * path. A fallback would be the shared-key problem with extra steps.
+   */
+  const route = readFileSync("app/api/bridge/reveal/route.ts", "utf8");
+  // Search for the end marker AFTER the else, or indexOf finds the import
+  // line and the slice comes back empty — which would pass vacuously.
+  const elseAt = route.indexOf("} else {");
+  const realPath = route.slice(elseAt, route.indexOf("isSupabaseConfigured", elseAt));
+  assert.ok(realPath.length > 50, "sliced the wrong region — the test proves nothing");
+  assert.match(realPath, /revealAuthorized\(req\)/);
+  assert.doesNotMatch(
+    realPath,
+    /bridgeAuthorized/,
+    "the provisioning key must not open a real activation",
+  );
+});
+
+test("a dry run still works with either key", () => {
+  // TSLS has to verify its wiring and read the count without being handed
+  // the once-ever secret — which is the entire reason the keys are split.
+  const route = readFileSync("app/api/bridge/reveal/route.ts", "utf8");
+  const dryPath = route.slice(route.indexOf("if (dryRun) {"), route.indexOf("} else {"));
+  assert.match(dryPath, /bridgeAuthorized\(req\)/);
+  assert.match(dryPath, /revealAuthorized\(req\)/);
+});
+
+test("an unset reveal key reads differently from a wrong one", () => {
+  // At 9am on event day, "you sent the wrong secret" and "nobody ever set
+  // this up" need different people doing different things.
+  const route = readFileSync("app/api/bridge/reveal/route.ts", "utf8");
+  assert.match(route, /revealKeyConfigured\(\)/);
+  assert.match(route, /status: 503/);
+  assert.match(route, /MOMENTUM_REVEAL_KEY is not set/);
+});
+
+test("the reveal key never falls back to another secret", () => {
+  const auth = readFileSync("lib/bridge-auth.ts", "utf8");
+  const fn = auth.slice(auth.indexOf("export function revealAuthorized"));
+  assert.match(fn, /\[process\.env\.MOMENTUM_REVEAL_KEY\]/);
+  assert.doesNotMatch(fn.slice(0, fn.indexOf("}")), /MOMENTUM_BRIDGE_KEY|ZAPIER/);
+});
+
+test("an unset secret can never match an empty key", () => {
+  // matchesAny skips undefined secrets. Without that, a deployment missing
+  // MOMENTUM_REVEAL_KEY would authorize a request that sent no key at all.
+  const auth = readFileSync("lib/bridge-auth.ts", "utf8");
+  assert.match(auth, /if \(!secret\) continue;/);
+  assert.match(auth, /timingSafeEqual/);
+});
