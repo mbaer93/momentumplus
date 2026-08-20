@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { updateTag } from "next/cache";
 import { revalidatePath } from "next/cache";
+import { rateLimited } from "@/lib/rate-limit";
 
 /*
  * Sponsorship-tier catalog sync from TSLS (the source of truth — Matt,
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Inbound ceiling AFTER the key check, so an unauthorized caller cannot
+  // burn the budget for the real one (TSLS review, 2026-08-19).
+  const limited = await rateLimited("bridge/tiers");
+  if (limited) return limited;
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "Not configured" }, { status: 503 });
   }

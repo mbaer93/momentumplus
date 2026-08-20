@@ -3,6 +3,7 @@ import { bridgeAuthorized } from "@/lib/bridge-auth";
 import { planToTier, provisionMember } from "@/lib/onboarding";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { Tier } from "@/lib/types";
+import { rateLimited } from "@/lib/rate-limit";
 
 /*
  * Inbound member-provisioning webhook for Zapier (or any tool that can POST
@@ -43,6 +44,11 @@ export async function POST(req: NextRequest) {
   if (!bridgeAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Inbound ceiling AFTER the key check, so an unauthorized caller cannot
+  // burn the budget for the real one (TSLS review, 2026-08-19).
+  const limited = await rateLimited("webhooks/zapier");
+  if (limited) return limited;
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }

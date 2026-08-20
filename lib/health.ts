@@ -390,6 +390,24 @@ export async function runHealthChecks(): Promise<HealthReport> {
               p_email: "healthcheck@invalid",
             }),
         ],
+        /*
+         * The inbound rate ceilings (0096). Belongs here more than the auth
+         * functions do: rateLimited() fails OPEN by design, so if this
+         * function breaks, every x-api-key surface silently loses its
+         * ceiling and every request still succeeds. There is no symptom at
+         * all — which is the entire reason this check exists.
+         *
+         * It increments a counter, so it uses a bucket name no real surface
+         * can produce. The row prunes itself with the rest.
+         */
+        [
+          "api_rate_bump",
+          async () =>
+            await admin.rpc("api_rate_bump", {
+              p_bucket: "healthcheck:probe",
+              p_window_start: new Date().toISOString(),
+            }),
+        ],
       ];
       const results = await Promise.all(
         probes.map(async ([name, run]) => {
@@ -407,7 +425,10 @@ export async function runHealthChecks(): Promise<HealthReport> {
       return {
         name: "Database functions",
         ok: true,
-        note: `all ${probes.length} auth functions answer`,
+        // "auth functions" no longer describes the set — the rate counter
+        // is in here too, and a note that misdescribes what it checked is
+        // how a gap gets overlooked on the one screen that would show it.
+        note: `all ${probes.length} database functions answer`,
       };
     }),
 

@@ -5,6 +5,7 @@ import {
   revealKeyConfigured,
 } from "@/lib/bridge-auth";
 import { redactEmail } from "@/lib/db-utils";
+import { rateLimited } from "@/lib/rate-limit";
 import { sendEmailViaGhl } from "@/lib/notifications";
 import {
   activateScheduledGift,
@@ -114,6 +115,19 @@ export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
+
+  /*
+   * Inbound ceiling, below BOTH doors so a dry run cannot be used to exhaust
+   * the budget a real activation needs. Placed after the key checks, so an
+   * unauthorized caller never spends it either.
+   *
+   * 10/minute still allows every retry a real reveal needs — draining the
+   * remainder, pressing again when unsure the first press landed — while
+   * making "fire it repeatedly" impossible. Second lock on a door that
+   * already has its own key.
+   */
+  const limited = await rateLimited("bridge/reveal");
+  if (limited) return limited;
 
   const startedAt = Date.now();
   const admin = createServiceClient();
