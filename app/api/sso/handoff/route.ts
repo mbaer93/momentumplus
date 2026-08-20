@@ -3,6 +3,7 @@ import { emailPattern } from "@/lib/db-utils";
 import { requestSiteUrl } from "@/lib/site-url";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { rateLimited } from "@/lib/rate-limit";
 
 /*
  * SSO handoff for a trusted first-party app (the TSLS Companion).
@@ -39,6 +40,11 @@ export async function POST(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Inbound ceiling AFTER the key check, so an unauthorized caller cannot
+  // burn the budget for the real one (TSLS review, 2026-08-19).
+  const limited = await rateLimited("sso/handoff");
+  if (limited) return limited;
   if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   }
