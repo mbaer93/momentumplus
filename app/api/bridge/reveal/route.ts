@@ -6,18 +6,10 @@ import {
 } from "@/lib/bridge-auth";
 import { redactEmail } from "@/lib/db-utils";
 import { rateLimited } from "@/lib/rate-limit";
-import { sendEmailViaGhl } from "@/lib/notifications";
-import {
-  activateScheduledGift,
-  mintWelcomeLink,
-  type ScheduledGiftRow,
-} from "@/lib/onboarding";
+import { type ScheduledGiftRow } from "@/lib/onboarding";
+import { revealOneGuest } from "@/lib/reveal-activation";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import {
-  activationEmailHtml,
-  activationEmailSubject,
-} from "@/lib/tsls-activation-email";
 
 /*
  * The reveal (Matt, 2026-08-19: "Activation should be based on when I click a
@@ -238,52 +230,13 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    const res = await activateScheduledGift({
-      ...(row as unknown as ScheduledGiftRow),
-      starts_at: nowIso,
-    }).catch((e) => ({ ok: false, result: (e as Error).message || "threw" }));
-
-    if (!res.ok) {
-      // Leave unstamped so the cron retries and a second press picks it up.
-      await admin
-        .from("scheduled_gifts")
-        .update({ result: `retrying: ${res.result}` })
-        .eq("id", row.id);
-      failures.push(`${redactEmail(String(row.email))}: ${res.result}`);
-      continue;
-    }
-
-    await admin
-      .from("scheduled_gifts")
-      .update({ applied_at: new Date().toISOString(), result: res.result })
-      .eq("id", row.id);
-    activated++;
-
-    /*
-     * The email is best-effort and deliberately AFTER the stamp. If GHL is
-     * throttling, the access is still real and the invite can be re-sent
-     * from Admin → Members — whereas retrying the whole row to get an email
-     * out would risk a second grant. Access first, announcement second.
-     */
-    try {
-      const link = await mintWelcomeLink(String(row.email));
-      const sent = await sendEmailViaGhl({
-        email: String(row.email),
-        subject: activationEmailSubject(),
-        html: activationEmailHtml({
-          name: row.name as string | null,
-          tier: row.tier as ScheduledGiftRow["tier"],
-          months: Number(row.months),
-          loginUrl: link,
-        }),
-      });
-      if (sent.sent) emailed++;
-      else failures.push(`${redactEmail(String(row.email))}: email ${sent.reason}`);
-    } catch (e) {
-      failures.push(
-        `${redactEmail(String(row.email))}: email ${(e as Error).message}`,
-      );
-    }
+    const res = await revealOneGuest(
+      { ...(row as unknown as ScheduledGiftRow), starts_at: nowIso },
+      nowIso,
+    );
+    if (res.activated) activated++;
+    if (res.emailed) emailed++;
+    if (!res.ok || !res.emailed) failures.push(res.detail);
   }
 
   const stillPending = Math.max(0, (totalPending ?? 0) - activated);

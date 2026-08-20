@@ -375,3 +375,136 @@ export async function setTestersLive(live: boolean): Promise<ControlResult> {
       : "Rehearsal off. Testers are back to seeing today's app.",
   };
 }
+
+/* --- Rehearsing the reveal ------------------------------------------- */
+
+export interface ParkedGuest {
+  email: string;
+  name: string | null;
+  tier: string;
+  months: number;
+  startsAt: string;
+}
+
+/**
+ * Everyone still waiting on the reveal.
+ *
+ * Read-only, and it lists real member emails, so it is Super-Admin-only
+ * like the rest of this page.
+ */
+export async function listParkedGuests(): Promise<{
+  ok: boolean;
+  message?: string;
+  guests: ParkedGuest[];
+}> {
+  if (!isSupabaseConfigured()) return { ok: true, guests: [] };
+  const auth = await requireSuper();
+  if (!auth.ok) return { ok: false, message: auth.message, guests: [] };
+
+  const { data, error } = await createServiceClient()
+    .from("scheduled_gifts")
+    .select("email, name, tier, months, starts_at")
+    .is("applied_at", null)
+    .order("email", { ascending: true })
+    .limit(500);
+  if (error) {
+    return {
+      ok: false,
+      guests: [],
+      message: /relation .*scheduled_gifts.* does not exist/i.test(error.message)
+        ? "Run migration 0068 first."
+        : error.message,
+    };
+  }
+  return {
+    ok: true,
+    guests: (data ?? []).map((g) => ({
+      email: String(g.email),
+      name: (g.name as string | null) ?? null,
+      tier: String(g.tier),
+      months: Number(g.months),
+      startsAt: String(g.starts_at),
+    })),
+  };
+}
+
+/**
+ * Activate ONE parked guest, now, and send them the activation email.
+ *
+ * The point is to walk the whole chain — activation, membership, email,
+ * one-time link, /welcome, password, portal — before the day it matters,
+ * so the press on stage is the second time it has run rather than the
+ * first (Matt, 2026-08-20: "I can't copy/paste that it throws errors").
+ *
+ * WHY THIS DOES NOT WIDEN THE BLAST RADIUS, which is the obvious worry
+ * about a second path to activation that skips MOMENTUM_REVEAL_KEY:
+ *
+ *   - An email is REQUIRED and exactly one row is touched. There is no
+ *     "all" here; the full reveal remains TSLS's button and its key.
+ *   - It needs a Super Admin session, which means passing two-factor. A
+ *     stolen password does not reach it.
+ *   - It is strictly less than what this admin can already do — the same
+ *     session can mint a sign-in link as any member, or delete them.
+ *
+ * It runs revealOneGuest, the same function the on-stage press runs. A
+ * rehearsal against a second implementation would prove nothing about the
+ * thing being rehearsed.
+ */
+export async function rehearseReveal(email: string): Promise<ControlResult> {
+  if (!isSupabaseConfigured()) return PREVIEW;
+  const auth = await requireSuper();
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const target = email.trim().toLowerCase();
+  if (!target) {
+    // Never fall through to "everyone" — the one input that must not be
+    // interpreted generously.
+    return { ok: false, message: "Pick a guest to rehearse on." };
+  }
+
+  const db = createServiceClient();
+  const { data: rows, error } = await db
+    .from("scheduled_gifts")
+    .select("id, profile_id, email, name, tier, months, starts_at, source")
+    .eq("email", target)
+    .is("applied_at", null)
+    .limit(1);
+  if (error) return { ok: false, message: error.message };
+  const row = (rows ?? [])[0];
+  if (!row) {
+    return {
+      ok: false,
+      message:
+        "No parked grant for that email — they may have been activated already, or never pushed from TSLS.",
+    };
+  }
+
+  /*
+   * Move the clock first, exactly as the endpoint does: activateScheduledGift
+   * anchors on starts_at, so leaving the October date in place would hand a
+   * rehearsal a membership that had not started yet.
+   */
+  const nowIso = new Date().toISOString();
+  await db
+    .from("scheduled_gifts")
+    .update({ starts_at: nowIso })
+    .eq("id", row.id)
+    .is("applied_at", null);
+
+  const { revealOneGuest } = await import("@/lib/reveal-activation");
+  const res = await revealOneGuest(
+    row as unknown as import("@/lib/onboarding").ScheduledGiftRow,
+    nowIso,
+  );
+
+  await audit(auth, "reveal.rehearse", target);
+  revalidatePath("/admin/control-center");
+
+  if (!res.ok) return { ok: false, message: `Rehearsal failed — ${res.detail}` };
+  return {
+    ok: res.emailed,
+    message: res.emailed
+      ? `${res.detail}. Check the inbox, then click through to set a password — that is the part nothing else tests.`
+      : `${res.detail}. The access is real; only the email failed, so re-send the invite from Admin → Members.`,
+  };
+}

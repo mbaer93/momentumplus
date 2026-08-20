@@ -58,27 +58,33 @@ test("the reveal restarts the clock before activating", () => {
    * one-month grant. starts_at must move to now BEFORE activation.
    */
   const route = readFileSync("app/api/bridge/reveal/route.ts", "utf8");
-  const update = route.indexOf('.update({ starts_at: nowIso })');
-  const activate = route.indexOf("activateScheduledGift(");
+  const update = route.indexOf(".update({ starts_at: nowIso })");
+  const activate = route.indexOf("revealOneGuest(");
   assert.ok(update > 0, "starts_at is never moved — grants would start in the past");
   assert.ok(update < activate, "starts_at must move before activation");
-  assert.match(route, /starts_at: nowIso,/, "the activation call must use the new date");
+  // And the moved date is what the activation is handed, not the stale row.
+  assert.match(route, /starts_at: nowIso \},/);
+  // The helper anchors on what it is given rather than re-reading the row.
+  const shared = readFileSync("lib/reveal-activation.ts", "utf8");
+  assert.match(shared, /activateScheduledGift\(\{ \.\.\.row, starts_at: startsAtIso \}\)/);
 });
 
 test("pressing reveal twice grants and emails nobody twice", () => {
   // Nobody on a stage is sure the first press worked.
   const route = readFileSync("app/api/bridge/reveal/route.ts", "utf8");
   assert.match(route, /\.is\("applied_at", null\)/);
-  assert.match(route, /applied_at: new Date\(\)\.toISOString\(\)/);
+  // The stamp that makes the second press a no-op lives with the activation.
+  const shared = readFileSync("lib/reveal-activation.ts", "utf8");
+  assert.match(shared, /applied_at: new Date\(\)\.toISOString\(\)/);
 });
 
 test("a failed activation is left for the retry, not stamped", () => {
-  const route = readFileSync("app/api/bridge/reveal/route.ts", "utf8");
-  // Just the failure branch — slicing to `activated++` would swallow the
-  // success block, whose applied_at stamp is exactly what we're asserting
-  // is absent here.
-  const start = route.indexOf("if (!res.ok)");
-  const fail = route.slice(start, route.indexOf("continue;", start));
+  const shared = readFileSync("lib/reveal-activation.ts", "utf8");
+  // Just the failure branch — slicing further would swallow the success
+  // block, whose applied_at stamp is exactly what we assert is absent here.
+  const start = shared.indexOf("if (!res.ok)");
+  const fail = shared.slice(start, shared.indexOf("return {", start));
+  assert.ok(fail.length > 40, "sliced the wrong region — the test proves nothing");
   assert.match(fail, /retrying:/);
   assert.doesNotMatch(fail, /applied_at:/, "a failure must not mark the row done");
 });
