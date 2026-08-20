@@ -69,8 +69,36 @@ const TIME_BUDGET_MS = 240_000;
 const BATCH = 200;
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => ({}))) as { dryRun?: unknown };
+  const body = (await req.json().catch(() => ({}))) as {
+    dryRun?: unknown;
+    onlyEmail?: unknown;
+  };
   const dryRun = body.dryRun === true;
+
+  /*
+   * Rehearse the reveal on ONE person (Matt, 2026-08-20).
+   *
+   * Until this existed the reveal could not be tested at all: firing it
+   * activated every parked row, so the only way to prove the chain worked
+   * was to spoil it for all 74 guests. Which meant the first real execution
+   * would have been on stage, in front of a room, on a path nobody had ever
+   * run — activation → membership → GHL email → one-time link → /welcome →
+   * password → portal. Any link in that could fail in a way a unit test
+   * cannot see: GHL throttling at 74 sends, the token_hash landing wrong,
+   * the email rendering badly in Outlook.
+   *
+   * With onlyEmail, one parked guest can be walked end to end weeks early
+   * and everybody else stays parked. The press on stage is then the second
+   * time it has run, not the first.
+   *
+   * It narrows what is touched; it never widens it. Same key, same
+   * ceilings, same idempotency — an already-activated row is still
+   * invisible, so a rehearsal cannot double-grant or double-email.
+   */
+  const onlyEmail =
+    typeof body.onlyEmail === "string" && body.onlyEmail.trim()
+      ? body.onlyEmail.trim().toLowerCase()
+      : null;
 
   /*
    * Two doors, because the two actions carry completely different risk.
@@ -133,10 +161,25 @@ export async function POST(req: NextRequest) {
   const admin = createServiceClient();
   const nowIso = new Date().toISOString();
 
-  const { data: pending, error } = await admin
-    .from("scheduled_gifts")
-    .select("id, profile_id, email, name, tier, months, starts_at, source")
-    .is("applied_at", null)
+  // One scoping helper, applied identically to the read, the count and the
+  // clock update. Three places that must agree: if the update were wider
+  // than the read, a rehearsal would move 74 people's start dates while
+  // activating one — silently shortening everyone's free month.
+  // T is deliberately unconstrained and `eq` reached through a cast: a
+  // `T extends { eq… }` bound makes tsc walk the whole PostgREST builder
+  // type and give up (TS2589, "excessively deep"). The cast costs nothing
+  // real — every caller below passes a query builder.
+  const scoped = <T>(q: T): T =>
+    onlyEmail
+      ? (q as { eq: (column: string, value: unknown) => T }).eq("email", onlyEmail)
+      : q;
+
+  const { data: pending, error } = await scoped(
+    admin
+      .from("scheduled_gifts")
+      .select("id, profile_id, email, name, tier, months, starts_at, source")
+      .is("applied_at", null),
+  )
     .order("starts_at", { ascending: true })
     .limit(BATCH);
   if (error) {
@@ -151,15 +194,20 @@ export async function POST(req: NextRequest) {
   }
 
   const rows = pending ?? [];
-  const { count: totalPending } = await admin
-    .from("scheduled_gifts")
-    .select("id", { count: "exact", head: true })
-    .is("applied_at", null);
+  const { count: totalPending } = await scoped(
+    admin
+      .from("scheduled_gifts")
+      .select("id", { count: "exact", head: true })
+      .is("applied_at", null),
+  );
 
   if (dryRun) {
     return NextResponse.json({
       ok: true,
       dryRun: true,
+      // Named when scoped, so a dry run reading "1" is obviously a rehearsal
+      // and not a terrifying result on event morning.
+      ...(onlyEmail ? { onlyEmail: redactEmail(onlyEmail) } : {}),
       wouldActivate: totalPending ?? rows.length,
       sample: rows.slice(0, 5).map((r) => ({
         email: redactEmail(String(r.email)),
@@ -175,10 +223,9 @@ export async function POST(req: NextRequest) {
    * would hand a one-month guest a membership that had already half
    * expired by the time they read the email.
    */
-  await admin
-    .from("scheduled_gifts")
-    .update({ starts_at: nowIso })
-    .is("applied_at", null);
+  await scoped(
+    admin.from("scheduled_gifts").update({ starts_at: nowIso }).is("applied_at", null),
+  );
 
   let activated = 0;
   let emailed = 0;
@@ -243,6 +290,15 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    /*
+     * Echoed on the real path too, not just the dry run. `remaining` is
+     * scoped like everything else, so a rehearsal reports 0 — true for that
+     * one person and dangerously misleading without this field, because
+     * TSLS reads `remaining` to decide whether to press again. Seeing
+     * onlyEmail beside it is what stops "remaining: 0" being read as
+     * "everyone is done".
+     */
+    ...(onlyEmail ? { onlyEmail: redactEmail(onlyEmail), rehearsal: true } : {}),
     activated,
     emailed,
     // Named separately from `activated`: a guest whose grant landed but whose
