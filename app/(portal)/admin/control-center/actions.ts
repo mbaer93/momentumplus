@@ -508,3 +508,87 @@ export async function rehearseReveal(email: string): Promise<ControlResult> {
       : `${res.detail}. The access is real; only the email failed, so re-send the invite from Admin → Members.`,
   };
 }
+
+/**
+ * Create a parked test guest to rehearse the reveal on.
+ *
+ * There was no way to make one from the UI (Matt, 2026-08-20). The admin
+ * bulk importer grants access immediately — no `quiet`, no `startAt` — so it
+ * produces an active member, not a guest waiting on the reveal. The only
+ * other source of parked rows is TSLS pushing real ticket-holders, and
+ * rehearsing on one of those would email a real person months early.
+ *
+ * THE TESTER FLAG CANNOT BE SET HERE, and that is not an oversight:
+ * provisionMember nulls startAt for a tester on purpose, so that a tester
+ * provisioned in August is not stuck behind the paywall they exist to test
+ * through. Passing it would grant access immediately and park nothing —
+ * the exact opposite of what this is for. So the account is provisioned as
+ * an ordinary quiet guest and marked a tester afterwards, which keeps it
+ * out of every member-facing list without touching the parked grant.
+ *
+ * Parked a year out rather than on event day: a forgotten dummy must not be
+ * activated by the nightly gift-activate cron on October 14 in the middle
+ * of the real thing. (Pressing the real reveal WOULD still catch it — it
+ * activates every pending row whatever the date — so delete the account
+ * once you are done with it.)
+ */
+export async function addTestGuest(
+  email: string,
+  name: string,
+  tier: "tsls_attendee" | "tsls_vip",
+): Promise<ControlResult> {
+  if (!isSupabaseConfigured()) return PREVIEW;
+  const auth = await requireSuper();
+  if (!auth.ok) return { ok: false, message: auth.message };
+
+  const target = email.trim().toLowerCase();
+  if (!target || !target.includes("@")) {
+    return { ok: false, message: "Enter an email address you can actually read." };
+  }
+
+  const { planToTier, provisionMember } = await import("@/lib/onboarding");
+  // Duration comes from the same table the real push uses, so a rehearsal
+  // grants exactly what a real guest gets — 1 month or 3.
+  const mapping = planToTier(tier === "tsls_vip" ? "tslsvip" : "attendee");
+  if (!mapping) return { ok: false, message: "Unknown tier." };
+
+  const startAt = new Date();
+  startAt.setFullYear(startAt.getFullYear() + 1);
+
+  const res = await provisionMember({
+    email: target,
+    name: name.trim() || "Test Guest",
+    tier: mapping.tier,
+    months: mapping.months,
+    source: "rehearsal",
+    // Silent, exactly as TSLS provisions a real guest: account created,
+    // nothing sent, no access until the reveal.
+    quiet: true,
+    startAt: startAt.toISOString(),
+  });
+  if (!res.ok) {
+    return { ok: false, message: res.message ?? "Could not create the test guest." };
+  }
+
+  const db = createServiceClient();
+  const { data: profile } = await db
+    .from("profiles")
+    .select("id")
+    .ilike("email", target)
+    .maybeSingle();
+  if (profile?.id) {
+    // Best-effort: hides it from member-facing lists. If the columns are
+    // missing (pre-0089) the guest still works, it is just visible.
+    await db
+      .from("profiles")
+      .update({ tester: true, tester_since: new Date().toISOString() })
+      .eq("id", profile.id);
+  }
+
+  await audit(auth, "reveal.test_guest", target);
+  revalidatePath("/admin/control-center");
+  return {
+    ok: true,
+    message: `${target} is parked as a ${mapping.months === 1 ? "General Admission" : "VIP"} guest. Nothing has been sent. Pick them below to rehearse.`,
+  };
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import {
+  addTestGuest,
   listParkedGuests,
   rehearseReveal,
   type ParkedGuest,
@@ -29,6 +30,9 @@ export function RevealRehearsal() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newTier, setNewTier] = useState<"tsls_attendee" | "tsls_vip">("tsls_attendee");
 
   useEffect(() => {
     void listParkedGuests().then((res) => {
@@ -64,6 +68,78 @@ export function RevealRehearsal() {
             {msg.text}
           </div>
         )}
+
+        {/* Somewhere to get a guest from. Every other parked row is a real
+            ticket-holder, and rehearsing on one of those emails a real
+            person months early. */}
+        <details style={{ marginBottom: 16 }}>
+          <summary style={{ cursor: "pointer", fontSize: 12.5 }}>
+            Add a test guest to rehearse on
+          </summary>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
+            <div className="admin-field" style={{ flex: "1 1 220px", marginBottom: 0 }}>
+              <label htmlFor="tg-email">Email you can read</label>
+              <input
+                id="tg-email"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="you+rehearsal@example.com"
+              />
+            </div>
+            <div className="admin-field" style={{ flex: "0 1 160px", marginBottom: 0 }}>
+              <label htmlFor="tg-name">Name</label>
+              <input
+                id="tg-name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Test Guest"
+              />
+            </div>
+            <div className="admin-field" style={{ flex: "0 1 150px", marginBottom: 0 }}>
+              <label htmlFor="tg-tier">Ticket</label>
+              <select
+                id="tg-tier"
+                value={newTier}
+                onChange={(e) =>
+                  setNewTier(e.target.value === "tsls_vip" ? "tsls_vip" : "tsls_attendee")
+                }
+              >
+                <option value="tsls_attendee">General (1 month)</option>
+                <option value="tsls_vip">VIP (3 months)</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              className="btn-mini"
+              style={{ alignSelf: "flex-end" }}
+              disabled={pending || !newEmail.trim()}
+              onClick={() => {
+                setMsg(null);
+                startTransition(async () => {
+                  const res = await addTestGuest(newEmail, newName, newTier);
+                  setMsg({ ok: res.ok, text: res.message ?? "Done." });
+                  if (res.ok) {
+                    setNewEmail("");
+                    setNewName("");
+                    const fresh = await listParkedGuests();
+                    setGuests(fresh.guests);
+                  }
+                });
+              }}
+            >
+              {pending ? "Adding…" : "Add"}
+            </button>
+          </div>
+          <p style={{ fontSize: 11.5, color: "var(--ink-secondary)", margin: "8px 0 0", lineHeight: 1.6 }}>
+            Creates the account silently — nothing is sent and it has no
+            access — exactly as TSLS provisions a real guest. It is marked a
+            test account so it stays out of member lists. Use a real inbox:
+            the point is to read the email and click the link. Delete it from
+            Admin &rarr; Members when you&apos;re done, or the reveal on stage
+            will activate it too.
+          </p>
+        </details>
 
         {guests === null ? (
           <p style={{ fontSize: 12.5, color: "var(--ink-secondary)", margin: 0 }}>
