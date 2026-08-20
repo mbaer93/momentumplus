@@ -34,17 +34,17 @@ tier. That is the dress rehearsal for the 14th.
 
 ## Infrastructure
 
-- [ ] **Ops** — Domain + SSL on `momentumplus.co`; Vercel production env vars set from `.env.example` (41 variables)
+- [ ] **Ops** — Domain + SSL on `momentumplus.co`; Vercel production env vars set from `.env.example` (43 variables)
 - [ ] **Ops** — `CRON_SECRET` set, or every scheduled job 401s silently
 - [x] **Code** — 12 crons registered in `vercel.json`: attendance, TSLS import, reconcile, dunning, reminders, summaries, scheduled-posts, monthly-report, gift-activate, health, podcast, badges
 - [x] **Code** — Cron heartbeats + a test pinning `CRON_EXPECTATIONS` to `vercel.json`, so a new job cannot ship unwatched
-- [ ] **Ops** — Supabase project with **all 94 migrations** applied (`supabase/migrations/`), verified by Admin → Connections → *Page data queries*
+- [ ] **Ops** — Supabase project with **all 96 migrations** applied (`supabase/migrations/`), verified by Admin → Connections → *Page data queries*
 
 ## Verify the database, don't assume it
 
-- [x] **Code** — *Page data queries* probes all 317 embedded selects against the live database
+- [x] **Code** — *Page data queries* probes all 320 embedded selects against the live database
 - [ ] **Ops** — Run **Admin → Connections → Run checks now** after every migration batch. This is the check that catches a migration breaking a query it never mentions (CLAUDE.md rule 6; migration 0087 took every session page offline for a day)
-- [ ] **Ops** — Confirm all 14 health checks pass: Database, Stripe, Zoom, Anthropic, Go High Level, Stream Chat, Mux, Registration sheet, TSLS app, TSLS bridge key, Page data queries, Public pages, Scheduled jobs, Member error reports
+- [ ] **Ops** — Confirm all 15 health checks pass: Database, Stripe, Zoom, Anthropic, Go High Level, Stream Chat, Mux, Registration sheet, TSLS app, TSLS bridge key, Page data queries, **Database functions**, Public pages, Scheduled jobs, Member error reports
 
 ## Billing and access
 
@@ -62,11 +62,24 @@ handles on-site checkout.
 
 ## TSLS crossover
 
-- [ ] **Ops** — Google service account created and the registration sheet shared with it
-- [ ] **Ops** — `TSLS_TYPE_MAP` set (registration type → tier + months; VIP is spec-fixed at 3 months)
-- [ ] **Ops** — `MOMENTUM_BRIDGE_KEY` and `TSLS_SSO_KEY` matched on both sides
-- [x] **Code** — Sheet import (idempotent by email + year), bridge provisioning, SSO handoff
-- [ ] **Ops** — Dry-run the import against the real sheet with invites **off**, and check the counts
+Guests reach Momentum+ by TSLS **pushing** them, not by us reading a sheet
+(Matt, 2026-08-19). TSLS provisions each guest quietly at registration —
+account created, no email, no access — and the reveal on stage activates
+everyone at once.
+
+- [x] **Ops** — `MOMENTUM_BRIDGE_KEY` and `TSLS_SSO_KEY` matched on both sides (confirmed 2026-08-19)
+- [x] **Ops** — `MOMENTUM_REVEAL_KEY` set on both sides. The reveal is the one irreversible action on the bridge, so it has its own secret; the provisioning key cannot fire it. Verified from production 2026-08-20 (an unauthenticated activation returns 401, not the 503 an unset key would give)
+- [x] **Code** — Quiet provisioning (`quiet`), deferred start (`startAt`), the reveal, the activation email, and per-surface inbound rate ceilings
+- [x] **Code** — Grants match SPEC: General Admission 1 month, VIP 3 months, pinned to the SPEC table by test
+- [ ] **Ops** — **Rehearse the reveal on one guest** (Admin → Control Center) and walk the email through to the portal. Nothing else exercises activation → email → one-time link → password → portal, and on the day it runs once, live
+- [ ] **Ops** — Confirm a real guest arrives via TSLS's push, then retire the `tsls-import` cron
+- [ ] **Ops** — Rotate the Supabase management token at the end of the load-test phase (account-wide SQL over both productions; broader than any key in either app)
+
+**Retired:** the Google Sheets import. `/api/import/tsls` still exists and is
+read-only against the sheet, but it has never run in production — it 503s on
+unconfigured Sheets — and TSLS's push replaces it. Do not spend launch-day
+time on `GOOGLE_SERVICE_ACCOUNT_*`, `TSLS_REGISTRATION_SHEET_ID` or
+`TSLS_TYPE_MAP`.
 
 ## Sessions, video, community
 
@@ -85,7 +98,7 @@ handles on-site checkout.
 - [x] **Code** — Every forced-setup page carries "Signed in as … Not you? Log out"
 - [x] **Code** — Emailed links work in all three shapes (`token_hash`, PKCE `code`, implicit fragment)
 - [x] **Code** — Two-factor available on admin accounts (Admin → Your Security), enforced on pages, server actions, and /rescue
-- [ ] **Ops** — **Enrol the Super Admin in two-factor** and store the secret in 1Password. Until this is done the account that can read every member's contact details is protected by a password alone
+- [x] **Ops** — Super Admin enrolled in two-factor, secret in 1Password (2026-08-19)
 - [x] **Ops** — Resend plan covers launch-day volume. Confirmed 2026-08-19: **Pro**, 50,000 transactional/month, **no daily cap**, 82 used. Resend carries auth mail only — invites, password resets, sign-in links — so a full invite run to every member is a rounding error against that quota. Member announcements go through GHL and never touch it. (This line previously warned about a 100/day free-tier ceiling that never applied.)
 
 ## Content
@@ -102,7 +115,7 @@ handles on-site checkout.
 
 ## QA
 
-- [x] **Code** — 444 unit tests; 31 Playwright specs
+- [x] **Code** — 516 unit tests; 31 Playwright specs
 - [x] **Code** — Every mutating API route has at least one test (all 18 audited)
 - [x] **Code** — Contrast (WCAG AA) and Playwright gates on every PR
 - [ ] **Ops** — Re-test the webhook flows against live Supabase + GHL; the e2e suite runs in preview mode and cannot exercise real auth or real writes
