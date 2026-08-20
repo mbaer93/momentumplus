@@ -15,6 +15,7 @@ import {
 } from "@/app/(portal)/admin/control-center/actions";
 import { startViewAs } from "@/app/(portal)/admin/control-center/view-as-actions";
 import { LockIcon } from "@/components/icons";
+import { RevealRehearsal } from "@/components/admin/RevealRehearsal";
 import { isInternalTier } from "@/lib/tiers-shared";
 import type { AccessMatrix, LibraryScope, TierDef } from "@/lib/tiers";
 
@@ -131,6 +132,8 @@ export function ControlCenter({
           </span>
         </div>
       </div>
+
+      <RevealRehearsal />
 
       <div className="section-header">
         <div>
