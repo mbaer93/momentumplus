@@ -107,3 +107,66 @@ test("the UI offers no way to activate everyone", () => {
   assert.doesNotMatch(ui, /activateAll|revealAll|onlyEmail:\s*null/i);
   assert.match(ui, /disabled=\{!email \|\| pending\}/);
 });
+
+/* --- Creating something to rehearse ON (Matt, 2026-08-20) ------------- */
+
+const addFn = () => {
+  const s = actions();
+  return s.slice(s.indexOf("export async function addTestGuest"));
+};
+
+test("the test guest is provisioned quietly and PARKED", () => {
+  /*
+   * The whole point is a guest waiting on the reveal. Granting access now
+   * would produce an ordinary member and leave nothing to rehearse on —
+   * which is exactly what the admin bulk importer already does, and why it
+   * could not be used for this.
+   */
+  const src = addFn();
+  assert.match(src, /quiet: true/);
+  assert.match(src, /startAt: startAt\.toISOString\(\)/);
+});
+
+test("it never passes tester:true to provisionMember", () => {
+  /*
+   * THE TRAP. provisionMember nulls startAt for a tester on purpose, so a
+   * tester provisioned in August is not stuck behind the paywall they exist
+   * to test through. Passing the flag here would grant immediately and park
+   * nothing — silently producing the one thing this cannot produce.
+   *
+   * The flag is set on the profile afterwards instead, which hides the
+   * account from member lists without touching the parked grant.
+   */
+  const src = addFn();
+  const call = src.slice(src.indexOf("await provisionMember({"), src.indexOf("if (!res.ok)"));
+  assert.ok(call.length > 40, "sliced the wrong region — the test proves nothing");
+  assert.doesNotMatch(call, /tester/, "tester:true would stop the guest parking");
+  // …but it is still marked one, after the fact.
+  assert.match(src, /\.update\(\{ tester: true/);
+  assert.ok(
+    src.indexOf("provisionMember({") < src.indexOf("tester: true"),
+    "the flag must be applied after provisioning, not during",
+  );
+});
+
+test("the grant matches what a real guest gets", () => {
+  // Duration comes from planToTier, the same table the real push uses, so
+  // a rehearsal exercises the real numbers rather than invented ones.
+  const src = addFn();
+  assert.match(src, /planToTier\(tier === "tsls_vip" \? "tslsvip" : "attendee"\)/);
+  assert.match(src, /months: mapping\.months/);
+});
+
+test("it is parked beyond event day, not on it", () => {
+  // A forgotten dummy must not be swept up by the nightly gift-activate
+  // cron on October 14, in the middle of the real reveal.
+  assert.match(addFn(), /setFullYear\(startAt\.getFullYear\(\) \+ 1\)/);
+});
+
+test("it is Super Admin only and audited", () => {
+  const src = addFn();
+  assert.match(src, /await requireSuper\(\)/);
+  assert.match(src, /audit\(auth, "reveal\.test_guest", target\)/);
+  // An address nobody can read defeats the purpose, so it is rejected.
+  assert.match(src, /target\.includes\("@"\)/);
+});

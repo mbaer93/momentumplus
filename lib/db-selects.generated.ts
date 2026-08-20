@@ -306,7 +306,7 @@ export const PROBED_SELECTS: ProbedSelect[] = [
   { table: "profiles", select: "full_name, email, admin_title, admin_role, tester" },
   // app/(portal)/profile/billing-actions.ts
   { table: "profiles", select: "full_name, email, stripe_customer_id" },
-  // app/(portal)/admin/control-center/page.tsx
+  // app/(portal)/admin/control-center/actions.ts
   { table: "profiles", select: "id" },
   // app/(portal)/admin/members/actions.ts
   { table: "profiles", select: "id, admin_role, memberships ( tier, status )" },
