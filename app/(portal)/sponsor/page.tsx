@@ -14,6 +14,7 @@ import {
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 export const dynamic = "force-dynamic";
 
@@ -143,18 +144,10 @@ export default async function SponsorStudioPage(
             archivedAt: sponsor.archived_at as string | null,
             expiresAt: sponsor.expires_at as string | null,
           })
-            ? upcomingSponsorReveal().toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })
+            ? formatAt(upcomingSponsorReveal(), "dateLong")
             : null,
         expiresLabel: sponsor.expires_at
-          ? new Date(sponsor.expires_at as string).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })
+          ? formatAt(sponsor.expires_at as string, "dateLong")
           : null,
       }}
       team={team}

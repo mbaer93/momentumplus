@@ -5,6 +5,7 @@ import {
 import {} from "@/components/icons";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,7 @@ export default async function AdminTestimonialsPage() {
       roleCompany: (t.role_company as string) ?? "",
       quote: t.quote as string,
       status: t.status as AdminTestimonialRow["status"],
-      dateLabel: new Date(t.created_at as string).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
+      dateLabel: formatAt(t.created_at as string, "date"),
     }));
   }
 

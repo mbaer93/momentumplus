@@ -6,6 +6,7 @@ import { emailPattern } from "@/lib/db-utils";
 import { seasonEnd, speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 export interface SpeakerInput {
   name: string;
@@ -732,7 +733,7 @@ export async function setSpeakerOngoing(
     ok: true,
     message: ongoing
       ? "Ongoing speaker — no season end. They're visible to members now, never come down automatically, and their Studio access doesn't expire."
-      : `Back on the season clock — this speaker and their access now end ${new Date(termEnd as string).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`,
+      : `Back on the season clock — this speaker and their access now end ${formatAt(termEnd as string, "dateLong")}.`,
   };
 }
 
@@ -924,16 +925,12 @@ export async function reinstateSpeaker(id: string): Promise<AdminResult> {
   // Honesty about visibility: a reinstate outside the live season puts them
   // back on the roster but members still can't see them until October 1.
   const liveNow = speakerLive({ archivedAt: null, expiresAt: termEnd });
-  const endLabel = new Date(termEnd).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const endLabel = formatAt(termEnd, "dateLong");
   return {
     ok: true,
     message: liveNow
       ? `Speaker reinstated — visible to members again, through ${endLabel}. Library items and business resource restored; re-publish any upcoming sessions from Admin → Sessions.`
-      : `Speaker reinstated through ${endLabel} — they return to member view on ${upcomingSeasonStart().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (until then they can prep in their Studio). Library items and business resource restored; re-publish any upcoming sessions from Admin → Sessions.`,
+      : `Speaker reinstated through ${endLabel} — they return to member view on ${formatAt(upcomingSeasonStart(), "dateLong")} (until then they can prep in their Studio). Library items and business resource restored; re-publish any upcoming sessions from Admin → Sessions.`,
   };
 }
 

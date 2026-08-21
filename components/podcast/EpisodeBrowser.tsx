@@ -1,5 +1,6 @@
 "use client";
 
+import { formatAt } from "@/lib/time-format";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EpisodeProgress, PodcastEpisode } from "@/lib/podcast";
 import {
@@ -31,11 +32,7 @@ declare global {
 
 function dateLabel(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatAt(iso, "dateLong");
 }
 
 /** Stroke-only green check-in-circle — the "you finished this" badge. */

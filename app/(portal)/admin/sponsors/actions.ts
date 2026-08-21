@@ -8,6 +8,7 @@ import { PRESENTED_BY_PATH } from "@/lib/presented-by";
 import { sponsorTermEnd } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 export interface SponsorInput {
   name: string;
@@ -181,8 +182,8 @@ export async function createSponsor(input: SponsorInput): Promise<SponsorResult>
     message: !termEnd
       ? "Sponsor created — ongoing Host Sponsor, visible to members now."
       : liveNow
-        ? `Sponsor created — visible to members now, season ends ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Use "Make ongoing" to remove the end date.`
-        : `Sponsor created — goes live to members ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, season ends ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Use "Make ongoing" to publish it immediately with no end date.`,
+        ? `Sponsor created — visible to members now, season ends ${formatAt(termEnd, "dateLong")}. Use "Make ongoing" to remove the end date.`
+        : `Sponsor created — goes live to members ${formatAt(upcomingSponsorReveal(), "dateLong")}, season ends ${formatAt(termEnd, "dateLong")}. Use "Make ongoing" to publish it immediately with no end date.`,
   };
 }
 
@@ -892,7 +893,7 @@ export async function setSponsorOngoing(
     ok: true,
     message: ongoing
       ? "Ongoing sponsorship — no end date. They're visible to members now, never come down automatically, and their team's access doesn't expire."
-      : `Back on the season clock — this sponsorship and its team's access now end ${new Date(termEnd as string).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`,
+      : `Back on the season clock — this sponsorship and its team's access now end ${formatAt(termEnd as string, "dateLong")}.`,
   };
 }
 
@@ -1030,8 +1031,8 @@ export async function reinstateSponsor(
     message: !termEnd
       ? "Reinstated as the ongoing Host Sponsor — visible to members again with no end date."
       : liveNow
-        ? `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — visible to members again, reps' Pro access restored.`
-        : `Reinstated through ${new Date(termEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} — reps' Pro access restored. Members see the page again on ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season until then).`,
+        ? `Reinstated through ${formatAt(termEnd, "dateLong")} — visible to members again, reps' Pro access restored.`
+        : `Reinstated through ${formatAt(termEnd, "dateLong")} — reps' Pro access restored. Members see the page again on ${formatAt(upcomingSponsorReveal(), "dateLong")} (pre-season until then).`,
   };
 }
 
@@ -1088,11 +1089,7 @@ export async function confirmProspect(sponsorId: string): Promise<SponsorResult>
   const liveNow =
     !termEnd || sponsorLive({ archivedAt: null, expiresAt: termEnd });
   const when = termEnd
-    ? new Date(termEnd).toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      })
+    ? formatAt(termEnd, "dateLong")
     : "";
   return {
     ok: true,
@@ -1100,7 +1097,7 @@ export async function confirmProspect(sponsorId: string): Promise<SponsorResult>
       ? "Confirmed — ongoing sponsor, visible to members now. No emails were sent."
       : liveNow
         ? `Confirmed — visible to members now, season ends ${when}. No emails were sent.`
-        : `Confirmed — goes live to members ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, season ends ${when}. No emails were sent; invite their rep when you're ready.`,
+        : `Confirmed — goes live to members ${formatAt(upcomingSponsorReveal(), "dateLong")}, season ends ${when}. No emails were sent; invite their rep when you're ready.`,
   };
 }
 

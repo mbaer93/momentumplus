@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getSession } from "@/lib/sessions/queries";
 import { requireMember } from "@/lib/current-member";
 import { endMs, isJoinWindowOpen } from "@/lib/sessions/view";
-import { dateLabel, timeLabel } from "@/lib/sessions/view";
+import { LocalTime } from "@/components/LocalTime";
 import { LiveRoom } from "@/components/sessions/LiveRoom";
 import { speakerOwnsSession } from "@/lib/speaker-tools";
 import { getAuthUser } from "@/lib/supabase/server";
@@ -77,7 +77,8 @@ export default async function LiveSessionPage(
               <h3>The live room isn&apos;t open yet</h3>
               <p>
                 This room opens 30 minutes before the session begins —{" "}
-                {dateLabel(session.startsAt)} at {timeLabel(session.startsAt)}.
+                <LocalTime at={session.startsAt} style="date" follow="viewer" />{" "}
+                at <LocalTime at={session.startsAt} style="time" />.
               </p>
               <p style={{ marginTop: 16 }}>
                 <Link href={`/sessions/${session.slug}`} className="btn-primary">

@@ -5,6 +5,7 @@ import type { Metadata, Viewport } from "next";
 import "./fonts.css";
 import "./globals.css";
 import { ClientErrorWatch } from "@/components/ClientErrorWatch";
+import { TimeZoneProvider } from "@/components/LocalTime";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://momentumplus.co";
 
@@ -78,7 +79,10 @@ export default function RootLayout({
             from an event handler, a server action, or an async callback.
             Renders nothing; see the component for why it exists. */}
         <ClientErrorWatch />
-        {children}
+        {/* Resolves the reader's timezone once for the whole tree, so
+            session times read in their own clock. Renders no markup, and
+            children stay server components. */}
+        <TimeZoneProvider>{children}</TimeZoneProvider>
       </body>
     </html>
   );

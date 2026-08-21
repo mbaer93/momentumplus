@@ -6,6 +6,7 @@ import { requireMember } from "@/lib/current-member";
 import { courseUnlocked, effectiveCeHours, getCourse } from "@/lib/education";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 export const dynamic = "force-dynamic";
 
@@ -54,11 +55,7 @@ export default async function CertificatePage(
     if (data?.completed_at) completedOn = new Date(data.completed_at);
   }
 
-  const dateLabel = completedOn.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const dateLabel = formatAt(completedOn, "dateLong");
 
   return (
     <div className="sess-detail-wrap" style={{ maxWidth: 900 }}>

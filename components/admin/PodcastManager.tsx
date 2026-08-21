@@ -15,6 +15,7 @@ import {
   updateEpisode,
 } from "@/app/(portal)/admin/podcast/actions";
 import type { PodcastQuestion } from "@/lib/podcast";
+import { formatAt } from "@/lib/time-format";
 
 const QUESTION_KIND_LABELS: Record<PodcastQuestion["kind"], string> = {
   question: "Question for a guest",
@@ -383,10 +384,7 @@ export function PodcastManager({
                   <span style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                     {q.memberName || q.memberEmail || "Member"}
                     {q.createdAt
-                      ? ` · ${new Date(q.createdAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}`
+                      ? ` · ${formatAt(q.createdAt, "monthDay")}`
                       : ""}
                   </span>
                   <span style={{ flex: 1 }} />
@@ -467,11 +465,7 @@ export function PodcastManager({
                   </div>
                   <div style={{ fontSize: 11.5, color: "var(--ink-secondary)" }}>
                     {ep.publishedAt
-                      ? new Date(ep.publishedAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })
+                      ? formatAt(ep.publishedAt, "date")
                       : "No date"}{" "}
                     · {ep.source === "auto" ? "Auto-synced" : "Manual"}
                     {ep.season !== null ? ` · Season ${ep.season}` : ""}

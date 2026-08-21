@@ -12,6 +12,7 @@ import {
   type AdminOffer,
 } from "@/app/(portal)/admin/announcements/offer-actions";
 import { badgeSegments, type BadgeSegment } from "@/app/(portal)/admin/announcements/actions";
+import { formatAt } from "@/lib/time-format";
 
 /*
  * Targeted offers (Matt, 2026-08-19: "offer special deals to people who hold
@@ -102,10 +103,7 @@ export function OffersManager() {
                 <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                   {[...o.audienceBadges, ...o.audienceTiers].length} audience
                   {o.endsAt
-                    ? ` · ends ${new Date(o.endsAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}`
+                    ? ` · ends ${formatAt(o.endsAt, "monthDay")}`
                     : " · no end date"}
                   {o.active ? "" : " · off"}
                 </div>

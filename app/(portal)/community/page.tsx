@@ -5,7 +5,6 @@ import { listSpeakers } from "@/lib/directory-queries";
 import { listSessions } from "@/lib/sessions/queries";
 import { COMMUNITY_CHANNELS, channelsForTier, isStreamConfigured } from "@/lib/stream";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { dayOfMonth, monthShort, timeLabel } from "@/lib/sessions/view";
 
 export const dynamic = "force-dynamic";
 
@@ -60,14 +59,14 @@ export default async function CommunityPage() {
       nextSession={
         next
           ? {
-              dateLabel: `${monthShort(next.startsAt)} ${dayOfMonth(next.startsAt)}`,
+              startsAt: next.startsAt,
               title: next.title,
-              meta: `${next.speaker.name} · ${timeLabel(next.startsAt)}`,
+              speakerName: next.speaker.name,
             }
           : {
-              dateLabel: "SOON",
+              startsAt: null,
               title: "New sessions coming",
-              meta: "Watch this space",
+              speakerName: "Watch this space",
             }
       }
     />

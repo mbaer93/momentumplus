@@ -4,6 +4,7 @@ import { canAccessArea } from "@/lib/admin-perms";
 import { getAdminAccess } from "@/lib/auth-helpers";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 export const dynamic = "force-dynamic";
 
@@ -156,11 +157,7 @@ export default async function AdminAnalyticsPage() {
     sessions = (sessionRows ?? []).map((s) => ({
       id: s.id,
       title: s.title,
-      dateLabel: new Date(s.starts_at).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
+      dateLabel: formatAt(s.starts_at, "date"),
       enrolled: (bySession.get(s.id) ?? []).sort((a, b) =>
         Number(b.attended) - Number(a.attended) || a.name.localeCompare(b.name),
       ),

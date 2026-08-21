@@ -30,6 +30,7 @@ import { speakerLive, upcomingSeasonStart } from "@/lib/sponsor-lifecycle";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 export const dynamic = "force-dynamic";
 // Server actions on this page fan out per-member work — allow the full window.
@@ -408,11 +409,7 @@ export default async function SpeakerStudioPage(
         goLiveLabel:
           isSupabaseConfigured() &&
           !speakerLive({ archivedAt: null, expiresAt: speaker.expiresAt })
-            ? upcomingSeasonStart().toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })
+            ? formatAt(upcomingSeasonStart(), "dateLong")
             : null,
       }}
       resource={resource}

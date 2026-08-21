@@ -6,6 +6,7 @@ import {
 } from "@/components/admin/ScheduledAnnouncements";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 export const dynamic = "force-dynamic";
 // Server actions on this page fan out per-member work — allow the full window.
@@ -32,12 +33,7 @@ export default async function AdminAnnouncementsPage() {
       id: a.id as string,
       title: a.title as string,
       whenLabel: a.send_at
-        ? new Date(a.send_at as string).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })
+        ? formatAt(a.send_at as string, "monthDayTime")
         : "",
       audience: ((a.audience_tiers as string[]) ?? []).join(", "),
       channels: ((a.channels as string[]) ?? []).join(" + "),
@@ -53,12 +49,7 @@ export default async function AdminAnnouncementsPage() {
       id: a.id,
       title: a.title,
       sent_at: a.sent_at
-        ? new Date(a.sent_at).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })
+        ? formatAt(a.sent_at, "monthDayTime")
         : "",
       audience: (a.audience_tiers ?? []).join(", "),
     }));

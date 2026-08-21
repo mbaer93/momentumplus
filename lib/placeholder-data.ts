@@ -48,8 +48,6 @@ export const placeholderNextSession = {
   id: "resilience-rituals",
   title: "Resilience Rituals for High-Achievers",
   speakerName: "Holly Bertone, PMP",
-  dateLabel: "Feb 18, 2026",
-  timeLabel: "11:00 AM EST",
   durationLabel: "90 min",
   description:
     "Practical resilience habits for leaders who run at full speed.",
@@ -59,11 +57,9 @@ export const placeholderNextSession = {
   rrule: null,
 };
 
-export const placeholderUpcoming: (SessionSummary & {
-  month: string;
-  day: string;
-  timeLabel: string;
-})[] = [
+/* No month/day/timeLabel here any more: those are derived from startsAt at
+   render time, in the reader's own zone. */
+export const placeholderUpcoming: SessionSummary[] = [
   {
     id: "resilience-rituals",
     title: "Resilience Rituals for High-Achievers",
@@ -71,9 +67,6 @@ export const placeholderUpcoming: (SessionSummary & {
     startsAt: "2026-02-18T16:00:00.000Z",
     durationMin: 90,
     status: "scheduled",
-    month: "FEB",
-    day: "18",
-    timeLabel: "11:00 AM",
   },
   {
     id: "strategic-networking",
@@ -82,9 +75,6 @@ export const placeholderUpcoming: (SessionSummary & {
     startsAt: "2026-02-25T17:00:00.000Z",
     durationMin: 60,
     status: "scheduled",
-    month: "FEB",
-    day: "25",
-    timeLabel: "12:00 PM",
   },
   {
     id: "leading-change",
@@ -93,9 +83,6 @@ export const placeholderUpcoming: (SessionSummary & {
     startsAt: "2026-03-11T18:00:00.000Z",
     durationMin: 60,
     status: "scheduled",
-    month: "MAR",
-    day: "11",
-    timeLabel: "2:00 PM",
   },
 ];
 

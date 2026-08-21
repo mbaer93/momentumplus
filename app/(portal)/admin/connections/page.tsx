@@ -28,6 +28,7 @@ import { isSheetsConfigured } from "@/lib/sheets";
 import { isStreamConfigured } from "@/lib/stream";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 export const dynamic = "force-dynamic";
 /* "Run checks now" calls every integration for real and can send alert
@@ -418,12 +419,7 @@ export default async function AdminConnectionsPage() {
                   }}
                 >
                   Last checked{" "}
-                  {new Date(healthReport.at).toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                  {formatAt(healthReport.at, "monthDayTime")}
                 </div>
               </>
             )}
@@ -460,12 +456,7 @@ export default async function AdminConnectionsPage() {
                   >
                     <span style={{ fontWeight: 600 }}>{name}</span>
                     <span style={{ color: "var(--ink-secondary)" }}>
-                      {new Date(run.at).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
+                      {formatAt(run.at, "monthDayTime")}
                       {run.note ? ` — ${run.note}` : ""}
                     </span>
                   </div>

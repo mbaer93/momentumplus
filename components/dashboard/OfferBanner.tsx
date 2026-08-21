@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { dismissOffer } from "@/app/(portal)/dashboard/offer-actions";
 import type { MemberOffer } from "@/lib/offers";
+import { formatAt } from "@/lib/time-format";
 
 /*
  * A targeted offer, on the dashboard (Matt, 2026-08-19).
@@ -22,10 +23,7 @@ function endsLabel(iso: string): string {
   if (days <= 0) return "Ends today";
   if (days === 1) return "Ends tomorrow";
   if (days <= 14) return `Ends in ${days} days`;
-  return `Ends ${new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })}`;
+  return `Ends ${formatAt(iso, "monthDay")}`;
 }
 
 export function OfferBanner({ offer }: { offer: MemberOffer }) {

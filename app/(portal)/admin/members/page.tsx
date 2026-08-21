@@ -20,6 +20,7 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { redirect } from "next/navigation";
 import type { Membership, Tier } from "@/lib/types";
+import { formatAt } from "@/lib/time-format";
 
 export const dynamic = "force-dynamic";
 // Server actions on this page fan out per-member work — allow the full window.
@@ -91,11 +92,7 @@ const PREVIEW_MEMBERS: AdminMemberRow[] = [
 
 function shortDate(iso: string | null | undefined): string | null {
   if (!iso) return null;
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatAt(iso, "date");
 }
 
 const PAGE_SIZE = 50;
@@ -181,11 +178,7 @@ export default async function AdminMembersPage(
       }
       const expiresLabel = (iso: string | null) =>
         iso
-          ? new Date(iso).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })
+          ? formatAt(iso, "date")
           : "Ongoing";
       members = data.map((p) => {
         const rows =
