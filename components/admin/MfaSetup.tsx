@@ -127,10 +127,17 @@ export function MfaSetup({
               <strong>{f.friendlyName || "Authenticator"}</strong>
               <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                 Added{" "}
+                {/* timeZone pinned, or this is a hydration mismatch waiting
+                    to happen: Vercel renders in UTC and the browser renders
+                    in the admin's own zone, so a factor enrolled after 8pm
+                    ET says one date on the server and the day before on the
+                    client. ET because every other date in the product is
+                    ET. */}
                 {new Date(f.createdAt).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
+                  timeZone: "America/New_York",
                 })}
               </div>
             </div>
