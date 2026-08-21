@@ -21,6 +21,19 @@ import { requestCache } from "@/lib/request-cache";
  * cost of that ordering is that an admin who never enrols is never
  * protected — which is why Admin → Security says so plainly, rather than
  * leaving it as an option someone forgets.
+ *
+ * PASSKEYS: built, then removed the same day (Matt, 2026-08-21). The client
+ * accepts factorType "webauthn" and the code worked, but this project's
+ * Supabase → Authentication → Multi-Factor page offers only TOTP and Phone,
+ * so every enrolment came back "MFA enroll is disabled for WebAuthn" and the
+ * Security page carried a permanent red error. (The separate Passkeys (BETA)
+ * page is passwordless SIGN-IN — a different feature, not a second factor.)
+ * A security page that always looks broken teaches people to ignore errors
+ * there, so the card came out. The whole implementation — enrolment,
+ * verification, the base64url ⇄ ArrayBuffer encoding, and its tests — is in
+ * PR #272 and can be restored wholesale the day the toggle appears. Nothing
+ * below this line assumes a factor type; the gate reads the assurance level,
+ * so a passkey would count the moment one could exist.
  */
 
 export type Aal = "aal1" | "aal2";
@@ -74,59 +87,17 @@ export const mfaStatus = requestCache(async (): Promise<MfaStatus> => {
   };
 });
 
-/*
- * A passkey counts too (Matt, 2026-08-21: "can we switch this to a passkey
- * with 1Password rather than an otp?").
- *
- * Added ALONGSIDE TOTP rather than replacing it, deliberately. A passkey is
- * bound to momentumplus.co, so it cannot be exercised on a preview URL; and
- * losing it means break-glass is deleting the factor row in the database,
- * where losing a TOTP secret means re-adding it from 1Password. Two
- * enrolled factors means either one gets you in.
- *
- * Nothing above this line changed: both are MFA factors, both raise the
- * session to aal2, so mustVerify and every gate keying off it are already
- * factor-agnostic.
- */
-
-/** Verified factors of one kind on this account, for the Security page. */
-export interface MfaFactorRow {
-  id: string;
-  friendlyName: string | null;
-  createdAt: string;
-}
-
-async function listFactorsOfType(kind: "totp" | "webauthn"): Promise<MfaFactorRow[]> {
+/** Verified TOTP factors on this account, for the Security page. */
+export async function listTotpFactors(): Promise<
+  { id: string; friendlyName: string | null; createdAt: string }[]
+> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
   const { data, error } = await supabase.auth.mfa.listFactors();
   if (error || !data) return [];
-  /*
-   * listFactors() types `totp` and `phone` explicitly; webauthn is read off
-   * `all` and filtered, so a client whose typings predate passkeys still
-   * compiles and simply finds none.
-   */
-  const all = (data.all ?? []) as {
-    id: string;
-    factor_type: string;
-    status: string;
-    friendly_name?: string | null;
-    created_at: string;
-  }[];
-  return all
-    .filter((f) => f.factor_type === kind && f.status === "verified")
-    .map((f) => ({
-      id: f.id,
-      friendlyName: f.friendly_name ?? null,
-      createdAt: f.created_at,
-    }));
-}
-
-export async function listTotpFactors(): Promise<MfaFactorRow[]> {
-  return listFactorsOfType("totp");
-}
-
-/** Verified passkeys on this account. */
-export async function listPasskeyFactors(): Promise<MfaFactorRow[]> {
-  return listFactorsOfType("webauthn");
+  return (data.totp ?? []).map((f) => ({
+    id: f.id,
+    friendlyName: f.friendly_name ?? null,
+    createdAt: f.created_at,
+  }));
 }
