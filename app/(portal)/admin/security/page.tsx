@@ -1,6 +1,7 @@
 import { MfaSetup } from "@/components/admin/MfaSetup";
+import { PasskeySetup } from "@/components/admin/PasskeySetup";
 import { getAdminAccess } from "@/lib/auth-helpers";
-import { listTotpFactors } from "@/lib/mfa";
+import { listPasskeyFactors, listTotpFactors } from "@/lib/mfa";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,9 @@ export const metadata = { title: "Security | Momentum+ Admin" };
  */
 export default async function AdminSecurityPage() {
   const access = await getAdminAccess();
-  const factors = isSupabaseConfigured() ? await listTotpFactors() : [];
+  const [factors, passkeys] = isSupabaseConfigured()
+    ? await Promise.all([listTotpFactors(), listPasskeyFactors()])
+    : [[], []];
 
   return (
     <div className="admin-pad">
@@ -25,6 +28,7 @@ export default async function AdminSecurityPage() {
         </div>
       </div>
       <MfaSetup factors={factors} isSuper={access?.role === "super"} />
+      <PasskeySetup passkeys={passkeys} />
     </div>
   );
 }

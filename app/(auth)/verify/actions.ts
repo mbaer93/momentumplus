@@ -47,3 +47,100 @@ export async function verifySecondFactor(
   }
   return { ok: true, message: "", redirectTo: safeRedirect };
 }
+
+/* --- Passkey (Matt, 2026-08-21) --------------------------------------- */
+
+/**
+ * Is there a passkey on this account, and what does the browser need?
+ *
+ * Returned as JSON options rather than performed here, because the
+ * ceremony belongs to the browser: the server can only issue the challenge
+ * and check what comes back.
+ */
+export async function startPasskeyVerification(): Promise<{
+  ok: boolean;
+  message?: string;
+  factorId?: string;
+  challengeId?: string;
+  options?: unknown;
+}> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "Preview mode." };
+
+  const supabase = await createClient();
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const passkey = (factors?.all ?? []).find(
+    (f) =>
+      (f as { factor_type?: string }).factor_type === "webauthn" &&
+      f.status === "verified",
+  );
+  // No passkey is not an error — the page just offers the code instead.
+  if (!passkey) return { ok: false };
+
+  const { requestSiteUrl } = await import("@/lib/site-url");
+  const url = await requestSiteUrl();
+  let rpId: string | null = null;
+  try {
+    rpId = url ? new URL(url).hostname : null;
+  } catch {
+    rpId = null;
+  }
+  if (!rpId) return { ok: false, message: "Can't resolve the site domain." };
+
+  const { data, error } = await supabase.auth.mfa.challenge({
+    factorId: passkey.id,
+    webauthn: { rpId },
+  });
+  if (error || !data) {
+    return { ok: false, message: error?.message ?? "Couldn't start." };
+  }
+  const webauthn = (data as { webauthn?: { credential_options?: unknown } }).webauthn;
+  return {
+    ok: true,
+    factorId: passkey.id,
+    challengeId: data.id,
+    options: (webauthn?.credential_options as { publicKey?: unknown })?.publicKey,
+  };
+}
+
+/** Finish signing in with the passkey. */
+export async function verifyPasskey(
+  factorId: string,
+  challengeId: string,
+  credential: unknown,
+  redirectTo: string,
+): Promise<{ ok: boolean; message: string; redirectTo?: string }> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, message: "Not available in preview mode." };
+  }
+  const safeRedirect =
+    redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+      ? redirectTo
+      : "/admin";
+
+  const { requestSiteUrl } = await import("@/lib/site-url");
+  const url = await requestSiteUrl();
+  let rpId: string | null = null;
+  try {
+    rpId = url ? new URL(url).hostname : null;
+  } catch {
+    rpId = null;
+  }
+  if (!rpId) return { ok: false, message: "Can't resolve the site domain." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.mfa.verify({
+    factorId,
+    challengeId,
+    // 'request' here, not 'create': this is an assertion against a passkey
+    // that already exists, where enrolment registers a new one.
+    webauthn: { rpId, type: "request", credential_response: credential as never },
+  });
+  if (error) {
+    return {
+      ok: false,
+      message:
+        "That passkey didn't verify. Try again, or use your authenticator code below.",
+    };
+  }
+  return { ok: true, message: "", redirectTo: safeRedirect };
+}

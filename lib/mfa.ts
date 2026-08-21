@@ -74,17 +74,59 @@ export const mfaStatus = requestCache(async (): Promise<MfaStatus> => {
   };
 });
 
-/** Verified TOTP factors on this account, for the Security page. */
-export async function listTotpFactors(): Promise<
-  { id: string; friendlyName: string | null; createdAt: string }[]
-> {
+/*
+ * A passkey counts too (Matt, 2026-08-21: "can we switch this to a passkey
+ * with 1Password rather than an otp?").
+ *
+ * Added ALONGSIDE TOTP rather than replacing it, deliberately. A passkey is
+ * bound to momentumplus.co, so it cannot be exercised on a preview URL; and
+ * losing it means break-glass is deleting the factor row in the database,
+ * where losing a TOTP secret means re-adding it from 1Password. Two
+ * enrolled factors means either one gets you in.
+ *
+ * Nothing above this line changed: both are MFA factors, both raise the
+ * session to aal2, so mustVerify and every gate keying off it are already
+ * factor-agnostic.
+ */
+
+/** Verified factors of one kind on this account, for the Security page. */
+export interface MfaFactorRow {
+  id: string;
+  friendlyName: string | null;
+  createdAt: string;
+}
+
+async function listFactorsOfType(kind: "totp" | "webauthn"): Promise<MfaFactorRow[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
   const { data, error } = await supabase.auth.mfa.listFactors();
   if (error || !data) return [];
-  return (data.totp ?? []).map((f) => ({
-    id: f.id,
-    friendlyName: f.friendly_name ?? null,
-    createdAt: f.created_at,
-  }));
+  /*
+   * listFactors() types `totp` and `phone` explicitly; webauthn is read off
+   * `all` and filtered, so a client whose typings predate passkeys still
+   * compiles and simply finds none.
+   */
+  const all = (data.all ?? []) as {
+    id: string;
+    factor_type: string;
+    status: string;
+    friendly_name?: string | null;
+    created_at: string;
+  }[];
+  return all
+    .filter((f) => f.factor_type === kind && f.status === "verified")
+    .map((f) => ({
+      id: f.id,
+      friendlyName: f.friendly_name ?? null,
+      createdAt: f.created_at,
+    }));
+}
+
+export async function listTotpFactors(): Promise<MfaFactorRow[]> {
+  return listFactorsOfType("totp");
+}
+
+/** Verified passkeys on this account. */
+export async function listPasskeyFactors(): Promise<MfaFactorRow[]> {
+  return listFactorsOfType("webauthn");
 }
