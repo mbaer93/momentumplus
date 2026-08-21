@@ -136,6 +136,56 @@ test("every denial carries a reason, so no caller has to guess", () => {
   assert.equal(reasons, denials, "an ok:false without a reason is the old trap");
 });
 
+test("nothing on the security page renders one thing on the server and another in the browser", () => {
+  /*
+   * REACT #418, live on /admin/security (2026-08-21). The passkey card read
+   * a browser-only global during render:
+   *
+   *     const supported = typeof window !== "undefined" &&
+   *       typeof window.PublicKeyCredential === "function";
+   *     ... {!supported ? <p>…</p> : <button>…</button>}
+   *
+   * false on the server, true in the browser — so the server sent a <p>
+   * where hydration expected a <button>, React threw away the tree, and the
+   * error reporter mailed it in. A capability check has to land in state via
+   * an effect, so the first render matches what the server sent.
+   *
+   * The card is gone, but the shape is what recurs, so both halves of it are
+   * pinned here for whatever gets added to this page next.
+   */
+  const rendered = ["components/admin/MfaSetup.tsx"];
+  for (const path of rendered) {
+    const src = read(path);
+    /*
+     * `typeof x !== "undefined"` specifically, not every mention of a
+     * browser global. Touching navigator inside an onClick is fine — that
+     * code never runs on the server. It is the GUARDED read that is the
+     * trap, because it is exactly what lets a component render happily in
+     * both places and disagree about what it produced.
+     */
+    assert.doesNotMatch(
+      src,
+      /typeof (?:window|document|navigator)\b|PublicKeyCredential/,
+      `${path} branches on a browser-only global — hoist it into state in an effect`,
+    );
+
+    /*
+     * The same bug in its quieter form: a date formatted with no timeZone is
+     * formatted in the RENDERER's zone. Vercel renders in UTC and the admin's
+     * browser renders in ET, so anything enrolled after 8pm ET says one date
+     * on the server and the day before on the client.
+     */
+    for (const m of src.matchAll(/toLocale(?:Date|Time)?String\(/g)) {
+      const call = src.slice(m.index, src.indexOf(")", m.index) + 1);
+      assert.match(
+        call,
+        /timeZone:/,
+        `${path}: ${call.slice(0, 40)}… formats in the renderer's timezone`,
+      );
+    }
+  }
+});
+
 test("the escape hatch is reachable while the gate is closed", () => {
   /*
    * /verify must not sit behind the thing it unlocks. It checks the factor
