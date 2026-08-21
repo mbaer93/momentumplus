@@ -95,3 +95,55 @@ test("the security card is not hidden by area permissions", () => {
   assert.match(hub, /c\.area === undefined \|\| canAccessArea/);
   assert.match(hub, /\/admin\/security/);
 });
+
+test("an admin who owes a code is sent to /verify, not to /dashboard", () => {
+  /*
+   * THE LOCKOUT (2026-08-20). requireAdmin checks MFA itself, so it returns
+   * ok:false both for "not an admin" and for "an admin who still owes a
+   * code". The layout treated the two identically:
+   *
+   *     const auth = await requireAdmin();
+   *     if (!auth.ok) redirect("/dashboard");   // ← both land here
+   *     if (mfa.mustVerify) redirect("/verify") // ← unreachable
+   *
+   * So the day the Super Admin enrolled, every admin page bounced him to
+   * the dashboard with no explanation and no route to /verify — locked out
+   * by the gate built to prevent exactly that.
+   *
+   * The redirect must branch on the reason.
+   */
+  const layout = read("app/(portal)/admin/layout.tsx");
+  assert.match(layout, /auth\.reason === "needs-mfa"/);
+  assert.match(layout, /\/verify\?redirect=\/admin/);
+  assert.doesNotMatch(
+    layout,
+    /if \(!auth\.ok\) redirect\("\/dashboard"\);/,
+    "a blanket bounce cannot tell 'no code yet' from 'not an admin'",
+  );
+});
+
+test("every denial carries a reason, so no caller has to guess", () => {
+  // The bug was possible because the only signal was a status and a
+  // sentence. A 401 meaning two different things is a trap for the next
+  // caller too.
+  const helpers = read("lib/auth-helpers.ts");
+  for (const r of ["not-admin", "needs-mfa", "viewing-as", "not-configured", "no-area"]) {
+    assert.match(helpers, new RegExp(`reason: "${r}"`), `no denial uses reason "${r}"`);
+  }
+  // Every ok:false in the file is accounted for.
+  const denials = (helpers.match(/ok: false/g) ?? []).length;
+  const reasons = (helpers.match(/reason: "/g) ?? []).length;
+  assert.equal(reasons, denials, "an ok:false without a reason is the old trap");
+});
+
+test("the escape hatch is reachable while the gate is closed", () => {
+  /*
+   * /verify must not sit behind the thing it unlocks. It checks the factor
+   * itself and lives outside the admin group; /rescue redirects to it
+   * rather than bouncing.
+   */
+  const verify = read("app/(auth)/verify/page.tsx");
+  assert.doesNotMatch(verify, /requireAdmin/);
+  assert.match(verify, /if \(!status\.mustVerify\) redirect\(back\)/);
+  assert.match(read("app/rescue/page.tsx"), /redirect\("\/verify\?redirect=\/rescue"\)/);
+});
