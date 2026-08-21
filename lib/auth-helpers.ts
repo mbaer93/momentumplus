@@ -12,10 +12,28 @@ import { readViewAsCookie } from "@/lib/view-as";
  * Admin always passes; standard admins pass unless the super admin has
  * switched that area off for them.
  */
-export async function requireAdmin(area?: AdminArea): Promise<
+export interface AdminDenied {
+  ok: false;
+  status: number;
+  message: string;
+  /*
+   * WHY it was denied, because "not an admin" and "an admin who still owes
+   * a code" need opposite responses and the caller cannot tell them apart
+   * from a status or a string.
+   *
+   * The admin layout redirected every 401 to /dashboard, so the day the
+   * Super Admin enrolled in two-factor, every admin page bounced with no
+   * explanation and no route to /verify — the lockout the factor gate was
+   * specifically designed not to cause (found 2026-08-20).
+   */
+  reason: "not-admin" | "needs-mfa" | "viewing-as" | "not-configured" | "no-area";
+}
+
+export type AdminAuth =
   | { ok: true; userId: string; userEmail: string | null; access: AdminAccess }
-  | { ok: false; status: number; message: string }
-> {
+  | AdminDenied;
+
+export async function requireAdmin(area?: AdminArea): Promise<AdminAuth> {
   // While a Super Admin is viewing as a member, the Admin Panel has to be as
   // out of reach as it is for that member — otherwise the preview lies about
   // the one thing it exists to show. Leaving the preview goes through
@@ -26,6 +44,7 @@ export async function requireAdmin(area?: AdminArea): Promise<
       ok: false,
       status: 403,
       message: "You're viewing the portal as a member. Exit the preview first.",
+      reason: "viewing-as",
     };
   }
   return requireRealAdmin(area);
@@ -36,18 +55,22 @@ export async function requireAdmin(area?: AdminArea): Promise<
  * Only the code that enters and leaves a preview should use it; everything
  * else wants requireAdmin().
  */
-export async function requireRealAdmin(area?: AdminArea): Promise<
-  | { ok: true; userId: string; userEmail: string | null; access: AdminAccess }
-  | { ok: false; status: number; message: string }
-> {
+export async function requireRealAdmin(area?: AdminArea): Promise<AdminAuth> {
   if (!isSupabaseConfigured()) {
     // Preview mode: no real auth. Admin actions are no-ops elsewhere.
-    return { ok: false, status: 503, message: "Supabase is not configured." };
+    return {
+      ok: false,
+      status: 503,
+      message: "Supabase is not configured.",
+      reason: "not-configured",
+    };
   }
 
   const supabase = await createClient();
   const user = await getAuthUser();
-  if (!user) return { ok: false, status: 401, message: "Not signed in." };
+  if (!user) {
+    return { ok: false, status: 401, message: "Not signed in.", reason: "not-admin" };
+  }
 
   const [{ data: membership, error }, { data: profile }] = await Promise.all([
     supabase
@@ -65,7 +88,12 @@ export async function requireRealAdmin(area?: AdminArea): Promise<
   ]);
 
   if (error || !membership) {
-    return { ok: false, status: 403, message: "Admin access required." };
+    return {
+      ok: false,
+      status: 403,
+      message: "Admin access required.",
+      reason: "not-admin",
+    };
   }
 
   /*
@@ -87,6 +115,7 @@ export async function requireRealAdmin(area?: AdminArea): Promise<
       ok: false,
       status: 401,
       message: "Enter your two-factor code to continue.",
+      reason: "needs-mfa",
     };
   }
 
@@ -101,6 +130,7 @@ export async function requireRealAdmin(area?: AdminArea): Promise<
       status: 403,
       message:
         "You don't have access to this area — ask the Super Admin to enable it for you.",
+      reason: "no-area",
     };
   }
 
