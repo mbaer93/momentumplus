@@ -16,6 +16,7 @@ import {
 } from "@/app/(portal)/speaker/actions";
 import { uploadOnTicket } from "@/lib/upload-client";
 import type { SessionResource } from "@/lib/types";
+import { formatAt } from "@/lib/time-format";
 
 export interface StudioSession {
   id: string;
@@ -150,7 +151,7 @@ export function SpeakerStudio({
           <p>
             Your pages, your sessions, your audience
             {speaker.expiresAt
-              ? ` — access through ${new Date(speaker.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+              ? ` — access through ${formatAt(speaker.expiresAt, "dateLong")}`
               : ""}
           </p>
         </div>

@@ -27,18 +27,13 @@ import { listSessions } from "@/lib/sessions/queries";
 import { AddToCalendarButton } from "@/components/sessions/AddToCalendarButton";
 import { isDropInProgram } from "@/lib/programs";
 import { rruleFor } from "@/lib/recurrence";
-import {
-  dateLabel,
-  dayOfMonth,
-  displayStatus,
-  durationLabel,
-  monthShort,
-  timeLabel,
-} from "@/lib/sessions/view";
+import { displayStatus, durationLabel } from "@/lib/sessions/view";
+import { LocalTime } from "@/components/LocalTime";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getTslsPerks } from "@/lib/tsls-perks";
 import { unstable_cache } from "next/cache";
+import { formatAt } from "@/lib/time-format";
 
 export const dynamic = "force-dynamic";
 
@@ -60,9 +55,10 @@ interface UpcomingRow {
   id: string;
   title: string;
   speakerName: string;
-  month: string;
-  day: string;
-  timeLabel: string;
+  /* The instant, not a formatted label. Only the browser knows what zone
+     to render it in, so the formatting has to happen down in <LocalTime>
+     rather than here on the server. */
+  startsAt: string;
   pill: string;
   pillLabel: string;
 }
@@ -85,8 +81,6 @@ export default async function DashboardPage() {
     id: string;
     title: string;
     speakerName: string;
-    dateLabel: string;
-    timeLabel: string;
     durationLabel: string;
     // Event payload for the Google/Outlook/Apple calendar menu.
     description: string;
@@ -118,9 +112,7 @@ export default async function DashboardPage() {
       id: s.id,
       title: s.title,
       speakerName: s.speakerName,
-      month: s.month,
-      day: s.day,
-      timeLabel: s.timeLabel,
+      startsAt: s.startsAt,
       pill: "upcoming",
       pillLabel: "Upcoming",
     }));
@@ -201,8 +193,6 @@ export default async function DashboardPage() {
         id: next.slug,
         title: next.title,
         speakerName: next.speaker.name,
-        dateLabel: dateLabel(next.startsAt),
-        timeLabel: timeLabel(next.startsAt),
         durationLabel: durationLabel(next.durationMin),
         description: next.description,
         startsAt: next.startsAt,
@@ -224,9 +214,7 @@ export default async function DashboardPage() {
         id: s.slug,
         title: s.title,
         speakerName: s.speaker.name,
-        month: monthShort(s.startsAt),
-        day: dayOfMonth(s.startsAt),
-        timeLabel: timeLabel(s.startsAt),
+        startsAt: s.startsAt,
         pill: status === "live" ? "live" : status === "enrolled" ? "enrolled" : "upcoming",
         pillLabel: status === "live" ? "Live" : status === "enrolled" ? "Enrolled" : "Upcoming",
       };
@@ -243,10 +231,7 @@ export default async function DashboardPage() {
   const showPerk = Boolean(perks?.enabled && perks.url);
 
   const renewsLabel = member.accessExpiresAt
-    ? new Date(member.accessExpiresAt).toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      })
+    ? formatAt(member.accessExpiresAt, "monthYear")
     : null;
 
   return (
@@ -313,7 +298,10 @@ export default async function DashboardPage() {
             <div className="next-up-label">Next Session</div>
             <div className="next-up-title">{nextUp.title}</div>
             <div className="next-up-meta">
-              <span>{nextUp.dateLabel}</span> &bull; {nextUp.timeLabel} &bull;{" "}
+              <span>
+                <LocalTime at={nextUp.startsAt} style="date" follow="viewer" />
+              </span>{" "}
+              &bull; <LocalTime at={nextUp.startsAt} style="time" /> &bull;{" "}
               {nextUp.durationLabel} &bull; with <span>{nextUp.speakerName}</span>
             </div>
           </div>
@@ -459,16 +447,24 @@ export default async function DashboardPage() {
                   href={`/sessions/${session.id}`}
                   className="upcoming-item"
                 >
+                  {/* The date block follows the reader's clock, because the
+                      time sits beside it in this same row. */}
                   <div className="date-box">
-                    <div className="date-box-month">{session.month}</div>
-                    <div className="date-box-day">{session.day}</div>
+                    <div className="date-box-month">
+                      <LocalTime at={session.startsAt} style="monthAbbr" follow="viewer" />
+                    </div>
+                    <div className="date-box-day">
+                      <LocalTime at={session.startsAt} style="dayOfMonth" follow="viewer" />
+                    </div>
                   </div>
                   <div className="upcoming-info">
                     <div className="upcoming-title">{session.title}</div>
                     <div className="upcoming-speaker">{session.speakerName}</div>
                   </div>
                   <div>
-                    <div className="upcoming-time">{session.timeLabel}</div>
+                    <div className="upcoming-time">
+                      <LocalTime at={session.startsAt} style="time" />
+                    </div>
                     <div style={{ marginTop: 4 }}>
                       <span className={`status-pill ${session.pill}`}>
                         {session.pillLabel}

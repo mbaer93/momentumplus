@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { formatAt } from "@/lib/time-format";
 import {
   confirmMfaEnrollment,
   disableMfa,
@@ -127,18 +128,12 @@ export function MfaSetup({
               <strong>{f.friendlyName || "Authenticator"}</strong>
               <div style={{ fontSize: 12, color: "var(--ink-secondary)" }}>
                 Added{" "}
-                {/* timeZone pinned, or this is a hydration mismatch waiting
-                    to happen: Vercel renders in UTC and the browser renders
-                    in the admin's own zone, so a factor enrolled after 8pm
-                    ET says one date on the server and the day before on the
-                    client. ET because every other date in the product is
-                    ET. */}
-                {new Date(f.createdAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  timeZone: "America/New_York",
-                })}
+                {/* Through formatAt, which pins the zone. Formatting with
+                    no timeZone would format in the RENDERER's zone — UTC on
+                    Vercel, the admin's own in the browser — and the two
+                    would disagree about a factor enrolled late in the
+                    evening. An admin record stays on the event's clock. */}
+                {formatAt(f.createdAt, "date")}
               </div>
             </div>
             {removing === f.id ? (

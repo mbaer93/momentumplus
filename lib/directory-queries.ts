@@ -1,3 +1,4 @@
+import { formatAt } from "@/lib/time-format";
 import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -170,10 +171,7 @@ function mapSpeakerRow(row: SpeakerRow): SpeakerProfile {
     bannerGradient: BANNERS[i],
     industries: row.industries ?? [],
     bio: row.bio ?? "",
-    memberSince: new Date(row.created_at).toLocaleDateString("en-US", {
-      month: "short",
-      year: "numeric",
-    }),
+    memberSince: formatAt(row.created_at, "monthYear"),
     sessionCount: 0,
     sessionSlugs: [],
     // null (-> initials placeholder) for anything next/image would throw on,

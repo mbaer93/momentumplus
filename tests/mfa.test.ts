@@ -173,16 +173,14 @@ test("nothing on the security page renders one thing on the server and another i
      * The same bug in its quieter form: a date formatted with no timeZone is
      * formatted in the RENDERER's zone. Vercel renders in UTC and the admin's
      * browser renders in ET, so anything enrolled after 8pm ET says one date
-     * on the server and the day before on the client.
+     * on the server and the day before on the client. Dates here go through
+     * lib/time-format, which cannot be called without a zone.
+     *
+     * Asserted positively as well as negatively — a file that simply stopped
+     * showing dates would satisfy the ban on its own and prove nothing.
      */
-    for (const m of src.matchAll(/toLocale(?:Date|Time)?String\(/g)) {
-      const call = src.slice(m.index, src.indexOf(")", m.index) + 1);
-      assert.match(
-        call,
-        /timeZone:/,
-        `${path}: ${call.slice(0, 40)}… formats in the renderer's timezone`,
-      );
-    }
+    assert.doesNotMatch(src, /toLocale(?:Date|Time)?String\(/, `${path} formats a date by hand`);
+    assert.match(src, /formatAt\(/, `${path} no longer formats any date at all`);
   }
 });
 

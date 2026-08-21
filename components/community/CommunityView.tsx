@@ -10,6 +10,8 @@ import {
   type ChatMessage,
 } from "@/lib/community-data";
 import { ArrowLeftIcon, ChannelIcon } from "@/components/icons";
+import { LocalTime } from "@/components/LocalTime";
+import { EVENT_TZ, formatAt, viewerTimeZone } from "@/lib/time-format";
 import { LevelChip } from "@/components/badges/LevelChip";
 
 interface ChannelInfo {
@@ -31,7 +33,14 @@ interface CommunityViewProps {
   streamConfigured: boolean;
   /** True only when no Supabase env exists (demo fixtures allowed). */
   preview: boolean;
-  nextSession: { dateLabel: string; title: string; meta: string };
+  /* startsAt rather than a formatted label, so the time renders in the
+     reader's own zone. null when there is no next session — the sidebar
+     falls back to "SOON". */
+  nextSession: {
+    startsAt: string | null;
+    title: string;
+    speakerName: string;
+  };
   /** Active speakers — #speaker-qa questions are addressed to one of them. */
   speakers?: { id: string; name: string }[];
 }
@@ -65,14 +74,21 @@ function adminTitleOf(user: unknown): string | null {
   return typeof t === "string" && t.length > 0 ? t : null;
 }
 
+/*
+ * Chat timestamps are the reader's own clock, deliberately — "9:14 AM"
+ * means when it landed where you are, not where the event is.
+ *
+ * Safe to read the browser's zone straight out here, where it would be a
+ * hydration hazard almost anywhere else: messages arrive from the Stream
+ * channel inside wireChannel, so none of this is ever part of a server
+ * render. There is no server output for it to disagree with.
+ */
+function chatTime(at: string | number | Date): string {
+  return formatAt(at, "timeBare", viewerTimeZone() ?? EVENT_TZ);
+}
+
 function nowLabel(): string {
-  return (
-    "Today at " +
-    new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date())
-  );
+  return "Today at " + chatTime(new Date());
 }
 
 function initialsOf(name: string): string {
@@ -107,14 +123,7 @@ function toChatMessage(
     authorIsAdmin: m.user?.role === "admin",
     adminTitle: adminTitleOf(m.user),
     badgeLevel: badgeLevelOf(m.user),
-    timeLabel: liveTime
-      ? nowLabel()
-      : m.created_at
-        ? new Date(m.created_at).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-          })
-        : "",
+    timeLabel: liveTime ? nowLabel() : m.created_at ? chatTime(m.created_at) : "",
     paragraphs: [m.text ?? ""],
     reactions: [],
   };
@@ -891,9 +900,23 @@ export function CommunityView({
         <div className="chat-sidebar-section">
           <div className="chat-sidebar-title">Upcoming</div>
           <div className="upcoming-mini">
-            <div className="um-date">{nextSession.dateLabel}</div>
+            <div className="um-date">
+              {nextSession.startsAt ? (
+                <LocalTime at={nextSession.startsAt} style="monthDay" follow="viewer" />
+              ) : (
+                "SOON"
+              )}
+            </div>
             <div className="um-title">{nextSession.title}</div>
-            <div className="um-meta">{nextSession.meta}</div>
+            <div className="um-meta">
+              {nextSession.speakerName}
+              {nextSession.startsAt ? (
+                <>
+                  {" · "}
+                  <LocalTime at={nextSession.startsAt} style="time" />
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

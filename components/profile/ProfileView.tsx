@@ -8,6 +8,8 @@ import type { PrefDefinition, PrefRow } from "@/lib/notifications";
 import { PushSetup } from "./PushSetup";
 import { ToggleState } from "@/components/ToggleState";
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, checkPassword } from "@/lib/password";
+import { LocalTime } from "@/components/LocalTime";
+import { formatAt } from "@/lib/time-format";
 import {
   BillingControls,
   type BillingInfo,
@@ -22,9 +24,8 @@ export interface ProfileSessionRow {
   id: string;
   title: string;
   speakerName: string;
-  month: string;
-  day: string;
-  timeLabel: string;
+  /* The instant, not a label — only the browser knows the reader's zone. */
+  startsAt: string;
   status: import("@/lib/sessions/view").DisplayStatus;
   /** The member's own private note for this session, if they wrote one. */
   note?: string;
@@ -204,11 +205,10 @@ export function ProfileView({
                 {member.accessExpiresAt ? "Access through" : "Term"}
               </div>
               <strong>
+                {/* A date on its own: the same day for every member, so it
+                    stays on the event's zone rather than the reader's. */}
                 {member.accessExpiresAt
-                  ? new Date(member.accessExpiresAt).toLocaleDateString(
-                      "en-US",
-                      { month: "long", day: "numeric", year: "numeric" },
-                    )
+                  ? formatAt(member.accessExpiresAt, "dateLong")
                   : "Ongoing"}
               </strong>
             </div>
@@ -318,9 +318,15 @@ export function ProfileView({
                       href={`/sessions/${s.id}`}
                       className="upcoming-item"
                     >
+                      {/* Follows the reader's clock: the time sits beside
+                          it in this same row. */}
                       <div className="date-box">
-                        <div className="date-box-month">{s.month}</div>
-                        <div className="date-box-day">{s.day}</div>
+                        <div className="date-box-month">
+                          <LocalTime at={s.startsAt} style="monthAbbr" follow="viewer" />
+                        </div>
+                        <div className="date-box-day">
+                          <LocalTime at={s.startsAt} style="dayOfMonth" follow="viewer" />
+                        </div>
                       </div>
                       <div className="upcoming-info">
                         <div className="upcoming-title">{s.title}</div>
@@ -347,7 +353,9 @@ export function ProfileView({
                         )}
                       </div>
                       <div>
-                        <div className="upcoming-time">{s.timeLabel}</div>
+                        <div className="upcoming-time">
+                          <LocalTime at={s.startsAt} style="time" />
+                        </div>
                         <div style={{ marginTop: 4 }}>
                           <span
                             className={`status-pill ${

@@ -9,12 +9,8 @@ import { badgesFrom } from "@/lib/badges";
 import { mergePrefs, PREF_DEFINITIONS, type PrefRow } from "@/lib/notifications";
 import { placeholderStats } from "@/lib/placeholder-data";
 import { listSessions } from "@/lib/sessions/queries";
-import {
-  dayOfMonth,
-  displayStatus,
-  monthShort,
-  timeLabel,
-} from "@/lib/sessions/view";
+import { displayStatus } from "@/lib/sessions/view";
+import { formatAt } from "@/lib/time-format";
 import { isPro } from "@/lib/access";
 import { listCourses, effectiveCeHours } from "@/lib/education";
 import { getStripeSettings, stripeReady } from "@/lib/stripe";
@@ -247,9 +243,8 @@ export default async function ProfilePage() {
     courseId: c.id,
     title: c.title,
     ceHours: effectiveCeHours(c),
-    dateLabel: new Date(
-      completionDates.get(c.id) ?? Date.now(),
-    ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    // A completion date, not a clock: the same day for everyone.
+    dateLabel: formatAt(completionDates.get(c.id) ?? Date.now(), "date"),
   }));
 
   // Self-serve billing appears once the Super Admin's Stripe wizard is done.
@@ -259,9 +254,7 @@ export default async function ProfilePage() {
     id: s.slug,
     title: s.title,
     speakerName: s.speaker.name,
-    month: monthShort(s.startsAt),
-    day: dayOfMonth(s.startsAt),
-    timeLabel: timeLabel(s.startsAt),
+    startsAt: s.startsAt,
     status: displayStatus(s, now),
     note: notesBySession.get(s.id),
   }));
@@ -276,17 +269,10 @@ export default async function ProfilePage() {
     text: s.attended
       ? `You attended ${s.title} with ${s.speaker.name}`
       : `You enrolled in ${s.title} with ${s.speaker.name}`,
-    time: new Date(s.startsAt).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
+    time: formatAt(s.startsAt, "date"),
   }));
 
-  const memberSince = new Date(profileRow.created_at).toLocaleDateString(
-    "en-US",
-    { month: "long", day: "numeric", year: "numeric" },
-  );
+  const memberSince = formatAt(profileRow.created_at, "dateLong");
   const daysActive = Math.max(
     1,
     Math.floor(

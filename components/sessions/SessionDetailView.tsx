@@ -5,12 +5,11 @@ import Link from "next/link";
 import type { SessionDetail } from "@/lib/types";
 import {
   categoryClass,
-  dateLabel,
   displayStatus,
   durationLabel,
   isJoinWindowOpen,
-  timeLabel,
 } from "@/lib/sessions/view";
+import { LocalTime } from "@/components/LocalTime";
 import {
   ArrowLeftIcon,
   CalendarSmallIcon,
@@ -78,10 +77,16 @@ export function SessionDetailView({ session }: { session: SessionDetail }) {
           <div className="sess-meta-row">
             <div className="sess-meta-chip">
               <CalendarSmallIcon size={11} />{" "}
-              <strong>{dateLabel(session.startsAt)}</strong>
+              {/* Follows the clock beside it — see SessionCard. */}
+              <strong>
+                <LocalTime at={session.startsAt} style="date" follow="viewer" />
+              </strong>
             </div>
             <div className="sess-meta-chip">
-              <ClockIcon size={11} /> <strong>{timeLabel(session.startsAt)}</strong>
+              <ClockIcon size={11} />{" "}
+              <strong>
+                <LocalTime at={session.startsAt} style="time" />
+              </strong>
             </div>
             <div className="sess-meta-chip">
               <TimerIcon size={11} /> {durationLabel(session.durationMin)}

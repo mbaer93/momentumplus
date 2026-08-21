@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { mergeSpeakers } from "@/app/(portal)/admin/speakers/actions";
+import { formatAt } from "@/lib/time-format";
 
 export interface DuplicateSpeakerRow {
   id: string;
@@ -95,10 +96,7 @@ export function DuplicateSpeakersPanel({ groups }: { groups: DuplicateGroup[] })
                   {row.hasBio ? "Bio" : "No bio"} · {row.sessionCount} session
                   {row.sessionCount === 1 ? "" : "s"}
                   {row.createdAt
-                    ? ` · added ${new Date(row.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}`
+                    ? ` · added ${formatAt(row.createdAt, "monthDay")}`
                     : ""}
                 </div>
                 <button

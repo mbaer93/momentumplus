@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTimeZone } from "@/components/LocalTime";
+import { formatAt } from "@/lib/time-format";
 
 /*
  * Month-view calendar per mockup §calendar: grid on the left, upcoming
@@ -91,6 +93,18 @@ function etDayKey(iso: string | Date): string {
 
 export function CalendarView({ events }: { events: CalendarEvent[] }) {
   const router = useRouter();
+  /*
+   * The one place a date and its time deliberately do NOT share a zone.
+   *
+   * The grid is keyed to Eastern days (see etDayKey), so the sidebar entry
+   * has to name the same day as the cell it points at, or the list and the
+   * calendar disagree. The clock beside it is the reader's, which is what
+   * they actually need, and the zone abbreviation on it — "6:00 PM MDT" —
+   * is what stops the pair reading as a contradiction. The two could only
+   * name different days for a session between midnight and 2am Eastern,
+   * which is not a thing this product schedules.
+   */
+  const viewerZone = useTimeZone();
   const now = new Date();
   // Open on the EASTERN current month — for a viewer in another timezone
   // near midnight ET, the browser-local month can differ and would open a
@@ -217,21 +231,11 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
           </div>
         )}
         {upcoming.map((e) => {
-          const d = new Date(e.startsAt);
-          const dateLabel = `${d
-            .toLocaleDateString("en-US", { month: "short", timeZone: "America/New_York" })
-            .toUpperCase()} ${d.toLocaleDateString("en-US", {
-            day: "numeric",
-            timeZone: "America/New_York",
-          })}, ${d.toLocaleDateString("en-US", {
-            year: "numeric",
-            timeZone: "America/New_York",
-          })} · ${d.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            timeZoneName: "short",
-            timeZone: "America/New_York",
-          })}`;
+          const dateLabel =
+            `${formatAt(e.startsAt, "monthAbbr")} ` +
+            `${formatAt(e.startsAt, "dayOfMonth")}, ` +
+            `${formatAt(e.startsAt, "year")} · ` +
+            `${formatAt(e.startsAt, "time", viewerZone)}`;
           return (
             <Link
               href={`/sessions/${e.slug}`}

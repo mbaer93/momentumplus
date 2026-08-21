@@ -3,12 +3,11 @@ import type { SessionDetail } from "@/lib/types";
 import { displayCategory } from "@/lib/programs";
 import {
   categoryClass,
-  dateLabel,
   displayStatus,
   durationLabel,
   isJoinWindowOpen,
-  timeLabel,
 } from "@/lib/sessions/view";
+import { LocalTime } from "@/components/LocalTime";
 import { CalendarSmallIcon, ClockIcon, TimerIcon, UsersIcon } from "@/components/icons";
 import { isDropInProgram } from "@/lib/programs";
 import { rruleFor } from "@/lib/recurrence";
@@ -74,10 +73,19 @@ export function SessionCard({
         <div className="session-meta">
           <div className="session-meta-item">
             <CalendarSmallIcon size={12} />{" "}
-            <strong>{dateLabel(session.startsAt)}</strong>
+            {/* follow="viewer" because the clock right below it does: the
+                two together are one instant, and anchoring them to
+                different zones would name two different days for an
+                evening session. */}
+            <strong>
+              <LocalTime at={session.startsAt} style="date" follow="viewer" />
+            </strong>
           </div>
           <div className="session-meta-item">
-            <ClockIcon size={12} /> <strong>{timeLabel(session.startsAt)}</strong>
+            <ClockIcon size={12} />{" "}
+            <strong>
+              <LocalTime at={session.startsAt} style="time" />
+            </strong>
           </div>
           <div className="session-meta-item">
             <TimerIcon size={12} /> {durationLabel(session.durationMin)}

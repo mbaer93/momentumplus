@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { formatAt } from "@/lib/time-format";
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ToggleState } from "@/components/ToggleState";
@@ -20,11 +21,7 @@ function visibility(s: { archivedAt?: string | null; expiresAt?: string | null }
   if (
     !sponsorLive({ archivedAt: s.archivedAt ?? null, expiresAt: s.expiresAt ?? null })
   ) {
-    const goLive = upcomingSponsorReveal().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    const goLive = formatAt(upcomingSponsorReveal(), "date");
     return {
       text: `Live ${goLive}`,
       cls: "draft",
@@ -1025,7 +1022,7 @@ export function SponsorsManager({
                           onClick={() => {
                             if (
                               confirm(
-                                `Confirm ${p.name} as a ${sponsorTierLabel(p.tier)}? They join the roster on the season clock, through ${sponsorTermEnd().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. No emails are sent — invite their rep separately when you're ready.`,
+                                `Confirm ${p.name} as a ${sponsorTierLabel(p.tier)}? They join the roster on the season clock, through ${formatAt(sponsorTermEnd(), "dateLong")}. No emails are sent — invite their rep separately when you're ready.`,
                               )
                             ) {
                               run(() => confirmProspect(p.id));
@@ -1311,7 +1308,7 @@ export function SponsorsManager({
                             confirm(
                               makeOngoing
                                 ? `Make ${s.name} an ongoing sponsor? Their season end date is removed — they stay visible to members, never come down automatically, and their team's access doesn't expire. You can put them back on the season clock anytime.`
-                                : `Put ${s.name} back on the season clock? Their sponsorship and their team's access will end ${sponsorTermEnd().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`,
+                                : `Put ${s.name} back on the season clock? Their sponsorship and their team's access will end ${formatAt(sponsorTermEnd(), "dateLong")}.`,
                             )
                           ) {
                             run(() => setSponsorOngoing(s.id, makeOngoing));
@@ -1389,9 +1386,9 @@ export function SponsorsManager({
                     <td>{sponsorTierLabel(s.tier)}</td>
                     <td style={{ fontSize: 12.5, color: "var(--ink-secondary)" }}>
                       {s.archivedAt
-                        ? `Archived ${new Date(s.archivedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                        ? `Archived ${formatAt(s.archivedAt, "date")}`
                         : s.expiresAt
-                          ? `Expired ${new Date(s.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                          ? `Expired ${formatAt(s.expiresAt, "date")}`
                           : "—"}
                     </td>
                     <td>
@@ -1418,8 +1415,8 @@ export function SponsorsManager({
                               s.tier === "host"
                                 ? `Reinstate ${s.name}? Host Sponsors return ONGOING — visible to members right away, with no end date.`
                                 : backLive
-                                  ? `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through ${sponsorTermEnd().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`
-                                  : `Reinstate ${s.name} as a sponsor? Their reps' Pro access is restored through ${sponsorTermEnd().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, but members won't see the page until ${upcomingSponsorReveal().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (pre-season).`;
+                                  ? `Reinstate ${s.name} as a sponsor? They become visible to members again and their reps' Pro access is restored through ${formatAt(sponsorTermEnd(), "dateLong")}.`
+                                  : `Reinstate ${s.name} as a sponsor? Their reps' Pro access is restored through ${formatAt(sponsorTermEnd(), "dateLong")}, but members won't see the page until ${formatAt(upcomingSponsorReveal(), "dateLong")} (pre-season).`;
                             if (confirm(text)) {
                               run(() => reinstateSponsor(s.id));
                             }

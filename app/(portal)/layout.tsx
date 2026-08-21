@@ -21,6 +21,7 @@ import { RAIL_TIERS } from "@/lib/sponsor-tiers";
 import { getAccessMatrix, tierHasFeature } from "@/lib/tiers";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 /*
  * Bell dropdown: the member's next few enrolled sessions. One light query
@@ -145,10 +146,7 @@ async function recentNotifications(): Promise<TopbarNotification[]> {
     body: (n.body as string) ?? "",
     link: (n.link as string) ?? "/dashboard",
     unread: !n.read_at,
-    dateLabel: new Date(n.created_at as string).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }),
+    dateLabel: formatAt(n.created_at as string, "monthDay"),
   }));
 }
 

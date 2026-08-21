@@ -8,6 +8,7 @@ import { allRows } from "@/lib/db-utils";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { Tier } from "@/lib/types";
+import { formatAt } from "@/lib/time-format";
 
 export interface AnnouncementInput {
   title: string;
@@ -292,7 +293,7 @@ export async function scheduleAnnouncement(
   revalidatePath("/admin/announcements");
   return {
     ok: true,
-    message: `Scheduled for ${sendAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} — it sends automatically through the same channels as Send now.`,
+    message: `Scheduled for ${formatAt(sendAt, "monthDayTime")} — it sends automatically through the same channels as Send now.`,
   };
 }
 

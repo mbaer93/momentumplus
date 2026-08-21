@@ -3,6 +3,7 @@ import { getCurrentMember } from "@/lib/current-member";
 import { courseUnlocked, effectiveCeHours, getCourse } from "@/lib/education";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { formatAt } from "@/lib/time-format";
 
 /*
  * Downloadable certificate of completion (PDF). Same gate as the printable
@@ -59,11 +60,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
       : { data: null };
     if (data?.completed_at) completedOn = new Date(data.completed_at);
   }
-  const dateLabel = completedOn.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const dateLabel = formatAt(completedOn, "dateLong");
   const hours = effectiveCeHours(course);
 
   const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");

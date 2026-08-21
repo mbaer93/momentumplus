@@ -8,6 +8,7 @@ import { mapTopicRows } from "@/lib/topics";
 import { getAccessMatrix, libraryScopeFor, type LibraryScope } from "@/lib/tiers";
 import type { Tier } from "@/lib/types";
 import { gradientFor, placeholderVideos, type VideoItem } from "./data";
+import { formatAt } from "@/lib/time-format";
 
 /*
  * Library data access. RLS already hides videos above the viewer's access
@@ -62,10 +63,7 @@ function mapRow(row: VideoRow): VideoItem {
     speakerName: row.sessions?.speakers?.name ?? "Momentum+ Speaker",
     durationLabel: durationLabel(row.duration_sec),
     dateLabel: row.published_at
-      ? new Date(row.published_at).toLocaleDateString("en-US", {
-          month: "short",
-          year: "numeric",
-        })
+      ? formatAt(row.published_at, "monthYear")
       : "",
     gradient: gradientFor(row.id),
     minAccess: row.min_access,
